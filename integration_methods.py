@@ -1,3 +1,5 @@
+import numpy as np
+
 def Newmark(x_0, x_dot_0, f_vec, m_mat, c_mat, k_mat, dt, n_steps, dim):
     '''
     This function integrates the equations of motion using Newmark's method.
@@ -30,11 +32,11 @@ def Newmark(x_0, x_dot_0, f_vec, m_mat, c_mat, k_mat, dt, n_steps, dim):
         x_ddot_vec: vector array
             Acceleration
     '''
-    x_vec = np.zeros((dim, n_steps+1))
+    x_vec = np.zeros((dim, n_steps+1),dtype='float')
     x_vec[:,0] = x_0
-    x_dot_vec = np.zeros((dim, n_steps+1))
+    x_dot_vec = np.zeros((dim, n_steps+1),dtype='float')
     x_dot_vec[:,0] = x_dot_0
-    x_ddot_vec = np.zeros((dim, n_steps+1))
+    x_ddot_vec = np.zeros((dim, n_steps+1),dtype='float')
     # Initializing the array vectors containing the positions, velocities and accelerations
     x_ddot_vec[:,0] = \
         np.linalg.solve(m_mat, f_vec[:,0] - c_mat.dot(x_dot_0) - k_mat.dot(x_0))
@@ -70,6 +72,8 @@ def Newmark(x_0, x_dot_0, f_vec, m_mat, c_mat, k_mat, dt, n_steps, dim):
         # Computing the velocity vector at time (step+1)*dt
         step += 1
         # Moving to the next time step
+
+
     return [x_vec[:,1:], x_dot_vec[:,1:], x_ddot_vec[:,1:]]
 
 if __name__ == '__main__':
@@ -77,22 +81,22 @@ if __name__ == '__main__':
     import numpy as np
     import matplotlib.pyplot as plt
 
-    m_mat = np.array([[1]])
-    c_mat = np.array([[0]])
-    k_mat = np.array([[1]])
+    m_mat = 10e-4*np.eye(2)
+    c_mat = 5e-2*np.eye(2)
+    k_mat = np.zeros((2,2))
 
-    n_steps = 150
+    n_steps = 1
 
-    f_vec = np.full((1,n_steps+1), 1)
-    x_0 = np.array([0])
-    x_dot_0 = np.array([0])
-    dt = 0.1
-    dim = 1
+    f_vec = np.array([[-0.01822779],[0.01822779]])
+    x_0 = np.array([0.5, 0.5])
+    x_dot_0 = np.array([0,0])
+    dt = 0.005
+    dim = 2
 
 
-    x_vec = np.zeros((1,n_steps))
-    x_dot_vec  = np.zeros((1,n_steps))
-    x_ddot_vec = np.zeros((1,n_steps))
+    x_vec = np.zeros((2,n_steps))
+    x_dot_vec  = np.zeros((2,n_steps))
+    x_ddot_vec = np.zeros((2,n_steps))
 
 
     [x_vec, x_dot_vec, x_ddot_vec] = \
@@ -100,5 +104,6 @@ if __name__ == '__main__':
 
     t = np.arange(0,dt*n_steps,dt)
     plt.plot(t, x_vec[0,:])
+    plt.plot(t, x_vec[1,:])
 
     plt.show()

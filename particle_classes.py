@@ -1,3 +1,5 @@
+import numpy as np
+
 class Particle():
     '''
     This is the class for particles
@@ -19,7 +21,8 @@ class Particle():
         '''
 
         self.dim = dim
-        # Setting the the dimension where the particle "lives"
+        self.force = np.zeros((dim))
+       # Setting the the dimension where the particle "lives"
 
     def setPositionCenter(self, position):
         '''
@@ -36,6 +39,30 @@ class Particle():
 
         self.velocity_center = velocity_center
         # Setting the velocity of the center of mass of the particle
+
+    def cleanForces(self):
+        '''
+        This function sets the forces acting on the particle to 0.
+        '''
+
+        self.force = np.zeros((self.dim))
+
+    def intersectionVector(self, other_particle):
+        '''
+        This function computes the unit vector from the center of masss of particle i to
+        particle j
+        '''
+
+        box = np.array([1, 1],dtype='float')
+
+        vector_centers = other_particle.position_center - self.position_center #+ np.random.uniform(low=-0.2,high=0.2,size=2)
+        vector_centers = vector_centers - box*np.round(vector_centers/box)
+        if np.linalg.norm(vector_centers) != 0:
+            unit_vector_i_j = vector_centers/np.linalg.norm(vector_centers)
+        else:
+            random_vector = np.random.uniform(size=self.dim)
+            unit_vector_i_j = random_vector/np.linalg.norm(random_vector)
+        return unit_vector_i_j
 
 
 # ==========================================================================================
@@ -61,7 +88,7 @@ class Disk(Particle):
         '''
         self.dim = 2
         self.radius = radius
-        self.force = []
+        self.force = np.zeros((self.dim),dtype='float')
 
     def intersectionArea(self, other_particle):
         '''
@@ -73,35 +100,40 @@ class Disk(Particle):
         '''
         class_name_other_particle = other_particle.__class__.__name__
         # Saving the class name of the other particle as a string
-        switch (class_name_other_particle) {
-        # Computing the intersection are according to the type of particle
-            case 'Disk':
-            # The other particle is also a Disk
-                intersection_area = intersectionAreaDiskDisk(self, other_particle)
-                # Computing the intersection area
-                return intersection_area
-
+        if 'Disk'==class_name_other_particle:
+        # The other particle is also a Disk
+            intersection_area = self.intersectionAreaDiskDisk(other_particle)
+            # Computing the intersection area
+            return intersection_area
+            # Returning the intersection area
 
     def intersectionAreaDiskDisk(self, other_disk):
         '''
         This function computes the intersection area between two disks
         '''
+        box = np.array([1,1],dtype='float')
 
-        d = np.sqrt(self.position_center.dot(other_disk.position_center))
+
+        diff_center = self.position_center - other_disk.position_center
+
+        diff_center = diff_center - box*np.round(diff_center/box)
+
+        d = np.sqrt(diff_center.dot(diff_center))
+
         # Distance between the center of the disks
         if self.radius >= other_disk.radius:
         # The radius of the self is larger than the radius of the other disk
             r_1 = self.radius
             # Disk 1 is the disk with the larger radius
             r_2 = other_disk.radius
-
+            # Disk 2 is the disk with the smaller radius
         else:
         # The radius of the other disk is larger than the radius of the self
             r_1 = other_disk.radius
             # Disk 1 is the disk with the larger radius
             r_2 = self.radius
             # Disk 2 is the disk with the smaller radius
-        if d>=r_1 + r_2:
+        if d>=(r_1 + r_2):
         # The disks intersect at most at one point
             intersection_area = 0
             # The intersection area of the disks is zero
