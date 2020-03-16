@@ -22,6 +22,7 @@ class Particle():
 
         self.dim = dim
         self.force = np.zeros((dim))
+        self.n_cell_dim = []
        # Setting the the dimension where the particle "lives"
 
     def setPositionCenter(self, position):
@@ -89,7 +90,7 @@ class Disk(Particle):
         self.dim = 2
         self.radius = radius
         self.force = np.zeros((self.dim),dtype='float')
-
+        self.n_cell_dim = []
     def intersectionArea(self, other_particle):
         '''
         This function computes the intersection between the disk and the other particle.
@@ -152,3 +153,12 @@ class Disk(Particle):
             # Computing the intersection area
         return intersection_area
         # Returning the intersection area
+
+    def volume(self):
+        ''' 
+        This function computes the volume/area of the disk.
+        '''
+    
+        volume = np.pi*self.radius**2
+
+        return volume
