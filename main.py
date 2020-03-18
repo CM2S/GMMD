@@ -10,6 +10,45 @@ from integration_methods import Newmark
 from particle_classes import Disk, Particle
 
 
+def newVerletList(particles):
+    '''
+    This function creates a new Verlet list for all the particles
+    '''
+    dim = particles[0].dim
+    # Saving the dimension of the problem
+
+    for i_particle in range(len(particles)):
+    # Running though all the particles
+        particles[i_particle].verlet_list = []
+        # Resetting the Verlet list of particle i
+        particles[i_particle].displacement_last_verlet = np.zeros(dim)
+        # Resetting the displacement of the center of mass of the particle relative to its
+        # neighboorhood
+        pos_cell_list_dim = []
+        # Initializing the list containing the position of the particle in the grid, assuming:
+        # 2D: the cells are numbered from left to right and from bottom to top
+        for j_dim in range(dim):
+        # Running through all the dimensions
+            pos_cell_list_dim.append(
+                np.int(np.floor(particles[i_particle].position_center[j_dim]/Particle.cell_side_length)))
+            # j_dim-position of the particle in the grid
+        if dim==2:
+        # 2D problem
+            pos_cell_list = pos_cell_list_dim[0] + \
+                pos_cell_list_dim[1]*Particle.n_cell_dim[1]
+            # Saving the position in the cell list of particle i_particle
+            for k_neighboor_cell in range(9):
+            # Running through the neighboor cells
+                pos_neighboor_cell = \
+                    neighboorCell(pos_cell_list, k_neighboor_cell, dim, Particle.n_cell_dim)
+                # Computing the index of the neighboor cell
+                for j_particle in Particle.cell_list[pos_neighboor_cell]:
+                # Running through all the particles in the neighbooring cell
+                    if particles[i_particle].intersectionVerlet(particles[j_particle]):
+                    # If the neighboorhoods of the particles intersect
+                        particles[i_particle].verlet_list.append(j_particle)
+                        # Add the particle j_particle to i_particle's Verlet list
+
 def neighboorCell(pos_current_cell, local_pos_neighboor_cell, dim, n_cells):
     '''
     This function computes the global cell position of the neighboor cell.
@@ -28,7 +67,7 @@ def neighboorCell(pos_current_cell, local_pos_neighboor_cell, dim, n_cells):
         pos_neighboor_cell: integer
             Gloval position of the neighboor cell
     '''
-    
+
     if dim==2:
     # 2D problem
         local_row_pos_neigh = np.int(np.mod(np.floor(local_pos_neighboor_cell/3), 3) - 1)
@@ -37,14 +76,10 @@ def neighboorCell(pos_current_cell, local_pos_neighboor_cell, dim, n_cells):
         local_col_pos_neigh = np.int(np.mod(local_pos_neighboor_cell,3) - 1)
         # Local column position of the neighboor, going from -1 to 1 with the origin at the
         # current cell
-        # print('local row', local_row_pos_neigh)
-        # print('local col', local_col_pos_neigh)
         pos_neighboor_cell = \
             np.int(pos_current_cell + local_col_pos_neigh + local_row_pos_neigh*n_cells[1])
         # Global position of the neighboor cell without enforcing periodic boundary
         # conditions
-        # print('current', pos_current_cell)
-        # print('neighboor no pbc', pos_neighboor_cell)
         if pos_current_cell<n_cells[1] and local_row_pos_neigh==-1:
         # Upper row of the grid
             pos_neighboor_cell = pos_neighboor_cell + n_cells[1]*n_cells[0]
@@ -61,7 +96,6 @@ def neighboorCell(pos_current_cell, local_pos_neighboor_cell, dim, n_cells):
         # Left column of the grid
             pos_neighboor_cell = pos_neighboor_cell + n_cells[1]
             # Enforcing the periodic boundary conditions
-        # print('neighboor w/ pbc', pos_neighboor_cell)
         return pos_neighboor_cell
 
 def newCellList(particles):
@@ -90,8 +124,6 @@ def newCellList(particles):
             pos_cell_list = pos_cell_list_dim[0] + \
                 pos_cell_list_dim[1]*Particle.n_cell_dim[1]
             # Saving the position in the cell list of particle i_particle
-        # print(pos_cell_list)
-        # print(Particle.cell_side_length)
         Particle.cell_list[pos_cell_list].append(i_particle)
 
 def computeForces(particles):
@@ -110,9 +142,8 @@ def computeForces(particles):
 
     newCellList(particles)
 
-    option = 1
-
-    if option == 0:
+    
+    if Particle.speed_up_scheme == 'Naive':
     # Naive approach: O(N^2)
         for i_particle in range(len(particles)):
         # Running though all the particles
@@ -126,10 +157,9 @@ def computeForces(particles):
                 particles[j_particle].force = particles[j_particle].force - force_i_j
                 # Adding the force due to the interaction between particle 1 and 2 to the total
                 # force acting on particle 2
-    elif option==1:
+    elif Particle.speed_up_scheme == 'Cell':
     # Cell list: O(N)
         for i_particle in range(len(particles)):
-            # print('main',i_particle)
         # Running though all the particles
             pos_cell_list_dim = []
             # Initializing the list containing the position of the particle in the grid, assuming:
@@ -149,11 +179,7 @@ def computeForces(particles):
                     pos_neighboor_cell = \
                         neighboorCell(pos_cell_list, k_neighboor_cell, dim, Particle.n_cell_dim)
                     # Computing the index of the neighboor cell
-                    # print('current',pos_cell_list)
-                    # print('n', k_neighboor_cell)
-                    # print('neighboor',pos_neighboor_cell)
                     for j_particle in Particle.cell_list[pos_neighboor_cell]:
-                        # print('other', j_particle)
                     # Running through all the particles in the neighbooring cell
                         if j_particle > i_particle:
                         # Ensuring that the forces are not computed twice
@@ -165,13 +191,19 @@ def computeForces(particles):
                             particles[j_particle].force = particles[j_particle].force - force_i_j
                             # Adding the force due to the interaction between particle 1 and 2 to the total
                             # force acting on particle 2
-    else:
+    elif Particle.speed_up_scheme == 'Verlet':
     # Cell list + Verlet list: O(N)
+        if Particle.new_verlet_list:
+        # There is a need to create
+            # print('here2')
+            newVerletList(particles)
+            # Computing a new Verlet list
         for i_particle in range(len(particles)):
         # Running though all the particles
-            for j_particle in particles[i_particle].verlet_list[pos_neighboor_cell]:
-                # print('other', j_particle)
+            # print('main',i_particle)
+            for j_particle in particles[i_particle].verlet_list:
             # Running through all the particles in the neighbooring cell
+                # print('other',j_particle)
                 if j_particle > i_particle:
                 # Ensuring that the forces are not computed twice
                     force_i_j = computeForceij(particles[i_particle], particles[j_particle])
@@ -205,9 +237,10 @@ def integrate(particles, dt):
     dim = particles[1].dim
     # Dimension of the problem
     N = len(particles)
-    c = np.sqrt(Particle.volume)
+    c = Particle.c
     # c = 1e-2
     # Damping constant of the system
+
 
     box = np.array([1,1])
     for i_particle in range(N):
@@ -216,18 +249,27 @@ def integrate(particles, dt):
             Newmark(particles[i_particle].position_center,
             particles[i_particle].velocity_center,
             Particle.global_force_factor*np.array([particles[i_particle].force],dtype='float').T,
-            10e-4*np.eye(2,dtype='float'),
+            10e-6*np.eye(2,dtype='float'),
             c*np.eye(2,dtype='float'),
             np.zeros((2,2),dtype='float'),
             dt,
             1,
             dim)
-
         # Obtaining the new position and velocity of particle i
-        
-        particles[i_particle].position_center = new_position[:,0] -box*np.floor(new_position[:,0]/box)
+        if Particle.speed_up_scheme == 'Verlet':
+            particles[i_particle].displacement_last_verlet += particles[i_particle].position_center - new_position[:,0]
+            # Computing the displacement of the center of the particle
+            # print('norm disp', np.linalg.norm(particles[i_particle].displacement_last_verlet))
+            if np.linalg.norm(particles[i_particle].displacement_last_verlet) >= particles[i_particle].radius*(Particle.verlet_radius - 1):
+            # Checking if the displacement takes the particle out of its neighboorhood
+                # print('here')
+                Particle.new_verlet_list = True
+                # There is a need to compute a new verlet list
+        new_position[:,0] = new_position[:,0] -box*np.floor(new_position[:,0]/box)
+        # New position enforcing boundary conditions
+        particles[i_particle].position_center = new_position[:,0]
         particles[i_particle].velocity_center = new_velocity[:,0]
-        
+
         # Updating the position and velocity of particle i
 
 # ==========================================================================================
@@ -240,24 +282,30 @@ def particleGeneration(*args):
 
     Particle.box = [1,1]
     Particle.volume = 0
+    Particle.verlet_radius = 1.5
+    Particle.new_verlet_list = True
+    Particle.speed_up_scheme = 'Verlet'
+    
 
     particles = []
 
     dim = 2
 
-    N = 5
+    N = 500
     # Number of particles
 
     for i in range(N):
-        particles.append(Disk(np.random.uniform(low=0.01,high=0.2)))
+        particles.append(Disk(0.02)) #np.random.uniform(low=0.01,high=0.2)))
         # Disk with radius 0.5
-        particles[i].position_center = np.random.uniform(size=dim) #np.array([0.5+i/50, 0.5-i/50]) #
+        particles[i].position_center = np.random.uniform(size=dim) #np.array([0+i**2/200, 0.5]) # # #
         # Generating the positions from a random uniform distribution between 0 and 1
         particles[i].velocity_center = np.array([0,0],dtype='float')
         # Generating the velocities from a random uniform distribution between -1 and 1
         Particle.volume += particles[i].volume()
 
-    max_radius = np.max(np.array([particles[i].radius for i in range(N)]))
+    Particle.c = 0 #np.sqrt(Particle.volume)*1e-2
+
+    max_radius = np.max(np.array([particles[i].radius for i in range(N)]))*Particle.verlet_radius
 
     print(Particle.volume)
 
@@ -305,17 +353,19 @@ def run(particles, **kwargs):
     Other Parameters:
 
     '''
-    max_residue = 10e-12
-    # Maximum residual overlap
-    step = 0
-    # Initializing the the time step at 0
+    
 
     N = len(particles)
     # Number of particles
     dt = 0.005
     # Setting the time step size
 
-    Particle.global_force_factor = 4
+    max_residue = 10e-12*N
+    # Maximum residual overlap
+    step = 0
+    # Initializing the the time step at 0
+
+    Particle.global_force_factor = 4 #N
     # Initializing the global force factor
     computeForces(particles)
     # Computing the forces in the initial configuration to obtain the initial relative
@@ -324,10 +374,16 @@ def run(particles, **kwargs):
     # Obtaining a list with the norms of the vector forces
     relative_energy = norm_force_vec.dot(norm_force_vec)
     # Computing the relative energy
+    norm_velocity_vec = np.array([np.linalg.norm(particles[i].velocity_center) for i in range(N)],dtype='float')
+    # Obtaining a list with the norms of the vector forces
+    kin_energy = norm_velocity_vec.dot(norm_velocity_vec)
+    print('kinetic',kin_energy)
+    # Computing the relative energy
     relative_energy_old = relative_energy
+    print('new',relative_energy)
+    k = 0
 
-
-    while (relative_energy >= max_residue) and (step<100000):
+    while (relative_energy >= max_residue) and (step<2000):
     # Run the simulation while the overlap is larger than the allowed maximum residue
         integrate(particles, dt)
         # Integrating the equations of motion
@@ -335,10 +391,21 @@ def run(particles, **kwargs):
         # Moving to the next time step
         computeForces(particles)
         # Computing the forces on all particles
+        Particle.new_verlet_list = False
+        # Resetting the parameter that indicates the need to compute a new Verlet list
         norm_force_vec = np.array([np.linalg.norm(particles[i].force) for i in range(N)],dtype='float')
         # Obtaining a list with the norms of the vector forces
         relative_energy = norm_force_vec.dot(norm_force_vec)
         print('new',relative_energy)
+        norm_velocity_vec = np.array([np.linalg.norm(particles[i].velocity_center) for i in range(N)],dtype='float')
+        # Obtaining a list with the norms of the vector forces
+        kin_energy = norm_velocity_vec.dot(norm_velocity_vec)
+        print('kinetic',kin_energy)
+        if np.random.uniform() >(1-Particle.volume/2):
+            lambda_vel = 250/kin_energy/N
+            for i_particle in range(N):
+                particles[i_particle].velocity_center *= lambda_vel
+
         # Computing the relative energy
         if relative_energy != 0:
             if relative_energy_old/relative_energy > 2:
@@ -352,21 +419,25 @@ def run(particles, **kwargs):
                 relative_energy_old = relative_energy
                 # Saving the value of the previous relative energy
 
-        # Particle.global_force_factor = 1/relative_energy/100
+        print(step)
 
-        # fig = plt.figure()
+        # Particle.global_force_factor = 1/relative_energy/100
+        
+        # if relative_energy < 1e-9 and k<4:
+        #     k += 1
+        #     fig = plt.figure()
         # 
-        # ax = plt.gca()
+        #     ax = plt.gca()
         # 
-        # N = len(particles)
+        #     N = len(particles)
         # 
-        # for i in range(N):
-        #     for j in range(-1,2):
-        #         for k in range(-1,2):
-        #             circ = mpatches.Circle(
-        #                 particles[i].position_center+np.array([1*j,1*k]), radius=particles[i].radius, alpha=0.5)
-        #             ax.add_artist(circ)
-        # plt.show(block=False)
+        #     for i in range(N):
+        #         for j in range(-1,2):
+        #             for k in range(-1,2):
+        #                 circ = mpatches.Circle(
+        #                     particles[i].position_center+np.array([1*j,1*k]), radius=particles[i].radius, alpha=0.5)
+        #                 ax.add_artist(circ)
+        #     plt.show()
 
 
 
@@ -397,8 +468,19 @@ if __name__ == '__main__':
         for j in range(-1,2):
             for k in range(-1,2):
                 circ = mpatches.Circle(
-                    particles[i].position_center+np.array([1*j,1*k]), radius=particles[i].radius, alpha=0.5)
+                    particles[i].position_center+np.array([1*j,1*k]), radius=particles[i].radius,alpha=0.8)
                 ax.add_artist(circ)
+                circ = mpatches.Circle(
+                    particles[i].position_center+np.array([1*j,1*k]), radius=Particle.verlet_radius*particles[i].radius, alpha=0.1)
+                ax.add_artist(circ)
+                # plt.annotate(xy = particles[i].position_center, s=str(i))
+                # plt.scatter(particles[i].position_center[0],particles[i].position_center[1])
+                plt.axis([0, 1, 0, 1])
+
+    # plt.xticks(np.linspace(0,1,Particle.n_cell_dim[0]+1,endpoint=True))
+    # plt.yticks(np.linspace(0,1,Particle.n_cell_dim[0]+1,endpoint=True))
+    # plt.grid(b=True, which='both')
+
     plt.show(block=False)
 
     output = run(particles)
@@ -413,7 +495,10 @@ if __name__ == '__main__':
         for j in range(-1,2):
             for k in range(-1,2):
                 circ = mpatches.Circle(
-                    particles[i].position_center+np.array([1*j,1*k]), radius=particles[i].radius,alpha=0.5)
+                    particles[i].position_center+np.array([1*j,1*k]), radius=particles[i].radius,alpha=0.8)
+                ax.add_artist(circ)
+                circ = mpatches.Circle(
+                    particles[i].position_center+np.array([1*j,1*k]), radius=Particle.verlet_radius*particles[i].radius, alpha=0.1)
                 ax.add_artist(circ)
                 # plt.annotate(xy = particles[i].position_center, s=str(i))
                 # plt.scatter(particles[i].position_center[0],particles[i].position_center[1])

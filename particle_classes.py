@@ -56,10 +56,18 @@ class Particle():
 
         box = np.array([1, 1],dtype='float')
 
-        vector_centers = other_particle.position_center - self.position_center #+ np.random.uniform(low=-0.2,high=0.2,size=2)
+        vector_centers = other_particle.position_center - self.position_center
         vector_centers = vector_centers - box*np.round(vector_centers/box)
+        # Vector connecting the centers of the current particle and the nearest image of
+        # the other particle
+        angle_opposite = np.arctan2(vector_centers[1],vector_centers[0])
+        if np.random.uniform()>0:
+            angle_new = angle_opposite + np.random.uniform(low=-np.pi/4,high=np.pi/4)
+        else:
+            angle_new = angle_opposite
         if np.linalg.norm(vector_centers) != 0:
-            unit_vector_i_j = vector_centers/np.linalg.norm(vector_centers)
+            unit_vector_i_j = np.array([np.cos(angle_new), np.sin(angle_new)])
+            # unit_vector_i_j = vector_centers/np.linalg.norm(vector_centers)
         else:
             random_vector = np.random.uniform(size=self.dim)
             unit_vector_i_j = random_vector/np.linalg.norm(random_vector)
@@ -91,6 +99,8 @@ class Disk(Particle):
         self.radius = radius
         self.force = np.zeros((self.dim),dtype='float')
         self.n_cell_dim = []
+        self.verlet_list = []
+
     def intersectionArea(self, other_particle):
         '''
         This function computes the intersection between the disk and the other particle.
@@ -154,11 +164,49 @@ class Disk(Particle):
         return intersection_area
         # Returning the intersection area
 
+    def intersectionVerlet(self, other_particle):
+        '''
+        This function computes the intersection between the disk and the other particle.
+
+        Parameters:
+            other_particle: Particle
+                Other particle
+        '''
+        class_name_other_particle = other_particle.__class__.__name__
+        # Saving the class name of the other particle as a string
+        if 'Disk'==class_name_other_particle:
+        # The other particle is also a Disk
+            intersection_verlet = self.intersectionVerletDiskDisk(other_particle)
+            # Computing the intersection area
+            return intersection_verlet
+            # Returning the intersection area
+
+    def intersectionVerletDiskDisk(self, other_disk):
+        '''
+        This function computes the intersection area between two disks
+        '''
+
+        box = Particle.box
+        # Saving the limits of the box
+        diff_center = self.position_center - other_disk.position_center
+        diff_center = diff_center - box*np.round(diff_center/box)
+        # Vector between the centers of the current disk and the nearest image of the other
+        # disk
+        d = np.sqrt(diff_center.dot(diff_center))
+        # Distance between the disks
+        if d<(self.radius+other_disk.radius)*Particle.verlet_radius:
+        # The disks are in eachothers neighboorhoods
+            intersection_verlet = True
+        else:
+            intersection_verlet = False
+        return intersection_verlet
+
+
     def volume(self):
-        ''' 
+        '''
         This function computes the volume/area of the disk.
         '''
-    
+
         volume = np.pi*self.radius**2
 
         return volume
