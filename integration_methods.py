@@ -81,13 +81,13 @@ if __name__ == '__main__':
     import numpy as np
     import matplotlib.pyplot as plt
 
-    m_mat = 10e-4*np.eye(2)
-    c_mat = 5e-2*np.eye(2)
+    m_mat = 0.62*np.eye(2)
+    c_mat = 0*np.eye(2)
     k_mat = np.zeros((2,2))
 
-    n_steps = 1
+    n_steps = 2
 
-    f_vec = np.array([[-0.01822779],[0.01822779]])
+    f_vec = np.array([[0, 0],[1.92e-1, 1.85e-1]])
     x_0 = np.array([0.5, 0.5])
     x_dot_0 = np.array([0,0])
     dt = 0.005
@@ -101,6 +101,8 @@ if __name__ == '__main__':
 
     [x_vec, x_dot_vec, x_ddot_vec] = \
         Newmark(x_0, x_dot_0, f_vec, m_mat, c_mat, k_mat, dt, n_steps, dim)
+
+    print(x_dot_vec)
 
     t = np.arange(0,dt*n_steps,dt)
     plt.plot(t, x_vec[0,:])
