@@ -1,16 +1,28 @@
-
+#
+# Microstructure Generation Interface (DATAGEM Program)(????)
+# ==========================================================================================
+# Summary:
+# ...
+# ------------------------------------------------------------------------------------------
+# Development history:
+# Zé Luís P. Vila-Chã | March 2020 | Initial coding.
+# ==========================================================================================
+#                                                                             Import modules
+# ==========================================================================================
 import numpy as np
-
-import time
-
-import matplotlib.pyplot as plt
-
-from integration_methods import Newmark
-
-from particle_classes import Disk, Particle, Ellipse
-
+# Working with arrays
 import pickle
-
+# Dumping files in a binary format
+import time
+# To compute the time taken
+import matplotlib.pyplot as plt
+# Plotting capabilities
+from integration_methods import Newmark
+# Importing an integration method for the equation of motion
+from particle_classes import Disk, Particle, Ellipse
+# Importing the particle class
+from meshing_interface import generateMeshFEM, generateMeshFFT
+# ==========================================================================================
 def newVerletList(particles):
     '''
     This function creates a new Verlet list for all the particles
@@ -44,7 +56,7 @@ def newVerletList(particles):
                     neighboorCell(pos_cell_list, k_neighboor_cell, dim, Particle.n_cell_dim)
                 # Computing the index of the neighboor cell
                 for j_particle in Particle.cell_list[pos_neighboor_cell]:
-                # Running through all the particles in the neighbooring cell
+                # Running through all the particles in the neighboring cell
                     if particles[i_particle].intersectionVerlet(particles[j_particle]):
                     # If the neighboorhoods of the particles intersect
                         particles[i_particle].verlet_list.append(j_particle)
@@ -182,7 +194,7 @@ def computeForces(particles, options):
                             k_neighboor_cell, dim, Particle.n_cell_dim)
                     # Computing the index of the neighboor cell
                     for j_particle in Particle.cell_list[pos_neighboor_cell]:
-                    # Running through all the particles in the neighbooring cell
+                    # Running through all the particles in the neighboring cell
                         if j_particle > i_particle:
                         # Ensuring that the forces are not computed twice
                             force_i_j = computeForceij(particles[i_particle],
@@ -210,7 +222,7 @@ def computeForces(particles, options):
         # Running though all the particles
             # print('main',i_particle)
             for j_particle in particles[i_particle].verlet_list:
-            # Running through all the particles in the neighbooring cell
+            # Running through all the particles in the neighboring cell
                 # print('other',j_particle)
                 if j_particle > i_particle:
                 # Ensuring that the forces are not computed twice
@@ -287,7 +299,10 @@ def integrate(particles, options):
                 particles[i_particle].position_center - new_position[:,0]
             # Computing the displacement of the center of the particle
             if np.linalg.norm(particles[i_particle].displacement_last_verlet) >= \
-                particles[i_particle].radius*(Particle.verlet_radius - 1):
+                particles[i_particle].semi_minor_axis*(Particle.verlet_factor - 1):
+            # if not particles[i].insideVerlet(
+            #     particles[i_particle].displacement_last_verlet +\
+            #     particles[i_particle].position_center):
             # Checking if the displacement takes the particle out of its neighboorhood
                 Particle.new_verlet_list = True
                 # There is a need to compute a new verlet list
@@ -299,7 +314,7 @@ def integrate(particles, options):
 
 # ==========================================================================================
 
-def generateDisks(descriptors):
+def generateDisks(phase, descriptors):
     '''
         This function generates disks.
     '''
@@ -311,7 +326,7 @@ def generateDisks(descriptors):
     # the radius follows an uniform distribution
         for i in range(descriptors['n']):
         # Generating n disks
-            disks.append(Disk(np.random.uniform(
+            disks.append(Disk(phase, np.random.uniform(
                 low=descriptors['r_low'],high=descriptors['r_high'])))
             # Disk with radius 0.5
             disks[i].position_center = np.random.uniform(size=2) #np.array([0+i**2/200, 0.5]) # # #
@@ -331,7 +346,7 @@ def generateDisks(descriptors):
 
     return disks
 
-def generateEllipses(descriptors):
+def generateEllipses(phase, descriptors):
     '''
         This function generates ellipses.
     '''
@@ -346,7 +361,7 @@ def generateEllipses(descriptors):
     # the radius is fixed
         for i in range(descriptors['n']):
         # Generating n disks
-            ellipses.append(Ellipse(descriptors['major_axis'],
+            ellipses.append(Ellipse(phase, descriptors['major_axis'],
                 descriptors['minor_axis'], descriptors['angle']+i/7*np.pi/2)) #np.random.uniform(low=0.01,high=0.2)))
             # Disk with radius 0.5
             ellipses[i].position_center = np.random.uniform(size=2) # np.array([0.5, 0.5-i/20]) # n # #
@@ -356,7 +371,7 @@ def generateEllipses(descriptors):
 
     return ellipses
 
-def particleGeneration(descriptors, phase_type, options):
+def particleGeneration(descriptors, phase_types, options):
     '''
     Function that generates all the particles from the geomtrical descriptors.
 
@@ -377,18 +392,18 @@ def particleGeneration(descriptors, phase_type, options):
 
     for i_phase in descriptors:
     # Running through all the phases listed in the dictionary
-        if phase_type[i_phase] == 1:
+        if phase_types[i_phase] == 1:
         # This phase is the matrix
             pass
             # No particles are generated
-        elif phase_type[i_phase] == 2:
+        elif phase_types[i_phase] == 2:
         # This phase is made up by disks
-            particles = particles + generateDisks(descriptors[i_phase])
+            particles = particles + generateDisks(i_phase, descriptors[i_phase])
             # Generating the number of disks requested and appending them to the list of
             # particles
-        elif phase_type[i_phase] == 3:
+        elif phase_types[i_phase] == 3:
         # This phase is made up by ellipses
-            particles = particles + generateEllipses(descriptors[i_phase])
+            particles = particles + generateEllipses(i_phase, descriptors[i_phase])
             # Generating the number of disks requested and appending them to the list of
             # particles
 
@@ -397,45 +412,125 @@ def particleGeneration(descriptors, phase_type, options):
 # ==========================================================================================
 
 def readDescriptors():
+    '''
+    This function loads the descriptors and returns the microstructure descriptors, the
+    phase types and options.
 
-    # problem_type,mic_gen_descriptors,phase_types,
-    #                         discret_file_ext, discret_spec_array
+    Returns:
+        descriptors: dictionary (string:dictionary)
+            ""
+        phase_types: dictionary (string:integer)
+            'integer':
+        options: dictionary
+    '''
 
+    ## info_dict = pickle.load(open('info_micro.p','rb'))
+    # Loading the dictionary containing the information about the microstructure and its
+    # generation
+    # dp_dir: string
+    #     Directory where the microstructure spatial discretization file(s) associated
+    #     with the given design point are to be stored
+    ## dp_dir = info_micro['dp_dir']
+    # mic_gen_parameters: array
+    #     An array which contains all the required parameters (or options)
+    #     for the selected program to generate the microstructure(s) and
+    #     and associated discretization file(s) of a given design point
+    #     (to be discussed...)
     options = {}
     # Initializing the dictionary containing the options
-    options['damping_constant'] = 0
-    options['dt'] = 0.005
-    options['max_residue_per_particle'] = 0 #10e-12
-    options['initial_global_force_factor'] = 100 #4
-    options['thermostat']='isokinetic'
-    options['global_force_factor_multiplier'] = 1.8
-
-    options['speed_up_scheme']='Verlet'
-    options['verlet_radius'] = 1.2
-
-    options['max_step'] = 10000
-
+    #                                                                    Stopping criteria
+    # --------------------------------------------------------------------------------------
+    options['max_residue_per_particle'] = 10e-12
+    options['max_step'] = 1000
+    # Maximum number of steps
+    options['max_steps_to_relax'] = 200
+    # Maximum number of steps after the legal configuration has been found after which the
+    # configuration is accepted
+    #                                                                   Integration scheme
+    # --------------------------------------------------------------------------------------
     options['integration_scheme']='Newmark'
-
-    options['rve_dims'] = [1.0, 1.0]
-
+    # Integration scheme to be used:
+    # 'Newmark'  - Newmark beta method
+    options['damping_constant'] = 0
+    # Damping constant (only for Newmark)
+    options['dt'] = 0.005
+    # Time step
+    #
+    #                                        Speed up scheme for the computation of forces
+    # --------------------------------------------------------------------------------------
+    options['speed_up_scheme']='Verlet'
+    # Speed up scheme
+    # 'Naive' - the forces are computed between every pair of particles (O(N**2))
+    # 'Cell' - the forces are computed making use of a cell list, such that each particle
+    # only interacts with the particles in its cell or the nearest neighboring cells (O(N))
+    # 'Verlet' - the forces are computed using a Verlet list for each particle, that in
+    # turn in computed using a cell list method
+    options['verlet_factor'] = 1.5
+    # The Verlet list is computing making use of neighboorhood around the particle, whose
+    # shape is the same, but dilated by the 'verlet_factor'
+    #
+    #                                                                Computation of forces
+    # --------------------------------------------------------------------------------------
+    options['initial_global_force_factor'] = 200 #4
+        
+    options['global_force_factor_multiplier'] = 1.8
+    #                                                                           Thermostat
+    # --------------------------------------------------------------------------------------
+    options['thermostat']='isokinetic'
+    # problem_type: integer
+    #     Problem type    | 1. 2D problem (plain strain)
+    #                     | 2. 2D problem (plain stress)
+    #                     | 3. 2D problem (axisymmetric)
+    #                     | 4. 3D problem
     options['problem_type'] = 1
+    # n_dp_samples: integer
+    #     Number of microstructures (samples) to be generated, associated to
+    #     the given design point
 
-    options['minimum_distance'] = 0
-
+    # mic_gen_descriptors_array: dictionary
+    #     A dictionary which contains all the microstructure
+    #     descriptor-related information required to generate the
+    #     given design point microstructure(s) automatically,
+    #     stored as
+    #                                     Microstructure Descriptors
+    #                               _                                    _
+    #     dictionary['phase_id'] = |  'desc_name'   'desc_name'     ...   |
+    #                              |_  < value >     < value >      ...  _|
+    #
     descriptors = {}
 
     descriptors['4'] = {}
     # descriptors['2'] = {'r':0.1, 'n':10}
     #descriptors['2'] = {'distribution':'uniform','r_low':0.02,'r_high':0.04, 'n':190}
-    descriptors['2'] = {'major_axis':0.20,'minor_axis':0.10,'angle':0,'n':35}
+    descriptors['2'] = {'major_axis':0.20,'minor_axis':0.1,'angle':0,'n':10}
+    # phase_types: dictionary
+    #     Dictionary which contains each material phase type, stored as
+    #                    dictionary['phase_id'] = phase_types
+    ## phase_types = info_micro['phase_types']
+    # Types of particles
+    # 1 - Matrix
+    # 2 - Circular particle (disk)
+    # 3 - Elliptical particle
+    phase_types = {}
+    phase_types['4'] = 1 # Matrix
+    phase_types['2'] = 3 # Elliptical particle
+    # discret_file_ext: list
+    #     List which contains the required spatial discretization file(s), stored as
+    #                     array = [ < discret_type > < discret_type >  ... ]
 
-    phase_type = {}
+    # discret_spec_array: dictionary
+    #     Dictionary which contains the required parameters to generate
+    #     each type of specified discretization file, stored as
+    #                            dictionary['disc_ext']['parameter'] = [ ... ]
+    
+    discret_spec_array = {}
+    discret_spec_array['rgmsh'] = {}
+    discret_spec_array['rgmsh']['rve_dims'] = np.array([ 1.0, 1.0 ])
+    discret_spec_array['rgmsh']['n_voxels_dims'] = np.array([ 20, 20 ])
+    options['rve_dims'] = [1.0, 1.0]
 
-    phase_type['4'] = 1 # Matrix
-    phase_type['2'] = 3 # Elliptical particle 
 
-    return [descriptors, phase_type, options]
+    return [descriptors, phase_types, options, discret_spec_array]
 
 def computeRelativeEnergy(particles):
     N = Particle.number
@@ -499,13 +594,13 @@ def run(particles, options):
         # Limited to squares and cubes (FIX)
     elif options['speed_up_scheme']=='Verlet':
     # A Verlet list combined with a cell list scheme will be used
-        Particle.verlet_radius = options['verlet_radius']
+        Particle.verlet_factor = options['verlet_factor']
         # Saving the Verlet radius to compute the Verlet list
         Particle.new_verlet_list = True
         # Signaling that for the first computation of the forces there is a need to compute
         # a new Verlet list
         max_radius = np.max(np.array([particles[i].radius\
-            for i in range(Particle.number)]))*Particle.verlet_radius
+            for i in range(Particle.number)]))*Particle.verlet_factor
         # Saving the maximum radius of the circunscribing disk/sphere accounting for the
         # Verlet factor
         print(Particle.volume)
@@ -527,6 +622,9 @@ def run(particles, options):
     # A naive approach will be used
         pass
 
+    n_steps_relax = 0
+    # Initializing the number of steps that a microstructure was complying with the 
+    # maximum overlap residue
     N = len(particles)
     # Number of particles
     dt = options['dt']
@@ -548,14 +646,14 @@ def run(particles, options):
     relative_energy_old = relative_energy
     # Saving the current relative energy
     print('new',relative_energy)
-    while (relative_energy > max_residue) and (step<options['max_step']):
-    # Run the simulation while the overlap is larger than the allowed maximum residue
+    while (step<options['max_step']) and n_steps_relax<options['max_steps_to_relax']:
+    # Run the simulation while the number of steps the overlap has been smaller than the
+    # allowed maximum residue is larger than options['max_steps_to_relax'], so that the
+    # particles have time to get away from each other.
         integrate(particles, options)
         # Integrating the equations of motion
         step += 1
         # # Moving to the next time step
-        # print([particles[i].velocity_center for i in range(len(particles))])
-        # print([particles[i].position_center for i in range(len(particles))])
         computeForces(particles, options)
         # Computing the forces on all particles
         relative_energy = computeRelativeEnergy(particles)
@@ -564,13 +662,11 @@ def run(particles, options):
         # Computing the kinetic energy
         print('new',relative_energy)
         print('kinetic',kin_energy)
-        # print([particles[i].velocity_center for i in range(len(particles))])
-        # print([particles[i].force for i in range(len(particles))])
         if options['thermostat']=='isokinetic':
         # The thermostat used is the isokinetic scheme
-            if np.random.uniform() > (1-Particle.volume/2): #0: #
+            if np.random.uniform() > (1-Particle.volume/2):
             # Probability of rescaling the velocities modelled as Poisson
-                lambda_vel = np.sqrt(np.max([1e3*relative_energy,1e-4])/kin_energy/N) #250/kin_energy/N# 
+                lambda_vel = np.sqrt(np.max([1e3*relative_energy,1e-2])/kin_energy/N)
                 # Rescalling factor (why? 250 -  equipartition theorem)
                 for i_particle in range(N):
                 # Running through all the particles
@@ -582,6 +678,14 @@ def run(particles, options):
         else:
         # There is no thermostat
             pass
+        if relative_energy < max_residue:
+        # If the configuration has an overlap area smaller than the tolerance
+            n_steps_relax += 1
+            print('yes',k)
+        else:
+            n_steps_relax = 0
+            # Restarting the count
+
         # Particle.global_force_factor *= 10e-3/relative_energy #options['global_force_factor_multiplier']
 
         # if relative_energy/relative_energy_old < 0.5:
@@ -602,6 +706,7 @@ def run(particles, options):
 
         print(step)
 
+    
         # Particle.global_force_factor = 1/relative_energy/100
         
         # if relative_energy < 1e-9 and k<4:
@@ -621,7 +726,7 @@ def run(particles, options):
         #             #     particles[i].position_center+np.array([1*j,1*k]), radius=particles[i].radius,alpha=0.8)
         #             # ax.add_artist(circ)
         #             # circ = mpatches.Circle(
-        #             #     particles[i].position_center+np.array([1*j,1*k]), radius=Particle.verlet_radius*particles[i].radius, alpha=0.1)
+        #             #     particles[i].position_center+np.array([1*j,1*k]), radius=Particle.verlet_factor*particles[i].radius, alpha=0.1)
         #             # ax.add_artist(circ)
         #             ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j,1*k]), particles[i].major_axis, particles[i].minor_axis,angle=180/np.pi*particles[i].angle,alpha=0.8)
         #             ax.add_artist(ellip)
@@ -652,75 +757,88 @@ if __name__ == '__main__':
 
     import matplotlib.patches as mpatches
 
-    [descriptors, phase_type, options] = readDescriptors()
-    # Reading the descriptors
-
-    particles = particleGeneration(descriptors, phase_type, options)
+    [descriptors, phase_types, options, discret_spec_array] = readDescriptors()
+    # Reading the descriptors and options for the microstructure generation
+    particles = particleGeneration(descriptors, phase_types, options)
     # Generating the list of particles from the geometrical descriptors
-
-    fig = plt.figure()
-    
-    ax = plt.gca()
-    
-    N = len(particles)
-    
-    for i in range(N):
-        for j in range(-1,2):
-            for k in range(-1,2):
-                ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j,1*k]), particles[i].major_axis, particles[i].minor_axis,angle=180/np.pi*particles[i].angle,alpha=0.8)
-                ax.add_artist(ellip)
-                plt.annotate(xy = particles[i].position_center, s=str(i))
-                # plt.scatter(particles[i].position_center[0],particles[i].position_center[1])
-                # plt.axis([0, 1, 0, 1])
-                # circ = mpatches.Circle(
-                #     particles[i].position_center+np.array([1*j,1*k]), radius=particles[i].radius,alpha=0.8)
-                # ax.add_artist(circ)
-                # circ = mpatches.Circle(
-                #     particles[i].position_center+np.array([1*j,1*k]), radius=options['verlet_radius']*particles[i].radius, alpha=0.1)
-                # ax.add_artist(circ)
-                # plt.annotate(xy = particles[i].position_center, s=str(i))
-                # plt.scatter(particles[i].position_center[0],particles[i].position_center[1])
-                plt.axis([0, 1, 0, 1])
-    
-    # plt.xticks(np.linspace(0,1,Particle.n_cell_dim[0]+1,endpoint=True))
-    # plt.yticks(np.linspace(0,1,Particle.n_cell_dim[0]+1,endpoint=True))
-    # plt.grid(b=True, which='both')
-    
-    plt.show(block=False)
-
+    if True:
+        fig = plt.figure()
+        
+        ax = plt.gca()
+        
+        N = len(particles)
+        
+        for i in range(N):
+            for j in range(-1,2):
+                for k in range(-1,2):
+                    ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j,1*k]), particles[i].major_axis, particles[i].minor_axis,angle=180/np.pi*particles[i].angle,alpha=0.8)
+                    ax.add_artist(ellip)
+                    plt.annotate(xy = particles[i].position_center, s=str(i))
+                    # plt.scatter(particles[i].position_center[0],particles[i].position_center[1])
+                    # plt.axis([0, 1, 0, 1])
+                    # circ = mpatches.Circle(
+                    #     particles[i].position_center+np.array([1*j,1*k]), radius=particles[i].radius,alpha=0.8)
+                    # ax.add_artist(circ)
+                    # circ = mpatches.Circle(
+                    #     particles[i].position_center+np.array([1*j,1*k]), radius=options['verlet_factor']*particles[i].radius, alpha=0.1)
+                    # ax.add_artist(circ)
+                    # plt.annotate(xy = particles[i].position_center, s=str(i))
+                    # plt.scatter(particles[i].position_center[0],particles[i].position_center[1])
+                    plt.axis([0, 1, 0, 1])
+        
+        # plt.xticks(np.linspace(0,1,Particle.n_cell_dim[0]+1,endpoint=True))
+        # plt.yticks(np.linspace(0,1,Particle.n_cell_dim[0]+1,endpoint=True))
+        # plt.grid(b=True, which='both')
+        
+        plt.show(block=False)
     run(particles, options)
+    # Running the molecular dynamics simulation
+    # How to implement multiple runs?
+    if 'rgmsh' in discret_spec_array:
+    # A mesh for FFT was requested
+        generateMeshFFT(particles, discret_spec_array['rgmsh'])
+        # Generating the FFT mesh as a regular grid and saving it in a .dat file
+    if 'femsh' in discret_spec_array:
+    # A mesh for FEM was requested
+        generateMeshFEM(particles)
+        # Generating the FEM mesh using gmsh and saving an input data file for LINKS
 
-    fig = plt.figure()
-    
-    ax = plt.gca()
-    
-    N = len(particles)
-    
-    for i in range(N):
-        for j in range(-1,2):
-            for k in range(-1,2):
-                # circ = mpatches.Circle(
-                #     particles[i].position_center+np.array([1*j,1*k]), radius=particles[i].radius,alpha=0.8)
-                # ax.add_artist(circ)
-                # circ = mpatches.Circle(
-                #     particles[i].position_center+np.array([1*j,1*k]), radius=Particle.verlet_radius*particles[i].radius, alpha=0.1)
-                # ax.add_artist(circ)
-                ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j,1*k]), particles[i].major_axis, particles[i].minor_axis,angle=180/np.pi*particles[i].angle,alpha=0.8)
-                ax.add_artist(ellip)
-                plt.annotate(xy = particles[i].position_center, s=str(i))
-                plt.scatter(particles[i].position_center[0],particles[i].position_center[1])
-                plt.axis([0, 1, 0, 1])
+    if True:
+        fig = plt.figure()
+        
+        ax = plt.gca()
+        
+        N = len(particles)
+        
+        for i in range(N):
+            for j in range(-1,2):
+                for k in range(-1,2):
+                    # circ = mpatches.Circle(
+                    #     particles[i].position_center+np.array([1*j,1*k]), radius=particles[i].radius,alpha=0.8)
+                    # ax.add_artist(circ)
+                    # circ = mpatches.Circle(
+                    #     particles[i].position_center+np.array([1*j,1*k]), radius=Particle.verlet_factor*particles[i].radius, alpha=0.1)
+                    # ax.add_artist(circ)
+                    ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j,1*k]), particles[i].major_axis, particles[i].minor_axis,angle=180/np.pi*particles[i].angle,alpha=0.8)
+                    ax.add_artist(ellip)
+                    # ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j,1*k]+particles[i].displacement_last_verlet), particles[i].major_axis*Particle.verlet_factor, particles[i].minor_axis*Particle.verlet_factor,angle=180/np.pi*particles[i].angle,alpha=0.2)
+                    # ax.add_artist(ellip)
+                    plt.annotate(xy = particles[i].position_center, s=str(i))
+                    plt.scatter(particles[i].position_center[0],particles[i].position_center[1])
+                    plt.axis([0, 1, 0, 1])
 
-    print([particles[i].position_center for i in range(len(particles))])
-    print([particles[i].velocity_center for i in range(len(particles))])
+        print([particles[i].position_center for i in range(len(particles))])
+        print([particles[i].velocity_center for i in range(len(particles))])
 
-    print(Particle.cell_list)
-    print([particles[i].verlet_list for i in range(N)])
+        print(Particle.cell_list)
+        print([particles[i].verlet_list for i in range(N)])
 
-    end = time.time()
-    print(end - start)
+        end = time.time()
+        print(end - start)
 
-    plt.xticks(np.linspace(0,1,Particle.n_cell_dim[0]+1,endpoint=True))
-    plt.yticks(np.linspace(0,1,Particle.n_cell_dim[0]+1,endpoint=True))
-    plt.grid(b=True, which='both')
-    plt.show()
+            # discret_spec_array['rgmsh']['n_voxels_dims'] = np.array([ 20, 10 ])
+
+        plt.xticks(np.linspace(0,1,discret_spec_array['rgmsh']['n_voxels_dims'][0]+1 ,endpoint=True))
+        plt.yticks(np.linspace(0,1,discret_spec_array['rgmsh']['n_voxels_dims'][1]+1,endpoint=True))
+        plt.grid(b=True, which='both')
+        plt.show()

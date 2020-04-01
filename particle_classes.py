@@ -11,13 +11,15 @@ class Particle():
             Number of the dimensions of the space where the particle "lives"
     '''
 
-    def __init__(self, dim):
+    def __init__(self, dim, phase):
         '''
         The constructor for the Particle class.
 
         Parameters:
             dim: int
                 Number of the dimensions of the space where the particle "lives"
+            phase: string
+                Phase to which the particle belongs
         '''
 
         self.dim = dim
@@ -27,6 +29,8 @@ class Particle():
         self.verlet_list = []
         Particle.volume += self.volume()
         Particle.number += 1
+        
+        self.phase = phase
 
     def setPositionCenter(self, position):
         '''
@@ -86,7 +90,7 @@ class Disk(Particle):
         radius: int
             Radius of the disk
     '''
-    def __init__(self, radius):
+    def __init__(self, phase, radius):
         '''
         The constructor of the Disk particle.
 
@@ -105,6 +109,7 @@ class Disk(Particle):
         self.verlet_list = []
         Particle.volume += self.volume()
         Particle.number += 1
+        self.phase = phase
 
     def intersectionArea(self, other_particle):
         '''
@@ -208,7 +213,7 @@ class Disk(Particle):
         # disk
         d = np.sqrt(diff_center.dot(diff_center))
         # Distance between the disks
-        if d<(self.radius+other_disk.radius)*Particle.verlet_radius:
+        if d<(self.radius+other_disk.radius)*Particle.verlet_factor:
         # The disks are in eachothers neighboorhoods
             intersection_verlet = True
         else:
@@ -228,11 +233,13 @@ class Disk(Particle):
 class Ellipse(Particle):
     """docstring for Ellispe."""
 
-    def __init__(self, major_axis, minor_axis, angle):
+    def __init__(self, phase, major_axis, minor_axis, angle):
         '''
         This is the generator for the classe Ellipse.
 
         Parameters:
+            phase: string
+                Phase to which the ellipse belongs
             major_axis: float
                 Major axis of the ellipse.
             minor_axis: float
@@ -247,7 +254,7 @@ class Ellipse(Particle):
         self.angle = angle
         self.eccentricity = np.sqrt(1-minor_axis**2/major_axis**2)
         self.radius = major_axis/2
-        super().__init__(2)
+        super().__init__(2, phase)
 
     def volume(self):
         '''
@@ -258,7 +265,7 @@ class Ellipse(Particle):
 
         return volume
 
-    def pointInsideEllipse(self, point, tol=1e-4, position='inside'):
+    def pointInsideEllipse(self, point, tol=1e-4, position='inside', verlet=False):
         '''
         This function determines if the point is inside, outside or on the ellipse given a tolerance
 
@@ -269,6 +276,10 @@ class Ellipse(Particle):
                 Point under analysis
             tol: float
                 Tolerance
+            position: string
+                'inside' or 'on'
+            verlet: boolean
+                Inside the ellipse itself or its neighboor, related to the Verlet list
 
         Returns:
             point_in: bool
@@ -286,19 +297,32 @@ class Ellipse(Particle):
         #print('angle_inside', angle_pt_major)
         # Angle that the vector connecting the center of the ellipse and the point makes
         # with the major axis
+        if verlet:
+        # Multiply the semi_minor_axis by the Verlet factor
+            semi_minor_axis = self.semi_minor_axis*Particle.verlet_factor
+            # Semi minor axis of the Verlet neighboorhood
+        else:
+            semi_minor_axis = self.semi_minor_axis
+            # Semi minor axis of the original ellipse
         if position=='inside':
         # Checking if the point is inside the ellipse
             point_in = \
                 r_point <= tol + \
-                    self.semi_minor_axis/np.sqrt(1-(self.eccentricity*np.cos(angle_pt_major))**2)
+                    semi_minor_axis/np.sqrt(1-(self.eccentricity*np.cos(angle_pt_major))**2)
             # Using the polar form of the ellipse checking if the point is inside the ellipse
         elif position=='on':
         # Checking if the point is on the ellipse
             point_in = \
                 np.abs(r_point - \
-                    self.minor_axis/np.sqrt(1-(self.eccentricity*np.cos(angle_pt_major))**2))\
+                    semi_minor_axis/np.sqrt(1-(self.eccentricity*np.cos(angle_pt_major))**2))\
                     < tol
             # Using the polar form of the ellipse checking if the point is inside the ellipse
+        return point_in
+
+    def pointInside(self, point):
+
+        point_in = self.pointInsideEllipse(point)
+
         return point_in
 
     def intersectionAreaEllipseEllipse(self, other_ellipse):
@@ -619,9 +643,9 @@ class Ellipse(Particle):
         #print('diff', diff_nearest_other)
 
         y_inter_sect = intersectionPointsEllipses(
-            self.semi_major_axis, self.semi_minor_axis, self.position_center,
-            self.angle, other_ellipse.semi_major_axis, other_ellipse.semi_minor_axis,
-            other_ellipse.position_center+ diff_nearest_other, other_ellipse.angle)           
+            Particle.verlet_factor*self.semi_major_axis, Particle.verlet_factor*self.semi_minor_axis, self.position_center,
+            self.angle, Particle.verlet_factor*other_ellipse.semi_major_axis, Particle.verlet_factor*other_ellipse.semi_minor_axis,
+            other_ellipse.position_center+ diff_nearest_other, other_ellipse.angle)
         if len(y_inter_sect)>0:
         # There are intersection points betweeen the two neighboorhoods
             intersection_verlet = True
@@ -648,6 +672,18 @@ class Ellipse(Particle):
                     # The intersection area is 0
         return intersection_verlet
 
+    def insideVerlet(self, point):
+
+        if np.linalg.norm(self.displacement_last_verlet -\
+            self.position_center) >= \
+            self.semi_minor_axis*(Particle.verlet_factor - 1):
+            point_in = self.pointInsideEllipse(point,verlet=True)
+            # Checking if the point is inside the ellipse that defines the Verlet neighboorhood
+        else:
+        # the center of the ellipse has not 
+            point_in = True
+        return point_in
+        
 
 def intersectionPointsEllipses(A1, B1, center_1, angle_1,
     A2, B2, center_2, angle_2, tol=1e-10):
