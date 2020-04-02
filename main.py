@@ -22,6 +22,8 @@ from integration_methods import Newmark
 from particle_classes import Disk, Particle, Ellipse
 # Importing the particle class
 from meshing_interface import generateMeshFEM, generateMeshFFT
+import os
+import sys
 # ==========================================================================================
 def newVerletList(particles):
     '''
@@ -298,8 +300,14 @@ def integrate(particles, options):
             particles[i_particle].displacement_last_verlet += \
                 particles[i_particle].position_center - new_position[:,0]
             # Computing the displacement of the center of the particle
+            class_name_i_particle = particles[i_particle].__class__.__name__
+            if "Disk"==class_name_i_particle:
+                radial_dimension = particles[i_particle].radius
+            elif "Eliipse"==class_name_i_particle:
+                radial_dimension = particles[i_particle].semi_minor_axis
+            # FIX: 
             if np.linalg.norm(particles[i_particle].displacement_last_verlet) >= \
-                particles[i_particle].semi_minor_axis*(Particle.verlet_factor - 1):
+                radial_dimension*(Particle.verlet_factor - 1):
             # if not particles[i].insideVerlet(
             #     particles[i_particle].displacement_last_verlet +\
             #     particles[i_particle].position_center):
@@ -337,7 +345,7 @@ def generateDisks(phase, descriptors):
     # the radius is fixed
         for i in range(descriptors['n']):
         # Generating n disks
-            disks.append(Disk(descriptors['r'])) #np.random.uniform(low=0.01,high=0.2)))
+            disks.append(Disk(phase, descriptors['r'])) #np.random.uniform(low=0.01,high=0.2)))
             # Disk with radius 0.5
             disks[i].position_center = np.random.uniform(size=2) #np.array([0+i**2/200, 0.5]) # # #
             # Generating the positions from a random uniform distribution between 0 and 1
@@ -383,6 +391,8 @@ def particleGeneration(descriptors, phase_types, options):
     # Initializing the total volume fraction
     Particle.number = 0
     # Initializing the total number of particles
+    Particle.list_phases = [i_phase for i_phase in descriptors]
+    # List containing the phases
     particles = []
     # Initializing the list containing the particles
     if options['problem_type'] == 1:
@@ -394,7 +404,7 @@ def particleGeneration(descriptors, phase_types, options):
     # Running through all the phases listed in the dictionary
         if phase_types[i_phase] == 1:
         # This phase is the matrix
-            pass
+            Particle.matrix_phase = i_phase
             # No particles are generated
         elif phase_types[i_phase] == 2:
         # This phase is made up by disks
@@ -407,6 +417,23 @@ def particleGeneration(descriptors, phase_types, options):
             # Generating the number of disks requested and appending them to the list of
             # particles
 
+    Particle.file_name = particles[0].__class__.__name__ + "_" + str(Particle.number) + "_" + str(Particle.volume)
+    main_folder = os.path.dirname(os.getcwd())
+    print(main_folder)
+    # Path to the main folder of the program
+    print(main_folder)
+    results_folder = os.path.join(main_folder, "results",  Particle.file_name)
+    if os.path.exists(results_folder):
+        results_folder_old = results_folder
+        i = 0
+        while os.path.exists(results_folder):
+            i += 1
+            results_folder = results_folder_old + "_" + str(i)
+        os.makedirs(results_folder)
+    else:
+        os.makedirs(results_folder)
+    Particle.file_path = os.path.join(results_folder, Particle.file_name)
+    print(Particle.file_path)
     return particles
 
 # ==========================================================================================
@@ -440,10 +467,10 @@ def readDescriptors():
     # Initializing the dictionary containing the options
     #                                                                    Stopping criteria
     # --------------------------------------------------------------------------------------
-    options['max_residue_per_particle'] = 10e-12
-    options['max_step'] = 1000
+    options['max_residue_per_particle'] = 10e-14
+    options['max_step'] = 2000
     # Maximum number of steps
-    options['max_steps_to_relax'] = 200
+    options['max_steps_to_relax'] = 500
     # Maximum number of steps after the legal configuration has been found after which the
     # configuration is accepted
     #                                                                   Integration scheme
@@ -500,9 +527,9 @@ def readDescriptors():
     descriptors = {}
 
     descriptors['4'] = {}
-    # descriptors['2'] = {'r':0.1, 'n':10}
-    #descriptors['2'] = {'distribution':'uniform','r_low':0.02,'r_high':0.04, 'n':190}
-    descriptors['2'] = {'major_axis':0.20,'minor_axis':0.1,'angle':0,'n':10}
+    descriptors['2'] = {'r':0.02, 'n':500}
+    # descriptors['2'] = {'distribution':'uniform','r_low':0.02,'r_high':0.04, 'n':190}
+    # descriptors['2'] = {'major_axis':0.20,'minor_axis':0.1,'angle':0,'n':10}
     # phase_types: dictionary
     #     Dictionary which contains each material phase type, stored as
     #                    dictionary['phase_id'] = phase_types
@@ -513,7 +540,7 @@ def readDescriptors():
     # 3 - Elliptical particle
     phase_types = {}
     phase_types['4'] = 1 # Matrix
-    phase_types['2'] = 3 # Elliptical particle
+    phase_types['2'] = 2 # Elliptical particle
     # discret_file_ext: list
     #     List which contains the required spatial discretization file(s), stored as
     #                     array = [ < discret_type > < discret_type >  ... ]
@@ -527,6 +554,9 @@ def readDescriptors():
     discret_spec_array['rgmsh'] = {}
     discret_spec_array['rgmsh']['rve_dims'] = np.array([ 1.0, 1.0 ])
     discret_spec_array['rgmsh']['n_voxels_dims'] = np.array([ 20, 20 ])
+    # discret_spec_array['femsh'] = {}
+    # discret_spec_array['femsh']['rve_dims'] = np.array([ 1.0, 1.0 ])
+    # discret_spec_array['femsh']['mesh_size'] = 0.03
     options['rve_dims'] = [1.0, 1.0]
 
 
@@ -557,15 +587,19 @@ def run(particles, options):
     initialization of the sytem, and the loop that contains the dynamics of the system:
     computation of the forces and integration of the equations of motion.
 
-    Parameters:
-        particles : array
-            Array containing the Particle objects to be placed inside the RVE
-        options : dictionary
-            Dictionary containing the options for the MD simulation
-    Returns:
+    Parameters
+    ----------
+    particles : list(`.Particle`)
+        Array containing the Particle objects to be placed inside the RVE
 
-    Other Parameters:
+    options : dictionary
+        Dictionary containing the options for the MD simulation
 
+    Returns
+    -------
+
+    Other Parameters
+    ----------------
     '''
     N = Particle.number
     # Saving the number of particles
@@ -666,7 +700,7 @@ def run(particles, options):
         # The thermostat used is the isokinetic scheme
             if np.random.uniform() > (1-Particle.volume/2):
             # Probability of rescaling the velocities modelled as Poisson
-                lambda_vel = np.sqrt(np.max([1e3*relative_energy,1e-2])/kin_energy/N)
+                lambda_vel = np.sqrt(np.max([1e1*relative_energy,1e-1])/kin_energy/N)
                 # Rescalling factor (why? 250 -  equipartition theorem)
                 for i_particle in range(N):
                 # Running through all the particles
@@ -681,7 +715,7 @@ def run(particles, options):
         if relative_energy < max_residue:
         # If the configuration has an overlap area smaller than the tolerance
             n_steps_relax += 1
-            print('yes',k)
+            # print('yes',n_steps_relax)
         else:
             n_steps_relax = 0
             # Restarting the count
@@ -706,50 +740,63 @@ def run(particles, options):
 
         print(step)
 
-    
-        # Particle.global_force_factor = 1/relative_energy/100
-        
-        # if relative_energy < 1e-9 and k<4:
-        #     k += 1
-
-
-        # fig = plt.figure()
-        # 
-        # ax = plt.gca()
-        # 
-        # N = len(particles)
-        # 
-        # for i in range(N):
-        #     for j in range(-1,2):
-        #         for k in range(-1,2):
-        #             # circ = mpatches.Circle(
-        #             #     particles[i].position_center+np.array([1*j,1*k]), radius=particles[i].radius,alpha=0.8)
-        #             # ax.add_artist(circ)
-        #             # circ = mpatches.Circle(
-        #             #     particles[i].position_center+np.array([1*j,1*k]), radius=Particle.verlet_factor*particles[i].radius, alpha=0.1)
-        #             # ax.add_artist(circ)
-        #             ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j,1*k]), particles[i].major_axis, particles[i].minor_axis,angle=180/np.pi*particles[i].angle,alpha=0.8)
-        #             ax.add_artist(ellip)
-        #             plt.annotate(xy = particles[i].position_center, s=str(i))
-        #             plt.scatter(particles[i].position_center[0],particles[i].position_center[1])
-        #             plt.axis([0, 1, 0, 1])
-        # # 
-        # # 
-        # # # print(Particle.cell_list)
-        # # 
-        # # end = time.time()
-        # # print(end - start)
-        # # 
-        # # # plt.xticks(np.linspace(0,1,Particle.n_cell_dim[0]+1,endpoint=True))
-        # # # plt.yticks(np.linspace(0,1,Particle.n_cell_dim[0]+1,endpoint=True))
-        # # # plt.grid(b=True, which='both')
-        # plt.show()
-
 
 
     # Integrating Newton's equations of motion
 
+def plotParticles(particles, dir, grid='off', verlet_ngh=False, center_part=False,
+    block=False, **kwargs):
+    '''
+    This function plots the particles
+    '''
+
+    fig = plt.figure()
+
+    ax = plt.gca()
+
+    N = len(particles)
+
+    for i in range(N):
+        class_name_i_particle = particles[i].__class__.__name__
+        for j in range(-1,2):
+            for k in range(-1,2):
+                if 'Disk'==class_name_i_particle:
+                    circ = mpatches.Circle(
+                        particles[i].position_center+np.array([1*j,1*k]), radius=particles[i].radius,alpha=0.8)
+                    ax.add_artist(circ)
+                    if verlet_ngh:
+                        circ = mpatches.Circle(
+                            particles[i].position_center+np.array([1*j,1*k]+particles[i].displacement_last_verlet), radius=Particle.verlet_factor*particles[i].radius, alpha=0.1)
+                        ax.add_artist(circ)
+                    if center_part:
+                        plt.annotate(xy = particles[i].position_center, s=str(i))
+                        plt.scatter(particles[i].position_center[0],particles[i].position_center[1])
+                if 'Ellipse'==class_name_i_particle:
+                    ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j,1*k]), particles[i].major_axis, particles[i].minor_axis,angle=180/np.pi*particles[i].angle,alpha=0.8)
+                    ax.add_artist(ellip)
+                    if verlet_ngh:
+                        ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j,1*k]+particles[i].displacement_last_verlet), particles[i].major_axis*Particle.verlet_factor, particles[i].minor_axis*Particle.verlet_factor,angle=180/np.pi*particles[i].angle,alpha=0.2)
+                        ax.add_artist(ellip)
+                    if center_part:
+                        plt.annotate(xy = particles[i].position_center, s=str(i))
+                        plt.scatter(particles[i].position_center[0],particles[i].position_center[1])
     
+    plt.axis([0, 1, 0, 1])
+
+    
+    if grid=='cell_list':
+        plt.xticks(np.linspace(0,1,Particle.n_cell_dim+1 ,endpoint=True))
+        plt.yticks(np.linspace(0,1,Particle.n_cell_dim+1,endpoint=True))
+        plt.grid(b=True, which='both')
+    elif grid=='fft':
+        discret_spec_array = kwargs('discret_spec_array')
+        plt.xticks(np.linspace(0,1,discret_spec_array['rgmsh']['n_voxels_dims'][0]+1 ,endpoint=True))
+        plt.yticks(np.linspace(0,1,discret_spec_array['rgmsh']['n_voxels_dims'][1]+1,endpoint=True))
+        plt.grid(b=True, which='both')
+
+    plt.savefig(dir + ".png")
+
+    plt.show(block=block)
 
 if __name__ == '__main__':
 
@@ -757,88 +804,42 @@ if __name__ == '__main__':
 
     import matplotlib.patches as mpatches
 
+
+    f = open("test.txt", 'w')
+    # sys.stdout = f
+    
     [descriptors, phase_types, options, discret_spec_array] = readDescriptors()
     # Reading the descriptors and options for the microstructure generation
     particles = particleGeneration(descriptors, phase_types, options)
     # Generating the list of particles from the geometrical descriptors
-    if True:
-        fig = plt.figure()
-        
-        ax = plt.gca()
-        
-        N = len(particles)
-        
-        for i in range(N):
-            for j in range(-1,2):
-                for k in range(-1,2):
-                    ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j,1*k]), particles[i].major_axis, particles[i].minor_axis,angle=180/np.pi*particles[i].angle,alpha=0.8)
-                    ax.add_artist(ellip)
-                    plt.annotate(xy = particles[i].position_center, s=str(i))
-                    # plt.scatter(particles[i].position_center[0],particles[i].position_center[1])
-                    # plt.axis([0, 1, 0, 1])
-                    # circ = mpatches.Circle(
-                    #     particles[i].position_center+np.array([1*j,1*k]), radius=particles[i].radius,alpha=0.8)
-                    # ax.add_artist(circ)
-                    # circ = mpatches.Circle(
-                    #     particles[i].position_center+np.array([1*j,1*k]), radius=options['verlet_factor']*particles[i].radius, alpha=0.1)
-                    # ax.add_artist(circ)
-                    # plt.annotate(xy = particles[i].position_center, s=str(i))
-                    # plt.scatter(particles[i].position_center[0],particles[i].position_center[1])
-                    plt.axis([0, 1, 0, 1])
-        
-        # plt.xticks(np.linspace(0,1,Particle.n_cell_dim[0]+1,endpoint=True))
-        # plt.yticks(np.linspace(0,1,Particle.n_cell_dim[0]+1,endpoint=True))
-        # plt.grid(b=True, which='both')
-        
-        plt.show(block=False)
+    plotParticles(particles, Particle.file_path + "_random")
     run(particles, options)
     # Running the molecular dynamics simulation
     # How to implement multiple runs?
+    end = time.time()
     if 'rgmsh' in discret_spec_array:
     # A mesh for FFT was requested
         generateMeshFFT(particles, discret_spec_array['rgmsh'])
         # Generating the FFT mesh as a regular grid and saving it in a .dat file
     if 'femsh' in discret_spec_array:
-    # A mesh for FEM was requested
-        generateMeshFEM(particles)
+    # A mesh for FEM was requested        
+        generateMeshFEM(particles, discret_spec_array['femsh']['mesh_size'])
         # Generating the FEM mesh using gmsh and saving an input data file for LINKS
 
-    if True:
-        fig = plt.figure()
+    plotParticles(particles, Particle.file_path)
+
+    
+    print(end - start)
+
+    
+
+    f.close()
+    sys.stdout = sys.__stdout__
+
+    with open('test.txt') as file:
+        data = file.read()
+        print(data)
+    os.replace("test.txt", Particle.file_path + ".txt")
         
-        ax = plt.gca()
+
         
-        N = len(particles)
-        
-        for i in range(N):
-            for j in range(-1,2):
-                for k in range(-1,2):
-                    # circ = mpatches.Circle(
-                    #     particles[i].position_center+np.array([1*j,1*k]), radius=particles[i].radius,alpha=0.8)
-                    # ax.add_artist(circ)
-                    # circ = mpatches.Circle(
-                    #     particles[i].position_center+np.array([1*j,1*k]), radius=Particle.verlet_factor*particles[i].radius, alpha=0.1)
-                    # ax.add_artist(circ)
-                    ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j,1*k]), particles[i].major_axis, particles[i].minor_axis,angle=180/np.pi*particles[i].angle,alpha=0.8)
-                    ax.add_artist(ellip)
-                    # ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j,1*k]+particles[i].displacement_last_verlet), particles[i].major_axis*Particle.verlet_factor, particles[i].minor_axis*Particle.verlet_factor,angle=180/np.pi*particles[i].angle,alpha=0.2)
-                    # ax.add_artist(ellip)
-                    plt.annotate(xy = particles[i].position_center, s=str(i))
-                    plt.scatter(particles[i].position_center[0],particles[i].position_center[1])
-                    plt.axis([0, 1, 0, 1])
-
-        print([particles[i].position_center for i in range(len(particles))])
-        print([particles[i].velocity_center for i in range(len(particles))])
-
-        print(Particle.cell_list)
-        print([particles[i].verlet_list for i in range(N)])
-
-        end = time.time()
-        print(end - start)
-
-            # discret_spec_array['rgmsh']['n_voxels_dims'] = np.array([ 20, 10 ])
-
-        plt.xticks(np.linspace(0,1,discret_spec_array['rgmsh']['n_voxels_dims'][0]+1 ,endpoint=True))
-        plt.yticks(np.linspace(0,1,discret_spec_array['rgmsh']['n_voxels_dims'][1]+1,endpoint=True))
-        plt.grid(b=True, which='both')
-        plt.show()

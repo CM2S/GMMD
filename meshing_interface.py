@@ -23,6 +23,7 @@ from gmsh2links.main import readMesh
 from particle_classes import Disk, Particle, Ellipse
 # Importing the particle class
 import numpy as np
+import shutil
 
 def generateMeshFEM(particles, mesh_size, element_type="tri3", **kwargs):
     '''
@@ -39,8 +40,8 @@ def generateMeshFEM(particles, mesh_size, element_type="tri3", **kwargs):
     element_type: {'tri3','tri6','quad4','quad8','other'}, optional
         String related to the type of element.
 
-    Other Parameter
-    ---------------
+    Other Parameters
+    ----------------
     **kwargs:
         Optional parameters for the `generateMeshFEM2D` and `generateMeshFEM3D` functions.
     '''
@@ -200,8 +201,8 @@ def generateMeshFEM2D(particles, mesh_size, mesh_alg=6, force_recomb_all=0, elem
     # Generate the finite element mesh
     # ==========================================================================================
     # Define model name
-    
-    title = os.path.splitext(os.path.basename(__file__))[1]
+    title = Particle.file_path
+    print(title)
     model.add(title)
 
     x = 0
@@ -213,60 +214,74 @@ def generateMeshFEM2D(particles, mesh_size, mesh_alg=6, force_recomb_all=0, elem
     rectTag = factory.addRectangle(0, 0, 0, Particle.box[0], Particle.box[1])
     # RVE
 
-    circTag = []
-    outDimTag = [rectTag]
+    particleTags = []
     rotateTags = []
-    k = 0
+    k_particle_image = 0
+    phaseDimTag = dict.fromkeys(Particle.list_phases, [])
     for i_particle in particles:
     # Running through all the particles
+        class_name_i_particle = i_particle.__class__.__name__
+        # Saving the class name of the particle as a string
         for j in range(-1,2):
+        # Periodic images in the horizontal direction
             for p in range(-1,2):
-                xc = i_particle.position_center[0] + Particle.box[0]*j
-                yc = i_particle.position_center[1] + Particle.box[1]*p
-                zc = 0
-                rx = i_particle.semi_major_axis*0.9
-                ry = i_particle.semi_minor_axis*0.9
-                alpha = i_particle.angle
-                # Saving the properties of the particles
-                circTag.append(factory.addDisk(xc, yc, zc, rx, ry))
-                # Creating the ellipse without rotation
-                print(circTag)
-                print(k)
-                # Rotate the disk
-                factory.synchronize()
-                rotateTags.append([(2, circTag[k])])
-                rotateTags[k].extend(model.getBoundary([2, circTag[k]]))
-                print(rotateTags)
-                factory.rotate(rotateTags[k], xc, yc, zc, 0, 0, 1, alpha)
-                # 
-                # # Make a hole in the rectangle with the disk
-                
-                factory.synchronize()
-                k = k + 1
-                print(circTag)
+            # Periodic images in the vertical direction
+                if 'Disk'==class_name_i_particle:
+                # Particle is a Disk
+                    xc = i_particle.position_center[0] + Particle.box[0]*j
+                    yc = i_particle.position_center[1] + Particle.box[1]*p
+                    zc = 0
+                    rx = i_particle.radius*0.9
+                    ry = i_particle.radius*0.9
+                    # Saving the properties of the particles
+                    particleTags.append(factory.addDisk(xc, yc, zc, rx, ry))
+                    
+                    phaseDimTag[i_particle.phase].append(
+                        (2, particleTags[k_particle_image]))
+
+                    factory.synchronize()
+                    k_particle_image += 1
+                elif 'Ellipse'==class_name_i_particle:
+                # Particle is an Ellipse
+                    xc = i_particle.position_center[0] + Particle.box[0]*j
+                    yc = i_particle.position_center[1] + Particle.box[1]*p
+                    zc = 0
+                    rx = i_particle.semi_major_axis*0.9
+                    ry = i_particle.semi_minor_axis*0.9
+                    alpha = i_particle.angle
+                    # Saving the properties of the particles
+                    particleTags.append(factory.addDisk(xc, yc, zc, rx, ry))
+                    # Creating the ellipse without rotation
+                    # Rotate the disk
+                    factory.synchronize()
+                    rotateTags.append([(2, particleTags[k_particle_image])])
+                    rotateTags[k_particle_image].extend(
+                        model.getBoundary([2, particleTags[k_particle_image]]))
+                    factory.rotate(rotateTags[k_particle_image], xc, yc, zc, 0, 0, 1, alpha)
+
+                    phaseDimTag[i_particle.phase].append(
+                        (2, particleTags[k_particle_image]))
+
+                    factory.synchronize()
+                    k_particle_image += 1
 
     outDimTag, outDimTagMap = factory.intersect(
-        [(2, rectTag)], [(2, circTag[k]) for k in range(9*len(particles))], removeObject=False, removeTool=True)
+        [(2, rectTag)], [(2, particleTags[k]) for k in range(9*len(particles))], removeObject=False, removeTool=True)
 
-    print(outDimTag)
+    temp = set(outDimTag)
+    for i_phase in Particle.list_phases:
+        phaseDimTag[i_phase] = [ value for value in phaseDimTag[i_phase] if value in temp ]
 
     factory.synchronize()
 
-    outDimTag2, outDimTagMap = factory.fragment(
+    outDimTag2, outDimTagMap2 = factory.fragment(
         [(2, rectTag)], outDimTag, removeObject=True, removeTool=True)
-
     
-    # factory.remove(outDimTag[6:7])
-
-    # print(outDimTag)
-    # outDimTag2, outDimTagMap = factory.intersect(
-    #     [(2, rectTag)], [outDimTag]  , removeObject=True, removeTool=True)
-    
-    material1 = [outDimTag2[-1]]
-    material2 = outDimTag2[0:-1]
-    print(material2)
-
-
+    phaseDimTag[Particle.matrix_phase] = outDimTag2[len(outDimTag):]
+    materials = []
+    for i_phase in Particle.list_phases:
+        temp = set(phaseDimTag[i_phase])
+        materials.append([ value[1] for value in outDimTag2 if value in temp ])
 
 
     # Set the mesh size on the geometry points
@@ -274,37 +289,20 @@ def generateMeshFEM2D(particles, mesh_size, mesh_alg=6, force_recomb_all=0, elem
     # It may also be useful for some intermidate operations, like checking the tags of entities
     factory.synchronize()
 
-    # Set boundaries
-    eps = 1e-3
-    # bottom = model.getEntitiesInBoundingBox(x - lx/2, y - ly/2, -eps, x + eps, y + eps, eps)
+    for i_phase in range(len(Particle.list_phases)):
+        materialTag = model.addPhysicalGroup(2, materials[i_phase])
+        model.setPhysicalName(2, materialTag, "Phase " + Particle.list_phases[i_phase])
+
+    # material1Tag = model.addPhysicalGroup(material1[0][0], [material1[0][1]])
+    # model.setPhysicalName(material1[0][0], material1Tag, "Material 1")
     # 
-    # factory.remove(bottom)
-    # top = model.getEntitiesInBoundingBox(x - eps, y + ly - eps, -eps, x + lx + eps, y + ly + eps, eps, dim=2)
-    # left = model.getEntitiesInBoundingBox(x - eps, y - eps, -eps, x + eps, y + ly + eps, eps, dim=2)
-    # right = model.getEntitiesInBoundingBox(x + lx - eps, y - eps, -eps, x + lx + eps, y + ly + eps, eps, dim=2)
-    # 
-    # bottomTag = model.addPhysicalGroup(bottom[0][0], [bottom[0][1]])
-    # model.setPhysicalName(bottom[0][0], bottomTag, "Bottom Boundary")
-    # 
-    # topTag = model.addPhysicalGroup(top[0][0], [top[0][1]])
-    # model.setPhysicalName(top[0][0], topTag, "Top Boundary")
-    # 
-    # leftTag = model.addPhysicalGroup(left[0][0], [left[0][1]])
-    # model.setPhysicalName(left[0][0], leftTag, "Left Boundary")
-    # 
-    # rightTag = model.addPhysicalGroup(right[0][0], [right[0][1]])
-    # model.setPhysicalName(right[0][0], rightTag, "Right Boundary")
-    # 
-    material1Tag = model.addPhysicalGroup(material1[0][0], [material1[0][1]])
-    model.setPhysicalName(material1[0][0], material1Tag, "Material 1")
-    
-    material2Tag = model.addPhysicalGroup(material2[0][0], [material2[i][1] for i in range(len(material2))])
-    model.setPhysicalName(material2[0][0], material2Tag, "Material 2")
+    # material2Tag = model.addPhysicalGroup(material2[0][0], [material2[i][1] for i in range(len(material2))])
+    # model.setPhysicalName(material2[0][0], material2Tag, "Material 2")
 
     factory.synchronize()
 
     
-    model.setColor((2, material2[0][1]),0,0,255,a=1)
+    # model.setColor((2, material2[0][1]),0,0,255,a=1)
 
     # Set mesh size
     points = model.getEntities(0)
@@ -325,7 +323,7 @@ def generateMeshFEM2D(particles, mesh_size, mesh_alg=6, force_recomb_all=0, elem
     # Convert it to LINKS format and write the respective input file
     # ==========================================================================================
 
-    gmshToLinks(meshfile)
+    gmshToLinks(meshfile, title)
 
 def generateMeshFEM3D():
     # ======================================================================================
@@ -552,31 +550,26 @@ def generateMeshFEM3D():
     # Convert it to LINKS format and write the respective input file
     # ==========================================================================================
 
-def gmshToLinks(meshfile):
+def gmshToLinks(meshfile, title):
     '''
     This function writes an input file for LINKS using a gmsh mesh saved at meshfile.
 
-    Parameter:
-
-        meshfile: string
-            Path to the gmsh file containing the FEM mesh.
+    Parameters
+    ----------
+    meshfile: string
+        Path to the gmsh file containing the FEM mesh.
     '''
     mesh = readMesh(meshfile)
 
     nodeID, coord = mesh.getAllNodes()
     elementID, connectivities, elementType = mesh.getElementsByDim(2)
-    elemMat1, conMat1, typeMat1 = mesh.getElementsByName("Material 1")
-    elemMat2, conMat2, typeMat2 = mesh.getElementsByName("Material 2")
+    elemMat1, conMat1, typeMat1 = mesh.getElementsByName("Phase 4")
+    elemMat2, conMat2, typeMat2 = mesh.getElementsByName("Phase 2")
 
-    with open(title + ".dat", "w") as dat:
+    shutil.copy("LINKS_header.dat",title + ".dat")
+
+    with open(title + ".dat", "a") as dat:
         dat.write("TITLE\n{0}".format(title))
-        dat.write("\n\nANALYSIS_TYPE 2")
-        dat.write("\n\nLARGE_STRAIN_FORMULATION ON")
-        dat.write("\n\nSOLUTION_ALGORITHM 2")
-        dat.write("\n\nSOLVER PARDISO")
-        dat.write("\n\nPARALLEL_SOLVER 1")
-        dat.write("\n\nVTK_OUTPUT ASCII EVERY 1")
-        dat.write("\n\nMAX_CONSECUTIVE_INCREMENT_CUTS 4")
         dat.write("\n\nELEMENT_GROUPS 2\n1 1 1\n2 1 2")
         dat.write("\n\nELEMENT_TYPES 1\n1 {0} \n3 GP".format(elementType[0]))
         dat.write("\n\nMATERIALS 2\n1 VON_MISES\n0.0\n2000E3 0.3\n2\n0.0 10000\n1.0 12000\n2 VON_MISES\n0.0\n200E3 0.3\n2\n0.0 540\n1.0 940\n")
@@ -629,9 +622,8 @@ def generateMeshFFT(particles, options):
                         regular_grid[i_row,j_column] = k_particle.phase
                         # Setting pixel [i_row, j_column] as belong to the phase of
                         # particle k_particle
-    title = os.path.splitext(os.path.basename(__file__))[0]
     print(regular_grid)
-    np.save(title, regular_grid)
+    np.save(Particle.file_path, regular_grid)
 
 def doc(c):
     """

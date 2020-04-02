@@ -29,7 +29,7 @@ class Particle():
         self.verlet_list = []
         Particle.volume += self.volume()
         Particle.number += 1
-        
+
         self.phase = phase
 
     def setPositionCenter(self, position):
@@ -199,6 +199,14 @@ class Disk(Particle):
             # Computing the intersection area
             return intersection_verlet
             # Returning the intersection area
+    def pointInside(self, point):
+        
+        if np.linalg.norm(self.position_center-point)<=self.radius:
+            point_in = True
+        else:
+            point_in = False
+
+        return point_in
 
     def intersectionVerletDiskDisk(self, other_disk):
         '''
