@@ -84,13 +84,13 @@ def generateMeshFEM(particles, mesh_size, element_type="tri3", **kwargs):
             # Generating a mesh of linear triangular elements
     elif particles[0].dim==3:
     # It is a 3D problem
-        pass
+        generateMeshFEM3D(particles, mesh_size)
 
 def generateMeshFEM2D(particles, mesh_size, mesh_alg=6, force_recomb_all=0, element_order=1,
     recomb_alg=1, element_order_incomp=0, output_term=0):
     '''
-    This function generates the mesh for the Finite Element. It generates by default linear
-    triangular elements.
+    This function generates the mesh for the Finite Element Method in 2D. It generates by 
+    default linear triangular elements.
 
     Parameters
     ----------
@@ -202,7 +202,6 @@ def generateMeshFEM2D(particles, mesh_size, mesh_alg=6, force_recomb_all=0, elem
     # ==========================================================================================
     # Define model name
     title = Particle.file_path
-    print(title)
     model.add(title)
 
     x = 0
@@ -235,7 +234,7 @@ def generateMeshFEM2D(particles, mesh_size, mesh_alg=6, force_recomb_all=0, elem
                     ry = i_particle.radius*0.9
                     # Saving the properties of the particles
                     particleTags.append(factory.addDisk(xc, yc, zc, rx, ry))
-                    
+
                     phaseDimTag[i_particle.phase].append(
                         (2, particleTags[k_particle_image]))
 
@@ -325,7 +324,45 @@ def generateMeshFEM2D(particles, mesh_size, mesh_alg=6, force_recomb_all=0, elem
 
     gmshToLinks(meshfile, title)
 
-def generateMeshFEM3D():
+def generateMeshFEM3D(particles, mesh_size, mesh_alg=6, force_recomb_all=0, element_order=1,
+    recomb_alg=1, element_order_incomp=0, output_term=0):
+    '''
+    This function generates the mesh for the Finite Element Method in 2D. It generates by 
+    default linear triangular elements.
+
+    Parameters
+    ----------
+    particles: list(`.Particle`)
+        List containing the particles of the microstructure.
+
+    mesh_size: float
+        Size of the mesh.
+
+    output_term: {0, 1}, optional
+        Output to the terminal
+
+    mesh_alg: integer, optional
+        3D Meshing algorithm
+        1: Delaunay (default)
+        2: Frontal
+        7: MMG3D
+        9: R-tree
+        10: HXT
+
+    force_recomb_all: {0, 1}, optional
+        Recombination into quads.
+
+    element_order: integer, optional
+        Order of the element
+
+    recomb_alg: integer, optional
+        0: hex (default)
+        1: hex + prisms
+        2: hex + prisms + pyramids
+
+    element_order_incomp: {0, 1}, optional
+        Remove interior nodes for second order elements
+    '''
     # ======================================================================================
     # Set up GMSH in Python
     # ======================================================================================
@@ -339,18 +376,7 @@ def generateMeshFEM3D():
     gmsh.initialize()
 
     # Output to terminal
-    gmsh.option.setNumber("General.Terminal", 1)
-
-    # 2D Meshing algorithm
-    # --------------------
-    # 1 - Mesh Adapt
-    # 2 - Automatic
-    # 5 - Delaunay (default)
-    # 6 - Frontal-Delaunay
-    # 7 - BAMG
-    # 8 - Frontal-Delaunay for Quads
-    # 9 - Packing of Parallelograms
-    gmsh.option.setNumber("Mesh.Algorithm", 6)
+    gmsh.option.setNumber("General.Terminal", output_term)
 
     # 3D Meshing algorithm
     # --------------------
@@ -359,7 +385,7 @@ def generateMeshFEM3D():
     # 7 - MMG3D
     # 9 - R-tree
     # 10 - HXT
-    gmsh.option.setNumber("Mesh.Algorithm3D", 1)
+    gmsh.option.setNumber("Mesh.Algorithm3D", mesh_alg)
 
     # Characteristic mesh length factor (applied acroos all mesh)
     gmsh.option.setNumber("Mesh.CharacteristicLengthFactor", 1)
@@ -372,29 +398,18 @@ def generateMeshFEM3D():
     # MSH file version
     gmsh.option.setNumber("Mesh.MshFileVersion", 4.1)
 
-    # Quad/Hex recombination algorithms
-    # ---------------------------------
-    # 0 - simple
-    # 1 - blossom (default)
-    # 2 - simple full-quad
-    # 3 - blosson full-quad
-    gmsh.option.setNumber("Mesh.RecombinationAlgorithm", 1)
-
-    # Force recombination in all surfaces
-    gmsh.option.setNumber("Mesh.RecombineAll", 0)
-
     # Number of topological optimization passes of recombined surface meshes (5 by default)
     gmsh.option.setNumber("Mesh.RecombineOptimizeTopology", 5)
 
     # Force recombination in all volumes
-    gmsh.option.setNumber("Mesh.Recombine3DAll", 0)
+    gmsh.option.setNumber("Mesh.Recombine3DAll", force_recomb_all)
 
     # Recombination level in 3D
     # -------------------------
     # 0 - hex (default)
     # 1 - hex + prisms
     # 2 - hex + prisms + pyramids
-    gmsh.option.setNumber("Mesh.Recombine3DLevel", 0)
+    gmsh.option.setNumber("Mesh.Recombine3DLevel", recomb_alg)
 
     # Recombination conformity type in 3D meshes
     # ------------------------------------------
@@ -415,18 +430,18 @@ def generateMeshFEM3D():
     gmsh.option.setNumber("Mesh.Smoothing", 1)
 
     # Element order
-    gmsh.option.setNumber("Mesh.ElementOrder", 1)
+    gmsh.option.setNumber("Mesh.ElementOrder", element_order)
 
     # Crete second-order nodes by linear interpolation
     gmsh.option.setNumber("Mesh.SecondOrderLinear", 0)
 
     # Second-order incomplete elements
-    gmsh.option.setNumber("Mesh.SecondOrderIncomplete", 0)
+    gmsh.option.setNumber("Mesh.SecondOrderIncomplete", element_order_incomp)
     # ==========================================================================================
     # Generate the finite element mesh
     # ==========================================================================================
     # Define model name
-    title = os.path.splitext(os.path.basename(__file__))[0]
+    title = Particle.file_path
     model.add(title)
 
     x = 0
@@ -435,63 +450,80 @@ def generateMeshFEM3D():
     lx = Particle.box[0]
     ly = Particle.box[1]
 
-    rectTag = factory.addRectangle(0, 0, 0, Particle.box[0], Particle.box[1])
+    boxTag = factory.addBox(0, 0, 0, Particle.box[0], Particle.box[1], Particle.box[2])
     # RVE
 
-    circTag = []
-    outDimTag = [rectTag]
+    particleTags = []
     rotateTags = []
-    k = 0
+    k_particle_image = 0
+    phaseDimTag = dict.fromkeys(Particle.list_phases, [])
     for i_particle in particles:
     # Running through all the particles
+        class_name_i_particle = i_particle.__class__.__name__
+        # Saving the class name of the particle as a string
         for j in range(-1,2):
+        # Periodic images in the x direction
             for p in range(-1,2):
-                xc = i_particle.position_center[0] + Particle.box[0]*j
-                yc = i_particle.position_center[1] + Particle.box[1]*p
-                zc = 0
-                rx = i_particle.semi_major_axis*0.9
-                ry = i_particle.semi_minor_axis*0.9
-                alpha = i_particle.angle
-                # Saving the properties of the particles
-                circTag.append(factory.addDisk(xc, yc, zc, rx, ry))
-                # Creating the ellipse without rotation
-                print(circTag)
-                print(k)
-                # Rotate the disk
-                factory.synchronize()
-                rotateTags.append([(2, circTag[k])])
-                rotateTags[k].extend(model.getBoundary([2, circTag[k]]))
-                print(rotateTags)
-                factory.rotate(rotateTags[k], xc, yc, zc, 0, 0, 1, alpha)
-                # 
-                # # Make a hole in the rectangle with the disk
-                
-                factory.synchronize()
-                k = k + 1
-                print(circTag)
+            # Periodic images in the y direction
+                for l in range(-1,2):
+                # Periodic images in the z direction
+                    if 'Sphere'==class_name_i_particle:
+                    # Particle is a Sphere
+                        xc = i_particle.position_center[0] + Particle.box[0]*j
+                        yc = i_particle.position_center[1] + Particle.box[1]*p
+                        zc = i_particle.position_center[2] + Particle.box[2]*l
+                        r = i_particle.radius*0.9
+                        # Saving the properties of the particles
+                        particleTags.append(factory.addSphere(xc, yc, zc, r))
+
+                        phaseDimTag[i_particle.phase].append(
+                            (3, particleTags[k_particle_image]))
+
+                        factory.synchronize()
+                        k_particle_image += 1
+                    elif 'Ellipsoid'==class_name_i_particle:
+                    # Particle is an Ellipsoid
+                        xc = i_particle.position_center[0] + Particle.box[0]*j
+                        yc = i_particle.position_center[1] + Particle.box[1]*p
+                        zc = 0
+                        rx = i_particle.semi_major_axis*0.9
+                        ry = i_particle.semi_minor_axis*0.9
+                        alpha = i_particle.angle
+                        # Saving the properties of the particles
+                        particleTags.append(factory.addDisk(xc, yc, zc, rx, ry))
+                        # Creating the ellipse without rotation
+                        # Rotate the disk
+                        factory.synchronize()
+                        rotateTags.append([(3, particleTags[k_particle_image])])
+                        rotateTags[k_particle_image].extend(
+                            model.getBoundary([3, particleTags[k_particle_image]]))
+                        factory.rotate(rotateTags[k_particle_image], xc, yc, zc, 0, 0, 1, alpha)
+
+                        phaseDimTag[i_particle.phase].append(
+                            (3, particleTags[k_particle_image]))
+
+                        factory.synchronize()
+                        k_particle_image += 1
+                    elif 'Cylinder'==class_name_i_particle:
+                        pass
 
     outDimTag, outDimTagMap = factory.intersect(
-        [(2, rectTag)], [(2, circTag[k]) for k in range(9*len(particles))], removeObject=False, removeTool=True)
+        [(3, boxTag)], [(3, particleTags[k]) for k in range(3**3*len(particles))], removeObject=False, removeTool=True)
 
-    print(outDimTag)
+    temp = set(outDimTag)
+    for i_phase in Particle.list_phases:
+        phaseDimTag[i_phase] = [ value for value in phaseDimTag[i_phase] if value in temp ]
 
     factory.synchronize()
 
-    outDimTag2, outDimTagMap = factory.fragment(
-        [(2, rectTag)], outDimTag, removeObject=True, removeTool=True)
+    outDimTag2, outDimTagMap2 = factory.fragment(
+        [(3, boxTag)], outDimTag, removeObject=True, removeTool=True)
 
-    
-    # factory.remove(outDimTag[6:7])
-
-    # print(outDimTag)
-    # outDimTag2, outDimTagMap = factory.intersect(
-    #     [(2, rectTag)], [outDimTag]  , removeObject=True, removeTool=True)
-    
-    material1 = [outDimTag2[-1]]
-    material2 = outDimTag2[0:-1]
-    print(material2)
-
-
+    phaseDimTag[Particle.matrix_phase] = outDimTag2[len(outDimTag):]
+    materials = []
+    for i_phase in Particle.list_phases:
+        temp = set(phaseDimTag[i_phase])
+        materials.append([ value[1] for value in outDimTag2 if value in temp ])
 
 
     # Set the mesh size on the geometry points
@@ -499,44 +531,30 @@ def generateMeshFEM3D():
     # It may also be useful for some intermidate operations, like checking the tags of entities
     factory.synchronize()
 
-    # Set boundaries
-    eps = 1e-3
-    # bottom = model.getEntitiesInBoundingBox(x - lx/2, y - ly/2, -eps, x + eps, y + eps, eps)
+    print(Particle.list_phases)
+    print(materials)
+    for i_phase in range(len(Particle.list_phases)):
+        print(i_phase)
+        materialTag = model.addPhysicalGroup(3, materials[i_phase])
+        model.setPhysicalName(3, materialTag, "Phase " + Particle.list_phases[i_phase])
+
+    # material1Tag = model.addPhysicalGroup(material1[0][0], [material1[0][1]])
+    # model.setPhysicalName(material1[0][0], material1Tag, "Material 1")
     # 
-    # factory.remove(bottom)
-    # top = model.getEntitiesInBoundingBox(x - eps, y + ly - eps, -eps, x + lx + eps, y + ly + eps, eps, dim=2)
-    # left = model.getEntitiesInBoundingBox(x - eps, y - eps, -eps, x + eps, y + ly + eps, eps, dim=2)
-    # right = model.getEntitiesInBoundingBox(x + lx - eps, y - eps, -eps, x + lx + eps, y + ly + eps, eps, dim=2)
-    # 
-    # bottomTag = model.addPhysicalGroup(bottom[0][0], [bottom[0][1]])
-    # model.setPhysicalName(bottom[0][0], bottomTag, "Bottom Boundary")
-    # 
-    # topTag = model.addPhysicalGroup(top[0][0], [top[0][1]])
-    # model.setPhysicalName(top[0][0], topTag, "Top Boundary")
-    # 
-    # leftTag = model.addPhysicalGroup(left[0][0], [left[0][1]])
-    # model.setPhysicalName(left[0][0], leftTag, "Left Boundary")
-    # 
-    # rightTag = model.addPhysicalGroup(right[0][0], [right[0][1]])
-    # model.setPhysicalName(right[0][0], rightTag, "Right Boundary")
-    # 
-    material1Tag = model.addPhysicalGroup(material1[0][0], [material1[0][1]])
-    model.setPhysicalName(material1[0][0], material1Tag, "Material 1")
-    
-    material2Tag = model.addPhysicalGroup(material2[0][0], [material2[i][1] for i in range(len(material2))])
-    model.setPhysicalName(material2[0][0], material2Tag, "Material 2")
+    # material2Tag = model.addPhysicalGroup(material2[0][0], [material2[i][1] for i in range(len(material2))])
+    # model.setPhysicalName(material2[0][0], material2Tag, "Material 2")
 
     factory.synchronize()
 
     
-    model.setColor((2, material2[0][1]),0,0,255,a=1)
+    # model.setColor((2, material2[0][1]),0,0,255,a=1)
 
     # Set mesh size
     points = model.getEntities(0)
-    model.mesh.setSize(points, 0.03)
+    model.mesh.setSize(points, mesh_size)
 
     # Generate a 2D mesh
-    model.mesh.generate(2)
+    model.mesh.generate(3)
 
 
 
@@ -622,63 +640,61 @@ def generateMeshFFT(particles, options):
                         regular_grid[i_row,j_column] = k_particle.phase
                         # Setting pixel [i_row, j_column] as belong to the phase of
                         # particle k_particle
-    print(regular_grid)
+        plotPixels(regular_grid, Particle.file_path + "_rgmsh")
+        # Ploting the regular grid
+
+    elif len(options['rve_dims'])==3:
+    # This is a 2D dimnensional problem
+        regular_grid = np.zeros(
+            (options['n_voxels_dims'][0], options['n_voxels_dims'][1], options['n_voxels_dims'][2]))
+        # Initializing the regular
+        for i_row in range(options['n_voxels_dims'][0]):
+        # Running through the pixels from left to right
+            for j_column in range(options['n_voxels_dims'][1]):
+            # Running thorugh the pixels from bottom to top
+                for k_layer in range(options['n_voxels_dims'][2]):
+                # Running thorugh the pixels from bottom to top
+                    center_pixel_i_j_k = \
+                        np.array(
+                        [(i_row+0.5)*pixel_dims[0],
+                        (j_column+0.5)*pixel_dims[1],
+                        (k_layer+0.5)*pixel_dims[2]])
+                    # Center of the pixel corresponding to row i_row, column j_column and
+                    # layer k_layer
+                    for l_particle in particles:
+                    # Running through all the particles
+                        diff_in_box = l_particle.position_center - center_pixel_i_j_k
+                        # Difference vector between the center of the two ellipses
+                        diff_nearest_other = \
+                            options['rve_dims']*np.round(diff_in_box/options['rve_dims'])
+                        # Vector from the particle whose center is in the RVE to the nearest
+                        # image
+                        if l_particle.pointInside(center_pixel_i_j_k + diff_nearest_other):
+                        # The center of the pixel is inside particle k_particle
+                            regular_grid[i_row,j_column,k_layer] = l_particle.phase
+                            # Setting pixel [i_row, j_column, k_layer] as belong to the
+                            # phase of particle k_particle
+        plotVoxels(regular_grid, Particle.matrix_phase, Particle.file_path + "_rgmsh")
+        # Ploting the regular grid
+
     np.save(Particle.file_path, regular_grid)
 
-def doc(c):
-    """
-        Add text to the axes.
+def plotPixels(pixel_grid, dir):
+    import matplotlib.pyplot as plt
+    # This import registers the 3D projection, but is otherwise unused.
+    from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import    
+    fig = plt.figure()
+    plt.imshow(pixel_grid.T)
+    plt.axis([0, np.size(pixel_grid.T, 0), 0, np.size(pixel_grid.T, 1)])
+    plt.savefig(dir + ".png")
+    plt.show(block=False)
 
-        Add the text *s* to the axes at location *x*, *y* in data coordinates.
-
-        Parameters
-        ----------
-        x, y : scalars
-            The position to place the text. By default, this is in data
-            coordinates. The coordinate system can be changed using the
-            *transform* parameter.
-
-        s : str
-            The text.
-
-        fontdict : dictionary, optional, default: None
-            A dictionary to override the default text properties. If fontdict
-            is None, the defaults are determined by your rc parameters.
-
-        withdash : boolean, optional, default: False
-            Creates a `~matplotlib.text.TextWithDash` instance instead of a
-            `~matplotlib.text.Text` instance.
-
-        Returns
-        -------
-        text : `.Text`
-            The created `.Text` instance.
-
-        Other Parameters
-        ----------------
-        **kwargs : `~matplotlib.text.Text` properties.
-            Other miscellaneous text parameters.
-
-        Examples
-        --------
-        Individual keyword arguments can be used to override any given
-        parameter::
-
-            >>> text(x, y, s, fontsize=12)
-
-        The default transform specifies that text is in data coords,
-        alternatively, you can specify text in axis coords ((0, 0) is
-        lower-left and (1, 1) is upper-right).  The example below places
-        text in the center of the axes::
-
-            >>> text(0.5, 0.5, 'matplotlib', horizontalalignment='center',
-            ...      verticalalignment='center', transform=ax.transAxes)
-
-        You can put a rectangular box around the text instance (e.g., to
-        set a background color) by using the keyword *bbox*.  *bbox* is
-        a dictionary of `~matplotlib.patches.Rectangle`
-        properties.  For example::
-
-            >>> text(x, y, s, bbox=dict(facecolor='red', alpha=0.5))
-        """
-    pass
+def plotVoxels(voxel_grid, matrix_phase, dir):
+    import matplotlib.pyplot as plt
+    # This import registers the 3D projection, but is otherwise unused.
+    from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+    ax.voxels(voxel_grid.T==2, edgecolor='k')
+    plt.savefig(dir + ".png")
+    plt.show()

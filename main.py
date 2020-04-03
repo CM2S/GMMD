@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 # Plotting capabilities
 from integration_methods import Newmark
 # Importing an integration method for the equation of motion
-from particle_classes import Disk, Particle, Ellipse
+from particle_classes import Disk, Particle, Ellipse, Sphere
 # Importing the particle class
 from meshing_interface import generateMeshFEM, generateMeshFFT
 import os
@@ -250,7 +250,6 @@ def computeForceij(particle_i, particle_j):
     force_i_j = -intersection_area*unit_vector_i_j
     # Computing the force on particle_i due to particle_j proportional to their
     # intersection area/volume
-    #print('force', force_i_j)
     return force_i_j
 
 def integrate(particles, options):
@@ -274,9 +273,9 @@ def integrate(particles, options):
                 Newmark(particles[i_particle].position_center,
                 particles[i_particle].velocity_center,
                 Particle.global_force_factor*np.array([particles[i_particle].force],dtype='float').T,
-                particles[i_particle].volume()*np.eye(2,dtype='float'), #10e-6*np.eye(2,dtype='float'),#
-                c*np.eye(2,dtype='float'),
-                np.zeros((2,2),dtype='float'),
+                particles[i_particle].volume()*np.eye(particles[i_particle].dim,dtype='float'), #10e-6*np.eye(2,dtype='float'),#
+                c*np.eye(particles[i_particle].dim,dtype='float'),
+                np.zeros((particles[i_particle].dim,particles[i_particle].dim),dtype='float'),
                 dt,
                 1,
                 dim)
@@ -337,9 +336,9 @@ def generateDisks(phase, descriptors):
             disks.append(Disk(phase, np.random.uniform(
                 low=descriptors['r_low'],high=descriptors['r_high'])))
             # Disk with radius 0.5
-            disks[i].position_center = np.random.uniform(size=2) #np.array([0+i**2/200, 0.5]) # # #
+            disks[i].position_center = np.array([i*1/25, np.floor(i/25)*1/25 ]) # # # np.random.uniform(size=2) #
             # Generating the positions from a random uniform distribution between 0 and 1
-            disks[i].velocity_center = np.array([0,0],dtype='float')
+            disks[i].velocity_center = np.random.uniform(size=2) #np.array([0,0],dtype='float')
             # Generating the velocities from a random uniform distribution between -1 and 1
     else:
     # the radius is fixed
@@ -347,12 +346,44 @@ def generateDisks(phase, descriptors):
         # Generating n disks
             disks.append(Disk(phase, descriptors['r'])) #np.random.uniform(low=0.01,high=0.2)))
             # Disk with radius 0.5
-            disks[i].position_center = np.random.uniform(size=2) #np.array([0+i**2/200, 0.5]) # # #
+            disks[i].position_center = np.random.uniform(size=2) # np.array([(i+1)*1/24-np.floor((i+1)*1/24), (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
             # Generating the positions from a random uniform distribution between 0 and 1
-            disks[i].velocity_center = np.array([0,0],dtype='float')
+            disks[i].velocity_center = np.random.uniform(size=2) #np.array([0,0],dtype='float')
             # Generating the velocities from a random uniform distribution between -1 and 1
 
     return disks
+
+def generateSpheres(phase, descriptors):
+    '''
+        This function generates spheres.
+    '''
+
+    spheres = []
+    # Initializing the list containing the spheres
+
+    if descriptors.get('distribution')=='uniform':
+    # the radius follows an uniform distribution
+        for i in range(descriptors['n']):
+        # Generating n spheres
+            spheres.append(Sphere(phase, np.random.uniform(
+                low=descriptors['r_low'],high=descriptors['r_high'])))
+            # Sphere with radius 0.5
+            spheres[i].position_center = np.random.uniform(size=2) #np.array([0+i**2/200, 0.5]) # # #
+            # Generating the positions from a random uniform distribution between 0 and 1
+            spheres[i].velocity_center = np.array([0,0],dtype='float')
+            # Generating the velocities from a random uniform distribution between -1 and 1
+    else:
+    # the radius is fixed
+        for i in range(descriptors['n']):
+        # Generating n spheres
+            spheres.append(Sphere(phase, descriptors['r'])) #np.random.uniform(low=0.01,high=0.2)))
+            # Sphere with radius 0.5
+            spheres[i].position_center = np.random.uniform(size=3) # np.array([0.5+i**2/200, 0.5, 0.5]) #    # #
+            # Generating the positions from a random uniform distribution between 0 and 1
+            spheres[i].velocity_center = np.array([0, 0, 0], dtype='float')
+            # Generating the velocities from a random uniform distribution between -1 and 1
+
+    return spheres
 
 def generateEllipses(phase, descriptors):
     '''
@@ -371,7 +402,7 @@ def generateEllipses(phase, descriptors):
         # Generating n disks
             ellipses.append(Ellipse(phase, descriptors['major_axis'],
                 descriptors['minor_axis'], descriptors['angle']+i/7*np.pi/2)) #np.random.uniform(low=0.01,high=0.2)))
-            # Disk with radius 0.5
+            # Generating ellipses, all with the same dimensions
             ellipses[i].position_center = np.random.uniform(size=2) # np.array([0.5, 0.5-i/20]) # n # #
             # Generating the positions from a random uniform distribution between 0 and 1
             ellipses[i].velocity_center = np.array([0,0],dtype='float')
@@ -414,7 +445,12 @@ def particleGeneration(descriptors, phase_types, options):
         elif phase_types[i_phase] == 3:
         # This phase is made up by ellipses
             particles = particles + generateEllipses(i_phase, descriptors[i_phase])
-            # Generating the number of disks requested and appending them to the list of
+            # Generating the number of ellipses requested and appending them to the list of
+            # particles
+        elif phase_types[i_phase] == 4:
+        # This phase is made up by spheres
+            particles = particles + generateSpheres(i_phase, descriptors[i_phase])
+            # Generating the number of spheres requested and appending them to the list of
             # particles
 
     Particle.file_name = particles[0].__class__.__name__ + "_" + str(Particle.number) + "_" + str(Particle.volume)
@@ -467,10 +503,10 @@ def readDescriptors():
     # Initializing the dictionary containing the options
     #                                                                    Stopping criteria
     # --------------------------------------------------------------------------------------
-    options['max_residue_per_particle'] = 10e-14
-    options['max_step'] = 2000
+    options['max_residue_per_particle'] = 0
+    options['max_step'] = 1000
     # Maximum number of steps
-    options['max_steps_to_relax'] = 500
+    options['max_steps_to_relax'] = 250
     # Maximum number of steps after the legal configuration has been found after which the
     # configuration is accepted
     #                                                                   Integration scheme
@@ -485,7 +521,7 @@ def readDescriptors():
     #
     #                                        Speed up scheme for the computation of forces
     # --------------------------------------------------------------------------------------
-    options['speed_up_scheme']='Verlet'
+    options['speed_up_scheme']='Naive'
     # Speed up scheme
     # 'Naive' - the forces are computed between every pair of particles (O(N**2))
     # 'Cell' - the forces are computed making use of a cell list, such that each particle
@@ -527,7 +563,7 @@ def readDescriptors():
     descriptors = {}
 
     descriptors['4'] = {}
-    descriptors['2'] = {'r':0.02, 'n':500}
+    descriptors['2'] = {'r':0.1, 'n':3}
     # descriptors['2'] = {'distribution':'uniform','r_low':0.02,'r_high':0.04, 'n':190}
     # descriptors['2'] = {'major_axis':0.20,'minor_axis':0.1,'angle':0,'n':10}
     # phase_types: dictionary
@@ -540,7 +576,7 @@ def readDescriptors():
     # 3 - Elliptical particle
     phase_types = {}
     phase_types['4'] = 1 # Matrix
-    phase_types['2'] = 2 # Elliptical particle
+    phase_types['2'] = 4 # Elliptical particle
     # discret_file_ext: list
     #     List which contains the required spatial discretization file(s), stored as
     #                     array = [ < discret_type > < discret_type >  ... ]
@@ -552,12 +588,12 @@ def readDescriptors():
     
     discret_spec_array = {}
     discret_spec_array['rgmsh'] = {}
-    discret_spec_array['rgmsh']['rve_dims'] = np.array([ 1.0, 1.0 ])
-    discret_spec_array['rgmsh']['n_voxels_dims'] = np.array([ 20, 20 ])
+    discret_spec_array['rgmsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
+    discret_spec_array['rgmsh']['n_voxels_dims'] = np.array([ 50, 50, 50])
     # discret_spec_array['femsh'] = {}
-    # discret_spec_array['femsh']['rve_dims'] = np.array([ 1.0, 1.0 ])
-    # discret_spec_array['femsh']['mesh_size'] = 0.03
-    options['rve_dims'] = [1.0, 1.0]
+    # discret_spec_array['femsh']['rve_dims'] = np.array([ 1.0, 1.0, 1.0 ])
+    # discret_spec_array['femsh']['mesh_size'] = 0.1
+    options['rve_dims'] = [1.0, 1.0, 1.0]
 
 
     return [descriptors, phase_types, options, discret_spec_array]
@@ -568,6 +604,7 @@ def computeRelativeEnergy(particles):
     # Obtaining a list with the norms of the vector forces
     relative_energy = norm_force_vec.dot(norm_force_vec)
     # Computing the relative energy
+    print('new',relative_energy)
 
     return relative_energy
 
@@ -576,6 +613,7 @@ def computeKineticEnergy(particles):
     norm_velocity_vec = np.array([np.linalg.norm(particles[i].velocity_center) for i in range(N)],dtype='float')
     # Obtaining a list with the norms of the vector forces
     kin_energy = norm_velocity_vec.dot(norm_velocity_vec)
+    print('kinetic',kin_energy)
 
     return kin_energy
 
@@ -657,7 +695,7 @@ def run(particles, options):
         pass
 
     n_steps_relax = 0
-    # Initializing the number of steps that a microstructure was complying with the 
+    # Initializing the number of steps that a microstructure was complying with the
     # maximum overlap residue
     N = len(particles)
     # Number of particles
@@ -676,10 +714,8 @@ def run(particles, options):
     # Computing the relative energy
     kin_energy = computeKineticEnergy(particles)
     # Computing the kinetic energy
-    print('kinetic',kin_energy)
     relative_energy_old = relative_energy
     # Saving the current relative energy
-    print('new',relative_energy)
     while (step<options['max_step']) and n_steps_relax<options['max_steps_to_relax']:
     # Run the simulation while the number of steps the overlap has been smaller than the
     # allowed maximum residue is larger than options['max_steps_to_relax'], so that the
@@ -694,13 +730,11 @@ def run(particles, options):
         # Computing the relative energy
         kin_energy = computeKineticEnergy(particles)
         # Computing the kinetic energy
-        print('new',relative_energy)
-        print('kinetic',kin_energy)
         if options['thermostat']=='isokinetic':
         # The thermostat used is the isokinetic scheme
             if np.random.uniform() > (1-Particle.volume/2):
             # Probability of rescaling the velocities modelled as Poisson
-                lambda_vel = np.sqrt(np.max([1e1*relative_energy,1e-1])/kin_energy/N)
+                lambda_vel = np.sqrt(np.max([1e6*relative_energy,1e-2])/kin_energy/N)
                 # Rescalling factor (why? 250 -  equipartition theorem)
                 for i_particle in range(N):
                 # Running through all the particles
@@ -712,9 +746,10 @@ def run(particles, options):
         else:
         # There is no thermostat
             pass
-        if relative_energy < max_residue:
+        if relative_energy <= max_residue:
         # If the configuration has an overlap area smaller than the tolerance
             n_steps_relax += 1
+            print('n_steps_relax', n_steps_relax)
             # print('yes',n_steps_relax)
         else:
             n_steps_relax = 0
@@ -745,58 +780,163 @@ def run(particles, options):
     # Integrating Newton's equations of motion
 
 def plotParticles(particles, dir, grid='off', verlet_ngh=False, center_part=False,
-    block=False, **kwargs):
+    block=False, save=True, **kwargs):
     '''
     This function plots the particles
     '''
-
-    fig = plt.figure()
-
-    ax = plt.gca()
+    import matplotlib.pyplot as plt
 
     N = len(particles)
+    if particles[0].dim == 2:
+    # Two dimensional problem
+        fig = plt.figure()
 
-    for i in range(N):
-        class_name_i_particle = particles[i].__class__.__name__
-        for j in range(-1,2):
-            for k in range(-1,2):
-                if 'Disk'==class_name_i_particle:
-                    circ = mpatches.Circle(
-                        particles[i].position_center+np.array([1*j,1*k]), radius=particles[i].radius,alpha=0.8)
-                    ax.add_artist(circ)
-                    if verlet_ngh:
+        ax = plt.gca()        
+
+        for i in range(N):
+            class_name_i_particle = particles[i].__class__.__name__
+            for j in range(-1,2):
+                for k in range(-1,2):
+                    if 'Disk'==class_name_i_particle:
                         circ = mpatches.Circle(
-                            particles[i].position_center+np.array([1*j,1*k]+particles[i].displacement_last_verlet), radius=Particle.verlet_factor*particles[i].radius, alpha=0.1)
+                            particles[i].position_center+np.array([1*j,1*k]), radius=particles[i].radius,alpha=0.8)
                         ax.add_artist(circ)
-                    if center_part:
-                        plt.annotate(xy = particles[i].position_center, s=str(i))
-                        plt.scatter(particles[i].position_center[0],particles[i].position_center[1])
-                if 'Ellipse'==class_name_i_particle:
-                    ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j,1*k]), particles[i].major_axis, particles[i].minor_axis,angle=180/np.pi*particles[i].angle,alpha=0.8)
-                    ax.add_artist(ellip)
-                    if verlet_ngh:
-                        ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j,1*k]+particles[i].displacement_last_verlet), particles[i].major_axis*Particle.verlet_factor, particles[i].minor_axis*Particle.verlet_factor,angle=180/np.pi*particles[i].angle,alpha=0.2)
+                        if verlet_ngh:
+                            circ = mpatches.Circle(
+                                particles[i].position_center+np.array([1*j,1*k]+particles[i].displacement_last_verlet), radius=Particle.verlet_factor*particles[i].radius, alpha=0.1)
+                            ax.add_artist(circ)
+                        if center_part:
+                            plt.annotate(xy = particles[i].position_center, s=str(i))
+                            plt.scatter(particles[i].position_center[0],particles[i].position_center[1])
+                    if 'Ellipse'==class_name_i_particle:
+                        ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j,1*k]), particles[i].major_axis, particles[i].minor_axis,angle=180/np.pi*particles[i].angle,alpha=0.8)
                         ax.add_artist(ellip)
-                    if center_part:
-                        plt.annotate(xy = particles[i].position_center, s=str(i))
-                        plt.scatter(particles[i].position_center[0],particles[i].position_center[1])
+                        if verlet_ngh:
+                            ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j,1*k]+particles[i].displacement_last_verlet), particles[i].major_axis*Particle.verlet_factor, particles[i].minor_axis*Particle.verlet_factor,angle=180/np.pi*particles[i].angle,alpha=0.2)
+                            ax.add_artist(ellip)
+                        if center_part:
+                            plt.annotate(xy = particles[i].position_center, s=str(i))
+                            plt.scatter(particles[i].position_center[0],particles[i].position_center[1])
+
+        
+
+        if grid=='cell_list':
+            plt.xticks(np.linspace(0,1,Particle.n_cell_dim+1 ,endpoint=True))
+            plt.yticks(np.linspace(0,1,Particle.n_cell_dim+1,endpoint=True))
+            plt.grid(b=True, which='both')
+        elif grid=='fft':
+            discret_spec_array = kwargs('discret_spec_array')
+            plt.xticks(np.linspace(0,1,discret_spec_array['rgmsh']['n_voxels_dims'][0]+1 ,endpoint=True))
+            plt.yticks(np.linspace(0,1,discret_spec_array['rgmsh']['n_voxels_dims'][1]+1,endpoint=True))
+            plt.grid(b=True, which='both')
+
+        ax.axis("square")
+
+        plt.axis([0, 1, 0, 1])
+        
+        plt.savefig(dir + ".png")
+        plt.show()
+
+    elif particles[0].dim==3:
+        pass
+    else:
+        box = Particle.box
+        from mpl_toolkits.mplot3d import Axes3D
+        from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
+        import matplotlib.pyplot as plt
+
+        def drawSphere(pos, r):
+            #draw sphere
+            u, v = np.mgrid[0:2*np.pi:5j, 0:np.pi:5j]
+            x=np.cos(u)*np.sin(v)
+            y=np.sin(u)*np.sin(v)
+            z=np.cos(v)
+            # shift and scale sphere
+            x = r*x + pos[0]
+            y = r*y + pos[1]
+            z = r*z + pos[2]
+            return (x,y,z)
     
-    plt.axis([0, 1, 0, 1])
+        def plot_cube(cube_definition):
+            cube_definition_array = [
+                np.array(list(item))
+                for item in cube_definition
+            ]
+
+            points = []
+            points += cube_definition_array
+            vectors = [
+                cube_definition_array[1] - cube_definition_array[0],
+                cube_definition_array[2] - cube_definition_array[0],
+                cube_definition_array[3] - cube_definition_array[0]
+            ]
+
+            points += [cube_definition_array[0] + vectors[0] + vectors[1]]
+            points += [cube_definition_array[0] + vectors[0] + vectors[2]]
+            points += [cube_definition_array[0] + vectors[1] + vectors[2]]
+            points += [cube_definition_array[0] + vectors[0] + vectors[1] + vectors[2]]
+
+            points = np.array(points)
+
+            edges = [
+                [points[0], points[3], points[5], points[1]],
+                [points[1], points[5], points[7], points[4]],
+                [points[4], points[2], points[6], points[7]],
+                [points[2], points[6], points[3], points[0]],
+                [points[0], points[2], points[4], points[1]],
+                [points[3], points[6], points[7], points[5]]
+            ]
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111, projection='3d')
+
+            faces = Poly3DCollection(edges, linewidths=1, edgecolors='k')
+            faces.set_facecolor((0,0,1,0.05))
+
+            ax.add_collection3d(faces)
+
+            # Plot the points themselves to force the scaling of the axes
+            ax.scatter(points[:,0], points[:,1], points[:,2], s=0)
+
+            ax.set_aspect('equal')
+
+
+        cube_definition = [
+            (0,0,0), (0,1,0), (1,0,0), (0,0,1)
+        ]
+        plot_cube(cube_definition)
+
+        
+        fig = plt.gcf()
+        ax = fig.gca()
+
+        for i in range(N):
+            for j in range(-1,2):
+                for k in range(-1,2):
+                    for l in range(-1,2):
+                        (xs,ys,zs) = drawSphere(particles[i].position_center+np.array([1*j,1*k,1*l]), particles[i].radius)
+                        x_clip = np.logical_or(np.abs(np.array(xs)) > 1, xs < 0)
+                        y_clip = np.logical_or(np.abs(np.array(ys)) > 1, ys < 0)
+                        z_clip = np.logical_or(np.abs(np.array(zs)) > 1, zs < 0)
+                        in_points = np.logical_or(np.logical_or(x_clip, y_clip), z_clip)
+                        # xs[in_points] = np.nan
+                        # ys[in_points] = np.nan
+                        zs[in_points] = np.nan
+                        ax.plot_wireframe(xs, ys, zs, color="b")
+                        ax.text(particles[i].position_center[0],particles[i].position_center[1], particles[i].position_center[2], str(i))
+                        plt.scatter(particles[i].position_center[0],particles[i].position_center[1], particles[i].position_center[2])
+
+        plt.grid(b=False)
+        ax.set_aspect('equal')
+        ax.set_xlim3d(0, 1)
+        ax.set_ylim3d(0,1)
+        ax.set_zlim3d(0,1)
+        ax.set_clip_on(True)
+        # plt.axis([0, 1, 0, 1, 0, 1])
 
     
-    if grid=='cell_list':
-        plt.xticks(np.linspace(0,1,Particle.n_cell_dim+1 ,endpoint=True))
-        plt.yticks(np.linspace(0,1,Particle.n_cell_dim+1,endpoint=True))
-        plt.grid(b=True, which='both')
-    elif grid=='fft':
-        discret_spec_array = kwargs('discret_spec_array')
-        plt.xticks(np.linspace(0,1,discret_spec_array['rgmsh']['n_voxels_dims'][0]+1 ,endpoint=True))
-        plt.yticks(np.linspace(0,1,discret_spec_array['rgmsh']['n_voxels_dims'][1]+1,endpoint=True))
-        plt.grid(b=True, which='both')
-
-    plt.savefig(dir + ".png")
-
-    plt.show(block=block)
+    
+    
 
 if __name__ == '__main__':
 
@@ -812,7 +952,8 @@ if __name__ == '__main__':
     # Reading the descriptors and options for the microstructure generation
     particles = particleGeneration(descriptors, phase_types, options)
     # Generating the list of particles from the geometrical descriptors
-    plotParticles(particles, Particle.file_path + "_random")
+    plotParticles(particles, Particle.file_path + "_random", save=False)
+    print('pos_init', [ (i,particles[i].position_center) for i in range(len(particles))])
     run(particles, options)
     # Running the molecular dynamics simulation
     # How to implement multiple runs?
@@ -822,11 +963,14 @@ if __name__ == '__main__':
         generateMeshFFT(particles, discret_spec_array['rgmsh'])
         # Generating the FFT mesh as a regular grid and saving it in a .dat file
     if 'femsh' in discret_spec_array:
-    # A mesh for FEM was requested        
-        generateMeshFEM(particles, discret_spec_array['femsh']['mesh_size'])
+    # A mesh for FEM was requested
+        print('here')
+        generateMeshFEM(particles, discret_spec_array['femsh']['mesh_size'], output_term=True)
         # Generating the FEM mesh using gmsh and saving an input data file for LINKS
 
-    plotParticles(particles, Particle.file_path)
+    print('pos_end', [ (i,particles[i].position_center) for i in range(len(particles))])
+
+    plotParticles(particles, Particle.file_path, save=False)
 
     
     print(end - start)

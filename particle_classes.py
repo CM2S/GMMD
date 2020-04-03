@@ -61,46 +61,58 @@ class Particle():
         particle j
         '''
 
-        box = np.array([1, 1],dtype='float')
+        box = Particle.box
 
         vector_centers = other_particle.position_center - self.position_center
         vector_centers = vector_centers - box*np.round(vector_centers/box)
         # Vector connecting the centers of the current particle and the nearest image of
         # the other particle
-        angle_opposite = np.arctan2(vector_centers[1],vector_centers[0])
-        if np.random.uniform() > 0:
-            angle_new = angle_opposite + np.random.uniform(low=-np.pi/4,high=np.pi/4)
-        else:
-            angle_new = angle_opposite
-        if np.linalg.norm(vector_centers) != 0:
-            unit_vector_i_j = np.array([np.cos(angle_new), np.sin(angle_new)])
-            # unit_vector_i_j = vector_centers/np.linalg.norm(vector_centers)
-        else:
-            random_vector = np.random.uniform(size=self.dim)
-            unit_vector_i_j = random_vector/np.linalg.norm(random_vector)
-        return unit_vector_i_j
-
+        if self.dim==2:
+            angle_opposite = np.arctan2(vector_centers[1],vector_centers[0])
+            if np.random.uniform() > 1:
+                angle_new = angle_opposite + np.random.uniform(low=-np.pi/4,high=np.pi/4)
+            else:
+                angle_new = angle_opposite
+            if np.linalg.norm(vector_centers) != 0:
+                unit_vector_i_j = np.array([np.cos(angle_new), np.sin(angle_new)])
+                # unit_vector_i_j = vector_centers/np.linalg.norm(vector_centers)
+            else:
+                random_vector = np.random.uniform(size=self.dim)
+                unit_vector_i_j = random_vector/np.linalg.norm(random_vector)
+            return unit_vector_i_j
+        elif self.dim==3:
+            if np.linalg.norm(vector_centers) != 0:
+                unit_vector_i_j = vector_centers/np.linalg.norm(vector_centers)
+                # unit_vector_i_j = vector_centers/np.linalg.norm(vector_centers)
+            else:
+                random_vector = np.random.uniform(size=self.dim)
+                unit_vector_i_j = random_vector/np.linalg.norm(random_vector)
+            return unit_vector_i_j
 
 # ==========================================================================================
 class Disk(Particle):
     '''
     This is the subclass of particles with the form of a circular disk.
 
-    Attributes:
-        radius: int
-            Radius of the disk
+    Attributes
+    ----------
+    radius: float
+        Radius of the disk
     '''
     def __init__(self, phase, radius):
         '''
         The constructor of the Disk particle.
 
-        Parameters:
-            center: list
-                The position vector of the center of mass of the particle
-            dim: int
-                Number of the dimensions of the space where the particle "lives"
-            radius: float
-                Radius of the disk
+        Parameters
+        ----------
+        center: array
+            The position vector of the center of mass of the particle
+
+        dim: int
+            Number of the dimensions of the space where the particle "lives"
+
+        radius: float
+            Radius of the disk
         '''
         self.dim = 2
         self.radius = radius
@@ -238,8 +250,179 @@ class Disk(Particle):
 
         return volume
 
+class Sphere(Particle):
+    '''
+    This is the subclass of particles with the form of a sphere.
+
+    Attributes
+    ----------
+    radius: float
+        Radius of the disk
+    '''
+    def __init__(self, phase, radius):
+        '''
+        The constructor of the Sphere particle.
+
+        Parameters
+        ----------
+        phase: str
+            Phase to wich the particle belongs
+
+        radius: float
+            Radius of the sphere
+        '''
+
+        self.radius = radius
+        super().__init__(3, phase)
+
+    def intersectionArea(self, other_particle):
+        '''
+        This function computes the intersection volume (it's called area for compatibility
+        reasons) between the Sphere and the other particle.
+
+        Parameters
+        ----------
+        other_particle: `.Particle`
+            Other particle
+        '''
+
+        class_name_other_particle = other_particle.__class__.__name__
+        # Saving the class name of the other particle as a string
+        if 'Sphere'==class_name_other_particle:
+        # The other particle is also a Sphere
+            intersection_volume = self.intersectionVolumeSphereSphere(other_particle)
+            # Computing the intersection area
+            return intersection_volume
+            # Returning the intersection area
+        elif 'Ellipsoid'==class_name_other_particle:
+        # The other particle is an Ellipsoid
+            intersection_volume = self.intersectionVolumeSphereEllipsoid(other_particle)
+            # Computing the intersection area
+            return intersection_volume
+            # Returning the intersection area
+
+    def intersectionVolumeSphereSphere(self, other_sphere):
+        '''
+        This function computes the intersection area between two Spheres.
+
+        Parameters
+        ----------
+        other_sphere: `.Sphere`
+        Other sphere whose intersection volume with the current sphere we want to know
+        '''
+
+        box = Particle.box
+        # Saving the array defining the RVE box
+        diff_center = self.position_center - other_sphere.position_center
+        diff_center = diff_center - box*np.round(diff_center/box)
+        # Computing the difference vector between the centers of the current sphere and
+        # the nearest image of the other sphere
+        d = np.linalg.norm(diff_center)
+        # Distance between the current sphere and the nearest image of the other sphere
+        if self.radius >= other_sphere.radius:
+        # The radius of the self is larger than the radius of the other sphere
+            r_1 = self.radius
+            # Sphere 1 is the sphere with the larger radius
+            r_2 = other_sphere.radius
+            # Sphere 2 is the sphere with the smaller radius
+        else:
+        # The radius of the other sphere is larger than the radius of the self
+            r_1 = other_sphere.radius
+            # Sphere 1 is the sphere with the larger radius
+            r_2 = self.radius
+            # Sphere 2 is the sphere with the smaller radius
+        if d>=(r_1 + r_2):
+        # The spheres intersect at most at one point
+            intersection_volume = 0
+            print('no intersection', d, r_1, r_2)
+            print('position', self.position_center, other_sphere.position_center)
+            # The intersection area of the spheres is zero
+        elif d <= r_1 - r_2:
+        # Sphere 2 is interely contained within Sphere 1
+            intersection_volume = 4/3*np.pi*r_2**3
+            # The intersection area is equal to the area of the smaller sphere, Sphere 2
+        else:
+            # d_1 = (r_1**2 - r_2**2 + d**2)/(2*d)
+            # # x coordinate of the intersection point of the two disks if the the origin is at
+            # # disk 1 and the x axis goes through the center of both disks
+            # d_2 = d - d_1
+            # # Distance in the x axis from the intersection point to disk 2
+            # intersection_volume = (
+            #     r_1**3/3*2*np.pi*(1 - d_1/r_1)   # Volume of spherical cap (Sphere 1)
+            #     - d_1*(r_1**2-d_1**2)*np.pi/3    # Volume of cone (Sphere 1)
+            #     + r_2**3/3*2*np.pi*(1 - d_2/r_2)   # Volume of shperical cap (Sphere 2)
+            #     - d_2*(r_2**2 - d_2**2)*np.pi/3)  # Volume of cone (Sphere 2)
+            # # Computing the intersection area as the sum of the spherical caps minus the
+            # # corresponding cones
+            print('no intersection', d, r_1, r_2)
+            intersection_volume = 0.01
+        return intersection_volume
+        # Returning the intersection area
+
+    def volume(self):
+        
+        volume = 4*np.pi/3*self.radius**3
+        return volume
+
+    def intersectionAreaDiskEllipse(self, ellipse):
+        pass
+
+    def intersectionVerlet(self, other_particle):
+        '''
+        This function computes the intersection between the disk and the other particle.
+
+        Parameters:
+            other_particle: Particle
+                Other particle
+        '''
+        class_name_other_particle = other_particle.__class__.__name__
+        # Saving the class name of the other particle as a string
+        if 'Disk'==class_name_other_particle:
+        # The other particle is also a Disk
+            intersection_verlet = self.intersectionVerletDiskDisk(other_particle)
+            # Computing the intersection area
+            return intersection_verlet
+            # Returning the intersection area
+    def pointInside(self, point):
+        
+        if np.linalg.norm(self.position_center-point)<=self.radius:
+            point_in = True
+        else:
+            point_in = False
+
+        return point_in
+
+    def intersectionVerletDiskDisk(self, other_disk):
+        '''
+        This function computes the intersection area between two disks
+        '''
+
+        box = Particle.box
+        # Saving the limits of the box
+        diff_center = self.position_center - other_disk.position_center
+        diff_center = diff_center - box*np.round(diff_center/box)
+        # Vector between the centers of the current disk and the nearest image of the other
+        # disk
+        d = np.sqrt(diff_center.dot(diff_center))
+        # Distance between the disks
+        if d<(self.radius+other_disk.radius)*Particle.verlet_factor:
+        # The disks are in eachothers neighboorhoods
+            intersection_verlet = True
+        else:
+            intersection_verlet = False
+        return intersection_verlet
+
+    def volume(self):
+        '''
+        This function computes the volume/area of the disk.
+        '''
+
+        volume = np.pi*self.radius**2
+
+        return volume
+
 class Ellipse(Particle):
-    """docstring for Ellispe."""
+    """docstring for Ellipse."""
 
     def __init__(self, phase, major_axis, minor_axis, angle):
         '''
