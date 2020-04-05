@@ -64,7 +64,7 @@ def generateMeshFEM(particles, mesh_size, element_type="tri3", **kwargs):
             generateMeshFEM2D(particles, mesh_size, force_recomb_all=1,
                 output_term=output_term)
             # Generating a mesh of linear triangular elements
-        elif elment_type=="quad8":
+        elif element_type=="quad8":
         # 2nd order rectangular elment of the serendipity family
             generateMeshFEM2D(particles, mesh_size, force_recomb_all=1,
                 element_order=2, elemnet_order_incomp=1, output_term=output_term)

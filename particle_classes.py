@@ -37,7 +37,7 @@ class Particle():
         This function sets the position of the center of mass of the particle
         '''
 
-        self.position_center = position_center
+        self.position_center = position
         # Setting the position of the center of mass of the particle
 
     def setVelocityCenter(self, velocity):
@@ -45,7 +45,7 @@ class Particle():
         This function sets the velocity of the center of mass of the particle.
         '''
 
-        self.velocity_center = velocity_center
+        self.velocity_center = velocity
         # Setting the velocity of the center of mass of the particle
 
     def cleanForces(self):
@@ -141,7 +141,7 @@ class Disk(Particle):
             # Returning the intersection area
         elif 'Ellipse'==class_name_other_particle:
         # The other particle is an Ellipse
-            intersection_area = self.intersectionAreaDiskEllipse(ellipse)
+            intersection_area = self.intersectionAreaDiskEllipse(other_particle)
             # Computing the intersection area
             return intersection_area
             # Returning the intersection area
@@ -794,7 +794,7 @@ class Ellipse(Particle):
         # Saving the class name of the other particle as a string
         if 'Disk'==class_name_other_particle:
         # The other particle is a Disk
-            intersection_area = self.intersectionAreaEllipseDisk(disk)
+            intersection_area = self.intersectionAreaEllipseDisk(other_particle)
             # Computing the intersection area
             return intersection_area
             # Returning the intersection area
