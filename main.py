@@ -40,14 +40,15 @@ def newVerletList(particles):
         # Resetting the displacement of the center of mass of the particle relative to its
         # neighboorhood
         pos_cell_list_dim = []
-        # Initializing the list containing the position of the particle in the grid, assuming:
-        # 2D: the cells are numbered from left to right and from bottom to top
+        # Initializing the list containing the position of the particle in the grid
+        # assuming: 2D: the cells are numbered from left to right and from bottom to top
         for j_dim in range(dim):
         # Running through all the dimensions
-            pos_cell_list_dim.append(
-                np.int(np.floor(particles[i_particle].position_center[j_dim]/Particle.cell_side_length)))
+            pos_cell_list_dim.append(np.int(np.floor(
+                particles[i_particle].position_center[j_dim]
+                / Particle.cell_side_length[j_dim])))
             # j_dim-position of the particle in the grid
-        if dim==2:
+        if dim == 2:
         # 2D problem
             pos_cell_list = pos_cell_list_dim[0] + \
                 pos_cell_list_dim[1]*Particle.n_cell_dim[1]
@@ -132,18 +133,20 @@ def newCellList(particles):
         for j_dim in range(dim):
         # Running through all the dimensions
             pos_cell_list_dim.append(np.int(np.floor(
-                particles[i_particle].position_center[j_dim]/Particle.cell_side_length)))
+                particles[i_particle].position_center[j_dim]
+                / Particle.cell_side_length[j_dim])))
             # j_dim-position of the particle in the grid
-        if dim==2:
+        if dim == 2:
         # 2D problem
             pos_cell_list = pos_cell_list_dim[0] + \
                 pos_cell_list_dim[1]*Particle.n_cell_dim[1]
             # Saving the position in the cell list of particle i_particle
         Particle.cell_list[pos_cell_list].append(i_particle)
 
+
 def computeForces(particles, speed_up_scheme):
-    '''
-    This function computes the forces between all the particle pairs in the system
+    """
+    Compute the forces between all the particle pairs in the system.
 
     Parameters
     ----------
@@ -158,9 +161,8 @@ def computeForces(particles, speed_up_scheme):
                 cells (O(N))
             "Verlet": the forces are computed using a Verlet list for each particle, that in
                 turn in computed using a cell list method
-    '''
-
-    dim = particles[1].dim
+    """
+    dim = particles[0].dim
     # Saving the dimension of the problem
     for i_particle in range(len(particles)):
     # Running through all the particles
@@ -176,11 +178,11 @@ def computeForces(particles, speed_up_scheme):
                 force_i_j = computeForceij(particles[i_particle], particles[j_particle])
                 # Computing the force on particle i due to particle j
                 particles[i_particle].force = particles[i_particle].force + force_i_j
-                # Adding the force due to the interaction between particle 1 and 2 to the total
-                # force acting on particle 1
+                # Adding the force due to the interaction between particle 1 and 2 to the
+                # total force acting on particle 1
                 particles[j_particle].force = particles[j_particle].force - force_i_j
-                # Adding the force due to the interaction between particle 1 and 2 to the total
-                # force acting on particle 2
+                # Adding the force due to the interaction between particle 1 and 2 to the
+                # total force acting on particle 2
     elif speed_up_scheme == 'Cell':
     # Cell list: O(N)
         newCellList(particles)
@@ -193,7 +195,8 @@ def computeForces(particles, speed_up_scheme):
             for j_dim in range(dim):
             # Running through all the dimensions
                 pos_cell_list_dim.append(np.int(np.floor(
-                    particles[i_particle].position_center[j_dim]/Particle.cell_side_length)))
+                    particles[i_particle].position_center[j_dim]
+                    / Particle.cell_side_length[j_dim])))
                 # j_dim-position of the particle in the grid
             if dim==2:
             # 2D problem
@@ -813,28 +816,23 @@ def run(particles, max_residue_per_particle, max_step, options):
     # Saving the number of particles
     box = Particle.box
     # Saving the array containing the size of the box
-    dim = particles[1].dim
+    dim = particles[0].dim
     # Saving the array containing the dimension of the problem
     speed_up_scheme = options.get('speed_up_scheme', 'Verlet')
     if speed_up_scheme == 'Cell':
         # Only a cell list scheme will be used
         max_radius = np.max(np.array([particles[i].radius for i in range(N)]))
         # Saving the maximum radius of the circunscribing disk/sphere
-        n_cells = 1
-        # Initializing the number of cells
-        Particle.n_cell_dim = []
-        # Initializing the list containing the number of cells in each direction
-        for i_dim in range(dim):
-            # Running through all the dimensions
-            Particle.n_cell_dim.append(np.int(np.round(box[i_dim]/(2*max_radius))))
-            n_cells *= Particle.n_cell_dim[i_dim]
-            # Computing the number of cells, such that a particle interacts at most with
-            # particles in its cell and nearst neighboor cells
+        Particle.n_cell_dim = (
+            [np.int(np.round(box[i_dim]/(2*max_radius))) for i_dim in range(dim)])
+        # Obtaining a list containing the number of cells in each direction
+        n_cells = np.prod(Particle.n_cell_dim)
+        # Obtaining the total number of cells
         Particle.cell_list = [[] for i in range(n_cells)]
         # Initializing the cell list
-        Particle.cell_side_length = box[0]/Particle.n_cell_dim[0]
-        # Setting the cell side length as the radius of the largest
-        # Limited to squares and cubes (FIX)
+        Particle.cell_side_length = (
+            [box[i_dim]/Particle.n_cell_dim[i_dim] for i_dim in range(dim)])
+        # Obtaining a list containing the dimensions of the cell in each direction
     elif speed_up_scheme == 'Verlet':
         # A Verlet list combined with a cell list scheme will be used
         Particle.verlet_factor = options['verlet_factor']
@@ -849,21 +847,16 @@ def run(particles, max_residue_per_particle, max_step, options):
                      )
         # Saving the maximum radius of the circunscribing disk/sphere accounting for the
         # Verlet factor
-        print(Particle.volume)
-        n_cells = 1
-        # Initializing the number of cells
-        Particle.n_cell_dim = []
-        # Initializing the list containing the number of cells in each direction
-        for i_dim in range(dim):
-            # Running through all the dimensions
-            Particle.n_cell_dim.append(np.int(np.round(box[i_dim]/(2*max_radius))))
-            n_cells *= Particle.n_cell_dim[i_dim]
-            # Computing the number of cells, such that a particle interacts at most with
-            # particles in its cell and nearst neighboor cells
+        Particle.n_cell_dim = (
+            [np.int(np.round(box[i_dim]/(2*max_radius))) for i_dim in range(dim)])
+        # Obtaining a list containing the number of cells in each direction
+        n_cells = np.prod(Particle.n_cell_dim)
+        # Obtaining the total number of cells
         Particle.cell_list = [[] for i in range(n_cells)]
         # Initializing the cell list
-        Particle.cell_side_length = box[0]/Particle.n_cell_dim[0]
-        # Setting the cell side length as the radius of the largest
+        Particle.cell_side_length = (
+            [box[i_dim]/Particle.n_cell_dim[i_dim] for i_dim in range(dim)])
+        # Obtaining a list containing the dimensions of the cell in each direction
     else:
         # A naive approach will be used
         pass

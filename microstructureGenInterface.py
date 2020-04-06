@@ -268,9 +268,6 @@ def generateMicrostructures(dp_dir, mic_gen_program, mic_gen_parameters, problem
         # that generates microstructures
         main.main()
         # Executing the script for microstructure generation
-        os.remove("input_data\\info_micro.p")
-        # Deleting the file containing the input data
-
 
 if __name__ == '__main__':
 
