@@ -90,6 +90,8 @@ class Particle():
             return unit_vector_i_j
 
 # ==========================================================================================
+
+
 class Disk(Particle):
     '''
     This is the subclass of particles with the form of a circular disk.
@@ -241,7 +243,6 @@ class Disk(Particle):
             intersection_verlet = False
         return intersection_verlet
 
-
     def volume(self):
         '''
         This function computes the volume/area of the disk.
@@ -250,6 +251,17 @@ class Disk(Particle):
         volume = np.pi*self.radius**2
 
         return volume
+
+    def insideVerlet(self):
+        """Check if the ellipse has moved outside its Verlet neighboorhood."""
+        if np.linalg.norm(self.displacement_last_verlet) >= \
+            self.radius*(Particle.verlet_factor - 1):
+        # Its possible for the ellipse to have moved outside its Verlet neighboorhood
+            point_in = False
+            # Checking if the ellipse is still inside its Verlet neighboorhood
+        else:
+        # the center of the ellipse has not
+            point_in = True
 
 class Sphere(Particle):
     '''
@@ -332,11 +344,9 @@ class Sphere(Particle):
             # Sphere 1 is the sphere with the larger radius
             r_2 = self.radius
             # Sphere 2 is the sphere with the smaller radius
-        if d>=(r_1 + r_2):
+        if d >= (r_1 + r_2):
         # The spheres intersect at most at one point
             intersection_volume = 0
-            print('no intersection', d, r_1, r_2)
-            print('position', self.position_center, other_sphere.position_center)
             # The intersection area of the spheres is zero
         elif d <= r_1 - r_2:
         # Sphere 2 is interely contained within Sphere 1
@@ -355,7 +365,6 @@ class Sphere(Particle):
             #     - d_2*(r_2**2 - d_2**2)*np.pi/3)  # Volume of cone (Sphere 2)
             # # Computing the intersection area as the sum of the spherical caps minus the
             # # corresponding cones
-            print('no intersection', d, r_1, r_2)
             intersection_volume = 0.01
         return intersection_volume
         # Returning the intersection area
@@ -365,7 +374,7 @@ class Sphere(Particle):
         volume = 4*np.pi/3*self.radius**3
         return volume
 
-    def intersectionAreaDiskEllipse(self, ellipse):
+    def intersectionVolumeSphereEllipsoid(self, ellipse):
         pass
 
     def intersectionVerlet(self, other_particle):
@@ -373,17 +382,18 @@ class Sphere(Particle):
         This function computes the intersection between the disk and the other particle.
 
         Parameters:
-            other_particle: Particle
+            other_particle: `.Particle`
                 Other particle
         '''
         class_name_other_particle = other_particle.__class__.__name__
         # Saving the class name of the other particle as a string
-        if 'Disk'==class_name_other_particle:
+        if 'Sphere' == class_name_other_particle:
         # The other particle is also a Disk
-            intersection_verlet = self.intersectionVerletDiskDisk(other_particle)
+            intersection_verlet = self.intersectionVerletSphereSphere(other_particle)
             # Computing the intersection area
             return intersection_verlet
             # Returning the intersection area
+
     def pointInside(self, point):
         
         if np.linalg.norm(self.position_center-point)<=self.radius:
@@ -393,20 +403,19 @@ class Sphere(Particle):
 
         return point_in
 
-    def intersectionVerletDiskDisk(self, other_disk):
-        '''
+    def intersectionVerletSphereSphere(self, other_sphere):
+        """
         This function computes the intersection area between two disks
-        '''
-
+        """
         box = Particle.box
         # Saving the limits of the box
-        diff_center = self.position_center - other_disk.position_center
+        diff_center = self.position_center - other_sphere.position_center
         diff_center = diff_center - box*np.round(diff_center/box)
         # Vector between the centers of the current disk and the nearest image of the other
         # disk
         d = np.sqrt(diff_center.dot(diff_center))
         # Distance between the disks
-        if d<(self.radius+other_disk.radius)*Particle.verlet_factor:
+        if d < (self.radius + other_sphere.radius)*Particle.verlet_factor:
         # The disks are in eachothers neighboorhoods
             intersection_verlet = True
         else:
@@ -421,6 +430,17 @@ class Sphere(Particle):
         volume = np.pi*self.radius**2
 
         return volume
+
+    def insideVerlet(self):
+        """Check if the ellipse has moved outside its Verlet neighboorhood."""
+        if np.linalg.norm(self.displacement_last_verlet) >= \
+            self.radius*(Particle.verlet_factor - 1):
+        # Its possible for the ellipse to have moved outside its Verlet neighboorhood
+            point_in = False
+            # Checking if the ellipse is still inside its Verlet neighboorhood
+        else:
+        # the center of the ellipse has not
+            point_in = True
 
 class Ellipse(Particle):
     """docstring for Ellipse."""
@@ -486,7 +506,6 @@ class Ellipse(Particle):
         r_point = np.linalg.norm(r_vector)
         # Distance from the point to the center of the ellipse
         angle_pt_major = np.arctan2(r_vector[1], r_vector[0])
-        #print('angle_inside', angle_pt_major)
         # Angle that the vector connecting the center of the ellipse and the point makes
         # with the major axis
         if verlet:
@@ -528,8 +547,6 @@ class Ellipse(Particle):
         diff_in_box = self.position_center - other_ellipse.position_center
         # Difference vector between the center of the two ellipses
         diff_nearest_other = box*np.round(diff_in_box/box)
-        #print('diff', diff_nearest_other)
-
         intersect_pts = intersectionPointsEllipses(
             self.major_axis/2, self.minor_axis/2,  self.position_center, self.angle,
             other_ellipse.major_axis/2, other_ellipse.minor_axis/2,
@@ -590,7 +607,6 @@ class Ellipse(Particle):
             # Saving the ellipses in a list
             midpoint = self.midpointOnEllipse(intersect_pts_ord[0], intersect_pts_ord[1])
             # Midpoint between the first two intersection points in the current ellipse
-            #print('midpoint', midpoint)
             if other_ellipse.pointInsideEllipse(midpoint):
             # If the midpoint is on the other ellipse
                 intersection_area += \
@@ -644,17 +660,13 @@ class Ellipse(Particle):
                         intersect_pts_ord[0] - diff_nearest_other,
                         intersect_pts_ord[1] - diff_nearest_other)
                 k_ellipse = 0
-            #print('here area', intersection_area)
             for i_segment in range(1,4):
             # Running through each segment
                 k_ellipse = np.mod(k_ellipse+1,2)
-                #print('k_ellipse', k_ellipse)
-                #print('i_segment', np.mod(i_segment+1,4))
                 intersection_area += \
                     ellipses[k_ellipse].areaEllipseSection(
                         intersect_pts_ord[np.mod(i_segment,4)] - (k_ellipse-1)*diff_nearest_other, \
                         intersect_pts_ord[np.mod(i_segment+1,4)] - (k_ellipse-1)*diff_nearest_other)
-        #print('int area',intersection_area)
         return intersection_area
 
     def midpointOnEllipse(self, *args):
@@ -720,7 +732,6 @@ class Ellipse(Particle):
                 # Accounting for the fact that arccos only gives values between 0 and pi
             angle.append(angle_i)
             # Appending the angle
-        #print('angles',angle)
         y_ordered = [points[i] for i in np.argsort(angle)]
         # Obtaining the list of points with angles sorted counter clockwise
         return y_ordered
@@ -770,15 +781,12 @@ class Ellipse(Particle):
             theta_1_hat = theta_1 - 2*np.pi
         # Ensuring that the angle theta_1 is always smaller than theta_2 as the area
         # is computed in an anti-clockwise manner from point 1 to 2
-        #print('thetas', theta_1_hat, theta_2)
         area_sector = (theta_2 - theta_1_hat)*self.semi_major_axis*self.semi_minor_axis/2
         # Area of the ellipse sector defined by the two points
-        #print('area sector', area_sector)
         area_triangle_sgn = np.sign(theta_2 - theta_1_hat - np.pi)/2*np.abs(
             pt_1[0]*pt_2[1]-pt_2[0]*pt_1[1])
         # Signed area of the triangle defined by the two point and the center of the
         # ellipse
-        #print('area triangle', area_triangle_sgn)
         area_segment = area_sector + area_triangle_sgn
         # Area of the ellipse segment
         return area_segment
@@ -826,14 +834,13 @@ class Ellipse(Particle):
         '''
         This function computes the intersection area between two disks
         '''
-        
+
         box = Particle.box
 
         diff_in_box = self.position_center - other_ellipse.position_center
         # Difference vector between the center of the two ellipses
         diff_nearest_other = box*np.round(diff_in_box/box)
-        #print('diff', diff_nearest_other)
-
+        # Difference vector to the nearest image of the other particle
         y_inter_sect = intersectionPointsEllipses(
             Particle.verlet_factor*self.semi_major_axis, Particle.verlet_factor*self.semi_minor_axis, self.position_center,
             self.angle, Particle.verlet_factor*other_ellipse.semi_major_axis, Particle.verlet_factor*other_ellipse.semi_minor_axis,
@@ -864,18 +871,19 @@ class Ellipse(Particle):
                     # The intersection area is 0
         return intersection_verlet
 
-    def insideVerlet(self, point):
-
-        if np.linalg.norm(self.displacement_last_verlet -\
-            self.position_center) >= \
+    def insideVerlet(self):
+        """Check if the ellipse has moved outside its Verlet neighboorhood."""
+        if np.linalg.norm(self.displacement_last_verlet) >= \
             self.semi_minor_axis*(Particle.verlet_factor - 1):
-            point_in = self.pointInsideEllipse(point,verlet=True)
-            # Checking if the point is inside the ellipse that defines the Verlet neighboorhood
+        # Its possible for the ellipse to have moved outside its Verlet neighboorhood
+            point_in = self.pointInsideEllipse(
+                self.displacement_last_verlet + self.position_center, verlet=True)
+            # Checking if the ellipse is still inside its Verlet neighboorhood
         else:
-        # the center of the ellipse has not 
+        # the center of the ellipse has not
             point_in = True
+
         return point_in
-        
 
 def intersectionPointsEllipses(A1, B1, center_1, angle_1,
     A2, B2, center_2, angle_2, tol=1e-10):
@@ -997,7 +1005,6 @@ def intersectionPointsEllipses(A1, B1, center_1, angle_1,
                     # coordinate system
                 # if on_ellipse_2_1 and on_ellipse_2_2 and np.abs(x_pt)<0.05:
                 #     intersect_pts.pop()
-    #print('int',intersect_pts)
     return intersect_pts
 
 if __name__ == '__main__':
@@ -1019,11 +1026,6 @@ if __name__ == '__main__':
         ellipse_1.position_center, ellipse_1.angle, ellipse_2.semi_major_axis,
         ellipse_2.semi_minor_axis, ellipse_2.position_center, ellipse_2.angle))
 
-    print(intersect_pts)
-
-    # int_area = ellipse_1.intersectionAreaEllipseEllipse(ellipse_2)
-
-    # print('int_area',int_area)
 
     particles = [ellipse_1, ellipse_2]
     fig = plt.figure()

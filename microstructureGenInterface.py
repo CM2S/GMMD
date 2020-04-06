@@ -269,6 +269,7 @@ def generateMicrostructures(dp_dir, mic_gen_program, mic_gen_parameters, problem
         main.main()
         # Executing the script for microstructure generation
 
+
 if __name__ == '__main__':
 
     # ======================================================================================
@@ -293,53 +294,14 @@ if __name__ == '__main__':
     # Initializing the dictionary containing the options
     #                                                                    Stopping criteria
     # --------------------------------------------------------------------------------------
-    mic_gen_parameters['max_residue_per_particle'] = 0
+    mic_gen_parameters['max_residue_per_particle'] = 1e-11
     mic_gen_parameters['max_step'] = 1000
     # Maximum number of steps
-    mic_gen_parameters['max_steps_to_relax'] = 250
-    # Maximum number of steps after the legal configuration has been found after which the
-    # configuration is accepted
-    #                                                                   Integration scheme
-    # --------------------------------------------------------------------------------------
-    mic_gen_parameters['integration_scheme'] = 'Newmark'
-    # Integration scheme to be used:
-    # 'Newmark'  - Newmark beta method
-    mic_gen_parameters['damping_constant'] = 0
-    # Damping constant (only for Newmark)
-    mic_gen_parameters['dt'] = 0.005
-    # Time step
-    #
-    #                                        Speed up scheme for the computation of forces
-    # --------------------------------------------------------------------------------------
-    mic_gen_parameters['speed_up_scheme'] = 'Naive'
-    # Speed up scheme
-    # 'Naive' - the forces are computed between every pair of particles (O(N**2))
-    # 'Cell' - the forces are computed making use of a cell list, such that each particle
-    # only interacts with the particles in its cell or the nearest neighboring cells (O(N))
-    # 'Verlet' - the forces are computed using a Verlet list for each particle, that in
-    # turn in computed using a cell list method
-    mic_gen_parameters['verlet_factor'] = 1.5
-    # The Verlet list is computing making use of neighboorhood around the particle, whose
-    # shape is the same, but dilated by the 'verlet_factor'
-    #
-    #                                                                Computation of forces
-    # --------------------------------------------------------------------------------------
-    mic_gen_parameters['initial_global_force_factor'] = 200 #4
-
-    mic_gen_parameters['global_force_factor_multiplier'] = 1.8
-    #                                                                           Thermostat
-    # --------------------------------------------------------------------------------------
-    mic_gen_parameters['thermostat']='isokinetic'
-    # problem_type: integer
-    #     Problem type    | 1. 2D problem (plain strain)
-    #                     | 2. 2D problem (plain stress)
-    #                     | 3. 2D problem (axisymmetric)
-    #                     | 4. 3D problem
     problem_type = 1
     # n_dp_samples: integer
     #     Number of microstructures (samples) to be generated, associated to
     #     the given design point
-    n_dp_samples = 1
+    n_dp_samples = 2
     # mic_gen_descriptors_array: dictionary
     #     A dictionary which contains all the microstructure
     #     descriptor-related information required to generate the
@@ -353,18 +315,13 @@ if __name__ == '__main__':
     mic_gen_descriptors_array = {}
 
     mic_gen_descriptors_array['4'] = np.array([['rve_dims'], [[1.0, 1.0, 1.0]]])
-    mic_gen_descriptors_array['2'] = np.array([['r', 'n'], [0.1, 5]], dtype=object)
+    mic_gen_descriptors_array['2'] = np.array([['r', 'n'], [0.1, 6]], dtype=object)
 
-    # descriptors['2'] = {'distribution':'uniform','r_low':0.02,'r_high':0.04, 'n':190}
-    # descriptors['2'] = {'major_axis':0.20,'minor_axis':0.1,'angle':0,'n':10}
-    # phase_types: dictionary
-    #     Dictionary which contains each material phase type, stored as
-    #                    dictionary['phase_id'] = phase_types
-    ## phase_types = info_micro['phase_types']
     # Types of particles
     # 1 - Matrix
     # 2 - Circular particle (disk)
     # 3 - Elliptical particle
+    # 4 - Spherical particle
     phase_types = {}
     phase_types['4'] = 1  # Matrix
     phase_types['2'] = 4  # Elliptical particle
@@ -383,9 +340,9 @@ if __name__ == '__main__':
     discret_spec_array['rgmsh'] = {}
     discret_spec_array['rgmsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
     discret_spec_array['rgmsh']['n_voxels_dims'] = np.array([50, 50, 50])
-    discret_spec_array['femsh'] = {}
-    discret_spec_array['femsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
-    discret_spec_array['femsh']['mesh_size'] = 0.1
+    # discret_spec_array['femsh'] = {}
+    # discret_spec_array['femsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
+    # discret_spec_array['femsh']['mesh_size'] = 0.1
 
     generateMicrostructures(dp_dir, mic_gen_program, mic_gen_parameters, problem_type,
                             n_dp_samples, mic_gen_descriptors_array, phase_types,

@@ -64,6 +64,23 @@ def newVerletList(particles):
                     # If the neighboorhoods of the particles intersect
                         particles[i_particle].verlet_list.append(j_particle)
                         # Add the particle j_particle to i_particle's Verlet list
+        elif dim == 3:
+        # 3D problem
+            pos_cell_list = pos_cell_list_dim[0] + \
+                pos_cell_list_dim[1]*Particle.n_cell_dim[0] + \
+                pos_cell_list_dim[2]*Particle.n_cell_dim[0]*Particle.n_cell_dim[1]
+            # Saving the position in the cell list of particle i_particle
+            for k_neighboor_cell in range(3**3):
+            # Running through the neighboor cells
+                pos_neighboor_cell = \
+                    neighboorCell(pos_cell_list, k_neighboor_cell, dim, Particle.n_cell_dim)
+                # Computing the index of the neighboor cell
+                for j_particle in Particle.cell_list[pos_neighboor_cell]:
+                # Running through all the particles in the neighboring cell
+                    if particles[i_particle].intersectionVerlet(particles[j_particle]):
+                    # If the neighboorhoods of the particles intersect
+                        particles[i_particle].verlet_list.append(j_particle)
+                        # Add the particle j_particle to i_particle's Verlet list
 
 def neighboorCell(pos_current_cell, local_pos_neighboor_cell, dim, n_cells):
     '''
@@ -84,7 +101,7 @@ def neighboorCell(pos_current_cell, local_pos_neighboor_cell, dim, n_cells):
             Gloval position of the neighboor cell
     '''
 
-    if dim==2:
+    if dim == 2:
     # 2D problem
         local_row_pos_neigh = np.int(np.mod(np.floor(local_pos_neighboor_cell/3), 3) - 1)
         # Local row position of the neighboor, going from -1 to 1 with the origin at the
@@ -112,7 +129,51 @@ def neighboorCell(pos_current_cell, local_pos_neighboor_cell, dim, n_cells):
         # Left column of the grid
             pos_neighboor_cell = pos_neighboor_cell + n_cells[1]
             # Enforcing the periodic boundary conditions
-        return pos_neighboor_cell
+    elif dim == 3:
+    # 3D problem
+        local_row_pos_neigh = np.int(np.mod(np.floor(local_pos_neighboor_cell/3), 3) - 1)
+        # Local row position of the neighboor, going from -1 to 1 with the origin at the
+        # current cell
+        local_col_pos_neigh = np.int(np.mod(local_pos_neighboor_cell, 3) - 1)
+        # Local column position of the neighboor, going from -1 to 1 with the origin at the
+        # current cell
+        local_lay_pos_neigh = np.int(np.mod(np.floor(local_pos_neighboor_cell/9), 3) - 1)
+        # Local layer position of the neighboor, going from -1 to 1 with the origin at the
+        # current cell
+        pos_neighboor_cell = (
+            np.int(pos_current_cell
+                   + local_col_pos_neigh
+                   + local_row_pos_neigh*n_cells[1]
+                   + local_lay_pos_neigh*n_cells[1]*n_cells[2]))
+        # Global position of the neighboor cell without enforcing periodic boundary
+        # conditions
+        if pos_current_cell < n_cells[1] and local_row_pos_neigh == -1:
+        # Upper row of the grid
+            pos_neighboor_cell = pos_neighboor_cell + n_cells[1]*n_cells[0]
+            # Enforcing the periodic boundary conditions
+        elif pos_current_cell >= n_cells[1]*(n_cells[0]-1) and local_row_pos_neigh == 1:
+        # Lower row of the grid
+            pos_neighboor_cell = pos_neighboor_cell - n_cells[1]*n_cells[0]
+            # Enforcing the periodic boundary conditions
+        if np.mod(pos_current_cell + 1, n_cells[1]) == 0 and local_col_pos_neigh == 1:
+        # Right column of the grid
+            pos_neighboor_cell = pos_neighboor_cell - n_cells[1]
+            # Enforcing the periodic boundary conditions
+        elif np.mod(pos_current_cell, n_cells[1]) == 0 and local_col_pos_neigh == -1:
+        # Left column of the grid
+            pos_neighboor_cell = pos_neighboor_cell + n_cells[1]
+            # Enforcing the periodic boundary conditions
+        if pos_current_cell < n_cells[1]*n_cells[0] and local_lay_pos_neigh == -1:
+        # Firsl layer of the grid
+            pos_neighboor_cell = pos_neighboor_cell + n_cells[1]*n_cells[0]*n_cells[2]
+            # Enforcing the periodic boundary conditions
+        elif (pos_current_cell > n_cells[1]*n_cells[0]*(n_cells[2] - 1) - 1
+              and local_lay_pos_neigh == 1):
+        # Last layer of the grid
+            pos_neighboor_cell = pos_neighboor_cell - n_cells[1]*n_cells[0]*n_cells[2]
+            # Enforcing the periodic boundary conditions
+
+    return pos_neighboor_cell
 
 def newCellList(particles):
     '''
@@ -139,7 +200,13 @@ def newCellList(particles):
         if dim == 2:
         # 2D problem
             pos_cell_list = pos_cell_list_dim[0] + \
-                pos_cell_list_dim[1]*Particle.n_cell_dim[1]
+                pos_cell_list_dim[1]*Particle.n_cell_dim[0]
+            # Saving the position in the cell list of particle i_particle
+        if dim == 3:
+        # 3D problem
+            pos_cell_list = pos_cell_list_dim[0] + \
+                pos_cell_list_dim[1]*Particle.n_cell_dim[0] + \
+                pos_cell_list_dim[2]*Particle.n_cell_dim[0]*Particle.n_cell_dim[1]
             # Saving the position in the cell list of particle i_particle
         Particle.cell_list[pos_cell_list].append(i_particle)
 
@@ -299,7 +366,7 @@ def integrate(particles, dt, speed_up_scheme, integration_scheme='Newmark', **kw
             #     1,
             #     dim)
             # Obtaining the new position and velocity of particle i
-        elif integration_scheme=='Verlet':
+        elif integration_scheme == 'Verlet':
         # The integration scheme chosen was Verlet
             pass
         else:
@@ -307,26 +374,24 @@ def integrate(particles, dt, speed_up_scheme, integration_scheme='Newmark', **kw
             print('No integration scheme was chosen')
         if speed_up_scheme == 'Verlet':
             particles[i_particle].displacement_last_verlet += \
-                particles[i_particle].position_center - new_position[:,0]
+                particles[i_particle].position_center - new_position[:, 0]
             # Computing the displacement of the center of the particle
-            class_name_i_particle = particles[i_particle].__class__.__name__
-            if "Disk" == class_name_i_particle:
-                radial_dimension = particles[i_particle].radius
-            elif "Eliipse" == class_name_i_particle:
-                radial_dimension = particles[i_particle].semi_minor_axis
-            # FIX: MAKE GENERAL 
-            if np.linalg.norm(particles[i_particle].displacement_last_verlet) >= \
-                    radial_dimension * (Particle.verlet_factor - 1):
-            # if not particles[i].insideVerlet(
-            #     particles[i_particle].displacement_last_verlet +\
-            #     particles[i_particle].position_center):
+            # class_name_i_particle = particles[i_particle].__class__.__name__
+            # if "Disk" == class_name_i_particle:
+            #     radial_dimension = particles[i_particle].radius
+            # elif "Eliipse" == class_name_i_particle:
+            #     radial_dimension = particles[i_particle].semi_minor_axis
+            # # FIX: MAKE GENERAL
+            # if np.linalg.norm(particles[i_particle].displacement_last_verlet) >= \
+            #         radial_dimension * (Particle.verlet_factor - 1):
+            if not particles[i_particle].insideVerlet():
             # Checking if the displacement takes the particle out of its neighboorhood
                 Particle.new_verlet_list = True
                 # There is a need to compute a new verlet list
-        new_position[:,0] = new_position[:,0] -box*np.floor(new_position[:,0]/box)
+        new_position[:, 0] = new_position[:, 0] - box*np.floor(new_position[:, 0]/box)
         # New position enforcing boundary conditions
-        particles[i_particle].position_center = new_position[:,0]
-        particles[i_particle].velocity_center = new_velocity[:,0]
+        particles[i_particle].position_center = new_position[:, 0]
+        particles[i_particle].velocity_center = new_velocity[:, 0]
         # Updating the position and velocity of particle i
 
 # ==========================================================================================
@@ -583,13 +648,15 @@ def particleGeneration(descriptors, phase_types, rve_dims, problem_type, dp_dir)
             # folder
         os.makedirs(results_folder)
         # Creating the directory
-        os.replace("input_data\\info_micro.p",
-                   os.path.join(results_folder, "info_micro.p"))
+        if os.path.exists("input_data\\info_micro.p"):
+            os.replace("input_data\\info_micro.p",
+                       os.path.join(results_folder, "info_micro.p"))
     else:
         os.makedirs(results_folder)
         # Creating the directory
-        os.replace("input_data\\info_micro.p",
-                   os.path.join(results_folder, "info_micro.p"))
+        if os.path.exists("input_data\\info_micro.p"):
+            os.replace("input_data\\info_micro.p",
+                       os.path.join(results_folder, "info_micro.p"))
     Particle.file_path = os.path.join(results_folder, Particle.file_name)
     # Saving the file path in the Particle class
     return particles
@@ -818,7 +885,7 @@ def run(particles, max_residue_per_particle, max_step, options):
     # Saving the array containing the size of the box
     dim = particles[0].dim
     # Saving the array containing the dimension of the problem
-    speed_up_scheme = options.get('speed_up_scheme', 'Verlet')
+    speed_up_scheme = options.get('speed_up_scheme', 'Cell')
     if speed_up_scheme == 'Cell':
         # Only a cell list scheme will be used
         max_radius = np.max(np.array([particles[i].radius for i in range(N)]))
@@ -879,7 +946,7 @@ def run(particles, max_residue_per_particle, max_step, options):
     # Computing the kinetic energy
     # relative_energy_old = relative_energy
     # Saving the current relative energy
-    max_steps_to_relax = options.get('max_steps_to_relax', 1)
+    max_steps_to_relax = options.get('max_steps_to_relax', 100)
     dt = options.get('dt', 0.005)
     thermostat = options.get('thermostat', 'isokinetic')
     # Setting the options
@@ -901,7 +968,7 @@ def run(particles, max_residue_per_particle, max_step, options):
             # The thermostat used is the isokinetic scheme
             if np.random.uniform() > (1-Particle.volume/2):
                 # Probability of rescaling the velocities modelled as Poisson
-                lambda_vel = np.sqrt(np.max([1e6*relative_energy, 1e-2])/kin_energy/N)
+                lambda_vel = np.sqrt(np.max([1e6*relative_energy, 100])/kin_energy/N)
                 # Rescalling factor (why? 250 -  equipartition theorem)
                 for i_particle in range(N):
                     # Running through all the particles
@@ -948,6 +1015,7 @@ def plotParticles(particles, dir, grid='off', verlet_ngh=False, center_part=Fals
                   show=False, save=False, **kwargs):
     """Plot the particles."""
     import matplotlib.patches as mpatches
+    import matplotlib.pyplot as plt
 
     N = len(particles)
     if particles[0].dim == 2:
@@ -1116,7 +1184,7 @@ def main():
     start = time.time()
     # Counting time
     f = open("test.txt", 'w')
-    sys.stdout = f
+    # sys.stdout = f
     [dp_dir, descriptors, phase_types, options, n_samples, rve_dims, problem_type,
         discret_spec_array] = readDescriptors()
     # Reading the descriptors and options for the microstructure generation
@@ -1127,7 +1195,7 @@ def main():
         # Generating the list of particles from the geometrical descriptors
         plotParticles(particles, Particle.file_path + "_initial_conf",
                       save=options.get('save_plot', True),
-                      show=options.get('save_plot',  True))
+                      show=options.get('save_plot', True))
         # Ploting initial configuration
         try:
             run(particles, options['max_residue_per_particle'], options['max_step'], options)
@@ -1153,7 +1221,8 @@ def main():
                       save=options.get('save_plot', True),
                       show=options.get('save_plot',  True))
         # Ploting final configuration
-
+    print('verlet list', [particles[i].verlet_list for i in range(Particle.number)])
+    print('cell list', Particle.cell_list)
     print(end - start)
 
     f.close()

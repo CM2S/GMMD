@@ -612,12 +612,9 @@ def generateMeshFFT(particles, options):
     '''
     This functions generates a regular grid as an array to be used in an FFT analysis.
     '''
-    # discret_spec_array['rgmsh']['rve_dims'] = [ 1.0, 1.0 ]
-    # discret_spec_array['rgmsh']['n_voxels_dims'] = [ 20, 10 ]
-
     pixel_dims = options['rve_dims']/options['n_voxels_dims']
     # Dimension of the pixels
-    if len(options['rve_dims'])==2:
+    if len(options['rve_dims']) == 2:
     # This is a 2D dimnensional problem
         regular_grid = np.zeros((options['n_voxels_dims'][0], options['n_voxels_dims'][1]))
         # Initializing the regular
@@ -634,19 +631,21 @@ def generateMeshFFT(particles, options):
                     # Difference vector between the center of the two ellipses
                     diff_nearest_other = \
                         options['rve_dims']*np.round(diff_in_box/options['rve_dims'])
-                    # Vector from the particle whose center is in the RVE to the neares image
+                    # Vector from the particle whose center is in the RVE to the neares
+                    # image
                     if k_particle.pointInside(center_pixel_i_j + diff_nearest_other):
                     # The center of the pixel is inside particle k_particle
-                        regular_grid[i_row,j_column] = k_particle.phase
+                        regular_grid[i_row, j_column] = k_particle.phase
                         # Setting pixel [i_row, j_column] as belong to the phase of
                         # particle k_particle
-        plotPixels(regular_grid, Particle.file_path + "_rgmsh")
+        if False:
+            plotPixels(regular_grid, Particle.file_path + "_rgmsh")
         # Ploting the regular grid
-
-    elif len(options['rve_dims'])==3:
+    elif len(options['rve_dims']) == 3:
     # This is a 2D dimnensional problem
-        regular_grid = np.zeros(
-            (options['n_voxels_dims'][0], options['n_voxels_dims'][1], options['n_voxels_dims'][2]))
+        regular_grid = np.zeros((options['n_voxels_dims'][0],
+                                 options['n_voxels_dims'][1],
+                                 options['n_voxels_dims'][2]))
         # Initializing the regular
         for i_row in range(options['n_voxels_dims'][0]):
         # Running through the pixels from left to right
@@ -655,10 +654,9 @@ def generateMeshFFT(particles, options):
                 for k_layer in range(options['n_voxels_dims'][2]):
                 # Running thorugh the pixels from bottom to top
                     center_pixel_i_j_k = \
-                        np.array(
-                        [(i_row+0.5)*pixel_dims[0],
-                        (j_column+0.5)*pixel_dims[1],
-                        (k_layer+0.5)*pixel_dims[2]])
+                        np.array([(i_row + 0.5)*pixel_dims[0],
+                                  (j_column + 0.5)*pixel_dims[1],
+                                  (k_layer + 0.5)*pixel_dims[2]])
                     # Center of the pixel corresponding to row i_row, column j_column and
                     # layer k_layer
                     for l_particle in particles:
@@ -671,30 +669,35 @@ def generateMeshFFT(particles, options):
                         # image
                         if l_particle.pointInside(center_pixel_i_j_k + diff_nearest_other):
                         # The center of the pixel is inside particle k_particle
-                            regular_grid[i_row,j_column,k_layer] = l_particle.phase
+                            regular_grid[i_row, j_column, k_layer] = l_particle.phase
                             # Setting pixel [i_row, j_column, k_layer] as belong to the
                             # phase of particle k_particle
-        plotVoxels(regular_grid, Particle.matrix_phase, Particle.file_path + "_rgmsh")
+        if False:
+            plotVoxels(regular_grid, Particle.matrix_phase, Particle.file_path + "_rgmsh")
         # Ploting the regular grid
 
     np.save(Particle.file_path, regular_grid)
 
-def plotPixels(pixel_grid, dir):
+def plotPixels(pixel_grid, dir, show=False, save=True):
     import matplotlib.pyplot as plt
     # This import registers the 3D projection, but is otherwise unused.
     from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import    
     fig = plt.figure()
     plt.imshow(pixel_grid.T)
     plt.axis([0, np.size(pixel_grid.T, 0), 0, np.size(pixel_grid.T, 1)])
-    plt.savefig(dir + ".png")
-    plt.show(block=False)
+    if save:
+        plt.savefig(dir + ".png")
+    if show:
+        plt.show(block=False)
 
-def plotVoxels(voxel_grid, matrix_phase, dir):
+def plotVoxels(voxel_grid, matrix_phase, dir, show=False, save=True):
     import matplotlib.pyplot as plt
     # This import registers the 3D projection, but is otherwise unused.
     from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
     fig = plt.figure()
     ax = fig.gca(projection='3d')
     ax.voxels(voxel_grid.T==2, edgecolor='k')
-    plt.savefig(dir + ".png")
-    plt.show()
+    if save:
+        plt.savefig(dir + ".png")
+    if show:
+        plt.show()
