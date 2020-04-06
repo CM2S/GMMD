@@ -1,4 +1,4 @@
-#
+"""
 # Microstructure Generation Interface (DATAGEM Program)
 # ==========================================================================================
 # Summary:
@@ -7,6 +7,7 @@
 # Development history:
 # Bernardo P. Ferreira | January 2020 | Initial coding.
 # ==========================================================================================
+"""
 #                                                                             Import modules
 # ==========================================================================================
 # Working with arrays
@@ -38,8 +39,8 @@ import main
 #                       specifies an available program to generate the microstructure(s)
 #                       and associated discretization file(s) of a given design point
 #
-#     mic_gen_parameters - An dictionary which contains all the required parameters (or options)
-#                          for the selected program to generate the microstructure(s) and
+#     mic_gen_parameters - An dictionary which contains all the required parameters (or
+#                   options) for the selected program to generate the microstructure(s) and
 #                          and associated discretization file(s) of a given design point
 #                          (to be discussed...)
 #
@@ -152,8 +153,18 @@ def generateMicrostructures(dp_dir, mic_gen_program, mic_gen_parameters, problem
     mic_gen_parameters: array
         An array which contains all the required parameters (or options)
         for the selected program to generate the microstructure(s) and
-        and associated discretization file(s) of a given design point
-        (to be discussed...)
+        and associated discretization file(s) of a given design point.
+
+        ================================ ======================================
+        Option                           Description
+        ================================ ======================================
+        "max_residue_per_particle"       Maximum overlap residue per particle.
+        "max_step"                       Maximum number of iterations.
+        "integration_scheme"             Optional. {'Newmark'}. Integration scheme
+                                         for the equations of motion.
+        "speed_up_scheme"                Optional. {'Naive', 'Cell', 'Verlet'}.
+                                         Speed up scheme used for force computation
+        ================================ ======================================
 
     problem_type: integer
         Problem type    | 1. 2D problem (plain strain)
@@ -165,16 +176,17 @@ def generateMicrostructures(dp_dir, mic_gen_program, mic_gen_parameters, problem
         Number of microstructures (samples) to be generated, associated to
         the given design point
 
-    mic_gen_descriptors_array: dictionary
+    mic_gen_descriptors_array: array
         A dictionary which contains all the microstructure
         descriptor-related information required to generate the
-        given design point microstructure(s) automatically,
-        stored as:
+        given design point microstructure(s) automatically stored as:
 
                                         Microstructure Descriptors
                                   _                                    _
         dictionary['phase_id'] = |  'desc_name'   'desc_name'     ...   |
-                                 |_  < value >     < value >      ...  _|
+                                 |_  < value >     < value >      ...  _|.
+
+        See notes_.
 
     phase_types: dictionary
         Dictionary which contains each material phase type, stored as
@@ -189,27 +201,65 @@ def generateMicrostructures(dp_dir, mic_gen_program, mic_gen_parameters, problem
         each type of specified discretization file, stored as:
 
                                dictionary['disc_ext']['parameter'] = [ ... ]
+    Notes
+    -----
+    The parameters for microstructure generation depend on the shape of the particle. They
+    are detailed in the following tables. Particular choices of their values may lead to
+    incompatibilities.
+
+        ================================ ======================================
+        Disk: Choose 2 of the parameters
+        -----------------------------------------------------------------------
+        'r'                              Radius of the disk
+        'n'                              Number of particles
+        'vf'                             Volume fraction
+        ================================ ======================================
+
+        ================================ ======================================
+        Ellipse: Choose 4 of the parameters, including 'angle'
+        -----------------------------------------------------------------------
+        'major_axis'                     Radius of the disk
+        'minor_axis'                     Number of particles
+        'angle'                          Volume fraction
+        'n'                              Number of particles
+        'vf'                             Volume fraction
+        ================================ ======================================
+
+    Any parameter may have a chosen distribution, specified as detailed below:
+    - Fixed distribution: The parameters are fixed. Simply specify the parameter.
+    - Discrete distribution: There parameters follow a discrete distribution, where the
+    parameters take only the given values with the given probability.
+        1. Specify the distribution of parameter *param* as::
+
+                    np.array([['distribution_param']['fixed'], dtype=obj)
+
+        2. Specify the value of the parameter and the probability of that value occuring::
+
+                (np.array([['param_1', 'prob_param_1', 'param_2', 'prob_param_2'],
+                        [1, 0.4, 2, 0.6]], dtype=obj))
+
+    - Uniform distribution:
+    - Gaussian distribution:
     """
-    print('here')
     if mic_gen_program == 1:
-    # My program
+        # My program
         mic_gen_descriptors_dict = {}
         # Initializing the dictionary containing the microstructure descriptors
-        print(mic_gen_descriptors_array)
         for i_phase in mic_gen_descriptors_array:
-        # Running through all the phases
+            # Running through all the phases
             mic_gen_descriptors_dict[i_phase] = (
-                {mic_gen_descriptors_array[i_phase][0,i]:mic_gen_descriptors_array[i_phase][1,i]
-                for i in range(len(mic_gen_descriptors_array[i_phase][0]))} )
-        info_dict = { \
-            "dp_dir":dp_dir, \
-            "mic_gen_parameters":mic_gen_parameters, \
-            "problem_type":problem_type, \
-            "n_dp_samples":n_dp_samples, \
-            "mic_gen_descriptors":mic_gen_descriptors_dict, \
-            "phase_types":phase_types, \
-            "discret_file_ext":discret_file_ext, \
-            "discret_spec_array":discret_spec_array \
+                {mic_gen_descriptors_array[i_phase][0, i]:
+                    mic_gen_descriptors_array[i_phase][1, i]
+                    for i in range(len(mic_gen_descriptors_array[i_phase][0]))})
+        info_dict = {
+            "dp_dir": dp_dir,
+            "mic_gen_parameters": mic_gen_parameters,
+            "problem_type": problem_type,
+            "n_dp_samples": n_dp_samples,
+            "mic_gen_descriptors": mic_gen_descriptors_dict,
+            "phase_types": phase_types,
+            "discret_file_ext": discret_file_ext,
+            "discret_spec_array": discret_spec_array
             }
         # Building a dictionary to be pickled with all the information coming from the
         # interfacing program
@@ -228,7 +278,8 @@ if __name__ == '__main__':
     # dp_dir: string
     #     Directory where the microstructure spatial discretization file(s) associated
     #     with the given design point are to be stored
-    dp_dir = "C:\\Users\\José\\Notebooks\\Database\\Universidade\\Dissertacao\\programa\\results"
+    dp_dir = ("C:\\Users\\José\\Notebooks\\Database"
+              + "\\Universidade\\Dissertacao\\programa\\results")
     # ======================================================================================
     # mic_gen_program: integer
     #     Integer variable (read from the user input data file) which specifies an
@@ -253,7 +304,7 @@ if __name__ == '__main__':
     # configuration is accepted
     #                                                                   Integration scheme
     # --------------------------------------------------------------------------------------
-    mic_gen_parameters['integration_scheme']='Newmark'
+    mic_gen_parameters['integration_scheme'] = 'Newmark'
     # Integration scheme to be used:
     # 'Newmark'  - Newmark beta method
     mic_gen_parameters['damping_constant'] = 0
@@ -263,7 +314,7 @@ if __name__ == '__main__':
     #
     #                                        Speed up scheme for the computation of forces
     # --------------------------------------------------------------------------------------
-    mic_gen_parameters['speed_up_scheme']='Naive'
+    mic_gen_parameters['speed_up_scheme'] = 'Naive'
     # Speed up scheme
     # 'Naive' - the forces are computed between every pair of particles (O(N**2))
     # 'Cell' - the forces are computed making use of a cell list, such that each particle
@@ -304,9 +355,9 @@ if __name__ == '__main__':
     #
     mic_gen_descriptors_array = {}
 
-    mic_gen_descriptors_array['4'] = np.array([['rve_dims'],[[1.0, 1.0, 1.0]]])
+    mic_gen_descriptors_array['4'] = np.array([['rve_dims'], [[1.0, 1.0, 1.0]]])
     mic_gen_descriptors_array['2'] = np.array([['r', 'n'], [0.1, 5]], dtype=object)
-    
+
     # descriptors['2'] = {'distribution':'uniform','r_low':0.02,'r_high':0.04, 'n':190}
     # descriptors['2'] = {'major_axis':0.20,'minor_axis':0.1,'angle':0,'n':10}
     # phase_types: dictionary
@@ -318,8 +369,8 @@ if __name__ == '__main__':
     # 2 - Circular particle (disk)
     # 3 - Elliptical particle
     phase_types = {}
-    phase_types['4'] = 1 # Matrix
-    phase_types['2'] = 4 # Elliptical particle
+    phase_types['4'] = 1  # Matrix
+    phase_types['2'] = 4  # Elliptical particle
     # discret_file_ext: list
     #     List which contains the required spatial discretization file(s), stored as
     #                     array = [ < discret_type > < discret_type >  ... ]
@@ -334,11 +385,11 @@ if __name__ == '__main__':
     discret_spec_array = {}
     discret_spec_array['rgmsh'] = {}
     discret_spec_array['rgmsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
-    discret_spec_array['rgmsh']['n_voxels_dims'] = np.array([ 50, 50, 50])
+    discret_spec_array['rgmsh']['n_voxels_dims'] = np.array([50, 50, 50])
     discret_spec_array['femsh'] = {}
-    discret_spec_array['femsh']['rve_dims'] = np.array([ 1.0, 1.0, 1.0 ])
+    discret_spec_array['femsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
     discret_spec_array['femsh']['mesh_size'] = 0.1
 
-    generateMicrostructures(dp_dir,mic_gen_program,mic_gen_parameters,problem_type,
-                                n_dp_samples,mic_gen_descriptors_array,phase_types,
-                                discret_file_ext,discret_spec_array)
+    generateMicrostructures(dp_dir, mic_gen_program, mic_gen_parameters, problem_type,
+                            n_dp_samples, mic_gen_descriptors_array, phase_types,
+                            discret_file_ext, discret_spec_array)

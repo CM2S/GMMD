@@ -99,6 +99,7 @@ class Disk(Particle):
     radius: float
         Radius of the disk
     '''
+
     def __init__(self, phase, radius):
         '''
         The constructor of the Disk particle.
@@ -116,7 +117,7 @@ class Disk(Particle):
         '''
         self.dim = 2
         self.radius = radius
-        self.force = np.zeros((self.dim),dtype='float')
+        self.force = np.zeros((self.dim), dtype='float')
         self.n_cell_dim = []
         self.verlet_list = []
         Particle.volume += self.volume()
@@ -133,7 +134,7 @@ class Disk(Particle):
         '''
         class_name_other_particle = other_particle.__class__.__name__
         # Saving the class name of the other particle as a string
-        if 'Disk'==class_name_other_particle:
+        if 'Disk' == class_name_other_particle:
         # The other particle is also a Disk
             intersection_area = self.intersectionAreaDiskDisk(other_particle)
             # Computing the intersection area
