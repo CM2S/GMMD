@@ -294,14 +294,17 @@ if __name__ == '__main__':
     # Initializing the dictionary containing the options
     #                                                                    Stopping criteria
     # --------------------------------------------------------------------------------------
-    mic_gen_parameters['max_residue_per_particle'] = 1e-11
-    mic_gen_parameters['max_step'] = 1000
+    mic_gen_parameters['max_residue_per_particle'] = 1e-8
+    mic_gen_parameters['max_step'] = 10000
+    mic_gen_parameters['max_steps_to_relax'] = 250
+    mic_gen_parameters['speed_up_scheme'] = 'Verlet'
+    mic_gen_parameters['verlet_factor'] = 1.2
     # Maximum number of steps
     problem_type = 1
     # n_dp_samples: integer
     #     Number of microstructures (samples) to be generated, associated to
     #     the given design point
-    n_dp_samples = 2
+    n_dp_samples = 1
     # mic_gen_descriptors_array: dictionary
     #     A dictionary which contains all the microstructure
     #     descriptor-related information required to generate the
@@ -315,7 +318,7 @@ if __name__ == '__main__':
     mic_gen_descriptors_array = {}
 
     mic_gen_descriptors_array['4'] = np.array([['rve_dims'], [[1.0, 1.0, 1.0]]])
-    mic_gen_descriptors_array['2'] = np.array([['r', 'n'], [0.1, 6]], dtype=object)
+    mic_gen_descriptors_array['2'] = np.array([['n', 'vf'], [20, 0.65]], dtype=object)
 
     # Types of particles
     # 1 - Matrix
@@ -324,7 +327,7 @@ if __name__ == '__main__':
     # 4 - Spherical particle
     phase_types = {}
     phase_types['4'] = 1  # Matrix
-    phase_types['2'] = 4  # Elliptical particle
+    phase_types['2'] = 2  # Elliptical particle
     # discret_file_ext: list
     #     List which contains the required spatial discretization file(s), stored as
     #                     array = [ < discret_type > < discret_type >  ... ]
@@ -338,8 +341,8 @@ if __name__ == '__main__':
 
     discret_spec_array = {}
     discret_spec_array['rgmsh'] = {}
-    discret_spec_array['rgmsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
-    discret_spec_array['rgmsh']['n_voxels_dims'] = np.array([50, 50, 50])
+    discret_spec_array['rgmsh']['rve_dims'] = np.array([1.0, 1.0])
+    discret_spec_array['rgmsh']['n_voxels_dims'] = np.array([50, 50])
     # discret_spec_array['femsh'] = {}
     # discret_spec_array['femsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
     # discret_spec_array['femsh']['mesh_size'] = 0.1

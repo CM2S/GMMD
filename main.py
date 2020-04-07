@@ -441,12 +441,22 @@ def generateDisks(phase, rve_dims, descriptors):
                 # Saving the number of particles
                 radius = descriptors['r']
                 # Saving the radius of the particles
+                vf = np.pi*radius**2*n_particles/rve_dims[0]/rve_dims[1]
+                if vf > 1:
+                    try:
+                        raise RuntimeError
+                    except RuntimeError:
+                        print('The volume fraction is larger than 1.')
+                        quit()
             elif 'vf' in descriptors and 'r' in descriptors:
             # The radius of the particles and their volume fraction was supplied
                 radius = descriptors['r']
                 # Saving the radius of the particles
-                n_particles = descriptors['vf']*rve_dims[0]*rve_dims[1]/radius**2/np.pi
+                n_particles = np.int(np.floor(
+                    descriptors['vf']*rve_dims[0]*rve_dims[1]/radius**2/np.pi))
                 # Computing the number of particles from their radius ande volume fraction
+                vf = np.pi*radius**2*n_particles/rve_dims[0]/rve_dims[1]
+                print('True volume fraction:',vf)
             else:
                 raise RuntimeError()
                 # Insufficient number of parameters or wrong parameters supplied
@@ -941,6 +951,10 @@ def run(particles, max_residue_per_particle, max_step, options):
     # Computing the forces in the initial configuration to obtain the initial relative
     # potential energy (related to the overlap)
     relative_energy = computeRelativeEnergy(particles)
+    relative_vec = [relative_energy]
+    last_alt = 200
+    e_min = 10
+    e_max = 1e5
     # Computing the relative energy
     kin_energy = computeKineticEnergy(particles)
     # Computing the kinetic energy
@@ -962,13 +976,21 @@ def run(particles, max_residue_per_particle, max_step, options):
         # Computing the forces on all particles
         relative_energy = computeRelativeEnergy(particles)
         # Computing the relative energy
+        relative_vec.append(relative_energy)
         kin_energy = computeKineticEnergy(particles)
         # Computing the kinetic energy
         if thermostat == 'isokinetic':
             # The thermostat used is the isokinetic scheme
             if np.random.uniform() > (1-Particle.volume/2):
                 # Probability of rescaling the velocities modelled as Poisson
-                lambda_vel = np.sqrt(np.max([1e6*relative_energy, 100])/kin_energy/N)
+                if step > last_alt:
+                    if np.max(relative_vec[-200:-1])/np.min(relative_vec[-200:-1]) <= 10:
+                        if e_max*relative_energy > e_min:
+                            e_max = e_max*1e-1
+                        else:
+                            e_min = e_min*(1/(1.3)) # np.min([e_min*(1/(1 + N/1e3)), 1e-2])
+                        last_alt = step + 150
+                lambda_vel = np.sqrt(np.max([e_max*relative_energy, e_min])/kin_energy/N)
                 # Rescalling factor (why? 250 -  equipartition theorem)
                 for i_particle in range(N):
                     # Running through all the particles
