@@ -952,7 +952,8 @@ def run(particles, max_residue_per_particle, max_step, options):
     # potential energy (related to the overlap)
     relative_energy = computeRelativeEnergy(particles)
     relative_vec = [relative_energy]
-    last_alt = 200
+    jump = np.int(np.floor(1500/N))
+    last_alt = jump
     e_min = 10
     e_max = 1e5
     # Computing the relative energy
@@ -984,12 +985,12 @@ def run(particles, max_residue_per_particle, max_step, options):
             if np.random.uniform() > (1-Particle.volume/2):
                 # Probability of rescaling the velocities modelled as Poisson
                 if step > last_alt:
-                    if np.max(relative_vec[-200:-1])/np.min(relative_vec[-200:-1]) <= 10:
+                    if np.max(relative_vec[-jump:-1])/np.min(relative_vec[-jump:-1]) <= 10:
                         if e_max*relative_energy > e_min:
                             e_max = e_max*1e-1
                         else:
                             e_min = e_min*(1/(1.3)) # np.min([e_min*(1/(1 + N/1e3)), 1e-2])
-                        last_alt = step + 150
+                        last_alt = step + jump
                 lambda_vel = np.sqrt(np.max([e_max*relative_energy, e_min])/kin_energy/N)
                 # Rescalling factor (why? 250 -  equipartition theorem)
                 for i_particle in range(N):

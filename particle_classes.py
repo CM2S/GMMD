@@ -69,7 +69,7 @@ class Particle():
         # the other particle
         if self.dim==2:
             angle_opposite = np.arctan2(vector_centers[1],vector_centers[0])
-            if np.random.uniform() > 1:
+            if np.random.uniform() > 0:
                 angle_new = angle_opposite + np.random.uniform(low=-np.pi/4,high=np.pi/4)
             else:
                 angle_new = angle_opposite

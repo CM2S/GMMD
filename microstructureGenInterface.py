@@ -294,11 +294,12 @@ if __name__ == '__main__':
     # Initializing the dictionary containing the options
     #                                                                    Stopping criteria
     # --------------------------------------------------------------------------------------
-    mic_gen_parameters['max_residue_per_particle'] = 1e-8
+    mic_gen_parameters['max_residue_per_particle'] = 1e-10
     mic_gen_parameters['max_step'] = 10000
     mic_gen_parameters['max_steps_to_relax'] = 250
     mic_gen_parameters['speed_up_scheme'] = 'Verlet'
     mic_gen_parameters['verlet_factor'] = 1.2
+    mic_gen_parameters['dt'] = 0.01
     # Maximum number of steps
     problem_type = 1
     # n_dp_samples: integer
@@ -318,7 +319,7 @@ if __name__ == '__main__':
     mic_gen_descriptors_array = {}
 
     mic_gen_descriptors_array['4'] = np.array([['rve_dims'], [[1.0, 1.0, 1.0]]])
-    mic_gen_descriptors_array['2'] = np.array([['n', 'vf'], [20, 0.65]], dtype=object)
+    mic_gen_descriptors_array['2'] = np.array([['n', 'vf'], [10, 0.65]], dtype=object)
 
     # Types of particles
     # 1 - Matrix
