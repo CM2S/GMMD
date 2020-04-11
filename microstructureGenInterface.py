@@ -238,7 +238,10 @@ def generateMicrostructures(dp_dir, mic_gen_program, mic_gen_parameters, problem
                 (np.array([['param_1', 'prob_param_1', 'param_2', 'prob_param_2'],
                         [1, 0.4, 2, 0.6]], dtype=obj))
 
-    - Uniform distribution:
+    - Uniform distribution: "*_distribution"
+        
+            np.array([['distribution_param']['uniform'], dtype=obj)
+            
     - Gaussian distribution:
     """
     if mic_gen_program == 1:
@@ -294,9 +297,9 @@ if __name__ == '__main__':
     # Initializing the dictionary containing the options
     #                                                                    Stopping criteria
     # --------------------------------------------------------------------------------------
-    mic_gen_parameters['max_residue_per_particle'] = 1e-10
-    mic_gen_parameters['max_step'] = 10000
-    mic_gen_parameters['max_steps_to_relax'] = 250
+    mic_gen_parameters['max_residue_per_particle'] = 0
+    mic_gen_parameters['max_step'] = 1000
+    mic_gen_parameters['max_steps_to_relax'] = 2
     mic_gen_parameters['speed_up_scheme'] = 'Verlet'
     mic_gen_parameters['verlet_factor'] = 1.2
     mic_gen_parameters['dt'] = 0.01
@@ -319,7 +322,12 @@ if __name__ == '__main__':
     mic_gen_descriptors_array = {}
 
     mic_gen_descriptors_array['4'] = np.array([['rve_dims'], [[1.0, 1.0, 1.0]]])
-    mic_gen_descriptors_array['2'] = np.array([['n', 'vf'], [10, 0.65]], dtype=object)
+    mic_gen_descriptors_array['2'] = \
+        np.array([['n', 'axis_1', 'axis_2', 'axis_3', 'euler_angles', 'angle'],
+                  [10, 0.2, 0.3, 0.1, np.array([0, 0, 1]), 0]], dtype=object)
+    mic_gen_descriptors_array['3'] = \
+        np.array([['n', 'r'],
+                  [1, 0.1]], dtype=object)
 
     # Types of particles
     # 1 - Matrix
@@ -328,7 +336,8 @@ if __name__ == '__main__':
     # 4 - Spherical particle
     phase_types = {}
     phase_types['4'] = 1  # Matrix
-    phase_types['2'] = 2  # Elliptical particle
+    phase_types['2'] = 5  # Elliptical particle
+    phase_types['3'] = 4  # Elliptical particle
     # discret_file_ext: list
     #     List which contains the required spatial discretization file(s), stored as
     #                     array = [ < discret_type > < discret_type >  ... ]
@@ -341,12 +350,12 @@ if __name__ == '__main__':
     discret_file_ext = []
 
     discret_spec_array = {}
-    discret_spec_array['rgmsh'] = {}
-    discret_spec_array['rgmsh']['rve_dims'] = np.array([1.0, 1.0])
-    discret_spec_array['rgmsh']['n_voxels_dims'] = np.array([50, 50])
-    # discret_spec_array['femsh'] = {}
-    # discret_spec_array['femsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
-    # discret_spec_array['femsh']['mesh_size'] = 0.1
+    # discret_spec_array['rgmsh'] = {}
+    # discret_spec_array['rgmsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
+    # discret_spec_array['rgmsh']['n_voxels_dims'] = np.array([50, 50])
+    discret_spec_array['femsh'] = {}
+    discret_spec_array['femsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
+    discret_spec_array['femsh']['mesh_size'] = 0.05
 
     generateMicrostructures(dp_dir, mic_gen_program, mic_gen_parameters, problem_type,
                             n_dp_samples, mic_gen_descriptors_array, phase_types,

@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 # Plotting capabilities
 from integration_methods import Newmark
 # Importing an integration method for the equation of motion
-from particle_classes import Disk, Particle, Ellipse, Sphere
+from particle_classes import Disk, Particle, Ellipse, Sphere, Ellipsoid
 # Importing the particle class
 from meshing_interface import generateMeshFEM, generateMeshFFT
 import os
@@ -268,7 +268,7 @@ def computeForces(particles, speed_up_scheme):
             if dim==2:
             # 2D problem
                 pos_cell_list = pos_cell_list_dim[0] + \
-                    pos_cell_list_dim[1]*Particle.n_cell_dim[1]
+                    pos_cell_list_dim[1]*Particle.n_cell_dim[0]
                 # Saving the position in the cell list of particle i_particle
                 for k_neighboor_cell in range(9):
                 # Running through the neighboor cells
@@ -291,6 +291,34 @@ def computeForces(particles, speed_up_scheme):
                                 - force_i_j
                             # Adding the force due to the interaction between particle 1 and 2 to the total
                             # force acting on particle 2
+            if dim==3:
+            # 2D problem
+                pos_cell_list = pos_cell_list_dim[0] + \
+                    pos_cell_list_dim[1]*Particle.n_cell_dim[0] + \
+                    pos_cell_list_dim[2]*Particle.n_cell_dim[0]*Particle.n_cell_dim[1]
+                # Saving the position in the cell list of particle i_particle
+                for k_neighboor_cell in range(3**3):
+                # Running through the neighboor cells
+                    pos_neighboor_cell = \
+                        neighboorCell(pos_cell_list, k_neighboor_cell, dim, Particle.n_cell_dim)
+                    # Computing the index of the neighboor cell
+                    for j_particle in Particle.cell_list[pos_neighboor_cell]:
+                    # Running through all the particles in the neighboring cell
+                        if j_particle > i_particle:
+                        # Ensuring that the forces are not computed twice
+                            force_i_j = computeForceij(particles[i_particle],
+                                particles[j_particle])
+                            # Computing the force on particle i due to particle j
+                            particles[i_particle].force = particles[i_particle].force \
+                                + force_i_j
+                            # Adding the force due to the interaction between particle 1 and 2 to the total
+                            # force acting on particle 1
+                            particles[j_particle].force = particles[j_particle].force \
+                                - force_i_j
+                            # Adding the force due to the interaction between particle 1 and 2 to the total
+                            # force acting on particle 2
+
+
     elif speed_up_scheme == 'Verlet':
     # Cell list + Verlet list: O(N)
         newCellList(particles)
@@ -572,6 +600,30 @@ def generateEllipses(phase, descriptors):
     return ellipses
 
 
+def generateEllipsoids(phase, rve_dims, descriptors):
+    """Generate the ellipsoids of phase."""
+    ellipsoids = []
+    # Initializing the list containing the disks
+    if descriptors.get('distribution') == 'uniform':
+    # the radius follows an uniform distribution
+        pass
+    else:
+    # the radius is fixed
+        for i in range(descriptors['n']):
+        # Generating n disks
+            axis = np.random.uniform(size=3)
+            ellipsoids.append(Ellipsoid(phase, descriptors['axis_1'], descriptors['axis_2'],
+                                        descriptors['axis_3'], axis, #descriptors['euler_angles'],
+                                        descriptors['angle']+np.pi/3*i)) #np.random.uniform(low=0.01,high=0.2)))
+            # Generating ellipses, all with the same dimensions
+            ellipsoids[i].position_center = np.random.uniform(size=3) # np.array([0.5, 0.5, 0.5-i/200]) #    #
+            # Generating the positions from a random uniform distribution between 0 and 1
+            ellipsoids[i].velocity_center = np.array([0., 0., 0.], dtype='float')
+            # Generating the velocities from a random uniform distribution between -1 and 1
+
+    return ellipsoids
+
+
 def particleGeneration(descriptors, phase_types, rve_dims, problem_type, dp_dir):
     """
     Generate all the particles from the geometrical descriptors.
@@ -640,6 +692,13 @@ def particleGeneration(descriptors, phase_types, rve_dims, problem_type, dp_dir)
             particles = particles + generateSpheres(i_phase, rve_dims, descriptors[i_phase])
             # Generating the number of spheres requested and appending them to the list of
             # particles
+        elif phase_types[i_phase] == 5:
+        # This phase is made up by ellipsoids
+            particles = (particles
+                         + generateEllipsoids(i_phase, rve_dims, descriptors[i_phase]))
+            # Generating the number of ellipsoids requested and appending them to the list
+            # of particles
+
     Particle.file_name = (particles[0].__class__.__name__ + "_" + str(Particle.number) + "_"
                           + str(Particle.volume)[0:3])
     # Defining the file name associated with this sampling
@@ -910,6 +969,8 @@ def run(particles, max_residue_per_particle, max_step, options):
         Particle.cell_side_length = (
             [box[i_dim]/Particle.n_cell_dim[i_dim] for i_dim in range(dim)])
         # Obtaining a list containing the dimensions of the cell in each direction
+        print(Particle.n_cell_dim)
+        print(Particle.cell_side_length)
     elif speed_up_scheme == 'Verlet':
         # A Verlet list combined with a cell list scheme will be used
         Particle.verlet_factor = options['verlet_factor']
@@ -952,7 +1013,7 @@ def run(particles, max_residue_per_particle, max_step, options):
     # potential energy (related to the overlap)
     relative_energy = computeRelativeEnergy(particles)
     relative_vec = [relative_energy]
-    jump = np.int(np.floor(1500/N))
+    jump = 2 #np.int(np.floor(1500/N))
     last_alt = jump
     e_min = 10
     e_max = 1e5
@@ -988,8 +1049,10 @@ def run(particles, max_residue_per_particle, max_step, options):
                     if np.max(relative_vec[-jump:-1])/np.min(relative_vec[-jump:-1]) <= 10:
                         if e_max*relative_energy > e_min:
                             e_max = e_max*1e-1
+                            print('e_max', e_max)
                         else:
-                            e_min = e_min*(1/(1.3)) # np.min([e_min*(1/(1 + N/1e3)), 1e-2])
+                            e_min = e_min*(1/(2)) #)(1.3)) # np.min([e_min*(1/(1 + N/1e3)), 1e-2])
+                            print('e_min', e_min)
                         last_alt = step + jump
                 lambda_vel = np.sqrt(np.max([e_max*relative_energy, e_min])/kin_energy/N)
                 # Rescalling factor (why? 250 -  equipartition theorem)
@@ -1065,7 +1128,8 @@ def plotParticles(particles, dir, grid='off', verlet_ngh=False, center_part=Fals
                                         particles[i].position_center[1])
                     if 'Ellipse' == class_name_i_particle:
                         ellip = mpatches.Ellipse(particles[i].position_center+np.array(
-                            [1*j, 1*k]), particles[i].major_axis, particles[i].minor_axis, angle=180/np.pi*particles[i].angle, alpha=0.8)
+                            [1*j, 1*k]), particles[i].major_axis, particles[i].minor_axis,
+                            angle=180/np.pi*particles[i].angle, alpha=0.8)
                         ax.add_artist(ellip)
                         if verlet_ngh:
                             ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j, 1*k]+particles[i].displacement_last_verlet), particles[i].major_axis
@@ -1226,6 +1290,8 @@ def main():
         except KeyboardInterrupt:
             pass
         end = time.time()
+        print('cell_list', Particle.cell_list)
+        print('verlet_list', [ particles[i].verlet_list for i in range(len(particles))])
         if 'rgmsh' in discret_spec_array:
         # A mesh for FFT was requested
             generateMeshFFT(particles, discret_spec_array['rgmsh'])
@@ -1244,8 +1310,6 @@ def main():
                       save=options.get('save_plot', True),
                       show=options.get('save_plot',  True))
         # Ploting final configuration
-    print('verlet list', [particles[i].verlet_list for i in range(Particle.number)])
-    print('cell list', Particle.cell_list)
     print(end - start)
 
     f.close()

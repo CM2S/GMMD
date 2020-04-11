@@ -87,9 +87,9 @@ def generateMeshFEM(particles, mesh_size, element_type="tri3", **kwargs):
         generateMeshFEM3D(particles, mesh_size)
 
 def generateMeshFEM2D(particles, mesh_size, mesh_alg=6, force_recomb_all=0, element_order=1,
-    recomb_alg=1, element_order_incomp=0, output_term=0):
+                      recomb_alg=1, element_order_incomp=0, output_term=0):
     '''
-    This function generates the mesh for the Finite Element Method in 2D. It generates by 
+    This function generates the mesh for the Finite Element Method in 2D. It generates by
     default linear triangular elements.
 
     Parameters
@@ -280,7 +280,7 @@ def generateMeshFEM2D(particles, mesh_size, mesh_alg=6, force_recomb_all=0, elem
     materials = []
     for i_phase in Particle.list_phases:
         temp = set(phaseDimTag[i_phase])
-        materials.append([ value[1] for value in outDimTag2 if value in temp ])
+        materials.append([value[1] for value in outDimTag2 if value in temp])
 
 
     # Set the mesh size on the geometry points
@@ -322,12 +322,12 @@ def generateMeshFEM2D(particles, mesh_size, mesh_alg=6, force_recomb_all=0, elem
     # Convert it to LINKS format and write the respective input file
     # ==========================================================================================
 
-    gmshToLinks(meshfile, title)
+    gmshToLinks(meshfile, title, 2, Particle.list_phases, Particle.matrix_phase)
 
 def generateMeshFEM3D(particles, mesh_size, mesh_alg=6, force_recomb_all=0, element_order=1,
     recomb_alg=1, element_order_incomp=0, output_term=0):
     '''
-    This function generates the mesh for the Finite Element Method in 2D. It generates by 
+    This function generates the mesh for the Finite Element Method in 2D. It generates by
     default linear triangular elements.
 
     Parameters
@@ -444,30 +444,24 @@ def generateMeshFEM3D(particles, mesh_size, mesh_alg=6, force_recomb_all=0, elem
     title = Particle.file_path
     model.add(title)
 
-    x = 0
-    y = 0
-    z = 0
-    lx = Particle.box[0]
-    ly = Particle.box[1]
-
     boxTag = factory.addBox(0, 0, 0, Particle.box[0], Particle.box[1], Particle.box[2])
     # RVE
 
     particleTags = []
-    rotateTags = []
+    phaseDimTag = []
     k_particle_image = 0
     phaseDimTag = dict.fromkeys(Particle.list_phases, [])
     for i_particle in particles:
     # Running through all the particles
         class_name_i_particle = i_particle.__class__.__name__
         # Saving the class name of the particle as a string
-        for j in range(-1,2):
+        for j in range(-1, 2):
         # Periodic images in the x direction
-            for p in range(-1,2):
+            for p in range(-1, 2):
             # Periodic images in the y direction
-                for l in range(-1,2):
+                for l in range(-1, 2):
                 # Periodic images in the z direction
-                    if 'Sphere'==class_name_i_particle:
+                    if 'Sphere' == class_name_i_particle:
                     # Particle is a Sphere
                         xc = i_particle.position_center[0] + Particle.box[0]*j
                         yc = i_particle.position_center[1] + Particle.box[1]*p
@@ -481,38 +475,45 @@ def generateMeshFEM3D(particles, mesh_size, mesh_alg=6, force_recomb_all=0, elem
 
                         factory.synchronize()
                         k_particle_image += 1
-                    elif 'Ellipsoid'==class_name_i_particle:
-                    # Particle is an Ellipsoid
+                    elif 'Ellipsoid' == class_name_i_particle:
+                    # Particle is an Ellipsoid                    
                         xc = i_particle.position_center[0] + Particle.box[0]*j
                         yc = i_particle.position_center[1] + Particle.box[1]*p
-                        zc = 0
-                        rx = i_particle.semi_major_axis*0.9
-                        ry = i_particle.semi_minor_axis*0.9
-                        alpha = i_particle.angle
+                        zc = i_particle.position_center[2] + Particle.box[2]*l
+                        r = 1*0.9
                         # Saving the properties of the particles
-                        particleTags.append(factory.addDisk(xc, yc, zc, rx, ry))
-                        # Creating the ellipse without rotation
+                        particleTags.append(factory.addSphere(xc, yc, zc, r))
+                        # Creating a sphere without rotation
                         # Rotate the disk
                         factory.synchronize()
-                        rotateTags.append([(3, particleTags[k_particle_image])])
-                        rotateTags[k_particle_image].extend(
-                            model.getBoundary([3, particleTags[k_particle_image]]))
-                        factory.rotate(rotateTags[k_particle_image], xc, yc, zc, 0, 0, 1, alpha)
+                        affineTags = [(3, particleTags[k_particle_image])]
+                        # affineTags.extend(
+                        #     model.getBoundary([(3, particleTags[k_particle_image])]))
+                        factory.dilate(affineTags, xc, yc, zc,
+                                       i_particle.semi_axis_1,
+                                       i_particle.semi_axis_2,
+                                       i_particle.semi_axis_3)
+                        factory.rotate(affineTags, xc, yc, zc,
+                                       i_particle.rotation_axis[0],
+                                       i_particle.rotation_axis[1],
+                                       i_particle.rotation_axis[2],
+                                       i_particle.angle)
 
                         phaseDimTag[i_particle.phase].append(
                             (3, particleTags[k_particle_image]))
 
                         factory.synchronize()
                         k_particle_image += 1
-                    elif 'Cylinder'==class_name_i_particle:
+                    elif 'Cylinder' == class_name_i_particle:
                         pass
 
     outDimTag, outDimTagMap = factory.intersect(
-        [(3, boxTag)], [(3, particleTags[k]) for k in range(3**3*len(particles))], removeObject=False, removeTool=True)
+        [(3, boxTag)], [(3, particleTags[k]) for k in range(3**3*len(particles))],
+        removeObject=False, removeTool=True)
 
     temp = set(outDimTag)
     for i_phase in Particle.list_phases:
-        phaseDimTag[i_phase] = [ value for value in phaseDimTag[i_phase] if value in temp ]
+        phaseDimTag[i_phase] = [value for value in phaseDimTag[i_phase] if value in temp]
 
     factory.synchronize()
 
@@ -523,30 +524,25 @@ def generateMeshFEM3D(particles, mesh_size, mesh_alg=6, force_recomb_all=0, elem
     materials = []
     for i_phase in Particle.list_phases:
         temp = set(phaseDimTag[i_phase])
-        materials.append([ value[1] for value in outDimTag2 if value in temp ])
-
+        materials.append([value[1] for value in outDimTag2 if value in temp])
 
     # Set the mesh size on the geometry points
     # Synchronize the CAD engine (always needed before generating the mesh)
     # It may also be useful for some intermidate operations, like checking the tags of entities
     factory.synchronize()
 
-    print(Particle.list_phases)
-    print(materials)
     for i_phase in range(len(Particle.list_phases)):
-        print(i_phase)
         materialTag = model.addPhysicalGroup(3, materials[i_phase])
         model.setPhysicalName(3, materialTag, "Phase " + Particle.list_phases[i_phase])
 
     # material1Tag = model.addPhysicalGroup(material1[0][0], [material1[0][1]])
     # model.setPhysicalName(material1[0][0], material1Tag, "Material 1")
-    # 
+    #
     # material2Tag = model.addPhysicalGroup(material2[0][0], [material2[i][1] for i in range(len(material2))])
     # model.setPhysicalName(material2[0][0], material2Tag, "Material 2")
 
     factory.synchronize()
 
-    
     # model.setColor((2, material2[0][1]),0,0,255,a=1)
 
     # Set mesh size
@@ -555,7 +551,6 @@ def generateMeshFEM3D(particles, mesh_size, mesh_alg=6, force_recomb_all=0, elem
 
     # Generate a 2D mesh
     model.mesh.generate(3)
-
 
 
     # Write the mesh to the .msh file
@@ -568,7 +563,11 @@ def generateMeshFEM3D(particles, mesh_size, mesh_alg=6, force_recomb_all=0, elem
     # Convert it to LINKS format and write the respective input file
     # ==========================================================================================
 
-def gmshToLinks(meshfile, title):
+    gmshToLinks(meshfile, title, 3, Particle.list_phases, Particle.matrix_phase)
+
+
+
+def gmshToLinks(meshfile, title, dim, list_phases, matrix_phase):
     '''
     This function writes an input file for LINKS using a gmsh mesh saved at meshfile.
 
@@ -580,33 +579,37 @@ def gmshToLinks(meshfile, title):
     mesh = readMesh(meshfile)
 
     nodeID, coord = mesh.getAllNodes()
-    elementID, connectivities, elementType = mesh.getElementsByDim(2)
-    elemMat1, conMat1, typeMat1 = mesh.getElementsByName("Phase 4")
-    elemMat2, conMat2, typeMat2 = mesh.getElementsByName("Phase 2")
+    elementID, connectivities, elementType = mesh.getElementsByDim(dim)
+    elemMat = len(list_phases)*[0]
+    conMat = len(list_phases)*[0]
+    typeMat = len(list_phases)*[0]
+    elemMat[0], conMat[0], typeMat[0] = \
+        mesh.getElementsByName("Phase " + str(matrix_phase))
+    list_phases.remove(matrix_phase)
+    for i_phase in range(len(list_phases)):
+        elemMat[i_phase+1], conMat[i_phase+1], typeMat[i_phase+1] = \
+            mesh.getElementsByName("Phase " + str(list_phases[i_phase]))
 
-    shutil.copy("LINKS_header.dat",title + ".dat")
+    if dim == 2:
+        shutil.copy("LINKS_header.dat", title + ".rve")
+    elif dim == 3:
+        shutil.copy("LINKS_header_3d.dat", title + ".rve")
 
     with open(title + ".dat", "a") as dat:
-        dat.write("TITLE\n{0}".format(title))
-        dat.write("\n\nELEMENT_GROUPS 2\n1 1 1\n2 1 2")
-        dat.write("\n\nELEMENT_TYPES 1\n1 {0} \n3 GP".format(elementType[0]))
-        dat.write("\n\nMATERIALS 2\n1 VON_MISES\n0.0\n2000E3 0.3\n2\n0.0 10000\n1.0 12000\n2 VON_MISES\n0.0\n200E3 0.3\n2\n0.0 540\n1.0 940\n")
+        # dat.write("TITLE\n{0}".format(title))
+        # dat.write("\n\nELEMENT_GROUPS 2\n1 1 1")
+        # # dat.write("\n\nELEMENT_TYPES 1\n1 {0} \n3 GP".format(elementType[0]))
+        # dat.write("\n\nELEMENT_TYPES 1\n1 TETRA4 \n4 GP")
+        # dat.write("\n\nMATERIALS 2\n1 VON_MISES\n0.0\n2000E3 0.3\n2\n0.0 10000\n1.0 12000\n2 VON_MISES\n0.0\n200E3 0.3\n2\n0.0 540\n1.0 940\n")
         dat.write("\n\nNODE_COORDINATES {0} CARTESIAN".format(len(nodeID)))
         for i in range(len(nodeID)):
             dat.write("\n{0} {1} {2} {3}".format(nodeID[i], coord[i][0], coord[i][1], coord[i][2]))
         dat.write("\n\nELEMENTS {0}".format(len(elementID)))
-        for i in range(len(elemMat1)):
-            dat.write("\n{0} 1 ".format(elemMat1[i]))
-            for j in conMat1[i]:
-                dat.write("{0} ".format(j))
-        for i in range(len(elemMat2)):
-            dat.write("\n{0} 2 ".format(elemMat2[i]))
-            for j in conMat2[i]:
-                dat.write("{0} ".format(j))
-        dat.write("\n\nLOADINGS")
-        dat.write("\n\nINCREMENTS 20")
-        dat.write("\n20")
-        dat.write("\n {0} 1e-6 10".format(1.0/20.0))
+        for i_phase in range(len(list_phases)):
+            for j_node in range(len(elemMat[i_phase])):
+                dat.write("\n{0} 1 ".format(elemMat[j_node]))
+                for k_con in conMat[j_node]:
+                    dat.write("{0} ".format(k_con))
 
 def generateMeshFFT(particles, options):
     '''
@@ -681,7 +684,7 @@ def generateMeshFFT(particles, options):
 def plotPixels(pixel_grid, dir, show=False, save=True):
     import matplotlib.pyplot as plt
     # This import registers the 3D projection, but is otherwise unused.
-    from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import    
+    from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
     fig = plt.figure()
     plt.imshow(pixel_grid.T)
     plt.axis([0, np.size(pixel_grid.T, 0), 0, np.size(pixel_grid.T, 1)])
@@ -689,6 +692,7 @@ def plotPixels(pixel_grid, dir, show=False, save=True):
         plt.savefig(dir + ".png")
     if show:
         plt.show(block=False)
+
 
 def plotVoxels(voxel_grid, matrix_phase, dir, show=False, save=True):
     import matplotlib.pyplot as plt
