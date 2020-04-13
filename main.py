@@ -567,7 +567,7 @@ def generateSpheres(phase, rve_dims, descriptors):
         # Generating n spheres
             spheres.append(Sphere(phase, radius)) #np.random.uniform(low=0.01,high=0.2)))
             # Sphere with radius 0.5
-            spheres[i].position_center = np.random.uniform(size=3) # np.array([0.5+i**2/200, 0.5, 0.5]) #    # #
+            spheres[i].position_center = np.random.uniform(size=3) # np.array([0.3, 0.95, 0.2]) # np.array([0.5+i**2/200, 0.5, 0.5]) #    # #
             # Generating the positions from a random uniform distribution between 0 and 1
             spheres[i].velocity_center = np.array([0, 0, 0], dtype='float')
             # Generating the velocities from a random uniform distribution between -1 and 1
@@ -616,7 +616,7 @@ def generateEllipsoids(phase, rve_dims, descriptors):
                                         descriptors['axis_3'], axis, #descriptors['euler_angles'],
                                         descriptors['angle']+np.pi/3*i)) #np.random.uniform(low=0.01,high=0.2)))
             # Generating ellipses, all with the same dimensions
-            ellipsoids[i].position_center = np.random.uniform(size=3) # np.array([0.5, 0.5, 0.5-i/200]) #    #
+            ellipsoids[i].position_center = np.random.uniform(size=3) # np.array([0.3, 0.05+i/(1/0.9), 0.2]) #     #
             # Generating the positions from a random uniform distribution between 0 and 1
             ellipsoids[i].velocity_center = np.array([0., 0., 0.], dtype='float')
             # Generating the velocities from a random uniform distribution between -1 and 1
@@ -1013,7 +1013,7 @@ def run(particles, max_residue_per_particle, max_step, options):
     # potential energy (related to the overlap)
     relative_energy = computeRelativeEnergy(particles)
     relative_vec = [relative_energy]
-    jump = 2 #np.int(np.floor(1500/N))
+    jump = np.int(np.floor(1500/N))
     last_alt = jump
     e_min = 10
     e_max = 1e5

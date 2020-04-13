@@ -298,8 +298,8 @@ if __name__ == '__main__':
     #                                                                    Stopping criteria
     # --------------------------------------------------------------------------------------
     mic_gen_parameters['max_residue_per_particle'] = 0
-    mic_gen_parameters['max_step'] = 1000
-    mic_gen_parameters['max_steps_to_relax'] = 2
+    mic_gen_parameters['max_step'] = 5000
+    mic_gen_parameters['max_steps_to_relax'] = 50
     mic_gen_parameters['speed_up_scheme'] = 'Verlet'
     mic_gen_parameters['verlet_factor'] = 1.2
     mic_gen_parameters['dt'] = 0.01
@@ -321,13 +321,22 @@ if __name__ == '__main__':
     #
     mic_gen_descriptors_array = {}
 
-    mic_gen_descriptors_array['4'] = np.array([['rve_dims'], [[1.0, 1.0, 1.0]]])
-    mic_gen_descriptors_array['2'] = \
-        np.array([['n', 'axis_1', 'axis_2', 'axis_3', 'euler_angles', 'angle'],
-                  [10, 0.2, 0.3, 0.1, np.array([0, 0, 1]), 0]], dtype=object)
+    mic_gen_descriptors_array['4'] = np.array([['rve_dims'], [[1.0, 1.0, 1.0]]], dtype=object)
+    # mic_gen_descriptors_array['2'] = \
+    #     np.array([['n', 'axis_1', 'axis_2', 'axis_3', 'euler_angles', 'angle'],
+    #               [5, 0.2, 0.3, 0.1, np.array([0, 0, 1]), 0]], dtype=object)
     mic_gen_descriptors_array['3'] = \
         np.array([['n', 'r'],
-                  [1, 0.1]], dtype=object)
+                  [15, 0.1]], dtype=object)
+    mic_gen_descriptors_array['2'] = \
+        np.array([['n', 'r'],
+                  [15, 0.05]], dtype=object)
+    # mic_gen_descriptors_array['2'] = \
+    #     np.array([['n', 'r'],
+    #               [5, 0.1]], dtype=object)
+    # mic_gen_descriptors_array['3'] = \
+    #     np.array([['n', 'r'],
+    #               [5, 0.15]], dtype=object)
 
     # Types of particles
     # 1 - Matrix
@@ -336,7 +345,7 @@ if __name__ == '__main__':
     # 4 - Spherical particle
     phase_types = {}
     phase_types['4'] = 1  # Matrix
-    phase_types['2'] = 5  # Elliptical particle
+    phase_types['2'] = 4  # Elliptical particle
     phase_types['3'] = 4  # Elliptical particle
     # discret_file_ext: list
     #     List which contains the required spatial discretization file(s), stored as

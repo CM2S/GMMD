@@ -943,7 +943,7 @@ class Ellipsoid(Particle):
         # Saving the class name of the other particle as a string
         if intersection:
         # There is overlap
-            overlap_volume = self.intersectionVolumeEllipsoidOther(other_particle, max_it=3, seq_size=100)
+            overlap_volume = self.intersectionVolumeEllipsoidOther(other_particle, max_it=50, seq_size=100)
             # Computing the intersection area
         else:
         # There is no overlap
@@ -1068,55 +1068,13 @@ class Ellipsoid(Particle):
         diff_nearest_other = box*np.round(diff_in_box/box)
         # Computing the difference vector between the centers of the current sphere and
         # the nearest image of the other sphere
-        if 'Ellipsoid' == class_name_other_particle:
-        # The other particle is also a Disk
-            intersection_verlet = self.intersectionEllipsoids(other_particle,
-                                                              diff_nearest_other,
-                                                              verlet=True)
-            # Computing the intersection area
-            return intersection_verlet
-            # Returning the intersection area
-
-    def intersectionVerletEllipsoidEllipsoid(self, other_ellipse):
-        '''
-        This function computes the intersection area between two disks
-        '''
-
-        box = Particle.box
-
-        diff_in_box = self.position_center - other_ellipse.position_center
-        # Difference vector between the center of the two ellipses
-        diff_nearest_other = box*np.round(diff_in_box/box)
-        # Difference vector to the nearest image of the other particle
-        y_inter_sect = intersectionPointsEllipses(
-            Particle.verlet_factor*self.semi_major_axis, Particle.verlet_factor*self.semi_minor_axis, self.position_center,
-            self.angle, Particle.verlet_factor*other_ellipse.semi_major_axis, Particle.verlet_factor*other_ellipse.semi_minor_axis,
-            other_ellipse.position_center+ diff_nearest_other, other_ellipse.angle)
-        if len(y_inter_sect)>0:
-        # There are intersection points betweeen the two neighboorhoods
-            intersection_verlet = True
-        else:
-        # Either the ellipses are disjoint or one of them is completly inside the other
-            if self.volume() >= other_ellipse.volume():
-            # The current ellipse is larger than the other ellipse
-                if self.pointInside(other_ellipse.position_center):
-                # The other ellipse is completly inside the current ellipse
-                    intersection_verlet = True
-                    # The intersection area is the area of the smaller ellipse
-                else:
-                # The ellipses are disjoint
-                    intersection_verlet = False
-                    # The intersection area is 0
-            else:
-                if other_ellipse.pointInside(self.position_center):
-                # The current ellipse is completly inside the other ellipse
-                    intersection_verlet = True
-                    # The intersection area is the area of the smaller ellipse
-                else:
-                # The ellipses are disjoint
-                    intersection_verlet = False
-                    # The intersection area is 0
+        intersection_verlet = self.intersectionEllipsoids(other_particle,
+                                                          diff_nearest_other,
+                                                          verlet=True)
+        # Computing the intersection area
         return intersection_verlet
+        # Returning the intersection area
+
 
     def insideVerlet(self):
         """Check if the ellipse has moved outside its Verlet neighboorhood."""
@@ -1259,6 +1217,17 @@ class Sphere(Ellipsoid):
         if 'Sphere' == class_name_other_particle:
         # The other particle is also a Disk
             intersection_verlet = self.intersectionVerletSphereSphere(other_particle)
+            # Computing the intersection area
+            return intersection_verlet
+            # Returning the intersection area
+        elif 'Ellipsoid' == class_name_other_particle:
+            box = Particle.box
+            # Saving the array defining the RVE box
+            diff_in_box = self.position_center - other_particle.position_center
+            diff_nearest_other = box*np.round(diff_in_box/box)
+            # Computing the difference vector between the centers of the current sphere and
+            # the nearest image of the other sphere
+            intersection_verlet = self.intersectionEllipsoids(other_particle, diff_nearest_other, verlet=True)
             # Computing the intersection area
             return intersection_verlet
             # Returning the intersection area
@@ -1473,10 +1442,7 @@ if __name__ == '__main__':
     intersect = ellipsoid_1.intersectionEllipsoids(ellipsoid_2, diff_nearest_other)
 
     overlap_volume = ellipsoid_1.intersectionVolumeEllipsoidOther(ellipsoid_2)
-    print(overlap_volume)
     v_ellipsoid_2 = ellipsoid_2.volume()
-    print(v_ellipsoid_2)
-    print(intersect)
 
     # Particle.volume = 0
     # Particle.number = 0
