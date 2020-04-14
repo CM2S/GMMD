@@ -1,11 +1,12 @@
-#
-# Microstructure Generation Interface (DATAGEM Program)(????)
-# ==========================================================================================
-# Summary:
-# ...
-# ------------------------------------------------------------------------------------------
-# Development history:
-# Zé Luís P. Vila-Chã | March 2020 | Initial coding.
+"""
+Microstructure Generation Interface (DATAGEM Program)(????)
+==========================================================================================
+Summary:
+...
+------------------------------------------------------------------------------------------
+Development history:
+Zé Luís P. Vila-Chã | March 2020 | Initial coding.
+"""
 # ==========================================================================================
 #                                                                             Import modules
 # ==========================================================================================
@@ -22,9 +23,24 @@ from integration_methods import Newmark
 from particle_classes import Disk, Particle, Ellipse, Sphere, Ellipsoid
 # Importing the particle class
 from meshing_interface import generateMeshFEM, generateMeshFFT
+# Importing meshing interfaces
+import error_classes as errors
+# Importing the error clases
 import os
 import sys
 # ==========================================================================================
+
+
+# def print2(*objects):
+#     """Print to the terminal and to the screen."""
+#     print(*objects)
+#     # Print to default sys.stdout
+#     screen_file = open(screen_path, 'a')
+#     print(*objects, file=screen_file)
+#     # Print to '.screen file'
+#     screen_file.close()
+
+
 def newVerletList(particles):
     '''
     This function creates a new Verlet list for all the particles
@@ -442,18 +458,147 @@ def generateDisks(phase, rve_dims, descriptors):
     """
     disks = []
     # Initializing the list containing the disks
-    if descriptors.get('distribution_r') == 'uniform':
-    # the radius follows an uniform distribution
-        for i in range(descriptors['n']):
-        # Generating n disks
-            disks.append(Disk(phase, np.random.uniform(
-                low=descriptors['r_low'], high=descriptors['r_high'])))
-            # Disk with radius 0.5
-            disks[i].position_center = np.array(
-                [i*1/25, np.floor(i/25)*1/25])  # np.random.uniform(size=2) #
-            # Generating the positions from a random uniform distribution between 0 and 1
-            disks[i].velocity_center = np.random.uniform(size=2) #np.array([0,0],dtype='float')
-            # Generating the velocities from a random uniform distribution between -1 and 1
+    if descriptors.get('r_distribution') == 'uniform':
+    # the radius follows a uniform distribution
+        try:
+            if 'r_low' not in descriptors:
+                raise errors.ParameterMissing('r_low', phase)
+            elif 'r_high' not in descriptors:
+                raise errors.ParameterMissing('r_high', phase)
+        except errors.ParameterMissing as error:
+        # One of the parameters is missing
+            error.message()
+            quit()
+            # Printing message and aborting
+        if 'n' in descriptors:
+        # The number of desired disks was given
+            for i in range(descriptors['n']):
+            # Generating n disks
+                disks.append(Disk(phase, np.random.uniform(
+                    low=descriptors['r_low'], high=descriptors['r_high'])))
+                # Disk with radius 0.5
+                disks[i].position_center = np.array(np.random.uniform(size=2))  # [i*1/25, np.floor(i/25)*1/25])  #  #
+                # Generating the positions from a random uniform distribution between 0 and 1
+                disks[i].velocity_center = np.random.uniform(size=2) #np.array([0,0],dtype='float')
+                # Generating the velocities from a random uniform distribution between -1 and 1
+        elif 'vf' in descriptors:
+        # The desired volume fraction was given
+            vf_real = 0
+            # Initializing the real volume fraction
+            while vf_real < descriptors['vf']:
+                disks.append(Disk(phase, np.random.uniform(
+                    low=descriptors['r_low'], high=descriptors['r_high'])))
+                # Disk with a radius coming from an uniform distribution
+                vf_real += disks[-1].volume()/(Particle.box[0]*Particle.box[1])
+                # Computing the current volume fraction
+            n_particles = len(disks)
+            # Number of disks
+            print(vf_real)
+            for i in range(n_particles):
+                disks[i].position_center = np.array(np.random.uniform(size=2))  # [i*1/25, np.floor(i/25)*1/25])  #  #
+                # Generating the positions from a random uniform distribution between 0 and 1
+                disks[i].velocity_center = np.random.uniform(size=2) #np.array([0,0]di,dtype='float')
+                # Generating the velocities from a random uniform distribution between -1 and 1
+        else:
+            try:
+                raise errors.ParameterMissing('vf or n', phase)
+            except errors.ParameterMissing as error:
+                error.message()
+                quit()
+    elif descriptors.get('r_distribution') == 'normal':
+    # the radius follows a normal distribution: the paramaters 'r_sigma', the standard
+    # deviation of the distribution and 'r_mean', the mean of the distribution, are needed
+        try:
+            if 'r_sigma' not in descriptors:
+                raise errors.ParameterMissing('r_sigma', phase)
+            elif 'r_mean' not in descriptors:
+                raise errors.ParameterMissing('r_mean', phase)
+        except errors.ParameterMissing as error:
+        # One of the parameters is missing
+            error.message()
+            quit()
+            # Printing message and aborting
+        if 'n' in descriptors:
+        # The number of desired disks was given
+            for i in range(descriptors['n']):
+            # Generating n disks
+                disks.append(Disk(phase, np.random.normal(
+                    loc=descriptors['r_mean'], scale=descriptors['r_sigma'])))
+                # Disk with a uniform radius distribution
+        elif 'vf' in descriptors:
+        # The desired volume fraction was given
+            vf_real = 0
+            # Initializing the real volume fraction
+            while vf_real < descriptors['vf']:
+                disks.append(Disk(phase, np.random.normal(
+                    loc=descriptors['r_mean'], scale=descriptors['r_sigma'])))
+                # Disk with a radius coming from an uniform distribution
+                vf_real += disks[-1].volume()/(Particle.box[0]*Particle.box[1])
+                # Computing the current volume fraction
+            n_particles = len(disks)
+            # Number of disks
+            print(vf_real)
+        else:
+            try:
+                raise errors.ParameterMissing('vf or n', phase)
+            except errors.ParameterMissing as error:
+                error.message()
+                quit()
+    elif descriptors.get('r_distribution') == 'discrete':
+    # the radius follows a discrete distribution
+        r_values = []
+        r_probabilities = []
+        # Initializing the lists containing the values and corresponding probabilities that
+        # characterize the discrete distribution required
+        for i_descriptor in descriptors:
+            if i_descriptor[0:7].lower() == 'r_value':
+                r_values.append(descriptors[i_descriptor])
+                try:
+                    if 'r_prob_' + i_descriptor[-1] not in descriptors:
+                        raise errors.ParameterMissing('r_prob_' + i_descriptor[-1], phase)
+                    r_probabilities.append(descriptors['r_prob_' + i_descriptor[-1]])
+                except errors.ParameterMissing as error:
+                    error.message()
+                    quit()
+        if len(r_values) == 0:
+        # There are no values for the radius parameter
+            try:
+                raise errors.ParameterMissing('r_1', phase)
+            except errors.ParameterMissing as error:
+                error.message()
+                quit()
+        elif np.abs(np.sum(r_probabilities) - 1) > 0.01:
+        # The probabilities do not add up to 100%
+            try:
+                raise errors.ParameterErrorDiscreteProb('r_1', phase)
+            except errors.ParameterMissing as error:
+                error.message()
+                quit()
+        if 'n' in descriptors:
+        # The number of desired disks was given
+            radius = np.random.choice(r_values, descriptors['n'], p=r_probabilities)
+            for i in range(descriptors['n']):
+            # Generating n disks
+                disks.append(Disk(phase, radius[i]))
+                # Disk with radius 0.5
+        elif 'vf' in descriptors:
+        # The desired volume fraction was given
+            vf_real = 0
+            # Initializing the real volume fraction
+            while vf_real < descriptors['vf']:
+                disks.append(Disk(phase, np.random.choice(r_values, 1, p=r_probabilities)))
+                # Disk with a radius coming from an uniform distribution
+                vf_real += disks[-1].volume()/(Particle.box[0]*Particle.box[1])
+                # Computing the current volume fraction
+            n_particles = len(disks)
+            # Number of disks
+            print(vf_real)
+        else:
+            try:
+                raise errors.ParameterMissing('vf or n', phase)
+            except errors.ParameterMissing as error:
+                error.message()
+                quit()
     else:
     # the radius is fixed
         try:
@@ -496,10 +641,6 @@ def generateDisks(phase, rve_dims, descriptors):
         # Generating n disks
             disks.append(Disk(phase, radius)) #np.random.uniform(low=0.01,high=0.2)))
             # Disk with radius 0.5
-            disks[i].position_center = np.random.uniform(size=2) # np.array([(i+1)*1/24-np.floor((i+1)*1/24), (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
-            # Generating the positions from a random uniform distribution between 0 and 1
-            disks[i].velocity_center = np.random.uniform(size=2) #np.array([0,0],dtype='float')
-            # Generating the velocities from a random uniform distribution between -1 and 1
 
     return disks
 
@@ -520,7 +661,7 @@ def generateSpheres(phase, rve_dims, descriptors):
     """
     spheres = []
     # Initializing the list containing the spheres
-    if descriptors.get('distribution') == 'uniform':
+    if descriptors.get('r_distribution') == 'uniform':
     # the radius follows an uniform distribution
         for i in range(descriptors['n']):
         # Generating n spheres
@@ -574,28 +715,75 @@ def generateSpheres(phase, rve_dims, descriptors):
 
     return spheres
 
-def generateEllipses(phase, descriptors):
-    '''
-        This function generates ellipses.
-    '''
 
+def generateEllipses(phase, descriptors):
+    """Generate ellipses belonging to *phase* characterized by *descriptors*."""
     ellipses = []
     # Initializing the list containing the disks
-
-    if descriptors.get('distribution')=='uniform':
-    # the radius follows an uniform distribution
-        pass
+    possible_parameters = {'major_axis', 'minor_axis', 'angle'}
+    # possible_parameters
+    used_parameters = {parameter for parameter in possible_parameters if
+                       any([descriptor.startsWith(parameter) for
+                            descriptor in descriptors.keys()])}
+    # Collecting the parameters used
+    if all([parameter in used_parameters for parameter in {'major_axis', 'minor_axis',
+            'angle'}]):
+        acceptable_description = True
     else:
-    # the radius is fixed
+        acceptable_description = False
+    # Checking acceptable sets of parameters
+    try:
+        if not acceptable_description:
+            raise ValueError
+    except ValueError:
+        print('Unknown error')
+        # FIXME:
+        quit()
+    if 'n' in descriptors:
+    # The desired number of ellipses was specified
+        samples = {}
+        # Initializing the dictionary containing the samples for each parameter used
+        for i_parameter in used_parameters:
+            samples[i_parameter] = generateSampleParameter(i_parameter, descriptors,
+                                                           n=descriptors['n'])
+        [major_axis, minor_axis, angle] = canonicalParametersEllipse(samples)
         for i in range(descriptors['n']):
-        # Generating n disks
-            ellipses.append(Ellipse(phase, descriptors['major_axis'],
-                descriptors['minor_axis'], descriptors['angle']+i/7*np.pi/2)) #np.random.uniform(low=0.01,high=0.2)))
-            # Generating ellipses, all with the same dimensions
-            ellipses[i].position_center = np.random.uniform(size=2) # np.array([0.5, 0.5-i/20]) # n # #
-            # Generating the positions from a random uniform distribution between 0 and 1
-            ellipses[i].velocity_center = np.array([0,0],dtype='float')
-            # Generating the velocities from a random uniform distribution between -1 and 1
+            ellipses.append(Ellipse(phase, major_axis[i], minor_axis[i], angle[i])) #np.random.uniform(low=0.01,high=0.2)))
+    elif 'vf' in descriptors:
+        current_sample = {}
+        # Initializing the dictionary containing the samples for each parameter used
+        vf_real = 0
+        # Initializing the real volume fraction
+        while vf_real < descriptors['vf']:
+            for i_parameter in used_parameters:
+                current_sample[i_parameter] = generateSampleParameter(i_parameter,
+                                                                      descriptors)
+            [major_axis, minor_axis, angle] = canonicalParametersEllipse(current_sample)
+            ellipses.append(Ellipse(phase, major_axis, minor_axis, angle))
+            vf_real += ellipses[-1].volume()/(Particle.box[0]*Particle.box[1])
+    else:
+        try:
+            raise errors.ParameterMissing('vf or n', phase)
+        except errors.ParameterMissing as error:
+            error.message()
+            quit()
+
+    if False:
+        # Collecting parameters
+        if descriptors.get('distribution') == 'uniform':
+        # the radius follows an uniform distribution
+            pass
+        else:
+        # the radius is fixed
+            for i in range(descriptors['n']):
+            # Generating n disks
+                ellipses.append(Ellipse(phase, descriptors['major_axis'],
+                    descriptors['minor_axis'], descriptors['angle']+i/7*np.pi/2)) #np.random.uniform(low=0.01,high=0.2)))
+                # Generating ellipses, all with the same dimensions
+                ellipses[i].position_center = np.random.uniform(size=2) # np.array([0.5, 0.5-i/20]) # n # #
+                # Generating the positions from a random uniform distribution between 0 and 1
+                ellipses[i].velocity_center = np.array([0,0],dtype='float')
+                # Generating the velocities from a random uniform distribution between -1 and 1
 
     return ellipses
 
@@ -622,6 +810,135 @@ def generateEllipsoids(phase, rve_dims, descriptors):
             # Generating the velocities from a random uniform distribution between -1 and 1
 
     return ellipsoids
+
+
+def generateInitialConfiguration(particles):
+    """Generate the initial configuration (positions and velocities) for the particles."""
+    for i_particle in particles:
+    # Running through all the particles
+        i_particle.setPositionCenter(np.random.uniform(size=i_particle.dim)) # np.array([(i+1)*1/24-np.floor((i+1)*1/24), (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
+        # Generating the positions from a random uniform distribution between 0 and 1
+        i_particle.setVelocityCenter(np.random.uniform(size=i_particle.dim)) #np.array([0,0],dtype='float')
+        # Generating the velocities from a random uniform distribution between -1 and 1
+
+
+def generateSampleParameter(parameter, descriptors, phase, n_samples=1):
+    """Generate a sample of values for *parameter* according to descriptors"""
+    if descriptors.get(parameter + '_distribution') == 'uniform':
+    # the radius follows a uniform distribution
+        try:
+            if parameter + '_low' not in descriptors:
+                raise errors.ParameterMissing(parameter + '_low', phase)
+            elif parameter + '_high' not in descriptors:
+                raise errors.ParameterMissing(parameter + '_high', phase)
+        except errors.ParameterMissing as error:
+        # One of the parameters is missing
+            error.message()
+            quit()
+            # Printing message and aborting
+        sample = np.random.uniform(low=descriptors[parameter + '_low'],
+                                   high=descriptors[parameter + '_high'],
+                                   size=n_samples)
+    elif descriptors.get(parameter + '_distribution') == 'normal':
+    # the radius follows a normal distribution: the paramaters 'r_sigma', the standard
+    # deviation of the distribution and 'r_mean', the mean of the distribution, are needed
+        try:
+            if parameter + '_sigma' not in descriptors:
+                raise errors.ParameterMissing(parameter + '_sigma', phase)
+            elif parameter + '_mean' not in descriptors:
+                raise errors.ParameterMissing(parameter + '_mean', phase)
+        except errors.ParameterMissing as error:
+        # One of the parameters is missing
+            error.message()
+            quit()
+            # Printing message and aborting
+        sample = np.random.normal(loc=descriptors[parameter + '_mean'],
+                                  scale=descriptors[parameter + '_sigma'],
+                                  size=n_samples)
+    elif descriptors.get(parameter + '_distribution') == 'discrete':
+    # the radius follows a discrete distribution
+        values = []
+        probabilities = []
+        # Initializing the lists containing the values and corresponding probabilities that
+        # characterize the discrete distribution required
+        for i_descriptor in descriptors:
+            if i_descriptor.startsWith(parameter + '_value'):
+                values.append(descriptors[i_descriptor])
+                try:
+                    if parameter + '_prob_' + i_descriptor[-1] not in descriptors:
+                        raise errors.ParameterMissing(parameter + '_prob_'
+                                                      + i_descriptor[-1], phase)
+                    probabilities.append(descriptors[parameter + '_prob_'
+                                         + i_descriptor[-1]])
+                except errors.ParameterMissing as error:
+                    error.message()
+                    quit()
+        if len(values) == 0:
+        # There are no values for the radius parameter
+            try:
+                raise errors.ParameterMissing(parameter + 'value_1', phase)
+            except errors.ParameterMissing as error:
+                error.message()
+                quit()
+        elif np.abs(np.sum(probabilities) - 1) > 0.01:
+        # The probabilities do not add up to 100%
+            try:
+                raise errors.ParameterErrorDiscreteProb('r_1', phase)
+            except errors.ParameterMissing as error:
+                error.message()
+                quit()
+        sample = np.random.choice(values, n_samples, p=probabilities)
+    else:
+    # the radius is fixed
+        sample = np.full((n_samples), descriptors[parameter])
+
+    return sample
+
+
+def canonicalParametersEllipse(sample):
+    """Convert the paramters in *sample* to *major_axis*, *minor_axis* and *angle*."""
+    if 'major_axis' in sample:
+        major_axis = sample['major_axis']
+    if 'minor_axis' in sample:
+        minor_axis = sample['minor_axis']
+    if 'angle' in sample:
+        angle = sample['angle']
+
+    return [major_axis, minor_axis, angle]
+
+
+def createResultsDirectory(particles, dp_dir):
+    """Create the results directory."""
+    Particle.file_name = (particles[0].__class__.__name__ + "_" + str(Particle.number)
+                          + "_" + str(Particle.volume)[0:3])
+    # Defining the file name associated with this sampling
+    results_folder = os.path.join(dp_dir,  Particle.file_name)
+    # Creating a tentative path for the results folder
+    if os.path.exists(results_folder):
+    # If the folder already exists
+        results_folder_old = results_folder
+        # Saving the original name of the results folder
+        i = 0
+        while os.path.exists(results_folder):
+        # While the folder names already exists
+            i += 1
+            results_folder = results_folder_old + "_" + str(i)
+            # Creating a new folder name appending an integer to the name of the original
+            # folder
+        os.makedirs(results_folder)
+        # Creating the directory
+        if os.path.exists("input_data\\info_micro.p"):
+            os.replace("input_data\\info_micro.p",
+                       os.path.join(results_folder, "info_micro.p"))
+    else:
+        os.makedirs(results_folder)
+        # Creating the directory
+        if os.path.exists("input_data\\info_micro.p"):
+            os.replace("input_data\\info_micro.p",
+                       os.path.join(results_folder, "info_micro.p"))
+    # FIXME: Only the first sample keeps the info folder. 
+    Particle.file_path = os.path.join(results_folder, Particle.file_name)
+    # Saving the file path in the Particle class
 
 
 def particleGeneration(descriptors, phase_types, rve_dims, problem_type, dp_dir):
@@ -699,35 +1016,10 @@ def particleGeneration(descriptors, phase_types, rve_dims, problem_type, dp_dir)
             # Generating the number of ellipsoids requested and appending them to the list
             # of particles
 
-    Particle.file_name = (particles[0].__class__.__name__ + "_" + str(Particle.number) + "_"
-                          + str(Particle.volume)[0:3])
-    # Defining the file name associated with this sampling
-    results_folder = os.path.join(dp_dir,  Particle.file_name)
-    # Creating a tentative path for the results folder
-    if os.path.exists(results_folder):
-    # If the folder already exists
-        results_folder_old = results_folder
-        # Saving the original name of the results folder
-        i = 0
-        while os.path.exists(results_folder):
-        # While the folder names already exists
-            i += 1
-            results_folder = results_folder_old + "_" + str(i)
-            # Creating a new folder name appending an integer to the name of the original
-            # folder
-        os.makedirs(results_folder)
-        # Creating the directory
-        if os.path.exists("input_data\\info_micro.p"):
-            os.replace("input_data\\info_micro.p",
-                       os.path.join(results_folder, "info_micro.p"))
-    else:
-        os.makedirs(results_folder)
-        # Creating the directory
-        if os.path.exists("input_data\\info_micro.p"):
-            os.replace("input_data\\info_micro.p",
-                       os.path.join(results_folder, "info_micro.p"))
-    Particle.file_path = os.path.join(results_folder, Particle.file_name)
-    # Saving the file path in the Particle class
+    generateInitialConfiguration(particles)
+
+    createResultsDirectory(particles, dp_dir)
+
     return particles
 
 # ==========================================================================================
@@ -766,13 +1058,13 @@ def readDescriptors():
     # dp_dir: string
     #     Directory where the microstructure spatial discretization file(s) associated
     #     with the given design point are to be stored
-    dp_dir = info_dict['dp_dir']
+    dp_dir = info_dict.get('dp_dir')
     # mic_gen_parameters: array
     #     An array which contains all the required parameters (or options)
     #     for the selected program to generate the microstructure(s) and
     #     and associated discretization file(s) of a given design point
     #     (to be discussed...)
-    options = info_dict['mic_gen_parameters']
+    options = info_dict.get('mic_gen_parameters')
     # # Initializing the dictionary containing the options
     # #                                                                    Stopping criteria
     # # --------------------------------------------------------------------------------------
@@ -818,11 +1110,11 @@ def readDescriptors():
     # #                     | 2. 2D problem (plain stress)
     # #                     | 3. 2D problem (axisymmetric)
     # #                     | 4. 3D problem
-    problem_type = info_dict['problem_type']
+    problem_type = info_dict.get('problem_type')
     # n_dp_samples: integer
     #     Number of microstructures (samples) to be generated, associated to
     #     the given design point
-    n_dp_samples = info_dict['n_dp_samples']
+    n_dp_samples = info_dict.get('n_dp_samples', 1)
     # mic_gen_descriptors_array: dictionary
     #     A dictionary which contains all the microstructure
     #     descriptor-related information required to generate the
@@ -833,7 +1125,7 @@ def readDescriptors():
     #     dictionary['phase_id'] = |  'desc_name'   'desc_name'     ...   |
     #                              |_  < value >     < value >      ...  _|
     #
-    descriptors = info_dict['mic_gen_descriptors']
+    descriptors = info_dict.get('mic_gen_descriptors', {})
 
     # descriptors['4'] = {'rve_dims':[1.0, 1.0, 1.0]}
     # rve_dims = descriptors['4']['rve_dims']
@@ -848,7 +1140,7 @@ def readDescriptors():
     # 1 - Matrix
     # 2 - Circular particle (disk)
     # 3 - Elliptical particle
-    phase_types = info_dict['phase_types']
+    phase_types = info_dict.get('phase_types', {})
     # phase_types['4'] = 1 # Matrix
     # phase_types['2'] = 4 # Elliptical particle
     # discret_file_ext: list
@@ -860,7 +1152,7 @@ def readDescriptors():
     #     each type of specified discretization file, stored as
     #                            dictionary['disc_ext']['parameter'] = [ ... ]
 
-    discret_spec_array = info_dict['discret_spec_array']
+    discret_spec_array = info_dict.get('discret_spec_array', {})
     # discret_spec_array['rgmsh'] = {}
     # discret_spec_array['rgmsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
     # discret_spec_array['rgmsh']['n_voxels_dims'] = np.array([ 50, 50, 50])
@@ -873,7 +1165,7 @@ def readDescriptors():
         rve_dims = discret_spec_array['femsh']['rve_dims']
 
     return [dp_dir, descriptors, phase_types, options, n_dp_samples, rve_dims, problem_type,
-        discret_spec_array]
+            discret_spec_array]
 
 
 def computeRelativeEnergy(particles):
@@ -1005,7 +1297,7 @@ def run(particles, max_residue_per_particle, max_step, options):
     # Maximum residual overlap
     step = 0
     # Initializing the the time step at 0
-    initial_global_force_factor = options.get('initial_global_force_factor', 1)
+    initial_global_force_factor = options.get('initial_global_force_factor', 0.1)
     Particle.global_force_factor = initial_global_force_factor
     # Initializing the global force factor
     computeForces(particles, speed_up_scheme)
@@ -1266,32 +1558,40 @@ def plotParticles(particles, dir, grid='off', verlet_ngh=False, center_part=Fals
         # plt.axis([0, 1, 0, 1, 0, 1])
 
 
+def reconstructParticleAttributes(particles, rve_dims, info_dict):
+    """Reconstruct the relevant Particle attributes that could not be pickled."""
+    Particle.box = rve_dims
+    Particle.volume = np.sum([i_particle.volume() for i_particle in particles])
+    Particle.number = len(particles)
+    Particle.list_phases = info_dict['phase_types'].keys()
+    for i_phase in Particle.list_phases:
+        if info_dict['phase_types'] == 1:
+            Particle.matrix_phase = i_phase
+            break
+
+
 def main():
     """Run the microstructure generation program."""
     start = time.time()
     # Counting time
-    f = open("test.txt", 'w')
+    screen_path = open("test.txt", 'w')
     # sys.stdout = f
     [dp_dir, descriptors, phase_types, options, n_samples, rve_dims, problem_type,
         discret_spec_array] = readDescriptors()
     # Reading the descriptors and options for the microstructure generation
-    for i_sample in range(n_samples):
-        # Producing the number of samples required
-        particles = particleGeneration(descriptors, phase_types, rve_dims, problem_type,
-                                       dp_dir)
-        # Generating the list of particles from the geometrical descriptors
-        plotParticles(particles, Particle.file_path + "_initial_conf",
-                      save=options.get('save_plot', True),
-                      show=options.get('save_plot', True))
-        # Ploting initial configuration
-        try:
-            run(particles, options['max_residue_per_particle'], options['max_step'], options)
-            # Running the molecular dynamics simulation
-        except KeyboardInterrupt:
-            pass
+    if options.get('remesh'):
+    # It is a remesh action
+        for file in os.listdir(options['dir_previous_mic']):
+            if file.endswith(".p") and file != 'info_micro.p':
+                mic_name = file
+        particles = pickle.load(open(options['dir_previous_mic'] + '/' + mic_name, 'rb'))
+        original_info_dict = pickle.load(open(options['dir_previous_mic'] + '/info_micro.p', 'rb'))
+        # No need to generate a new microstructure. Using a previous microstructure.
+        reconstructParticleAttributes(particles, rve_dims, original_info_dict)
+        # Reconstructing the relevant Particle attributes that could not be pickled
+        createResultsDirectory(particles, dp_dir)
         end = time.time()
-        print('cell_list', Particle.cell_list)
-        print('verlet_list', [ particles[i].verlet_list for i in range(len(particles))])
+        # New result's directory
         if 'rgmsh' in discret_spec_array:
         # A mesh for FFT was requested
             generateMeshFFT(particles, discret_spec_array['rgmsh'])
@@ -1306,13 +1606,48 @@ def main():
                 quit()
             generateMeshFEM(particles, mesh_size, discret_spec_array['femsh'])
             # Generating the FEM mesh using gmsh and saving an input data file for LINKS
-        plotParticles(particles, Particle.file_path + "_final_config",
-                      save=options.get('save_plot', True),
-                      show=options.get('save_plot',  True))
-        # Ploting final configuration
+    else:
+    # Generating samples of microstructures and meshing
+        for i_sample in range(n_samples):
+            # Producing the number of samples required
+            particles = particleGeneration(descriptors, phase_types, rve_dims, problem_type,
+                                           dp_dir)
+            # Generating the list of particles from the geometrical descriptors
+            plotParticles(particles, Particle.file_path + "_initial_conf",
+                          save=options.get('save_plot', True),
+                          show=options.get('save_plot', True))
+            # Ploting initial configuration
+            try:
+                run(particles, options['max_residue_per_particle'], options['max_step'],
+                    options)
+                # Running the molecular dynamics simulation
+            except KeyboardInterrupt:
+                pass
+            end = time.time()
+            print('cell_list', Particle.cell_list)
+            print('verlet_list', [particles[i].verlet_list for i in range(len(particles))])
+            if 'rgmsh' in discret_spec_array:
+            # A mesh for FFT was requested
+                generateMeshFFT(particles, discret_spec_array['rgmsh'])
+                # Generating the FFT mesh as a regular grid and saving it in a .dat file
+            if 'femsh' in discret_spec_array:
+            # A mesh for FEM was requested
+                try:
+                    mesh_size = discret_spec_array['femsh']['mesh_size']
+                    # Saving the value of the mesh size
+                except KeyError:
+                    print('The mesh size for the FEM method was not supplied correctly')
+                    quit()
+                generateMeshFEM(particles, mesh_size, discret_spec_array['femsh'])
+                # Generating the FEM mesh using gmsh and saving an input data file for LINKS
+            pickle.dump(particles, open(Particle.file_path + ".p", "wb"))
+            plotParticles(particles, Particle.file_path + "_final_config",
+                          save=options.get('save_plot', True),
+                          show=options.get('save_plot',  True))
+            # Ploting final configuration
     print(end - start)
 
-    f.close()
+    screen_path.close()
     sys.stdout = sys.__stdout__
 
     with open('test.txt') as file:

@@ -164,6 +164,8 @@ def generateMicrostructures(dp_dir, mic_gen_program, mic_gen_parameters, problem
                                          for the equations of motion.
         "speed_up_scheme"                Optional. {'Naive', 'Cell', 'Verlet'}.
                                          Speed up scheme used for force computation
+        "remesh"                         Optional. 
+        "dir_previous_mic"
         ================================ ======================================
 
     problem_type: integer
@@ -231,7 +233,7 @@ def generateMicrostructures(dp_dir, mic_gen_program, mic_gen_parameters, problem
     parameters take only the given values with the given probability.
         1. Specify the distribution of parameter *param* as::
 
-                    np.array([['distribution_param']['fixed'], dtype=obj)
+                    np.array([['param_distribution']['fixed'], dtype=obj)
 
         2. Specify the value of the parameter and the probability of that value occuring::
 
@@ -279,8 +281,7 @@ if __name__ == '__main__':
     # dp_dir: string
     #     Directory where the microstructure spatial discretization file(s) associated
     #     with the given design point are to be stored
-    dp_dir = ("C:\\Users\\José\\Notebooks\\Database"
-              + "\\Universidade\\Dissertacao\\programa\\results")
+    dp_dir = "/home/zeluis/Documents/Tese/programa"
     # ======================================================================================
     # mic_gen_program: integer
     #     Integer variable (read from the user input data file) which specifies an
@@ -298,11 +299,14 @@ if __name__ == '__main__':
     #                                                                    Stopping criteria
     # --------------------------------------------------------------------------------------
     mic_gen_parameters['max_residue_per_particle'] = 0
-    mic_gen_parameters['max_step'] = 5000
+    mic_gen_parameters['max_step'] = 3000
     mic_gen_parameters['max_steps_to_relax'] = 50
     mic_gen_parameters['speed_up_scheme'] = 'Verlet'
     mic_gen_parameters['verlet_factor'] = 1.2
-    mic_gen_parameters['dt'] = 0.01
+    mic_gen_parameters['dt'] = 0.05
+    mic_gen_parameters['remesh'] = True
+    # Directory must contain both the output file and the input with their original names
+    mic_gen_parameters['dir_previous_mic'] = "/home/zeluis/Documents/Tese/programa/Sphere_2_0.2"
     # Maximum number of steps
     problem_type = 1
     # n_dp_samples: integer
@@ -325,15 +329,18 @@ if __name__ == '__main__':
     # mic_gen_descriptors_array['2'] = \
     #     np.array([['n', 'axis_1', 'axis_2', 'axis_3', 'euler_angles', 'angle'],
     #               [5, 0.2, 0.3, 0.1, np.array([0, 0, 1]), 0]], dtype=object)
-    mic_gen_descriptors_array['3'] = \
-        np.array([['n', 'r'],
-                  [15, 0.1]], dtype=object)
-    mic_gen_descriptors_array['2'] = \
-        np.array([['n', 'r'],
-                  [15, 0.05]], dtype=object)
+    # mic_gen_descriptors_array['3'] = \
+    #     np.array([['n', 'r'],
+    #               [15, 0.1]], dtype=object)
     # mic_gen_descriptors_array['2'] = \
     #     np.array([['n', 'r'],
-    #               [5, 0.1]], dtype=object)
+    #               [15, 0.05]], dtype=object)
+    # mic_gen_descriptors_array['2'] = \
+    #     np.array([['vf', 'r_distribution', 'r_value_1', 'r_prob_1', 'r_value_3', 'r_prob_3', 'r_value_2', 'r_prob_2'],
+    #               [0.6, 'discrete', 0.05, 0.25, 0.1, 0.45, 0.08, 0.3]], dtype=object)
+    mic_gen_descriptors_array['2'] = \
+        np.array([['vf', 'n'],
+                  [0.2, 2]], dtype=object)
     # mic_gen_descriptors_array['3'] = \
     #     np.array([['n', 'r'],
     #               [5, 0.15]], dtype=object)
@@ -345,8 +352,8 @@ if __name__ == '__main__':
     # 4 - Spherical particle
     phase_types = {}
     phase_types['4'] = 1  # Matrix
-    phase_types['2'] = 4  # Elliptical particle
-    phase_types['3'] = 4  # Elliptical particle
+    phase_types['2'] = 4 # Elliptical particle
+    # phase_types['3'] = 4  # Elliptical particle
     # discret_file_ext: list
     #     List which contains the required spatial discretization file(s), stored as
     #                     array = [ < discret_type > < discret_type >  ... ]
@@ -359,12 +366,12 @@ if __name__ == '__main__':
     discret_file_ext = []
 
     discret_spec_array = {}
-    # discret_spec_array['rgmsh'] = {}
-    # discret_spec_array['rgmsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
-    # discret_spec_array['rgmsh']['n_voxels_dims'] = np.array([50, 50])
-    discret_spec_array['femsh'] = {}
-    discret_spec_array['femsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
-    discret_spec_array['femsh']['mesh_size'] = 0.05
+    discret_spec_array['rgmsh'] = {}
+    discret_spec_array['rgmsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
+    discret_spec_array['rgmsh']['n_voxels_dims'] = np.array([[2, 15, 15], [3, 30, 30]])
+    # discret_spec_array['femsh'] = {}
+    # discret_spec_array['femsh']['rve_dims'] = np.array([1.0, 1.0])
+    # discret_spec_array['femsh']['mesh_size'] = 0.05
 
     generateMicrostructures(dp_dir, mic_gen_program, mic_gen_parameters, problem_type,
                             n_dp_samples, mic_gen_descriptors_array, phase_types,
