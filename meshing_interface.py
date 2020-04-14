@@ -811,7 +811,6 @@ def gmshToLinks(meshfile, title, dim, list_phases, matrix_phase):
     elif dim == 3:
         shutil.copy("LINKS_header_3d.dat", title + ".rve")
 
-
     with open(title + ".rve", "a") as dat:
         # dat.write("TITLE\n{0}".format(title))
         # dat.write("\n\nELEMENT_GROUPS 2\n1 1 1")
@@ -829,75 +828,84 @@ def gmshToLinks(meshfile, title, dim, list_phases, matrix_phase):
                 for k_con in conMat[i_phase][j_node]:
                     dat.write("{0} ".format(k_con))
 
+
 def generateMeshFFT(particles, options):
     '''
     This functions generates a regular grid as an array to be used in an FFT analysis.
     '''
-    pixel_dims = options['rve_dims']/options['n_voxels_dims']
-    # Dimension of the pixels
-    if len(options['rve_dims']) == 2:
-    # This is a 2D dimnensional problem
-        regular_grid = np.zeros((options['n_voxels_dims'][0], options['n_voxels_dims'][1]))
-        # Initializing the regular
-        for i_row in range(options['n_voxels_dims'][0]):
-        # Running through the pixels from left to right
-            for j_column in range(options['n_voxels_dims'][1]):
-            # Running thorugh the pixels from bottom to top
-                center_pixel_i_j = \
-                    np.array([(i_row+0.5)*pixel_dims[0], (j_column+0.5)*pixel_dims[1]])
-                # Center of the pixel corresponding to row i_row and column j_column
-                for k_particle in particles:
-                # Running through all the particles
-                    diff_in_box = k_particle.position_center - center_pixel_i_j
-                    # Difference vector between the center of the two ellipses
-                    diff_nearest_other = \
-                        options['rve_dims']*np.round(diff_in_box/options['rve_dims'])
-                    # Vector from the particle whose center is in the RVE to the neares
-                    # image
-                    if k_particle.pointInside(center_pixel_i_j + diff_nearest_other):
-                    # The center of the pixel is inside particle k_particle
-                        regular_grid[i_row, j_column] = k_particle.phase
-                        # Setting pixel [i_row, j_column] as belong to the phase of
-                        # particle k_particle
-        if False:
-            plotPixels(regular_grid, Particle.file_path + "_rgmsh")
-        # Ploting the regular grid
-    elif len(options['rve_dims']) == 3:
-    # This is a 2D dimnensional problem
-        regular_grid = np.zeros((options['n_voxels_dims'][0],
-                                 options['n_voxels_dims'][1],
-                                 options['n_voxels_dims'][2]))
-        # Initializing the regular
-        for i_row in range(options['n_voxels_dims'][0]):
-        # Running through the pixels from left to right
-            for j_column in range(options['n_voxels_dims'][1]):
-            # Running thorugh the pixels from bottom to top
-                for k_layer in range(options['n_voxels_dims'][2]):
+    for i_mesh_size in range(len(options['n_voxels_dims'])):
+    # Running through the different mesh sizes
+        n_voxels_dims = options['n_voxels_dims'][i_mesh_size]
+        # current mesh size
+        pixel_dims = options['rve_dims']/n_voxels_dims
+        # Dimension of the pixels
+        if len(options['rve_dims']) == 2:
+        # This is a 2D dimnensional problem
+            regular_grid = np.zeros((n_voxels_dims[0], n_voxels_dims[1]))
+            # Initializing the regular
+            for i_row in range(n_voxels_dims[0]):
+            # Running through the pixels from left to right
+                for j_column in range(n_voxels_dims[1]):
                 # Running thorugh the pixels from bottom to top
-                    center_pixel_i_j_k = \
-                        np.array([(i_row + 0.5)*pixel_dims[0],
-                                  (j_column + 0.5)*pixel_dims[1],
-                                  (k_layer + 0.5)*pixel_dims[2]])
-                    # Center of the pixel corresponding to row i_row, column j_column and
-                    # layer k_layer
-                    for l_particle in particles:
+                    center_pixel_i_j = \
+                        np.array([(i_row+0.5)*pixel_dims[0], (j_column+0.5)*pixel_dims[1]])
+                    # Center of the pixel corresponding to row i_row and column j_column
+                    for k_particle in particles:
                     # Running through all the particles
-                        diff_in_box = l_particle.position_center - center_pixel_i_j_k
+                        diff_in_box = k_particle.position_center - center_pixel_i_j
                         # Difference vector between the center of the two ellipses
                         diff_nearest_other = \
                             options['rve_dims']*np.round(diff_in_box/options['rve_dims'])
-                        # Vector from the particle whose center is in the RVE to the nearest
+                        # Vector from the particle whose center is in the RVE to the neares
                         # image
-                        if l_particle.pointInside(center_pixel_i_j_k + diff_nearest_other):
+                        if k_particle.pointInside(center_pixel_i_j + diff_nearest_other):
                         # The center of the pixel is inside particle k_particle
-                            regular_grid[i_row, j_column, k_layer] = l_particle.phase
-                            # Setting pixel [i_row, j_column, k_layer] as belong to the
-                            # phase of particle k_particle
-        if False:
-            plotVoxels(regular_grid, Particle.matrix_phase, Particle.file_path + "_rgmsh")
-        # Ploting the regular grid
+                            regular_grid[i_row, j_column] = k_particle.phase
+                            # Setting pixel [i_row, j_column] as belong to the phase of
+                            # particle k_particle
+            if True:
+                plotPixels(regular_grid, Particle.file_path + "_" + str(n_voxels_dims[0])
+                           + "_" + str(n_voxels_dims[1]) + "_rgmsh")
+            # Ploting the regular grid
+            np.save(Particle.file_path + "_" + str(n_voxels_dims[0]) + "_"
+                    + str(n_voxels_dims[1]), regular_grid)
+        elif len(options['rve_dims']) == 3:
+        # This is a 2D dimnensional problem
+            regular_grid = np.zeros((n_voxels_dims[0],
+                                     n_voxels_dims[1],
+                                     n_voxels_dims[2]))
+            # Initializing the regular
+            for i_row in range(n_voxels_dims[0]):
+            # Running through the pixels from left to right
+                for j_column in range(n_voxels_dims[1]):
+                # Running thorugh the pixels from bottom to top
+                    for k_layer in range(n_voxels_dims[2]):
+                    # Running thorugh the pixels from bottom to top
+                        center_pixel_i_j_k = \
+                            np.array([(i_row + 0.5)*pixel_dims[0],
+                                      (j_column + 0.5)*pixel_dims[1],
+                                      (k_layer + 0.5)*pixel_dims[2]])
+                        # Center of the pixel corresponding to row i_row, column j_column and
+                        # layer k_layer
+                        for l_particle in particles:
+                        # Running through all the particles
+                            diff_in_box = l_particle.position_center - center_pixel_i_j_k
+                            # Difference vector between the center of the two ellipses
+                            diff_nearest_other = \
+                                options['rve_dims']*np.round(diff_in_box/options['rve_dims'])
+                            # Vector from the particle whose center is in the RVE to the nearest
+                            # image
+                            if l_particle.pointInside(center_pixel_i_j_k + diff_nearest_other):
+                            # The center of the pixel is inside particle k_particle
+                                regular_grid[i_row, j_column, k_layer] = l_particle.phase
+                                # Setting pixel [i_row, j_column, k_layer] as belong to the
+                                # phase of particle k_particle
+            if False:
+                plotVoxels(regular_grid, Particle.matrix_phase, Particle.file_path + "_rgmsh")
+            # Ploting the regular grid
 
-    np.save(Particle.file_path, regular_grid)
+            np.save(Particle.file_path + "_" + str(n_voxels_dims[0]) + "_"
+                    + str(n_voxels_dims[1]) + "_" + str(n_voxels_dims[2]), regular_grid)
 
 def plotPixels(pixel_grid, dir, show=False, save=True):
     import matplotlib.pyplot as plt
