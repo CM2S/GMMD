@@ -855,7 +855,7 @@ def canonicalParametersDisk(sample, rve_dims):
     # Both the volume fraction and the number of particles was supplied
         area = sample['vf'][0]*rve_dims[0]*rve_dims[1]/sample['n'][0]
         # Area of each particle (all the same)
-        r = np.sqrt(area/np.pi)
+        r = np.full((sample['n'][0]), np.sqrt(area/np.pi))
     return r
 
 def canonicalParametersSphere(sample, rve_dims):
@@ -870,7 +870,7 @@ def canonicalParametersSphere(sample, rve_dims):
     # Both the volume fraction and the number of particles was supplied
         volume = sample['vf'][0]*rve_dims[0]*rve_dims[1]*rve_dims[2]/sample['n'][0]
         # Area of each particle (all the same)
-        r = np.cbrt(volume/(4/3*np.pi))
+        r = np.full((sample['n'][0]), np.cbrt(volume/(4/3*np.pi)))
     return r
 
 

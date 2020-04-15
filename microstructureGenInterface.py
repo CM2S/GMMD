@@ -300,16 +300,16 @@ if __name__ == '__main__':
     # Initializing the dictionary containing the options
     #                                                                    Stopping criteria
     # --------------------------------------------------------------------------------------
-    mic_gen_parameters['max_residue_per_particle'] = 0
+    mic_gen_parameters['max_residue_per_particle'] = 1e-8
     mic_gen_parameters['max_step'] = 10000
-    mic_gen_parameters['max_steps_to_relax'] = 50
+    mic_gen_parameters['max_steps_to_relax'] = 150
     mic_gen_parameters['speed_up_scheme'] = 'Verlet'
     mic_gen_parameters['verlet_factor'] = 1.2
     mic_gen_parameters['dt'] = 0.05
     mic_gen_parameters['initial_global_force_factor'] = 0.01
     # mic_gen_parameters['remesh'] = True
     # Directory must contain both the output file and the input with their original names
-    # mic_gen_parameters['dir_previous_mic'] = "/home/zeluis/Documents/Tese/programa/Sphere_2_0.2"
+    # mic_gen_parameters['dir_previous_mic'] = "/home/zeluis/Documents/Tese/programa/results/Disk_20_0.3_1"
     # Maximum number of steps
     problem_type = 1
     # n_dp_samples: integer
@@ -336,8 +336,8 @@ if __name__ == '__main__':
     #     np.array([['n', 'r'],
     #               [15, 0.1]], dtype=object)
     mic_gen_descriptors_array['2'] = \
-        np.array([['vf', 'volume_distribution', 'volume_low', 'volume_high'],
-                  [0.5, 'uniform', 0.01, 0.04]], dtype=object)
+        np.array([['vf', 'n'],
+                  [0.3, 20]], dtype=object)
     # mic_gen_descriptors_array['2'] = \
     #     np.array([['vf', 'r_distribution', 'r_value_1', 'r_prob_1', 'r_value_3', 'r_prob_3', 'r_value_2', 'r_prob_2'],
     #               [0.6, 'discrete', 0.05, 0.25, 0.1, 0.45, 0.08, 0.3]], dtype=object)
@@ -371,10 +371,10 @@ if __name__ == '__main__':
     discret_spec_array = {}
     discret_spec_array['rgmsh'] = {}
     discret_spec_array['rgmsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
-    discret_spec_array['rgmsh']['n_voxels_dims'] = np.array([[15, 15, 15], [30, 30, 30]])
-    discret_spec_array['femsh'] = {}
-    discret_spec_array['femsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
-    discret_spec_array['femsh']['mesh_size'] = 0.05
+    discret_spec_array['rgmsh']['n_voxels_dims'] = np.array([[20, 20, 20], [50, 50, 50]])
+    # discret_spec_array['femsh'] = {}
+    # discret_spec_array['femsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
+    # discret_spec_array['femsh']['mesh_size'] = 0.05
 
     generateMicrostructures(dp_dir, mic_gen_program, mic_gen_parameters, problem_type,
                             n_dp_samples, mic_gen_descriptors_array, phase_types,
