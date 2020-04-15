@@ -458,189 +458,61 @@ def generateDisks(phase, rve_dims, descriptors):
     """
     disks = []
     # Initializing the list containing the disks
-    if descriptors.get('r_distribution') == 'uniform':
-    # the radius follows a uniform distribution
-        try:
-            if 'r_low' not in descriptors:
-                raise errors.ParameterMissing('r_low', phase)
-            elif 'r_high' not in descriptors:
-                raise errors.ParameterMissing('r_high', phase)
-        except errors.ParameterMissing as error:
-        # One of the parameters is missing
-            error.message()
-            quit()
-            # Printing message and aborting
-        if 'n' in descriptors:
-        # The number of desired disks was given
-            for i in range(descriptors['n']):
-            # Generating n disks
-                disks.append(Disk(phase, np.random.uniform(
-                    low=descriptors['r_low'], high=descriptors['r_high'])))
-                # Disk with radius 0.5
-                disks[i].position_center = np.array(np.random.uniform(size=2))  # [i*1/25, np.floor(i/25)*1/25])  #  #
-                # Generating the positions from a random uniform distribution between 0 and 1
-                disks[i].velocity_center = np.random.uniform(size=2) #np.array([0,0],dtype='float')
-                # Generating the velocities from a random uniform distribution between -1 and 1
-        elif 'vf' in descriptors:
-        # The desired volume fraction was given
-            vf_real = 0
-            # Initializing the real volume fraction
-            while vf_real < descriptors['vf']:
-                disks.append(Disk(phase, np.random.uniform(
-                    low=descriptors['r_low'], high=descriptors['r_high'])))
-                # Disk with a radius coming from an uniform distribution
-                vf_real += disks[-1].volume()/(Particle.box[0]*Particle.box[1])
-                # Computing the current volume fraction
-            n_particles = len(disks)
-            # Number of disks
-            print(vf_real)
-            for i in range(n_particles):
-                disks[i].position_center = np.array(np.random.uniform(size=2))  # [i*1/25, np.floor(i/25)*1/25])  #  #
-                # Generating the positions from a random uniform distribution between 0 and 1
-                disks[i].velocity_center = np.random.uniform(size=2) #np.array([0,0]di,dtype='float')
-                # Generating the velocities from a random uniform distribution between -1 and 1
-        else:
-            try:
-                raise errors.ParameterMissing('vf or n', phase)
-            except errors.ParameterMissing as error:
-                error.message()
-                quit()
-    elif descriptors.get('r_distribution') == 'normal':
-    # the radius follows a normal distribution: the paramaters 'r_sigma', the standard
-    # deviation of the distribution and 'r_mean', the mean of the distribution, are needed
-        try:
-            if 'r_sigma' not in descriptors:
-                raise errors.ParameterMissing('r_sigma', phase)
-            elif 'r_mean' not in descriptors:
-                raise errors.ParameterMissing('r_mean', phase)
-        except errors.ParameterMissing as error:
-        # One of the parameters is missing
-            error.message()
-            quit()
-            # Printing message and aborting
-        if 'n' in descriptors:
-        # The number of desired disks was given
-            for i in range(descriptors['n']):
-            # Generating n disks
-                disks.append(Disk(phase, np.random.normal(
-                    loc=descriptors['r_mean'], scale=descriptors['r_sigma'])))
-                # Disk with a uniform radius distribution
-        elif 'vf' in descriptors:
-        # The desired volume fraction was given
-            vf_real = 0
-            # Initializing the real volume fraction
-            while vf_real < descriptors['vf']:
-                disks.append(Disk(phase, np.random.normal(
-                    loc=descriptors['r_mean'], scale=descriptors['r_sigma'])))
-                # Disk with a radius coming from an uniform distribution
-                vf_real += disks[-1].volume()/(Particle.box[0]*Particle.box[1])
-                # Computing the current volume fraction
-            n_particles = len(disks)
-            # Number of disks
-            print(vf_real)
-        else:
-            try:
-                raise errors.ParameterMissing('vf or n', phase)
-            except errors.ParameterMissing as error:
-                error.message()
-                quit()
-    elif descriptors.get('r_distribution') == 'discrete':
-    # the radius follows a discrete distribution
-        r_values = []
-        r_probabilities = []
-        # Initializing the lists containing the values and corresponding probabilities that
-        # characterize the discrete distribution required
-        for i_descriptor in descriptors:
-            if i_descriptor[0:7].lower() == 'r_value':
-                r_values.append(descriptors[i_descriptor])
-                try:
-                    if 'r_prob_' + i_descriptor[-1] not in descriptors:
-                        raise errors.ParameterMissing('r_prob_' + i_descriptor[-1], phase)
-                    r_probabilities.append(descriptors['r_prob_' + i_descriptor[-1]])
-                except errors.ParameterMissing as error:
-                    error.message()
-                    quit()
-        if len(r_values) == 0:
-        # There are no values for the radius parameter
-            try:
-                raise errors.ParameterMissing('r_1', phase)
-            except errors.ParameterMissing as error:
-                error.message()
-                quit()
-        elif np.abs(np.sum(r_probabilities) - 1) > 0.01:
-        # The probabilities do not add up to 100%
-            try:
-                raise errors.ParameterErrorDiscreteProb('r_1', phase)
-            except errors.ParameterMissing as error:
-                error.message()
-                quit()
-        if 'n' in descriptors:
-        # The number of desired disks was given
-            radius = np.random.choice(r_values, descriptors['n'], p=r_probabilities)
-            for i in range(descriptors['n']):
-            # Generating n disks
-                disks.append(Disk(phase, radius[i]))
-                # Disk with radius 0.5
-        elif 'vf' in descriptors:
-        # The desired volume fraction was given
-            vf_real = 0
-            # Initializing the real volume fraction
-            while vf_real < descriptors['vf']:
-                disks.append(Disk(phase, np.random.choice(r_values, 1, p=r_probabilities)))
-                # Disk with a radius coming from an uniform distribution
-                vf_real += disks[-1].volume()/(Particle.box[0]*Particle.box[1])
-                # Computing the current volume fraction
-            n_particles = len(disks)
-            # Number of disks
-            print(vf_real)
-        else:
-            try:
-                raise errors.ParameterMissing('vf or n', phase)
-            except errors.ParameterMissing as error:
-                error.message()
-                quit()
+    possible_parameters = {'r', 'area', 'n', 'vf'}
+    # possible_parameters
+    used_parameters = {parameter for parameter in possible_parameters if
+                       any([descriptor.startswith(parameter) for
+                            descriptor in descriptors.keys()])}
+    print(used_parameters)
+    # Collecting the parameters used
+    acceptable_descriptions = [{'r', 'n'}, {'r', 'vf'}, {'n', 'vf'}, {'area', 'vf'},
+                               {'area', 'n'}]
+    # List of acceptable collections of parameters
+    if any([used_parameters == acceptable_description for
+            acceptable_description in acceptable_descriptions]):
+        acceptable_description = True
     else:
-    # the radius is fixed
-        try:
-            if 'n' in descriptors and 'vf' in descriptors:
-            # The number of particles and their volume fraction was supplied
-                n_particles = descriptors['n']
-                # Saving the number of particles
-                radius = np.sqrt(descriptors['vf']*rve_dims[0]*rve_dims[1]/n_particles/np.pi)
-                # Computing the radius from the number of particles and the volume fraction
-            elif 'n' in descriptors and 'r' in descriptors:
-            # The number of particles and their radius was supplied
-                n_particles = descriptors['n']
-                # Saving the number of particles
-                radius = descriptors['r']
-                # Saving the radius of the particles
-                vf = np.pi*radius**2*n_particles/rve_dims[0]/rve_dims[1]
-                if vf > 1:
-                    try:
-                        raise RuntimeError
-                    except RuntimeError:
-                        print('The volume fraction is larger than 1.')
-                        quit()
-            elif 'vf' in descriptors and 'r' in descriptors:
-            # The radius of the particles and their volume fraction was supplied
-                radius = descriptors['r']
-                # Saving the radius of the particles
-                n_particles = np.int(np.floor(
-                    descriptors['vf']*rve_dims[0]*rve_dims[1]/radius**2/np.pi))
-                # Computing the number of particles from their radius ande volume fraction
-                vf = np.pi*radius**2*n_particles/rve_dims[0]/rve_dims[1]
-                print('True volume fraction:',vf)
-            else:
-                raise RuntimeError()
-                # Insufficient number of parameters or wrong parameters supplied
-        except RuntimeError:
-            print("Insufficient number of parameters",
-                  " or wrong parameters supplied for Phase", phase, ".")
-            quit()
-        for i in range(n_particles):
-        # Generating n disks
-            disks.append(Disk(phase, radius)) #np.random.uniform(low=0.01,high=0.2)))
-            # Disk with radius 0.5
+        acceptable_description = False
+    # Checking acceptable sets of parameters
+    try:
+        if not acceptable_description:
+            raise errors.UnacceptableParameters(used_parameters, phase,
+                                                acceptable_descriptions)
+    except errors.UnacceptableParameters as error:
+        error.message()
+        quit()
+    if 'n' in descriptors and 'vf' not in descriptors:
+    # The desired number of disks was specified
+        samples = {}
+        # Initializing the dictionary containing the samples for each parameter used
+        for i_parameter in used_parameters:
+            samples[i_parameter] = generateSampleParameter(i_parameter, descriptors, phase,
+                                                           n_samples=descriptors['n'])
+        r = canonicalParametersDisk(samples, rve_dims)
+        for i in range(descriptors['n']):
+            disks.append(Disk(phase, r[i]))
+    elif 'vf' in descriptors and 'n' not in descriptors:
+    # The desired volume fraction was specfied
+        current_sample = {}
+        # Initializing the dictionary containing the samples for each parameter used
+        vf_real = 0
+        # Initializing the real volume fraction
+        while vf_real < descriptors['vf']:
+            for i_parameter in used_parameters:
+                current_sample[i_parameter] = generateSampleParameter(i_parameter,
+                                                                      descriptors, phase)
+            r = canonicalParametersDisk(current_sample, rve_dims)
+            disks.append(Disk(phase, r))
+            vf_real += disks[-1].volume()/(rve_dims[0]*rve_dims[1])
+    elif 'vf' in descriptors and 'n' in descriptors:
+        samples = {}
+        # Initializing the dictionary containing the samples for each parameter used
+        for i_parameter in used_parameters:
+            samples[i_parameter] = generateSampleParameter(i_parameter, descriptors, phase,
+                                                           n_samples=descriptors['n'])
+        r = canonicalParametersDisk(samples, rve_dims)
+        for i in range(descriptors['n']):
+            disks.append(Disk(phase, r[i]))
 
     return disks
 
@@ -651,7 +523,7 @@ def generateSpheres(phase, rve_dims, descriptors):
     Parameters
     ----------
     phase: str
-        Phase to which the disks will belong.
+        Phase to which the spheres will belong.
 
     rve_dims: list(float)
         List containing the dimensions of the RVE.
@@ -661,95 +533,41 @@ def generateSpheres(phase, rve_dims, descriptors):
     """
     spheres = []
     # Initializing the list containing the spheres
-    if descriptors.get('r_distribution') == 'uniform':
-    # the radius follows an uniform distribution
-        for i in range(descriptors['n']):
-        # Generating n spheres
-            spheres.append(Sphere(phase, np.random.uniform(
-                low=descriptors['r_low'], high=descriptors['r_high'])))
-            # Sphere with radius 0.5
-            spheres[i].position_center = np.random.uniform(
-                size=2)  # np.array([0+i**2/200, 0.5]) # # #
-            # Generating the positions from a random uniform distribution between 0 and 1
-            spheres[i].velocity_center = np.array([0, 0], dtype='float')
-            # Generating the velocities from a random uniform distribution between -1 and 1
-    else:
-    # the radius is fixed
-        try:
-            if 'n' in descriptors and 'vf' in descriptors:
-            # The number of particles and their volume fraction was supplied
-                n_particles = descriptors['n']
-                # Saving the number of particles
-                radius = (np.cbrt(
-                    descriptors['vf'] * rve_dims[0] * rve_dims[1] * rve_dims[2]
-                    / n_particles / np.pi / (4/3)))
-                # Computing the radius from the number of particles and the volume fraction
-            elif 'n' in descriptors and 'r' in descriptors:
-            # The number of particles and their radius was supplied
-                n_particles = descriptors['n']
-                # Saving the number of particles
-                radius = descriptors['r']
-                # Saving the radius of the particles
-            elif 'vf' in descriptors and 'r' in descriptors:
-            # The radius of the particles and their volume fraction was supplied
-                radius = descriptors['r']
-                # Saving the radius of the particles
-                n_particles = (descriptors['vf'] * rve_dims[0] * rve_dims[1] * rve_dims[2]
-                               / (4/3) / radius**3 / np.pi)
-                # Computing the number of particles from their radius ande volume fraction
-            else:
-                raise RuntimeError()
-                # Insufficient number of parameters or wrong parameters supplied
-        except RuntimeError:
-            print("Insufficient number of parameters",
-                  " or wrong parameters supplied for Phase", phase, ".")
-            quit()
-        for i in range(n_particles):
-        # Generating n spheres
-            spheres.append(Sphere(phase, radius)) #np.random.uniform(low=0.01,high=0.2)))
-            # Sphere with radius 0.5
-            spheres[i].position_center = np.random.uniform(size=3) # np.array([0.3, 0.95, 0.2]) # np.array([0.5+i**2/200, 0.5, 0.5]) #    # #
-            # Generating the positions from a random uniform distribution between 0 and 1
-            spheres[i].velocity_center = np.array([0, 0, 0], dtype='float')
-            # Generating the velocities from a random uniform distribution between -1 and 1
-
-    return spheres
-
-
-def generateEllipses(phase, descriptors):
-    """Generate ellipses belonging to *phase* characterized by *descriptors*."""
-    ellipses = []
-    # Initializing the list containing the disks
-    possible_parameters = {'major_axis', 'minor_axis', 'angle'}
+    possible_parameters = {'r', 'volume', 'n', 'vf'}
     # possible_parameters
     used_parameters = {parameter for parameter in possible_parameters if
-                       any([descriptor.startsWith(parameter) for
+                       any([descriptor.startswith(parameter) for
                             descriptor in descriptors.keys()])}
+    print(used_parameters)
     # Collecting the parameters used
-    if all([parameter in used_parameters for parameter in {'major_axis', 'minor_axis',
-            'angle'}]):
+    acceptable_descriptions = [{'r', 'n'}, {'r', 'vf'}, {'n', 'vf'}, {'volume', 'vf'},
+                               {'volume', 'n'}]
+    # List of acceptable collections of parameters
+    if any([used_parameters == acceptable_description for
+            acceptable_description in acceptable_descriptions]):
         acceptable_description = True
     else:
         acceptable_description = False
     # Checking acceptable sets of parameters
     try:
         if not acceptable_description:
-            raise ValueError
-    except ValueError:
-        print('Unknown error')
-        # FIXME:
+            raise errors.UnacceptableParameters(used_parameters, phase,
+                                                acceptable_descriptions)
+    except errors.UnacceptableParameters as error:
+        error.message()
         quit()
-    if 'n' in descriptors:
-    # The desired number of ellipses was specified
+    if 'n' in descriptors and 'vf' not in descriptors:
+    # The desired number of disks was specified
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
         for i_parameter in used_parameters:
-            samples[i_parameter] = generateSampleParameter(i_parameter, descriptors,
-                                                           n=descriptors['n'])
-        [major_axis, minor_axis, angle] = canonicalParametersEllipse(samples)
+            samples[i_parameter] = generateSampleParameter(i_parameter, descriptors, phase,
+                                                           n_samples=descriptors['n'])
+        r = canonicalParametersSphere(samples, rve_dims)
         for i in range(descriptors['n']):
-            ellipses.append(Ellipse(phase, major_axis[i], minor_axis[i], angle[i])) #np.random.uniform(low=0.01,high=0.2)))
-    elif 'vf' in descriptors:
+            spheres.append(Sphere(phase, r[i]))
+    elif 'vf' in descriptors and 'n' not in descriptors:
+    # The desired volume fraction was specfied
         current_sample = {}
         # Initializing the dictionary containing the samples for each parameter used
         vf_real = 0
@@ -757,59 +575,160 @@ def generateEllipses(phase, descriptors):
         while vf_real < descriptors['vf']:
             for i_parameter in used_parameters:
                 current_sample[i_parameter] = generateSampleParameter(i_parameter,
-                                                                      descriptors)
-            [major_axis, minor_axis, angle] = canonicalParametersEllipse(current_sample)
-            ellipses.append(Ellipse(phase, major_axis, minor_axis, angle))
-            vf_real += ellipses[-1].volume()/(Particle.box[0]*Particle.box[1])
-    else:
-        try:
-            raise errors.ParameterMissing('vf or n', phase)
-        except errors.ParameterMissing as error:
-            error.message()
-            quit()
+                                                                      descriptors, phase)
+            r = canonicalParametersSphere(current_sample, rve_dims)
+            spheres.append(Sphere(phase, r))
+            vf_real += spheres[-1].volume()/(rve_dims[0]*rve_dims[1]*rve_dims[2])
+        print(vf_real)
+    elif 'vf' in descriptors and 'n' in descriptors:
+        samples = {}
+        # Initializing the dictionary containing the samples for each parameter used
+        for i_parameter in used_parameters:
+            samples[i_parameter] = generateSampleParameter(i_parameter, descriptors, phase,
+                                                           n_samples=descriptors['n'])
+        r = canonicalParametersSphere(samples, rve_dims)
+        for i in range(descriptors['n']):
+            spheres.append(Sphere(phase, r[i]))
 
-    if False:
-        # Collecting parameters
-        if descriptors.get('distribution') == 'uniform':
-        # the radius follows an uniform distribution
-            pass
-        else:
-        # the radius is fixed
-            for i in range(descriptors['n']):
-            # Generating n disks
-                ellipses.append(Ellipse(phase, descriptors['major_axis'],
-                    descriptors['minor_axis'], descriptors['angle']+i/7*np.pi/2)) #np.random.uniform(low=0.01,high=0.2)))
-                # Generating ellipses, all with the same dimensions
-                ellipses[i].position_center = np.random.uniform(size=2) # np.array([0.5, 0.5-i/20]) # n # #
-                # Generating the positions from a random uniform distribution between 0 and 1
-                ellipses[i].velocity_center = np.array([0,0],dtype='float')
-                # Generating the velocities from a random uniform distribution between -1 and 1
+    return spheres
+
+
+def generateEllipses(phase, rve_dims, descriptors):
+    """Generate ellipses belonging to *phase* characterized by *descriptors*."""
+    ellipses = []
+    # Initializing the list containing the disks
+    possible_parameters = {'major_axis', 'minor_axis', 'angle', 'eccentricity', 'ratio',
+                           'n', 'vf'}
+    # possible_parameters
+    used_parameters = {parameter for parameter in possible_parameters if
+                       any([descriptor.startswith(parameter) for
+                            descriptor in descriptors.keys()])}
+    print(used_parameters)
+    # Collecting the parameters used
+    acceptable_descriptions = [{'major_axis', 'minor_axis', 'angle', 'n'},
+                               {'major_axis', 'minor_axis', 'angle', 'vf'},
+                               {'major_axis', 'angle', 'n', 'vf'},
+                               {'minor_axis', 'angle', 'n', 'vf'}]
+    # List of acceptable collections of parameters
+    if any([used_parameters == acceptable_description for
+            acceptable_description in acceptable_descriptions]):
+        acceptable_description = True
+    else:
+        acceptable_description = False
+    # Checking acceptable sets of parameters
+    try:
+        if not acceptable_description:
+            raise errors.UnacceptableParameters(used_parameters, phase,
+                                                acceptable_descriptions)
+    except errors.UnacceptableParameters as error:
+        error.message()
+        quit()
+    if 'n' in descriptors and 'vf' not in descriptors:
+    # The desired number of ellipses was specified
+        samples = {}
+        # Initializing the dictionary containing the samples for each parameter used
+        for i_parameter in used_parameters:
+            samples[i_parameter] = generateSampleParameter(i_parameter, descriptors, phase,
+                                                           n_samples=descriptors['n'])
+        [major_axis, minor_axis, angle] = canonicalParametersEllipse(samples,
+                                                                     rve_dims)
+        for i in range(descriptors['n']):
+            ellipses.append(Ellipse(phase, major_axis[i], minor_axis[i], angle[i]))
+    elif 'vf' in descriptors and 'n' not in descriptors:
+    # The desired volume fraction was specfied
+        current_sample = {}
+        # Initializing the dictionary containing the samples for each parameter used
+        vf_real = 0
+        # Initializing the real volume fraction
+        while vf_real < descriptors['vf']:
+            for i_parameter in used_parameters:
+                current_sample[i_parameter] = generateSampleParameter(i_parameter, phase,
+                                                                      descriptors)
+            [major_axis, minor_axis, angle] = canonicalParametersEllipse(current_sample,
+                                                                         rve_dims)
+            ellipses.append(Ellipse(phase, major_axis, minor_axis, angle))
+            vf_real += ellipses[-1].volume()/(rve_dims[0]*rve_dims[1])
+    elif 'vf' in descriptors and 'n' in descriptors:
+        samples = {}
+        # Initializing the dictionary containing the samples for each parameter used
+        for i_parameter in used_parameters:
+            samples[i_parameter] = generateSampleParameter(i_parameter, descriptors, phase,
+                                                           n_samples=descriptors['n'])
+        [major_axis, minor_axis, angle] = canonicalParametersEllipse(samples,
+                                                                     rve_dims)
+        for i in range(descriptors['n']):
+            ellipses.append(Ellipse(phase, major_axis[i], minor_axis[i], angle[i]))
 
     return ellipses
 
 
 def generateEllipsoids(phase, rve_dims, descriptors):
-    """Generate the ellipsoids of phase."""
-    ellipsoids = []
+    """Generate ellipses belonging to *phase* characterized by *descriptors*."""
+    ellipses = []
     # Initializing the list containing the disks
-    if descriptors.get('distribution') == 'uniform':
-    # the radius follows an uniform distribution
-        pass
+    possible_parameters = {'axis_', 'minor_axis', 'angle', 'eccentricity', 'ratio',
+                           'n', 'vf'}
+    # possible_parameters
+    used_parameters = {parameter for parameter in possible_parameters if
+                       any([descriptor.startswith(parameter) for
+                            descriptor in descriptors.keys()])}
+    print(used_parameters)
+    # Collecting the parameters used
+    acceptable_descriptions = [{'major_axis', 'minor_axis', 'angle', 'n'},
+                               {'major_axis', 'minor_axis', 'angle', 'vf'},
+                               {'major_axis', 'angle', 'n', 'vf'},
+                               {'minor_axis', 'angle', 'n', 'vf'}]
+    # List of acceptable collections of parameters
+    if any([used_parameters == acceptable_description for
+            acceptable_description in acceptable_descriptions]):
+        acceptable_description = True
     else:
-    # the radius is fixed
+        acceptable_description = False
+    # Checking acceptable sets of parameters
+    try:
+        if not acceptable_description:
+            raise errors.UnacceptableParameters(used_parameters, phase,
+                                                acceptable_descriptions)
+    except errors.UnacceptableParameters as error:
+        error.message()
+        quit()
+    if 'n' in descriptors and 'vf' not in descriptors:
+    # The desired number of ellipses was specified
+        samples = {}
+        # Initializing the dictionary containing the samples for each parameter used
+        for i_parameter in used_parameters:
+            samples[i_parameter] = generateSampleParameter(i_parameter, descriptors, phase,
+                                                           n_samples=descriptors['n'])
+        [major_axis, minor_axis, angle] = canonicalParametersEllipse(samples,
+                                                                     rve_dims)
         for i in range(descriptors['n']):
-        # Generating n disks
-            axis = np.random.uniform(size=3)
-            ellipsoids.append(Ellipsoid(phase, descriptors['axis_1'], descriptors['axis_2'],
-                                        descriptors['axis_3'], axis, #descriptors['euler_angles'],
-                                        descriptors['angle']+np.pi/3*i)) #np.random.uniform(low=0.01,high=0.2)))
-            # Generating ellipses, all with the same dimensions
-            ellipsoids[i].position_center = np.random.uniform(size=3) # np.array([0.3, 0.05+i/(1/0.9), 0.2]) #     #
-            # Generating the positions from a random uniform distribution between 0 and 1
-            ellipsoids[i].velocity_center = np.array([0., 0., 0.], dtype='float')
-            # Generating the velocities from a random uniform distribution between -1 and 1
+            ellipses.append(Ellipse(phase, major_axis[i], minor_axis[i], angle[i]))
+    elif 'vf' in descriptors and 'n' not in descriptors:
+    # The desired volume fraction was specfied
+        current_sample = {}
+        # Initializing the dictionary containing the samples for each parameter used
+        vf_real = 0
+        # Initializing the real volume fraction
+        while vf_real < descriptors['vf']:
+            for i_parameter in used_parameters:
+                current_sample[i_parameter] = generateSampleParameter(i_parameter, phase,
+                                                                      descriptors)
+            [major_axis, minor_axis, angle] = canonicalParametersEllipse(current_sample,
+                                                                         rve_dims)
+            ellipses.append(Ellipse(phase, major_axis, minor_axis, angle))
+            vf_real += ellipses[-1].volume()/(rve_dims[0]*rve_dims[1])
+    elif 'vf' in descriptors and 'n' in descriptors:
+        samples = {}
+        # Initializing the dictionary containing the samples for each parameter used
+        for i_parameter in used_parameters:
+            samples[i_parameter] = generateSampleParameter(i_parameter, descriptors, phase,
+                                                           n_samples=descriptors['n'])
+        [major_axis, minor_axis, angle] = canonicalParametersEllipse(samples,
+                                                                     rve_dims)
+        for i in range(descriptors['n']):
+            ellipses.append(Ellipse(phase, major_axis[i], minor_axis[i], angle[i]))
 
-    return ellipsoids
+    return ellipses
 
 
 def generateInitialConfiguration(particles):
@@ -862,7 +781,7 @@ def generateSampleParameter(parameter, descriptors, phase, n_samples=1):
         # Initializing the lists containing the values and corresponding probabilities that
         # characterize the discrete distribution required
         for i_descriptor in descriptors:
-            if i_descriptor.startsWith(parameter + '_value'):
+            if i_descriptor.startswith(parameter + '_value'):
                 values.append(descriptors[i_descriptor])
                 try:
                     if parameter + '_prob_' + i_descriptor[-1] not in descriptors:
@@ -895,16 +814,64 @@ def generateSampleParameter(parameter, descriptors, phase, n_samples=1):
     return sample
 
 
-def canonicalParametersEllipse(sample):
+def canonicalParametersEllipse(sample, rve_dims):
     """Convert the paramters in *sample* to *major_axis*, *minor_axis* and *angle*."""
-    if 'major_axis' in sample:
-        major_axis = sample['major_axis']
-    if 'minor_axis' in sample:
-        minor_axis = sample['minor_axis']
+    if 'major_axis' in sample and 'minor_axis' in sample:
+    # Both major and minor axis were supplied
+        major_axis = np.max([sample['major_axis'], sample['minor_axis']], axis=0)
+        minor_axis = np.min([sample['major_axis'], sample['minor_axis']], axis=0)
+        # Ensuring that the major axis is greater than the minor axis
+    elif 'major_axis' in sample and 'vf' in sample and 'n' in sample:
+    # The major_axis, the volume faction and the number of particles were supplied
+        volume_part = sample['vf'][0]*rve_dims[0]*rve_dims[1]/sample['n'][0]
+        aux_minor_axis = volume_part/(np.pi*sample['major_axis']*1/4)
+        # Minor axis computed assuming that all particles have the same area
+        major_axis = np.max([sample['major_axis'], aux_minor_axis], axis=0)
+        minor_axis = np.min([sample['major_axis'], aux_minor_axis], axis=0)
+        # Ensuring that the major axis is greater than the minor axis
+    # FIXME: Warnign that all particles will have the same volume
+    elif 'minor_axis' in sample and 'vf' in sample and 'n' in sample:
+    # The minor axis, the volume faction and the number of particles were supplied
+        volume_part = sample['vf'][0]*rve_dims[0]*rve_dims[1]/sample['n'][0]
+        aux_major_axis = volume_part/(np.pi*sample['minor_axis']*1/4)
+        # Minor axis computed assuming that all particles have the same area
+        major_axis = np.max([aux_major_axis, sample['minor_axis']], axis=0)
+        minor_axis = np.min([aux_major_axis, sample['minor_axis']], axis=0)
+        # Ensuring that the major axis is greater than the minor axis
     if 'angle' in sample:
         angle = sample['angle']
 
     return [major_axis, minor_axis, angle]
+
+def canonicalParametersDisk(sample, rve_dims):
+    """Convert the paramters in *sample* to *r*."""
+    if 'r' in sample:
+    # The radius was supplied
+        r = sample['r']
+    elif 'area' in sample:
+    # The area of each particle was supplied
+        r = np.sqrt(sample['area']/np.pi)
+    elif 'vf' in sample and 'n' in sample:
+    # Both the volume fraction and the number of particles was supplied
+        area = sample['vf'][0]*rve_dims[0]*rve_dims[1]/sample['n'][0]
+        # Area of each particle (all the same)
+        r = np.sqrt(area/np.pi)
+    return r
+
+def canonicalParametersSphere(sample, rve_dims):
+    """Convert the parameters in *sample* to *r* characterizing a sphere."""
+    if 'r' in sample:
+    # The radius was supplied
+        r = sample['r']
+    elif 'volume' in sample:
+    # The area of each particle was supplied
+        r = np.cbrt(sample['volume']/(4/3*np.pi))
+    elif 'vf' in sample and 'n' in sample:
+    # Both the volume fraction and the number of particles was supplied
+        volume = sample['vf'][0]*rve_dims[0]*rve_dims[1]*rve_dims[2]/sample['n'][0]
+        # Area of each particle (all the same)
+        r = np.cbrt(volume/(4/3*np.pi))
+    return r
 
 
 def createResultsDirectory(particles, dp_dir):
@@ -936,7 +903,7 @@ def createResultsDirectory(particles, dp_dir):
         if os.path.exists("input_data\\info_micro.p"):
             os.replace("input_data\\info_micro.p",
                        os.path.join(results_folder, "info_micro.p"))
-    # FIXME: Only the first sample keeps the info folder. 
+    # FIXME: Only the first sample keeps the info folder.
     Particle.file_path = os.path.join(results_folder, Particle.file_name)
     # Saving the file path in the Particle class
 

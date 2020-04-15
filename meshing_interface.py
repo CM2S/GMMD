@@ -900,7 +900,7 @@ def generateMeshFFT(particles, options):
                                 regular_grid[i_row, j_column, k_layer] = l_particle.phase
                                 # Setting pixel [i_row, j_column, k_layer] as belong to the
                                 # phase of particle k_particle
-            if False:
+            if True:
                 plotVoxels(regular_grid, Particle.matrix_phase, Particle.file_path + "_rgmsh")
             # Ploting the regular grid
 

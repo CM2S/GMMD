@@ -698,7 +698,8 @@ class Ellipse(Particle):
 class Ellipsoid(Particle):
     """docstring for Ellipsoid."""
 
-    def __init__(self, phase, axis_1, axis_2, axis_3, rotation_axis, angle):
+    def __init__(self, phase, axis_1, axis_2, axis_3, euler_angle_x, euler_angle_y,
+                 euler_angle_z, angle):
         '''
         This is the generator for the classe Ellipse.
 
@@ -708,16 +709,22 @@ class Ellipsoid(Particle):
             Phase to which the ellipsoid belongs
 
         axis_1: float
-            Largest axis of the ellipsoid.
+            Length of the ellipsoid axis along the local (pre-rotation) x1-axis.
 
         axis_2: float
-            Second largest axis of the ellipsoid.
+            Length of the ellipsoid axis along the local (pre-rotation) x2-axis.
 
         axis_3: float
-            Smallest axis of the ellipsoid.
+            Length of the ellipsoid axis along the local (pre-rotation) x3-axis.
 
-        rotation_axis: array
-            Unit vector parallel to the x3 axis of the ellipsoid.
+        euler_angle_x: float
+            Euler angle relative to the local x1 (pre-rotation) axis.
+
+        euler_angle_y: float
+            Euler angle relative to the local x2 (pre-rotation) axis.
+
+        euler_angle_z: float
+            Euler angle relative to the local x3 (pre-rotation) axis.
 
         angle: float
             Angle in radians that axis x1 and x2 rotate arround the x3 axis.
@@ -728,7 +735,9 @@ class Ellipsoid(Particle):
         self.semi_axis_2 = axis_2/2
         self.axis_3 = axis_3
         self.semi_axis_3 = axis_3/2
-        self.rotation_axis = rotation_axis/np.linalg.norm(rotation_axis)
+        self.rotation_axis = (np.array([euler_angle_x, euler_angle_y, euler_angle_z])
+                              / np.linalg.norm(np.array([euler_angle_x, euler_angle_y,
+                                                         euler_angle_z])))
         self.angle = angle
         self.rot_quat = np.array([np.cos(angle/2),
                                   np.sin(angle/2)*self.rotation_axis[0],
@@ -742,7 +751,7 @@ class Ellipsoid(Particle):
                                       [2*(q[1]*q[2]-q[3]*q[0]), 1-2*(q[1]**2+q[3]**2),
                                        2*(q[2]*q[3]-q[1]*q[0])],
                                       [2*(q[1]*q[3]-q[2]*q[0]), 2*(q[2]*q[3]-q[1]*q[0]),
-                                            1-2*(q[1]**2+q[2]**2)]])
+                                       1-2*(q[1]**2+q[2]**2)]])
         # Rotation matrix from local to global coordinates
         super().__init__(3, phase)
 
@@ -1114,7 +1123,7 @@ class Sphere(Ellipsoid):
         '''
 
         self.radius = radius
-        super().__init__(phase, 2*radius, 2*radius, 2*radius, np.array([0., 0., 1.]), 0.)
+        super().__init__(phase, 2*radius, 2*radius, 2*radius, 0., 0., 1., 0.)
 
     def intersectionArea(self, other_particle):
         '''
