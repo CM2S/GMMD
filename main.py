@@ -22,13 +22,13 @@ from integration_methods import Newmark
 # Importing an integration method for the equation of motion
 from particle_classes import Disk, Particle, Ellipse, Sphere, Ellipsoid
 # Importing the particle class
-from meshing_interface import generateMeshFEM, generateMeshFFT
+from meshing_interface import generateMesh
 # Importing meshing interfaces
 import error_classes as errors
 # Importing the error clases
 import os
 import sys
-from path_analysis import plotPaths
+from path_analysis import plotPaths, plotParticles
 # ==========================================================================================
 
 
@@ -1062,7 +1062,7 @@ def readDescriptors():
     -------
     dp_dir: str
         Directory where the microstructure spatial discretization file(s) associated
-        with the given design point are to be stored
+        with the given design point are to be stored.
 
     descriptors: dict
 
@@ -1190,8 +1190,10 @@ def readDescriptors():
     elif 'femsh' in discret_spec_array:
         rve_dims = discret_spec_array['femsh']['rve_dims']
 
+    discret_file_ext = info_dict.get('discret_file_ext')
+
     return [dp_dir, descriptors, phase_types, options, n_dp_samples, rve_dims, problem_type,
-            discret_spec_array]
+            discret_spec_array, discret_file_ext]
 
 
 def computeRelativeEnergy(particles):
@@ -1420,174 +1422,6 @@ def run(particles, max_residue_per_particle, max_step, options):
 
     # Integrating Newton's equations of motion
 
-def plotParticles(particles, dir, grid='off', verlet_ngh=False, center_part=False,
-                  show=False, save=False, **kwargs):
-    """Plot the particles."""
-    import matplotlib.patches as mpatches
-    import matplotlib.pyplot as plt
-
-    N = len(particles)
-    if particles[0].dim == 2:
-        # Two dimensional problem
-        fig = plt.figure()
-
-        ax = plt.gca()
-
-        for i in range(N):
-            class_name_i_particle = particles[i].__class__.__name__
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    if 'Disk' == class_name_i_particle:
-                        circ = mpatches.Circle(
-                            particles[i].position_center+np.array([1*j, 1*k]), radius=particles[i].radius, alpha=0.8)
-                        ax.add_artist(circ)
-                        if verlet_ngh:
-                            circ = mpatches.Circle(
-                                particles[i].position_center+np.array([1*j, 1*k]+particles[i].displacement_last_verlet), radius=Particle.verlet_factor*particles[i].radius, alpha=0.1)
-                            ax.add_artist(circ)
-                        if center_part:
-                            plt.annotate(xy=particles[i].position_center, s=str(i))
-                            plt.scatter(particles[i].position_center[0],
-                                        particles[i].position_center[1])
-                    if 'Ellipse' == class_name_i_particle:
-                        ellip = mpatches.Ellipse(particles[i].position_center+np.array(
-                            [1*j, 1*k]), particles[i].major_axis, particles[i].minor_axis,
-                            angle=180/np.pi*particles[i].angle, alpha=0.8)
-                        ax.add_artist(ellip)
-                        if verlet_ngh:
-                            ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j, 1*k]+particles[i].displacement_last_verlet), particles[i].major_axis
-                                                     * Particle.verlet_factor, particles[i].minor_axis*Particle.verlet_factor, angle=180/np.pi*particles[i].angle, alpha=0.2)
-                            ax.add_artist(ellip)
-                        if center_part:
-                            plt.annotate(xy=particles[i].position_center, s=str(i))
-                            plt.scatter(particles[i].position_center[0],
-                                        particles[i].position_center[1])
-
-        if grid == 'cell_list':
-            plt.xticks(np.linspace(0, 1, Particle.n_cell_dim+1, endpoint=True))
-            plt.yticks(np.linspace(0, 1, Particle.n_cell_dim+1, endpoint=True))
-            plt.grid(b=True, which='both')
-        elif grid == 'fft':
-            discret_spec_array = kwargs('discret_spec_array')
-            plt.xticks(np.linspace(
-                0, 1, discret_spec_array['rgmsh']['n_voxels_dims'][0]+1, endpoint=True))
-            plt.yticks(np.linspace(
-                0, 1, discret_spec_array['rgmsh']['n_voxels_dims'][1]+1, endpoint=True))
-            plt.grid(b=True, which='both')
-
-        ax.axis("square")
-
-        plt.axis([0, 1, 0, 1])
-
-        if save:
-            plt.savefig(dir + ".png")
-
-        if show:
-            plt.show()
-
-    elif particles[0].dim == 3:
-        pass
-    else:
-        box = Particle.box
-        from mpl_toolkits.mplot3d import Axes3D
-        from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
-        import matplotlib.pyplot as plt
-
-        def drawSphere(pos, r):
-            # draw sphere
-            u, v = np.mgrid[0:2*np.pi:5j, 0:np.pi:5j]
-            x = np.cos(u)*np.sin(v)
-            y = np.sin(u)*np.sin(v)
-            z = np.cos(v)
-            # shift and scale sphere
-            x = r*x + pos[0]
-            y = r*y + pos[1]
-            z = r*z + pos[2]
-            return (x, y, z)
-
-        def plot_cube(cube_definition):
-            cube_definition_array = [
-                np.array(list(item))
-                for item in cube_definition
-            ]
-
-            points = []
-            points += cube_definition_array
-            vectors = [
-                cube_definition_array[1] - cube_definition_array[0],
-                cube_definition_array[2] - cube_definition_array[0],
-                cube_definition_array[3] - cube_definition_array[0]
-            ]
-
-            points += [cube_definition_array[0] + vectors[0] + vectors[1]]
-            points += [cube_definition_array[0] + vectors[0] + vectors[2]]
-            points += [cube_definition_array[0] + vectors[1] + vectors[2]]
-            points += [cube_definition_array[0] + vectors[0] + vectors[1] + vectors[2]]
-
-            points = np.array(points)
-
-            edges = [
-                [points[0], points[3], points[5], points[1]],
-                [points[1], points[5], points[7], points[4]],
-                [points[4], points[2], points[6], points[7]],
-                [points[2], points[6], points[3], points[0]],
-                [points[0], points[2], points[4], points[1]],
-                [points[3], points[6], points[7], points[5]]
-            ]
-
-            fig = plt.figure()
-            ax = fig.add_subplot(111, projection='3d')
-
-            faces = Poly3DCollection(edges, linewidths=1, edgecolors='k')
-            faces.set_facecolor((0, 0, 1, 0.05))
-
-            ax.add_collection3d(faces)
-
-            # Plot the points themselves to force the scaling of the axes
-            ax.scatter(points[:, 0], points[:, 1], points[:, 2], s=0)
-
-            ax.set_aspect('equal')
-
-        cube_definition = [
-            (0, 0, 0), (0, 1, 0), (1, 0, 0), (0, 0, 1)
-        ]
-        plot_cube(cube_definition)
-
-        fig = plt.gcf()
-        ax = fig.gca()
-
-        for i in range(N):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    for l in range(-1, 2):
-                        (xs, ys, zs) = drawSphere(
-                            particles[i].position_center+np.array([1*j, 1*k, 1*l]),
-                            particles[i].radius)
-                        x_clip = np.logical_or(np.abs(np.array(xs)) > 1, xs < 0)
-                        y_clip = np.logical_or(np.abs(np.array(ys)) > 1, ys < 0)
-                        z_clip = np.logical_or(np.abs(np.array(zs)) > 1, zs < 0)
-                        in_points = np.logical_or(np.logical_or(x_clip, y_clip), z_clip)
-                        # xs[in_points] = np.nan
-                        # ys[in_points] = np.nan
-                        zs[in_points] = np.nan
-                        ax.plot_wireframe(xs, ys, zs, color="b")
-                        ax.text(particles[i].position_center[0],
-                                particles[i].position_center[1],
-                                particles[i].position_center[2],
-                                str(i))
-                        plt.scatter(
-                            particles[i].position_center[0],
-                            particles[i].position_center[1],
-                            particles[i].position_center[2])
-
-        plt.grid(b=False)
-        ax.set_aspect('equal')
-        ax.set_xlim3d(0, 1)
-        ax.set_ylim3d(0, 1)
-        ax.set_zlim3d(0, 1)
-        ax.set_clip_on(True)
-        # plt.axis([0, 1, 0, 1, 0, 1])
-
 
 
 
@@ -1610,7 +1444,7 @@ def main():
     screen_path = open("test.txt", 'w')
     # sys.stdout = f
     [dp_dir, descriptors, phase_types, options, n_samples, rve_dims, problem_type,
-        discret_spec_array] = readDescriptors()
+        discret_spec_array, discret_file_ext] = readDescriptors()
     # Reading the descriptors and options for the microstructure generation
     if options.get('remesh'):
     # It is a remesh action
@@ -1624,21 +1458,10 @@ def main():
         # Reconstructing the relevant Particle attributes that could not be pickled
         createResultsDirectory(particles, dp_dir)
         end = time.time()
-        # New result's directory
-        if 'rgmsh' in discret_spec_array:
-        # A mesh for FFT was requested
-            generateMeshFFT(particles, discret_spec_array['rgmsh'])
-            # Generating the FFT mesh as a regular grid and saving it in a .dat file
-        if 'femsh' in discret_spec_array:
-        # A mesh for FEM was requested
-            try:
-                mesh_size = discret_spec_array['femsh']['mesh_size']
-                # Saving the value of the mesh size
-            except KeyError:
-                print('The mesh size for the FEM method was not supplied correctly')
-                quit()
-            generateMeshFEM(particles, mesh_size, discret_spec_array['femsh'])
-            # Generating the FEM mesh using gmsh and saving an input data file for LINKS
+        for disc_ext in discret_file_ext:
+        # For each file extension asked
+            generateMesh(particles, disc_ext, discret_spec_array[disc_ext])
+            # Generate corresponding mesh
     else:
     # Generating samples of microstructures and meshing
         for i_sample in range(n_samples):
@@ -1661,20 +1484,10 @@ def main():
             print('verlet_list', [particles[i].verlet_list for i in range(len(particles))])
             pickle.dump(particles, open(Particle.file_path + ".p", "wb"))
             # Saving the configuration for later use
-            if 'rgmsh' in discret_spec_array:
-            # A mesh for FFT was requested
-                generateMeshFFT(particles, discret_spec_array['rgmsh'])
-                # Generating the FFT mesh as a regular grid and saving it in a .dat file
-            if 'femsh' in discret_spec_array:
-            # A mesh for FEM was requested
-                try:
-                    mesh_size = discret_spec_array['femsh']['mesh_size']
-                    # Saving the value of the mesh size
-                except KeyError:
-                    print('The mesh size for the FEM method was not supplied correctly')
-                    quit()
-                generateMeshFEM(particles, mesh_size, discret_spec_array['femsh'])
-                # Generating the FEM mesh using gmsh and saving an input data file for LINKS
+            for disc_ext in discret_file_ext:
+            # For each file extension asked
+                generateMesh(particles, disc_ext, discret_spec_array[disc_ext])
+                # Generate corresponding mesh
             plotParticles(particles, Particle.file_path + "_final_config",
                           save=options.get('save_plot', True),
                           show=options.get('save_plot',  True))

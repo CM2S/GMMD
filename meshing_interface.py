@@ -781,7 +781,7 @@ def generateMeshFEM3D(particles, mesh_size, mesh_alg=1, force_recomb_all=0, elem
     # Convert it to LINKS format and write the respective input file
     # ==========================================================================================
 
-    gmshToLinks(meshfile, title, 3, Particle.list_phases, Particle.matrix_phase)
+    # gmshToLinks(meshfile, title, 3, Particle.list_phases, Particle.matrix_phase)
 
 
 def gmshToLinks(meshfile, title, dim, list_phases, matrix_phase):
@@ -829,7 +829,7 @@ def gmshToLinks(meshfile, title, dim, list_phases, matrix_phase):
                     dat.write("{0} ".format(k_con))
 
 
-def generateMeshFFT(particles, options):
+def generateMeshFFT(particles, options, disc_ext):
     '''
     This functions generates a regular grid as an array to be used in an FFT analysis.
     '''
@@ -841,7 +841,8 @@ def generateMeshFFT(particles, options):
         # Dimension of the pixels
         if len(options['rve_dims']) == 2:
         # This is a 2D dimnensional problem
-            regular_grid = np.zeros((n_voxels_dims[0], n_voxels_dims[1]))
+            regular_grid = np.full((n_voxels_dims[0], n_voxels_dims[1]),
+                                   int(Particle.matrix_phase), dtype=int)
             # Initializing the regular
             for i_row in range(n_voxels_dims[0]):
             # Running through the pixels from left to right
@@ -865,15 +866,15 @@ def generateMeshFFT(particles, options):
                             # particle k_particle
             if True:
                 plotPixels(regular_grid, Particle.file_path + "_" + str(n_voxels_dims[0])
-                           + "_" + str(n_voxels_dims[1]) + "_rgmsh")
+                           + "_" + str(n_voxels_dims[1]) + "." + disc_ext)
             # Ploting the regular grid
             np.save(Particle.file_path + "_" + str(n_voxels_dims[0]) + "_"
-                    + str(n_voxels_dims[1]), regular_grid)
+                    + str(n_voxels_dims[1]) + ".rgmsh", regular_grid)
         elif len(options['rve_dims']) == 3:
         # This is a 2D dimnensional problem
-            regular_grid = np.zeros((n_voxels_dims[0],
-                                     n_voxels_dims[1],
-                                     n_voxels_dims[2]))
+            regular_grid = np.full((n_voxels_dims[0], n_voxels_dims[1], n_voxels_dims[2]),
+                                   int(Particle.matrix_phase), dtype=int)
+            # FIXME: matrix phase is not always zero
             # Initializing the regular
             for i_row in range(n_voxels_dims[0]):
             # Running through the pixels from left to right
@@ -901,11 +902,32 @@ def generateMeshFFT(particles, options):
                                 # Setting pixel [i_row, j_column, k_layer] as belong to the
                                 # phase of particle k_particle
             if True:
-                plotVoxels(regular_grid, Particle.matrix_phase, Particle.file_path + "_rgmsh")
+                plotVoxels(regular_grid, Particle.matrix_phase, Particle.file_path + "_"
+                           + str(n_voxels_dims[0]) + "_" + str(n_voxels_dims[1]) + "_"
+                           + str(n_voxels_dims[0]) + "." + disc_ext)
             # Ploting the regular grid
 
             np.save(Particle.file_path + "_" + str(n_voxels_dims[0]) + "_"
-                    + str(n_voxels_dims[1]) + "_" + str(n_voxels_dims[2]), regular_grid)
+                    + str(n_voxels_dims[1]) + "_" + str(n_voxels_dims[2]) + ".rgmsh", regular_grid)
+
+
+def generateMesh(particles, disc_ext, discret_spec_array):
+    """Generate a mesh"""
+    if disc_ext == 'rgmsh':
+    # A mesh for FFT was requested
+        generateMeshFFT(particles, discret_spec_array, disc_ext)
+        # Generating the FFT mesh as a regular grid and saving it in a .dat file
+    if disc_ext == 'femsh':
+    # A mesh for FEM was requested
+        try:
+            mesh_size = discret_spec_array['femsh']['mesh_size']
+            # Saving the value of the mesh size
+        except KeyError:
+            print('The mesh size for the FEM method was not supplied correctly')
+            quit()
+        generateMeshFEM(particles, mesh_size, discret_spec_array, disc_ext)
+        # Generating the FEM mesh using gmsh and saving an input data file for LINKS
+
 
 def plotPixels(pixel_grid, dir, show=False, save=True):
     import matplotlib.pyplot as plt
