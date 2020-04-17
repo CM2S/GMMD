@@ -28,6 +28,7 @@ import error_classes as errors
 # Importing the error clases
 import os
 import sys
+from path_analysis import plotPaths
 # ==========================================================================================
 
 
@@ -377,6 +378,7 @@ def computeForceij(particle_i, particle_j):
     # intersection area/volume
     return force_i_j
 
+
 def integrate(particles, dt, speed_up_scheme, integration_scheme='Newmark', **kwargs):
     """Integrate the equations of motion."""
     dim = particles[0].dim
@@ -437,6 +439,9 @@ def integrate(particles, dt, speed_up_scheme, integration_scheme='Newmark', **kw
         particles[i_particle].position_center = new_position[:, 0]
         particles[i_particle].velocity_center = new_velocity[:, 0]
         # Updating the position and velocity of particle i
+        if kwargs.get('save_history'):
+        # The history of the particle's motion is required
+            particles[i_particle].position_center_history.append(new_position.flatten())
 
 # ==========================================================================================
 
@@ -512,7 +517,7 @@ def generateDisks(phase, rve_dims, descriptors):
                                                            n_samples=descriptors['n'])
         r = canonicalParametersDisk(samples, rve_dims)
         for i in range(descriptors['n']):
-            disks.append(Disk(phase, r[i]))
+            disks.append(Disk(phase, r))
 
     return disks
 
@@ -588,7 +593,7 @@ def generateSpheres(phase, rve_dims, descriptors):
                                                            n_samples=descriptors['n'])
         r = canonicalParametersSphere(samples, rve_dims)
         for i in range(descriptors['n']):
-            spheres.append(Sphere(phase, r[i]))
+            spheres.append(Sphere(phase, r))
 
     return spheres
 
@@ -663,21 +668,22 @@ def generateEllipses(phase, rve_dims, descriptors):
 
 
 def generateEllipsoids(phase, rve_dims, descriptors):
-    """Generate ellipses belonging to *phase* characterized by *descriptors*."""
-    ellipses = []
+    """Generate ellipsoids belonging to *phase* characterized by *descriptors*."""
+    ellipsoids = []
     # Initializing the list containing the disks
-    possible_parameters = {'axis_', 'minor_axis', 'angle', 'eccentricity', 'ratio',
-                           'n', 'vf'}
+    possible_parameters = {'axis_1', 'axis_2', 'axis_3', 'euler_angle_x', 'euler_angle_y',
+                           'euler_angle_z', 'angle', 'n', 'vf'}
     # possible_parameters
     used_parameters = {parameter for parameter in possible_parameters if
                        any([descriptor.startswith(parameter) for
                             descriptor in descriptors.keys()])}
     print(used_parameters)
     # Collecting the parameters used
-    acceptable_descriptions = [{'major_axis', 'minor_axis', 'angle', 'n'},
-                               {'major_axis', 'minor_axis', 'angle', 'vf'},
-                               {'major_axis', 'angle', 'n', 'vf'},
-                               {'minor_axis', 'angle', 'n', 'vf'}]
+    acceptable_descriptions = [
+        {'axis_1', 'axis_2', 'axis_3', 'euler_angle_x', 'euler_angle_y', 'euler_angle_z',
+         'angle', 'n'},
+        {'axis_1', 'axis_2', 'axis_3', 'euler_angle_x', 'euler_angle_y', 'euler_angle_z',
+         'angle', 'vf'}]
     # List of acceptable collections of parameters
     if any([used_parameters == acceptable_description for
             acceptable_description in acceptable_descriptions]):
@@ -693,16 +699,18 @@ def generateEllipsoids(phase, rve_dims, descriptors):
         error.message()
         quit()
     if 'n' in descriptors and 'vf' not in descriptors:
-    # The desired number of ellipses was specified
+    # The desired number of ellipsoids was specified
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
         for i_parameter in used_parameters:
             samples[i_parameter] = generateSampleParameter(i_parameter, descriptors, phase,
                                                            n_samples=descriptors['n'])
-        [major_axis, minor_axis, angle] = canonicalParametersEllipse(samples,
-                                                                     rve_dims)
+        [axis_1, axis_2, axis_3, euler_angle_x, euler_angle_y, euler_angle_z, angle] = \
+            canonicalParametersEllipsoid(samples, rve_dims)
         for i in range(descriptors['n']):
-            ellipses.append(Ellipse(phase, major_axis[i], minor_axis[i], angle[i]))
+            ellipsoids.append(Ellipsoid(phase, axis_1[i], axis_2[i], axis_3[i],
+                                        euler_angle_x[i], euler_angle_y[i], euler_angle_z[i],
+                                        angle[i]))
     elif 'vf' in descriptors and 'n' not in descriptors:
     # The desired volume fraction was specfied
         current_sample = {}
@@ -711,34 +719,64 @@ def generateEllipsoids(phase, rve_dims, descriptors):
         # Initializing the real volume fraction
         while vf_real < descriptors['vf']:
             for i_parameter in used_parameters:
-                current_sample[i_parameter] = generateSampleParameter(i_parameter, phase,
-                                                                      descriptors)
-            [major_axis, minor_axis, angle] = canonicalParametersEllipse(current_sample,
-                                                                         rve_dims)
-            ellipses.append(Ellipse(phase, major_axis, minor_axis, angle))
-            vf_real += ellipses[-1].volume()/(rve_dims[0]*rve_dims[1])
+                current_sample[i_parameter] = generateSampleParameter(i_parameter,
+                                                                      descriptors, phase)
+            [axis_1, axis_2, axis_3, euler_angle_x, euler_angle_y, euler_angle_z, angle] = \
+                canonicalParametersEllipsoid(current_sample, rve_dims)
+            print(axis_1, axis_2, axis_3, euler_angle_x, euler_angle_y, euler_angle_z, angle)
+            ellipsoids.append(Ellipsoid(phase, axis_1[0], axis_2[0], axis_3[0],
+                                        euler_angle_x[0], euler_angle_y[0],
+                                        euler_angle_z[0], angle[0]))
+            vf_real += ellipsoids[-1].volume()/(rve_dims[0]*rve_dims[1])
     elif 'vf' in descriptors and 'n' in descriptors:
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
         for i_parameter in used_parameters:
             samples[i_parameter] = generateSampleParameter(i_parameter, descriptors, phase,
                                                            n_samples=descriptors['n'])
-        [major_axis, minor_axis, angle] = canonicalParametersEllipse(samples,
-                                                                     rve_dims)
+        [axis_1, axis_2, axis_3, euler_angle_x, euler_angle_y, euler_angle_z, angle] = \
+            canonicalParametersEllipsoid(samples, rve_dims)
         for i in range(descriptors['n']):
-            ellipses.append(Ellipse(phase, major_axis[i], minor_axis[i], angle[i]))
+            ellipsoids.append(Ellipsoid(phase, axis_1[i], axis_2[i], axis_3[i],
+                                        euler_angle_x[i], euler_angle_y, euler_angle_z[i],
+                                        angle[i]))
 
-    return ellipses
+    return ellipsoids
 
 
-def generateInitialConfiguration(particles):
+def generateInitialConfiguration(particles, **kwargs):
     """Generate the initial configuration (positions and velocities) for the particles."""
-    for i_particle in particles:
-    # Running through all the particles
-        i_particle.setPositionCenter(np.random.uniform(size=i_particle.dim)) # np.array([(i+1)*1/24-np.floor((i+1)*1/24), (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
-        # Generating the positions from a random uniform distribution between 0 and 1
-        i_particle.setVelocityCenter(np.random.uniform(size=i_particle.dim)) #np.array([0,0],dtype='float')
-        # Generating the velocities from a random uniform distribution between -1 and 1
+    if True:
+        for i_particle in particles:
+        # Running through all the particles
+            i_particle.setPositionCenter(np.random.uniform(size=i_particle.dim)) # np.array([(i+1)*1/24-np.floor((i+1)*1/24), (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
+            # Generating the positions from a random uniform distribution between 0 and 1
+            i_particle.setVelocityCenter(np.zeros((i_particle.dim))) #np.array([0,0],dtype='float')
+            # Generating the velocities from a random uniform distribution between -1 and 1
+            if kwargs.get('save_history'):
+            # Saving particle history
+                i_particle.position_center_history = [i_particle.position_center.flatten()]
+    elif False:
+        side = np.int(np.ceil(np.cbrt(len(particles))))
+        step = 1/side
+        p = 0
+        place = np.arange(27)
+        np.random.shuffle(place)
+        print(place)
+        print(len(particles))
+        for j in range(side):
+            for k in range(side):
+                for l in range(side):
+                    if place[p] < len(particles):
+                        print(place[p])
+                        particles[place[p]].setPositionCenter(np.array([j*step+step/2, k*step+step/2, l*step+step/2])) # np.array([(i+1)*1/24-np.floor((i+1)*1/24), (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
+                        # Gene<><rating the positions from a random uniform distribution between 0 and 1
+                        particles[place[p]].setVelocityCenter(np.random.uniform(low=0.01, high=0.6, size=3)) #np.array([0,0],dtype='float')
+                        # Generating the velocities from a random uniform distribution between -1 and 1                    
+                        if kwargs.get('save_history'):
+                        # Saving particle history
+                            particles[place[p]].position_center_history = [particles[place[p]].position_center.flatten()]
+                    p += 1
 
 
 def generateSampleParameter(parameter, descriptors, phase, n_samples=1):
@@ -843,6 +881,7 @@ def canonicalParametersEllipse(sample, rve_dims):
 
     return [major_axis, minor_axis, angle]
 
+
 def canonicalParametersDisk(sample, rve_dims):
     """Convert the paramters in *sample* to *r*."""
     if 'r' in sample:
@@ -855,8 +894,9 @@ def canonicalParametersDisk(sample, rve_dims):
     # Both the volume fraction and the number of particles was supplied
         area = sample['vf'][0]*rve_dims[0]*rve_dims[1]/sample['n'][0]
         # Area of each particle (all the same)
-        r = np.full((sample['n'][0]), np.sqrt(area/np.pi))
+        r = np.sqrt(area/np.pi)
     return r
+
 
 def canonicalParametersSphere(sample, rve_dims):
     """Convert the parameters in *sample* to *r* characterizing a sphere."""
@@ -870,8 +910,26 @@ def canonicalParametersSphere(sample, rve_dims):
     # Both the volume fraction and the number of particles was supplied
         volume = sample['vf'][0]*rve_dims[0]*rve_dims[1]*rve_dims[2]/sample['n'][0]
         # Area of each particle (all the same)
-        r = np.full((sample['n'][0]), np.cbrt(volume/(4/3*np.pi)))
+        r = np.cbrt(volume/(4/3*np.pi))
     return r
+
+
+def canonicalParametersEllipsoid(sample, rve_dims):
+    """Convert parameters in *sample* to canonical params characterizing an Ellipsoid."""
+    if 'axis_1' in sample and 'axis_2' in sample and 'axis_3':
+    # All axis were supplied
+        axis_1 = sample['axis_1']
+        axis_2 = sample['axis_2']
+        axis_3 = sample['axis_3']
+    if 'angle' in sample:
+        angle = sample['angle']
+    if 'euler_angle_x' in sample and 'euler_angle_y' in sample \
+                                 and 'euler_angle_z' in sample:
+        euler_angle_x = sample['euler_angle_x']
+        euler_angle_y = sample['euler_angle_y']
+        euler_angle_z = sample['euler_angle_z']
+
+    return [axis_1, axis_2, axis_3, euler_angle_x, euler_angle_y, euler_angle_z, angle]
 
 
 def createResultsDirectory(particles, dp_dir):
@@ -983,7 +1041,8 @@ def particleGeneration(descriptors, phase_types, rve_dims, problem_type, dp_dir)
             # Generating the number of ellipsoids requested and appending them to the list
             # of particles
 
-    generateInitialConfiguration(particles)
+    generateInitialConfiguration(particles, save_history=True)
+    # FIXME: save history as option
 
     createResultsDirectory(particles, dp_dir)
 
@@ -1264,7 +1323,7 @@ def run(particles, max_residue_per_particle, max_step, options):
     # Maximum residual overlap
     step = 0
     # Initializing the the time step at 0
-    initial_global_force_factor = options.get('initial_global_force_factor', 0.1)
+    initial_global_force_factor = options.get('initial_global_force_factor', 1)
     Particle.global_force_factor = initial_global_force_factor
     # Initializing the global force factor
     computeForces(particles, speed_up_scheme)
@@ -1272,10 +1331,12 @@ def run(particles, max_residue_per_particle, max_step, options):
     # potential energy (related to the overlap)
     relative_energy = computeRelativeEnergy(particles)
     relative_vec = [relative_energy]
-    jump = np.int(np.floor(1500/N))
+    jump = np.max([np.int(np.floor(1500/N)), 2])
     last_alt = jump
-    e_min = 10
-    e_max = 1e5
+    # e_min = 1e-1
+    # e_max = 1e-1
+    e_min = 1
+    e_max = 1
     # Computing the relative energy
     kin_energy = computeKineticEnergy(particles)
     # Computing the kinetic energy
@@ -1289,7 +1350,10 @@ def run(particles, max_residue_per_particle, max_step, options):
         # Run the simulation while the number of steps the overlap has been smaller than the
         # allowed maximum residue is larger than options['max_steps_to_relax'], so that the
         # particles have time to get away from each other.
-        integrate(particles, dt, speed_up_scheme)
+        if options.get('save_history'):
+            integrate(particles, dt, speed_up_scheme, save_history=True)
+        else:
+            integrate(particles, dt, speed_up_scheme)
         # Integrating the equations of motion
         step += 1
         # # Moving to the next time step
@@ -1310,10 +1374,10 @@ def run(particles, max_residue_per_particle, max_step, options):
                             e_max = e_max*1e-1
                             print('e_max', e_max)
                         else:
-                            e_min = e_min*(1/(2)) #)(1.3)) # np.min([e_min*(1/(1 + N/1e3)), 1e-2])
+                            e_min = e_min*(1/(1.3)) # np.min([e_min*(1/(1 + N/1e3)), 1e-2])
                             print('e_min', e_min)
                         last_alt = step + jump
-                lambda_vel = np.sqrt(np.max([e_max*relative_energy, e_min])/kin_energy/N)
+                lambda_vel = np.sqrt(np.max([e_max*relative_energy, e_min])/kin_energy)
                 # Rescalling factor (why? 250 -  equipartition theorem)
                 for i_particle in range(N):
                     # Running through all the particles
@@ -1325,7 +1389,7 @@ def run(particles, max_residue_per_particle, max_step, options):
         else:
             # There is no thermostat
             pass
-        if relative_energy <= max_residue:
+        if relative_energy <= max_residue: # and all([len(Particle.cell_list[i]) < 2 for i in range(27)]): # and all(len(particles[i].verlet_list)<4 for i in range(len(particles))):
             # If the configuration has an overlap area smaller than the tolerance
             n_steps_relax += 1
             print('n_steps_relax', n_steps_relax)
@@ -1525,14 +1589,16 @@ def plotParticles(particles, dir, grid='off', verlet_ngh=False, center_part=Fals
         # plt.axis([0, 1, 0, 1, 0, 1])
 
 
+
+
 def reconstructParticleAttributes(particles, rve_dims, info_dict):
     """Reconstruct the relevant Particle attributes that could not be pickled."""
     Particle.box = rve_dims
     Particle.volume = np.sum([i_particle.volume() for i_particle in particles])
     Particle.number = len(particles)
-    Particle.list_phases = info_dict['phase_types'].keys()
+    Particle.list_phases = list(info_dict['phase_types'].keys())
     for i_phase in Particle.list_phases:
-        if info_dict['phase_types'] == 1:
+        if info_dict['phase_types'][i_phase] == 1:
             Particle.matrix_phase = i_phase
             break
 
@@ -1593,6 +1659,8 @@ def main():
             end = time.time()
             print('cell_list', Particle.cell_list)
             print('verlet_list', [particles[i].verlet_list for i in range(len(particles))])
+            pickle.dump(particles, open(Particle.file_path + ".p", "wb"))
+            # Saving the configuration for later use
             if 'rgmsh' in discret_spec_array:
             # A mesh for FFT was requested
                 generateMeshFFT(particles, discret_spec_array['rgmsh'])
@@ -1607,10 +1675,10 @@ def main():
                     quit()
                 generateMeshFEM(particles, mesh_size, discret_spec_array['femsh'])
                 # Generating the FEM mesh using gmsh and saving an input data file for LINKS
-            pickle.dump(particles, open(Particle.file_path + ".p", "wb"))
             plotParticles(particles, Particle.file_path + "_final_config",
                           save=options.get('save_plot', True),
                           show=options.get('save_plot',  True))
+            plotPaths(particles, particles[0].dim, Particle.file_path)
             # Ploting final configuration
     print(end - start)
 
