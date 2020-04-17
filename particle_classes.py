@@ -56,13 +56,9 @@ class Particle():
         self.force = np.zeros((self.dim))
 
     def intersectionVector(self, other_particle):
-        '''
-        This function computes the unit vector from the center of masss of particle i to
-        particle j
-        '''
-
+        """Compute the unit vector from the center of masss of particle i to particle j."""
         box = Particle.box
-
+        # Saving the RVE dimensions
         vector_centers = other_particle.position_center - self.position_center
         vector_centers = vector_centers - box*np.round(vector_centers/box)
         # Vector connecting the centers of the current particle and the nearest image of
@@ -90,182 +86,6 @@ class Particle():
             return unit_vector_i_j
 
 # ==========================================================================================
-
-
-class Disk(Particle):
-    '''
-    This is the subclass of particles with the form of a circular disk.
-
-    Attributes
-    ----------
-    radius: float
-        Radius of the disk
-    '''
-
-    def __init__(self, phase, radius):
-        '''
-        The constructor of the Disk particle.
-
-        Parameters
-        ----------
-        center: array
-            The position vector of the center of mass of the particle
-
-        dim: int
-            Number of the dimensions of the space where the particle "lives"
-
-        radius: float
-            Radius of the disk
-        '''
-        self.dim = 2
-        self.radius = radius
-        self.major_axis = radius
-        self.minor_axis = radius
-        self.angle = 0
-        self.force = np.zeros((self.dim), dtype='float')
-        self.n_cell_dim = []
-        self.verlet_list = []
-        Particle.volume += self.volume()
-        Particle.number += 1
-        self.phase = phase
-
-    def intersectionArea(self, other_particle):
-        '''
-        This function computes the intersection between the disk and the other particle.
-
-        Parameters:
-            other_particle: Particle
-                Other particle
-        '''
-        class_name_other_particle = other_particle.__class__.__name__
-        # Saving the class name of the other particle as a string
-        if 'Disk' == class_name_other_particle:
-        # The other particle is also a Disk
-            intersection_area = self.intersectionAreaDiskDisk(other_particle)
-            # Computing the intersection area
-            return intersection_area
-            # Returning the intersection area
-        elif 'Ellipse' == class_name_other_particle:
-        # The other particle is an Ellipse
-            intersection_area = other_particle.intersectionAreaEllipseEllipse(self)
-            # Computing the intersection area
-            return intersection_area
-            # Returning the intersection area
-
-    def intersectionAreaDiskDisk(self, other_disk):
-        '''
-        This function computes the intersection area between two disks
-        '''
-        box = np.array([1,1],dtype='float')
-
-
-        diff_center = self.position_center - other_disk.position_center
-
-        diff_center = diff_center - box*np.round(diff_center/box)
-
-        d = np.sqrt(diff_center.dot(diff_center))
-
-        # Distance between the center of the disks
-        if self.radius >= other_disk.radius:
-        # The radius of the self is larger than the radius of the other disk
-            r_1 = self.radius
-            # Disk 1 is the disk with the larger radius
-            r_2 = other_disk.radius
-            # Disk 2 is the disk with the smaller radius
-        else:
-        # The radius of the other disk is larger than the radius of the self
-            r_1 = other_disk.radius
-            # Disk 1 is the disk with the larger radius
-            r_2 = self.radius
-            # Disk 2 is the disk with the smaller radius
-        if d>=(r_1 + r_2):
-        # The disks intersect at most at one point
-            intersection_area = 0
-            # The intersection area of the disks is zero
-        elif d<=r_1 - r_2:
-        # Disk 2 is interely contained within Disk 1
-            intersection_area = np.pi*r_2**2
-            # The intersection area is equal to the area of the smaller disk, Disk 2
-        else:
-            d_1 = (r_1**2 - r_2**2 + d**2)/(2*d)
-            # x coordinate of the intersection point of the two disks if the the origin is at
-            # disk 1 and the x axis goes through the center of both disks
-            d_2 = d - d_1
-            # Distance in the x axis from the intersection point to disk 2
-            intersection_area = r_1**2*np.arccos(d_1/r_1) - d_1*np.sqrt(r_1**2-d_1**2) + \
-                r_2**2*np.arccos(d_2/r_2) - d_2*np.sqrt(r_2**2 - d_2**2)
-            # Computing the intersection area
-        return intersection_area
-        # Returning the intersection area
-
-    def intersectionAreaDiskEllipse(self, ellipse):
-        pass
-
-    def intersectionVerlet(self, other_particle):
-        '''
-        This function computes the intersection between the disk and the other particle.
-
-        Parameters:
-            other_particle: Particle
-                Other particle
-        '''
-        class_name_other_particle = other_particle.__class__.__name__
-        # Saving the class name of the other particle as a string
-        if 'Disk'==class_name_other_particle:
-        # The other particle is also a Disk
-            intersection_verlet = self.intersectionVerletDiskDisk(other_particle)
-            # Computing the intersection area
-            return intersection_verlet
-            # Returning the intersection area
-    def pointInside(self, point):
-        
-        if np.linalg.norm(self.position_center-point)<=self.radius:
-            point_in = True
-        else:
-            point_in = False
-
-        return point_in
-
-    def intersectionVerletDiskDisk(self, other_disk):
-        '''
-        This function computes the intersection area between two disks
-        '''
-
-        box = Particle.box
-        # Saving the limits of the box
-        diff_center = self.position_center - other_disk.position_center
-        diff_center = diff_center - box*np.round(diff_center/box)
-        # Vector between the centers of the current disk and the nearest image of the other
-        # disk
-        d = np.sqrt(diff_center.dot(diff_center))
-        # Distance between the disks
-        if d<(self.radius+other_disk.radius)*Particle.verlet_factor:
-        # The disks are in eachothers neighboorhoods
-            intersection_verlet = True
-        else:
-            intersection_verlet = False
-        return intersection_verlet
-
-    def volume(self):
-        '''
-        This function computes the volume/area of the disk.
-        '''
-
-        volume = np.pi*self.radius**2
-
-        return volume
-
-    def insideVerlet(self):
-        """Check if the ellipse has moved outside its Verlet neighboorhood."""
-        if np.linalg.norm(self.displacement_last_verlet) >= \
-            self.radius*(Particle.verlet_factor - 1):
-        # Its possible for the ellipse to have moved outside its Verlet neighboorhood
-            point_in = False
-            # Checking if the ellipse is still inside its Verlet neighboorhood
-        else:
-        # the center of the ellipse has not
-            point_in = True
-
 
 class Ellipse(Particle):
     """docstring for Ellipse."""
@@ -356,15 +176,14 @@ class Ellipse(Particle):
         return point_in
 
     def intersectionAreaEllipseEllipse(self, other_ellipse):
-        '''
-        This function computes the intersection area between two ellipses.
-        '''
-
+        """Compute the orverlap area between the current and the other ellipse."""
         box = Particle.box
         # Saving the RVE dimensions
         diff_in_box = self.position_center - other_ellipse.position_center
         # Difference vector between the center of the two ellipses
         diff_nearest_other = box*np.round(diff_in_box/box)
+        # Vector from the position of the other ellipse to its nearest image to the current
+        # ellipse
         intersect_pts = intersectionPointsEllipses(
             self.major_axis/2, self.minor_axis/2,  self.position_center, self.angle,
             other_ellipse.major_axis/2, other_ellipse.minor_axis/2,
@@ -425,7 +244,7 @@ class Ellipse(Particle):
             # Saving the ellipses in a list
             midpoint = self.midpointOnEllipse(intersect_pts_ord[0], intersect_pts_ord[1])
             # Midpoint between the first two intersection points in the current ellipse
-            if other_ellipse.pointInside(midpoint):
+            if other_ellipse.pointInside(midpoint - diff_nearest_other):
             # If the midpoint is on the other ellipse
                 intersection_area += \
                     self.areaEllipseSection(intersect_pts_ord[0], intersect_pts_ord[1])
@@ -442,12 +261,12 @@ class Ellipse(Particle):
                 # Index of the other ellipse
             for i_segment in range(1,2):
             # Running through each segment
-                k_ellipse = np.mod(k_ellipse+1,2)
+                k_ellipse = np.mod(k_ellipse + 1, 2)
                 # Index of the ellipse whose area segment needs to calculated
                 intersection_area += \
                     ellipses[k_ellipse].areaEllipseSection(
-                        intersect_pts_ord[np.mod(i_segment,2)] - (k_ellipse-1)*diff_nearest_other, \
-                        intersect_pts_ord[np.mod(i_segment+1,2)] - (k_ellipse-1)*diff_nearest_other)
+                        intersect_pts_ord[np.mod(i_segment,2)] - k_ellipse*diff_nearest_other, \
+                        intersect_pts_ord[np.mod(i_segment+1,2)] - k_ellipse*diff_nearest_other)
                 # Computing the area of the segment
         elif len(intersect_pts)==3:
         # This case is disregarded
@@ -467,24 +286,29 @@ class Ellipse(Particle):
             # Computing the area of the quadrilateral inscribed in the overlap of the
             # two ellipses
             ellipses = [self, other_ellipse]
+            # List of the ellipse objects to iterate over
             midpoint = self.midpointOnEllipse(intersect_pts_ord[0], intersect_pts_ord[1])
-            if other_ellipse.pointInside(midpoint):
+            # Obtaining the midpoint between the first two intersection points to decide
+            # to which ellipses belong to the area sections to be calculated
+            if other_ellipse.pointInside(midpoint - diff_nearest_other):
                 intersection_area += \
                     self.areaEllipseSection(intersect_pts_ord[0], intersect_pts_ord[1])
-                k_ellipse = 1
+                k_ellipse = 0
             else:
                 intersection_area += \
                     other_ellipse.areaEllipseSection(
                         intersect_pts_ord[0] - diff_nearest_other,
                         intersect_pts_ord[1] - diff_nearest_other)
-                k_ellipse = 0
+                k_ellipse = 1
             for i_segment in range(1,4):
             # Running through each segment
-                k_ellipse = np.mod(k_ellipse+1,2)
+                k_ellipse = np.mod(k_ellipse + 1, 2)
                 intersection_area += \
                     ellipses[k_ellipse].areaEllipseSection(
-                        intersect_pts_ord[np.mod(i_segment,4)] - (k_ellipse-1)*diff_nearest_other, \
-                        intersect_pts_ord[np.mod(i_segment+1,4)] - (k_ellipse-1)*diff_nearest_other)
+                        intersect_pts_ord[np.mod(i_segment, 4)]
+                                          - k_ellipse*diff_nearest_other, \
+                        intersect_pts_ord[np.mod(i_segment + 1, 4)]
+                                          - k_ellipse*diff_nearest_other)
         return intersection_area
 
     def midpointOnEllipse(self, *args):
@@ -519,7 +343,7 @@ class Ellipse(Particle):
         # Radius of the midpoint
         midpoint_loc = radius_mid*np.array([np.cos(angle_mid), np.sin(angle_mid)])
         # Cartesian coordinates of the midpoint in the coordinate system of the ellipse
-        midpoint = self.position_center + rot_mat_back.dot(midpoint_loc)
+        midpoint = self.position_center + rot_mat.T.dot(midpoint_loc)
         # Cartesian coordinates of the midpoint in the global coordinate system
         return midpoint
 
@@ -630,14 +454,10 @@ class Ellipse(Particle):
             other_particle: Particle
                 Other particle
         '''
-        class_name_other_particle = other_particle.__class__.__name__
-        # Saving the class name of the other particle as a string
-        if 'Ellipse'==class_name_other_particle:
-        # The other particle is also a Disk
-            intersection_verlet = self.intersectionVerletEllipseEllipse(other_particle)
-            # Computing the intersection area
-            return intersection_verlet
-            # Returning the intersection area
+        intersection_verlet = self.intersectionVerletEllipseEllipse(other_particle)
+        # Computing the intersection area
+        return intersection_verlet
+        # Returning the intersection area
 
     def intersectionVerletEllipseEllipse(self, other_ellipse):
         '''
@@ -695,6 +515,193 @@ class Ellipse(Particle):
         return point_in
 
 
+
+class Disk(Ellipse):
+    '''
+    This is the subclass of particles with the form of a circular disk.
+
+    Attributes
+    ----------
+    radius: float
+        Radius of the disk
+    '''
+
+    def __init__(self, phase, radius):
+        '''
+        The constructor of the Disk particle.
+
+        Parameters
+        ----------
+        center: array
+            The position vector of the center of mass of the particle
+
+        dim: int
+            Number of the dimensions of the space where the particle "lives"
+
+        radius: float
+            Radius of the disk
+        '''
+        self.dim = 2
+        self.radius = radius
+        self.major_axis = 2*radius
+        self.minor_axis = 2*radius
+        self.semi_major_axis = radius
+        self.semi_minor_axis = radius
+        self.angle = 0
+        self.force = np.zeros((self.dim), dtype='float')
+        self.n_cell_dim = []
+        self.verlet_list = []
+        Particle.volume += self.volume()
+        Particle.number += 1
+        self.phase = phase
+
+    def intersectionArea(self, other_particle):
+        '''
+        This function computes the intersection between the disk and the other particle.
+
+        Parameters:
+            other_particle: Particle
+                Other particle
+        '''
+        class_name_other_particle = other_particle.__class__.__name__
+        # Saving the class name of the other particle as a string
+        if 'Disk' == class_name_other_particle:
+        # The other particle is also a Disk
+            intersection_area = self.intersectionAreaDiskDisk(other_particle)
+            # Computing the intersection area
+            return intersection_area
+            # Returning the intersection area
+        elif 'Ellipse' == class_name_other_particle:
+        # The other particle is an Ellipse
+            intersection_area = other_particle.intersectionAreaEllipseEllipse(self)
+            # Computing the intersection area
+            return intersection_area
+            # Returning the intersection area
+
+    def intersectionAreaDiskDisk(self, other_disk):
+        '''
+        This function computes the intersection area between two disks
+        '''
+        box = np.array([1,1],dtype='float')
+
+
+        diff_center = self.position_center - other_disk.position_center
+
+        diff_center = diff_center - box*np.round(diff_center/box)
+
+        d = np.sqrt(diff_center.dot(diff_center))
+
+        # Distance between the center of the disks
+        if self.radius >= other_disk.radius:
+        # The radius of the self is larger than the radius of the other disk
+            r_1 = self.radius
+            # Disk 1 is the disk with the larger radius
+            r_2 = other_disk.radius
+            # Disk 2 is the disk with the smaller radius
+        else:
+        # The radius of the other disk is larger than the radius of the self
+            r_1 = other_disk.radius
+            # Disk 1 is the disk with the larger radius
+            r_2 = self.radius
+            # Disk 2 is the disk with the smaller radius
+        if d>=(r_1 + r_2):
+        # The disks intersect at most at one point
+            intersection_area = 0
+            # The intersection area of the disks is zero
+        elif d<=r_1 - r_2:
+        # Disk 2 is interely contained within Disk 1
+            intersection_area = np.pi*r_2**2
+            # The intersection area is equal to the area of the smaller disk, Disk 2
+        else:
+            d_1 = (r_1**2 - r_2**2 + d**2)/(2*d)
+            # x coordinate of the intersection point of the two disks if the the origin is at
+            # disk 1 and the x axis goes through the center of both disks
+            d_2 = d - d_1
+            # Distance in the x axis from the intersection point to disk 2
+            intersection_area = r_1**2*np.arccos(d_1/r_1) - d_1*np.sqrt(r_1**2-d_1**2) + \
+                r_2**2*np.arccos(d_2/r_2) - d_2*np.sqrt(r_2**2 - d_2**2)
+            # Computing the intersection area
+        return intersection_area
+        # Returning the intersection area
+
+    def intersectionAreaDiskEllipse(self, ellipse):
+        pass
+
+    def intersectionVerlet(self, other_particle):
+        '''
+        This function computes the intersection between the disk and the other particle.
+
+        Parameters:
+            other_particle: Particle
+                Other particle
+        '''
+        class_name_other_particle = other_particle.__class__.__name__
+        # Saving the class name of the other particle as a string
+        if 'Disk' == class_name_other_particle:
+        # The other particle is also a Disk
+            intersection_verlet = self.intersectionVerletDiskDisk(other_particle)
+            # Computing the intersection area
+            return intersection_verlet
+            # Returning the intersection area
+        elif 'Ellipse' == class_name_other_particle:
+        # The other particle is an Ellipse
+            intersection_verlet = other_particle.intersectionVerletEllipseEllipse(self)
+            # Computing the intersection area
+            return intersection_verlet
+            # Returning the intersection area
+
+    def pointInside(self, point):
+        
+        if np.linalg.norm(self.position_center-point)<=self.radius:
+            point_in = True
+        else:
+            point_in = False
+
+        return point_in
+
+    def intersectionVerletDiskDisk(self, other_disk):
+        '''
+        This function computes the intersection area between two disks
+        '''
+
+        box = Particle.box
+        # Saving the limits of the box
+        diff_center = self.position_center - other_disk.position_center
+        diff_center = diff_center - box*np.round(diff_center/box)
+        # Vector between the centers of the current disk and the nearest image of the other
+        # disk
+        d = np.sqrt(diff_center.dot(diff_center))
+        # Distance between the disks
+        if d<(self.radius+other_disk.radius)*Particle.verlet_factor:
+        # The disks are in eachothers neighboorhoods
+            intersection_verlet = True
+        else:
+            intersection_verlet = False
+        return intersection_verlet
+
+    def volume(self):
+        '''
+        This function computes the volume/area of the disk.
+        '''
+
+        volume = np.pi*self.radius**2
+
+        return volume
+
+    def insideVerlet(self):
+        """Check if the ellipse has moved outside its Verlet neighboorhood."""
+        if np.linalg.norm(self.displacement_last_verlet) >= \
+            self.radius*(Particle.verlet_factor - 1):
+        # Its possible for the ellipse to have moved outside its Verlet neighboorhood
+            point_in = False
+            # Checking if the ellipse is still inside its Verlet neighboorhood
+        else:
+        # the center of the ellipse has not
+            point_in = True
+
+
+
+
 class Ellipsoid(Particle):
     """docstring for Ellipsoid."""
 
@@ -738,6 +745,7 @@ class Ellipsoid(Particle):
         self.rotation_axis = (np.array([euler_angle_x, euler_angle_y, euler_angle_z])
                               / np.linalg.norm(np.array([euler_angle_x, euler_angle_y,
                                                          euler_angle_z])))
+        print(self.rotation_axis)
         self.angle = angle
         self.rot_quat = np.array([np.cos(angle/2),
                                   np.sin(angle/2)*self.rotation_axis[0],
@@ -1413,13 +1421,13 @@ def uniformSampleEllipse(center, A, B, angle):
     z[1] = np.random.normal()
     r = np.random.uniform()**(1/2)
     R = np.linalg.norm(z)
-    x = center[0] + r*A*z[0]/R
-    y = center[1] + r*B*z[1]/R
+    x = r*A*z[0]/R
+    y = r*B*z[1]/R
     rot_mat = np.array([[ np.cos(angle), -np.sin(angle)],
                         [np.sin(angle), np.cos(angle)]])
     [x, y] = rot_mat.dot([x, y])
 
-    return [x, y]
+    return [x + center[0] , y + center[1]]
 
 if __name__ == '__main__':
 # Test drive
@@ -1430,80 +1438,94 @@ if __name__ == '__main__':
     import matplotlib.patches as mpatches
     
 
-    Particle.volume = 0
-    Particle.number = 0
-    Particle.box = [1., 1., 1.]
-    
-
-
-    ellipsoid_1 = Ellipsoid('1', 0.3, 0.3, 0.3, np.array([np.sqrt(3)/3, np.sqrt(3)/3, np.sqrt(3)/3]), 0)
-    ellipsoid_1.position_center = np.array([0.1, 0.5, 0.5])
-    ellipsoid_2 = Ellipsoid('1', 0.3, 0.3, 0.3, np.array([0., 0., 1.]), 0)
-    ellipsoid_2.position_center = np.array([0.9, 0.5, 0.5])
-
-    box = Particle.box
-    # Saving the array defining the RVE box
-    diff_in_box = ellipsoid_1.position_center - ellipsoid_2.position_center
-    diff_nearest_other = box*np.round(diff_in_box/box)
-    # Computing the difference vector between the centers of the current sphere and
-    # the nearest image of the other sphere
-
-    intersect = ellipsoid_1.intersectionEllipsoids(ellipsoid_2, diff_nearest_other)
-
-    overlap_volume = ellipsoid_1.intersectionVolumeEllipsoidOther(ellipsoid_2)
-    v_ellipsoid_2 = ellipsoid_2.volume()
-
     # Particle.volume = 0
     # Particle.number = 0
-    # Particle.box = [1., 1.]
-    # 
-    # ellipse_1 = Ellipse('1', 0.4, 0.2, 0)
-    # ellipse_1.position_center = np.array([0.5, 0.6])
-    # ellipse_2 = Ellipse('1', 0.4, 0.2, np.pi/3)
-    # ellipse_2.position_center = np.array([0.5, 0.51])
-    # 
-    # particles = [ellipse_1, ellipse_2]
-    # fig = plt.figure()
-    # 
-    # ax = plt.gca()
-    # 
-    # N = len(particles)
-    # 
-    # 
-    # intersect_pts = np.array(intersectionPointsEllipses(ellipse_1.semi_major_axis, ellipse_1.semi_minor_axis,
-    #     ellipse_1.position_center, ellipse_1.angle, ellipse_2.semi_major_axis,
-    #     ellipse_2.semi_minor_axis, ellipse_2.position_center, ellipse_2.angle))
+    # Particle.box = [1., 1., 1.]
     # 
     # 
     # 
-    # for i in range(N):
-    #     for j in range(-1,2):
-    #         for k in range(-1,2):
-    #             ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j,1*k]), particles[i].major_axis, particles[i].minor_axis,angle=180/np.pi*particles[i].angle,alpha=0.1)
-    #             ax.add_artist(ellip)
-    #             plt.annotate(xy = particles[i].position_center, s=str(i))
-    #             plt.scatter(particles[i].position_center[0],particles[i].position_center[1])
-    #             plt.axis([0, 1, 0, 1])
+    # ellipsoid_1 = Ellipsoid('1', 0.3, 0.3, 0.3, np.array([np.sqrt(3)/3, np.sqrt(3)/3, np.sqrt(3)/3]), 0)
+    # ellipsoid_1.position_center = np.array([0.1, 0.5, 0.5])
+    # ellipsoid_2 = Ellipsoid('1', 0.3, 0.3, 0.3, np.array([0., 0., 1.]), 0)
+    # ellipsoid_2.position_center = np.array([0.9, 0.5, 0.5])
     # 
-    # number = 1000
-    # k = 0
-    # for i_point in range(number):
-    #     [x, y] = uniformSampleEllipse(ellipse_1.position_center, ellipse_1.semi_major_axis, ellipse_1.semi_minor_axis, ellipse_1.angle)
-    #     point_in = ellipse_2.pointInside(np.array([x, y]))
-    #     if point_in:
-    #         plt.scatter(x, y, c='r', s=1)
-    #         k += 1
-    #     else:
-    #         plt.scatter(x, y, c='k', s=1)
+    # box = Particle.box
+    # # Saving the array defining the RVE box
+    # diff_in_box = ellipsoid_1.position_center - ellipsoid_2.position_center
+    # diff_nearest_other = box*np.round(diff_in_box/box)
+    # # Computing the difference vector between the centers of the current sphere and
+    # # the nearest image of the other sphere
     # 
-    # A1 = ellipse_1.intersectionArea(ellipse_2)
-    # print('exact', A1)
-    # A2 = ellipse_1.volume()*k/number
-    # print('approx', A2)
+    # intersect = ellipsoid_1.intersectionEllipsoids(ellipsoid_2, diff_nearest_other)
     # 
-    # 
-    # plt.scatter(intersect_pts[:,0],intersect_pts[:,1])
-    # plt.annotate(xy = intersect_pts[0,:], s=str(0))
-    # plt.annotate(xy = intersect_pts[1,:], s=str(1))
-    # 
-    # plt.show()
+    # overlap_volume = ellipsoid_1.intersectionVolumeEllipsoidOther(ellipsoid_2)
+    # v_ellipsoid_2 = ellipsoid_2.volume()
+
+    Particle.volume = 0
+    Particle.number = 0
+    Particle.box = [1., 1.]
+    
+    ellipse_1 = Ellipse('1', 0.4, 0.2, np.pi/3+0.3)
+    ellipse_1.position_center = np.array([0.5, 0.5])
+    ellipse_2 = Ellipse('1', 0.4, 0.2, np.pi/3+0.2)
+    ellipse_2.position_center = np.array([0.5, 0.6])
+    
+    particles = [ellipse_1, ellipse_2]
+    fig = plt.figure()
+    
+    ax = plt.gca()
+    
+    N = len(particles)
+    
+    box = Particle.box
+    # Saving the RVE dimensions
+    diff_in_box = ellipse_1.position_center - ellipse_2.position_center
+    # Difference vector between the center of the two ellipses
+    diff_nearest_other = box*np.round(diff_in_box/box)
+    # Vector from the position of the other ellipse to its nearest image to the current
+    # ellipse
+    
+    intersect_pts = np.array(intersectionPointsEllipses(ellipse_1.semi_major_axis, ellipse_1.semi_minor_axis,
+        ellipse_1.position_center, ellipse_1.angle, ellipse_2.semi_major_axis,
+        ellipse_2.semi_minor_axis, ellipse_2.position_center + diff_nearest_other, ellipse_2.angle))
+    
+    intersect_pts_ord = ellipse_1.sortPointsOnEllipse(intersect_pts)
+    
+
+    for i in range(1):
+        for j in range(-1,2):
+            for k in range(-1,2):
+                ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j,1*k]), particles[i].major_axis, particles[i].minor_axis,angle=180/np.pi*particles[i].angle,alpha=0.1)
+                ax.add_artist(ellip)
+                plt.annotate(xy = particles[i].position_center, s=str(i))
+                plt.scatter(particles[i].position_center[0],particles[i].position_center[1])
+                plt.axis([0, 1, 0, 1])
+    
+    number = 1000
+    k = 0
+    for i_point in range(number):
+        [x, y] = uniformSampleEllipse(ellipse_1.position_center, ellipse_1.semi_major_axis, ellipse_1.semi_minor_axis, ellipse_1.angle)
+        point_in = ellipse_2.pointInside(np.array([x, y])-diff_nearest_other)
+        if point_in:
+            plt.scatter(x, y, c='r', s=1)
+            k += 1
+        else:
+            plt.scatter(x, y, c='k', s=1)
+    
+    A1 = ellipse_1.intersectionArea(ellipse_2)
+    print('exact', A1)
+    A2 = ellipse_1.volume()*k/number
+    print('approx', A2)
+    
+    for i_intr_pt in range(len(intersect_pts_ord)):
+        midpoint = ellipse_1.midpointOnEllipse(intersect_pts_ord[i_intr_pt], intersect_pts_ord[np.mod(i_intr_pt+1,len(intersect_pts_ord))])
+        plt.scatter(midpoint[0], midpoint[1], color='r')
+
+    intersect_pts_ord = np.array(intersect_pts_ord)
+    plt.scatter(intersect_pts_ord[:,0], intersect_pts_ord[:,1])
+    for i_intr_pt in range(len(intersect_pts_ord)):
+        plt.annotate(xy = intersect_pts_ord[i_intr_pt,:], s=str(i_intr_pt))
+    
+
+    # plt.axis([-1, 2, -1, 2])
+    plt.show()
