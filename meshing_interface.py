@@ -25,7 +25,7 @@ from particle_classes import Disk, Particle, Ellipse
 import numpy as np
 import shutil
 
-def generateMeshFEM(particles, mesh_size, element_type="tri3", **kwargs):
+def generateMeshFEM(particles, mesh_size, rve_dims, element_type="tri3", **kwargs):
     '''
     This function generates the mesh for the Finite Element Method.
 
@@ -48,26 +48,27 @@ def generateMeshFEM(particles, mesh_size, element_type="tri3", **kwargs):
 
     output_term = kwargs.pop('output_term',0)
     # Option for the output in the terminal
-    if particles[0].dim==2:
+    if len(rve_dims) == 2:
     # It is a 2D problem
-        if element_type=="tri3":
+        if element_type == "tri3":
         # (Defaul option) Linear Triangular element
             generateMeshFEM2D(particles, mesh_size, output_term=output_term)
             # Generating a mesh of linear triangular elements
-        elif element_type=="tri6":
+        elif element_type == "tri6":
         # Quadratic Triangular element
             generateMeshFEM2D(particles, mesh_size, element_order=2,
-                output_term=output_term)
+                              output_term=output_term)
             # Generating a mesh of linear triangular elements
         elif element_type=="quad4":
         # Linear Rectangular element
             generateMeshFEM2D(particles, mesh_size, force_recomb_all=1,
-                output_term=output_term)
+                              output_term=output_term)
             # Generating a mesh of linear triangular elements
-        elif element_type=="quad8":
+        elif element_type == "quad8":
         # 2nd order rectangular elment of the serendipity family
             generateMeshFEM2D(particles, mesh_size, force_recomb_all=1,
-                element_order=2, elemnet_order_incomp=1, output_term=output_term)
+                              element_order=2, elemnet_order_incomp=1,
+                              output_term=output_term)
             # Generating a mesh of linear triangular elements
         else:
             mesh_alg = kwargs.pop('mesh_alg', 6)
@@ -82,9 +83,9 @@ def generateMeshFEM(particles, mesh_size, element_type="tri3", **kwargs):
                 recomb_alg=recomb_alg, element_order_incomp=element_order_incomp,
                 output_term=output_term)
             # Generating a mesh of linear triangular elements
-    elif particles[0].dim==3:
+    elif len(rve_dims) == 3:
     # It is a 3D problem
-        generateMeshFEM3D(particles, mesh_size)
+        generateMeshFEM3D(particles, mesh_size, rve_dims)
 
 def generateMeshFEM2D(particles, mesh_size, mesh_alg=6, force_recomb_all=0, element_order=1,
                       recomb_alg=1, element_order_incomp=0, output_term=0):
@@ -395,7 +396,7 @@ def generateMeshFEM2D(particles, mesh_size, mesh_alg=6, force_recomb_all=0, elem
 
     gmshToLinks(meshfile, title, 2, Particle.list_phases, Particle.matrix_phase)
 
-def generateMeshFEM3D(particles, mesh_size, mesh_alg=1, force_recomb_all=0, element_order=1,
+def generateMeshFEM3D(particles, mesh_size, rve_dims, mesh_alg=1, force_recomb_all=0, element_order=1,
     recomb_alg=2, element_order_incomp=0, output_term=1):
     '''
     This function generates the mesh for the Finite Element Method in 2D. It generates by
@@ -408,6 +409,9 @@ def generateMeshFEM3D(particles, mesh_size, mesh_alg=1, force_recomb_all=0, elem
 
     mesh_size: float
         Size of the mesh.
+
+    rve_dims: list
+        List containing the size of the RVE.
 
     output_term: {0, 1}, optional
         Output to the terminal
@@ -537,7 +541,7 @@ def generateMeshFEM3D(particles, mesh_size, mesh_alg=1, force_recomb_all=0, elem
     title = Particle.file_path
     model.add(title)
 
-    boxTag = factory.addBox(0, 0, 0, Particle.box[0], Particle.box[1], Particle.box[2])
+    boxTag = factory.addBox(0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2])
     # RVE
 
     particleTags = []
@@ -553,6 +557,8 @@ def generateMeshFEM3D(particles, mesh_size, mesh_alg=1, force_recomb_all=0, elem
             # Periodic images in the y direction
                 for l in range(-1, 2):
                 # Periodic images in the z direction
+                    if 'CylindricalFiber' == class_name_i_particle:
+                        pass
                     if 'Sphere' == class_name_i_particle:
                     # Particle is a Sphere
                         xc = i_particle.position_center[0] + Particle.box[0]*j
@@ -567,7 +573,7 @@ def generateMeshFEM3D(particles, mesh_size, mesh_alg=1, force_recomb_all=0, elem
                         factory.synchronize()
                         k_particle_image += 1
                     elif 'Ellipsoid' == class_name_i_particle:
-                    # Particle is an Ellipsoid                    
+                    # Particle is an Ellipsoid
                         xc = i_particle.position_center[0] + Particle.box[0]*j
                         yc = i_particle.position_center[1] + Particle.box[1]*p
                         zc = i_particle.position_center[2] + Particle.box[2]*l
@@ -594,8 +600,6 @@ def generateMeshFEM3D(particles, mesh_size, mesh_alg=1, force_recomb_all=0, elem
 
                         factory.synchronize()
                         k_particle_image += 1
-                    elif 'Cylinder' == class_name_i_particle:
-                        pass
 
     outDimTag, outDimTagMap = factory.intersect(
         [(3, boxTag)], [(3, particleTags[k]) for k in range(3**3*len(particles))],
@@ -618,12 +622,16 @@ def generateMeshFEM3D(particles, mesh_size, mesh_alg=1, force_recomb_all=0, elem
 
     # Set the mesh size on the geometry points
     # Synchronize the CAD engine (always needed before generating the mesh)
-    # It may also be useful for some intermidate operations, like checking the tags of entities
+    # It may also be useful for some intermidate operations, like checking the tags of
+    # entities
     factory.synchronize()
 
     for i_phase in range(len(Particle.list_phases)):
         materialTag = model.addPhysicalGroup(3, materials[i_phase])
         model.setPhysicalName(3, materialTag, "Phase " + Particle.list_phases[i_phase])
+
+
+
 
     gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
     eps = 1e-3
@@ -729,7 +737,7 @@ def generateMeshFEM3D(particles, mesh_size, mesh_alg=1, force_recomb_all=0, elem
 
     factory.synchronize()
 
-    eps = 1e-2
+    eps = 2e-1
     b_vol = gmsh.model.getEntitiesInBoundingBox(
                                 - eps, - eps,                 - eps,
                 Particle.box[0] + eps, + eps, Particle.box[2] + eps,
@@ -839,8 +847,17 @@ def generateMeshFFT(particles, options, disc_ext):
         # current mesh size
         pixel_dims = options['rve_dims']/n_voxels_dims
         # Dimension of the pixels
-        if len(options['rve_dims']) == 2:
+        if len(Particle.box) == 2:
         # This is a 2D dimnensional problem
+            if len(options['rve_dims']) == 3:
+            # Tridimensional problem with particles obtained by extruding the 2D simulation
+            # box
+                n_voxels_dims_og = n_voxels_dims
+                # Saving the original voxel descretization
+                n_voxels_length = n_voxels_dims[particles[0].direction_fibers]
+                # Number of voxels in the orthogonal direction to the simulation box
+                n_voxels_dims = np.delete(n_voxels_dims, particles[0].direction_fibers)
+                # Voxel descritizing the 2D box
             regular_grid = np.full((n_voxels_dims[0], n_voxels_dims[1]),
                                    int(Particle.matrix_phase), dtype=int)
             # Initializing the regular
@@ -856,7 +873,7 @@ def generateMeshFFT(particles, options, disc_ext):
                         diff_in_box = k_particle.position_center - center_pixel_i_j
                         # Difference vector between the center of the two ellipses
                         diff_nearest_other = \
-                            options['rve_dims']*np.round(diff_in_box/options['rve_dims'])
+                            Particle.box*np.round(diff_in_box/Particle.box)
                         # Vector from the particle whose center is in the RVE to the neares
                         # image
                         if k_particle.pointInside(center_pixel_i_j + diff_nearest_other):
@@ -864,18 +881,34 @@ def generateMeshFFT(particles, options, disc_ext):
                             regular_grid[i_row, j_column] = k_particle.phase
                             # Setting pixel [i_row, j_column] as belong to the phase of
                             # particle k_particle
-            if True:
-                plotPixels(regular_grid, Particle.file_path + "_" + str(n_voxels_dims[0])
-                           + "_" + str(n_voxels_dims[1]) + "." + disc_ext)
-            # Ploting the regular grid
-            np.save(Particle.file_path + "_" + str(n_voxels_dims[0]) + "_"
-                    + str(n_voxels_dims[1]) + ".rgmsh", regular_grid)
-        elif len(options['rve_dims']) == 3:
+            if len(options['rve_dims']) == 3:
+            # Tridimensional problem with particles obtained by extruding the 2D simulation
+            # box
+                regular_grid = np.stack([regular_grid for _ in range(n_voxels_length)],
+                                        axis=particles[0].direction_fibers)
+                # Obtaining the extrusion of the 2D box by stacking it in the direction of
+                # the fibers
+                if True:
+                    plotVoxels(regular_grid, Particle.matrix_phase, Particle.file_path + "_"
+                               + str(n_voxels_dims_og[0]) + "_" + str(n_voxels_dims_og[1])
+                               + "_" + str(n_voxels_dims_og[0]) + "." + disc_ext)
+                # Ploting the regular grid
+
+                np.save(Particle.file_path + "_" + str(n_voxels_dims_og[0]) + "_"
+                        + str(n_voxels_dims_og[1]) + "_" + str(n_voxels_dims_og[2])
+                        + ".rgmsh", regular_grid)
+            else:
+                if True:
+                    plotPixels(regular_grid, Particle.file_path + "_" + str(n_voxels_dims[0])
+                               + "_" + str(n_voxels_dims[1]) + "." + disc_ext)
+                # Ploting the regular grid
+                np.save(Particle.file_path + "_" + str(n_voxels_dims[0]) + "_"
+                        + str(n_voxels_dims[1]) + ".rgmsh", regular_grid)
+        elif len(Particle.box) == 3:
         # This is a 2D dimnensional problem
             regular_grid = np.full((n_voxels_dims[0], n_voxels_dims[1], n_voxels_dims[2]),
                                    int(Particle.matrix_phase), dtype=int)
-            # FIXME: matrix phase is not always zero
-            # Initializing the regular
+            # Initializing the regular grid
             for i_row in range(n_voxels_dims[0]):
             # Running through the pixels from left to right
                 for j_column in range(n_voxels_dims[1]):
@@ -893,7 +926,7 @@ def generateMeshFFT(particles, options, disc_ext):
                             diff_in_box = l_particle.position_center - center_pixel_i_j_k
                             # Difference vector between the center of the two ellipses
                             diff_nearest_other = \
-                                options['rve_dims']*np.round(diff_in_box/options['rve_dims'])
+                                Particle.box*np.round(diff_in_box/Particle.box)
                             # Vector from the particle whose center is in the RVE to the nearest
                             # image
                             if l_particle.pointInside(center_pixel_i_j_k + diff_nearest_other):
@@ -920,12 +953,12 @@ def generateMesh(particles, disc_ext, discret_spec_array):
     if disc_ext == 'femsh':
     # A mesh for FEM was requested
         try:
-            mesh_size = discret_spec_array['femsh']['mesh_size']
+            mesh_size = discret_spec_array['mesh_size']
             # Saving the value of the mesh size
         except KeyError:
             print('The mesh size for the FEM method was not supplied correctly')
             quit()
-        generateMeshFEM(particles, mesh_size, discret_spec_array, disc_ext)
+        generateMeshFEM(particles, mesh_size, discret_spec_array['rve_dims'])
         # Generating the FEM mesh using gmsh and saving an input data file for LINKS
 
 

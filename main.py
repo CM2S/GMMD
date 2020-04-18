@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 # Plotting capabilities
 from integration_methods import Newmark
 # Importing an integration method for the equation of motion
-from particle_classes import Disk, Particle, Ellipse, Sphere, Ellipsoid
+from particle_classes import Disk, Particle, Ellipse, Sphere, Ellipsoid, CylindricalFiber
 # Importing the particle class
 from meshing_interface import generateMesh
 # Importing meshing interfaces
@@ -744,12 +744,90 @@ def generateEllipsoids(phase, rve_dims, descriptors):
     return ellipsoids
 
 
+def generateCylindricalFibers(phase, rve_dims, descriptors):
+    """
+    Generate cylindrical fibers of *phase* according to *descriptors*.
+
+    Parameters
+    ----------
+    phase: str
+        Phase to which the fibers will belong.
+
+    rve_dims: list(float)
+        List containing the dimensions of the RVE.
+
+    descriptors: dictionary
+        Dictionary containing the necesary descriptors to generate the microstructure.
+    """
+    fibers = []
+    # Initializing the list containing the fibers
+    possible_parameters = {'r', 'area', 'n', 'vf', 'direction'}
+    # possible_parameters
+    used_parameters = {parameter for parameter in possible_parameters if
+                       any([descriptor.startswith(parameter) for
+                            descriptor in descriptors.keys()])}
+    print(used_parameters)
+    # Collecting the parameters used
+    acceptable_descriptions = [{'r', 'n', 'direction'}, {'r', 'vf', 'direction'},
+                               {'n', 'vf', 'direction'}, {'area', 'vf', 'direction'},
+                               {'area', 'n', 'direction'}]
+    # List of acceptable collections of parameters
+    if any([used_parameters == acceptable_description for
+            acceptable_description in acceptable_descriptions]):
+        acceptable_description = True
+    else:
+        acceptable_description = False
+    # Checking acceptable sets of parameters
+    try:
+        if not acceptable_description:
+            raise errors.UnacceptableParameters(used_parameters, phase,
+                                                acceptable_descriptions)
+    except errors.UnacceptableParameters as error:
+        error.message()
+        quit()
+    if 'n' in descriptors and 'vf' not in descriptors:
+    # The desired number of fibers was specified
+        samples = {}
+        # Initializing the dictionary containing the samples for each parameter used
+        for i_parameter in used_parameters:
+            samples[i_parameter] = generateSampleParameter(i_parameter, descriptors, phase,
+                                                           n_samples=descriptors['n'])
+        r = canonicalParametersDisk(samples, rve_dims)
+        for i in range(descriptors['n']):
+            fibers.append(CylindricalFiber(phase, r[i], descriptors['direction'], rve_dims))
+    elif 'vf' in descriptors and 'n' not in descriptors:
+    # The desired volume fraction was specfied
+        current_sample = {}
+        # Initializing the dictionary containing the samples for each parameter used
+        vf_real = 0
+        # Initializing the real volume fraction
+        while vf_real < descriptors['vf']:
+            for i_parameter in used_parameters:
+                current_sample[i_parameter] = generateSampleParameter(i_parameter,
+                                                                      descriptors, phase)
+            r = canonicalParametersDisk(current_sample, rve_dims)
+            fibers.append(CylindricalFiber(phase, r, descriptors['direction'], rve_dims))
+            vf_real += fibers[-1].volume()/(rve_dims[0]*rve_dims[1])
+    elif 'vf' in descriptors and 'n' in descriptors:
+        samples = {}
+        # Initializing the dictionary containing the samples for each parameter used
+        for i_parameter in used_parameters:
+            samples[i_parameter] = generateSampleParameter(i_parameter, descriptors, phase,
+                                                           n_samples=descriptors['n'])
+        r = canonicalParametersDisk(samples, rve_dims)
+        for i in range(descriptors['n']):
+            fibers.append(CylindricalFiber(phase, r, descriptors['direction'], rve_dims))
+
+    return fibers
+
 def generateInitialConfiguration(particles, **kwargs):
     """Generate the initial configuration (positions and velocities) for the particles."""
     if True:
+        k = 0
         for i_particle in particles:
+            k += 1
         # Running through all the particles
-            i_particle.setPositionCenter(np.random.uniform(size=i_particle.dim)) # np.array([(i+1)*1/24-np.floor((i+1)*1/24), (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
+            i_particle.setPositionCenter(np.array([0.5, 0.5 + k*0.45, 0.5])) #np.random.uniform(size=i_particle.dim)) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
             # Generating the positions from a random uniform distribution between 0 and 1
             i_particle.setVelocityCenter(np.zeros((i_particle.dim))) #np.array([0,0],dtype='float')
             # Generating the velocities from a random uniform distribution between -1 and 1
@@ -998,11 +1076,8 @@ def particleGeneration(descriptors, phase_types, rve_dims, problem_type, dp_dir)
         with the given design point are to be stored
     """
     Particle.box = rve_dims
-    # Setting the size of the box
-    Particle.volume = 0
-    # Initializing the total volume fraction
-    Particle.number = 0
-    # Initializing the total number of particles
+    # Setting the size of the simulation box. It may be changed later if the phases are
+    # made from cylindrical fibers, as their simulated in a plane despite being 3D
     Particle.list_phases = [i_phase for i_phase in descriptors]
     # List containing the phases
     particles = []
@@ -1040,6 +1115,13 @@ def particleGeneration(descriptors, phase_types, rve_dims, problem_type, dp_dir)
                          + generateEllipsoids(i_phase, rve_dims, descriptors[i_phase]))
             # Generating the number of ellipsoids requested and appending them to the list
             # of particles
+        elif phase_types[i_phase] == 6:
+        # This phase is made up by cylindrical fibers
+            particles = (particles
+                         + generateCylindricalFibers(i_phase, rve_dims,
+                                                     descriptors[i_phase]))
+            # Generating the number of cylindrical fibers requested and appending them to
+            # the list of particles
 
     generateInitialConfiguration(particles, save_history=True)
     # FIXME: save history as option
@@ -1428,6 +1510,7 @@ def run(particles, max_residue_per_particle, max_step, options):
 def reconstructParticleAttributes(particles, rve_dims, info_dict):
     """Reconstruct the relevant Particle attributes that could not be pickled."""
     Particle.box = rve_dims
+    # FIXME: cylindrical fibers
     Particle.volume = np.sum([i_particle.volume() for i_particle in particles])
     Particle.number = len(particles)
     Particle.list_phases = list(info_dict['phase_types'].keys())
@@ -1490,7 +1573,9 @@ def main():
                 # Generate corresponding mesh
             plotParticles(particles, Particle.file_path + "_final_config",
                           save=options.get('save_plot', True),
-                          show=options.get('save_plot',  True))
+                          show=options.get('save_plot',  True),
+                          verlet_ngh=True,
+                          center_part=True)
             plotPaths(particles, particles[0].dim, Particle.file_path)
             # Ploting final configuration
     print(end - start)

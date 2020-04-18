@@ -1,15 +1,47 @@
 import numpy as np
 
+
 class Particle():
     '''
-    This is the class for particles
+    This is the class for particles.
 
-    Attributes:
-        center: list
-            The position vector of the center of mass of the particle
-        dim: int
-            Number of the dimensions of the space where the particle "lives"
+
+    Attributes
+    ----------
+    center: list
+        The position vector of the center of mass of the particle
+
+    dim: int
+        Number of the dimensions of the space where the particle "lives"
+
+    Class Atributes
+    ---------------
+    box: list(float)
+        Dimensions of the simulation box. Note: not necessarily equal to the RVE (e.g.
+        cylindrical fibers).
+
+    volume: float
+        Total volume of the particles in the RVE.
+
+    number: integer
+        Number of particles in the RVE.
+
+    volume_phase: list(float)
+        List containing the volume of the particles in each phase.
+
+    volume_RVE: float
+        Volume of the RVE.
     '''
+    box = []
+    # Size of the simulation box
+    volume = 0
+    # Initializing the total volume of all particles
+    number = 0
+    # Initializing the total number of particles
+    volume_phase = []
+    # List containing the volume occupied by each phase
+    volume_RVE = 0
+    # Volume of the RVE
 
     def __init__(self, dim, phase):
         '''
@@ -21,15 +53,13 @@ class Particle():
             phase: string
                 Phase to which the particle belongs
         '''
-
         self.dim = dim
+        # Setting the the dimension where the particle "lives"
         self.force = np.zeros((dim))
         self.n_cell_dim = []
-       # Setting the the dimension where the particle "lives"
         self.verlet_list = []
         Particle.volume += self.volume()
         Particle.number += 1
-
         self.phase = phase
 
     def setPositionCenter(self, position):
@@ -65,7 +95,7 @@ class Particle():
         # the other particle
         if self.dim == 2:
             angle_opposite = np.arctan2(vector_centers[1], vector_centers[0])
-            if np.random.uniform() > 0:
+            if np.random.uniform() > 1:
                 angle_new = angle_opposite + np.random.uniform(low=-np.pi/4, high=np.pi/4)
             else:
                 angle_new = angle_opposite
@@ -155,7 +185,7 @@ class Ellipse(Particle):
         # with the major axis
         if verlet:
         # Multiply the semi_minor_axis by the Verlet factor
-            semi_minor_axis = self.semi_minor_axis*Particle.verlet_factor
+            semi_minor_axis = self.semi_minor_axis*(1 - Particle.verlet_factor)
             # Semi minor axis of the Verlet neighboorhood
         else:
             semi_minor_axis = self.semi_minor_axis
@@ -515,7 +545,6 @@ class Ellipse(Particle):
         return point_in
 
 
-
 class Disk(Ellipse):
     '''
     This is the subclass of particles with the form of a circular disk.
@@ -565,8 +594,8 @@ class Disk(Ellipse):
         '''
         class_name_other_particle = other_particle.__class__.__name__
         # Saving the class name of the other particle as a string
-        if 'Disk' == class_name_other_particle:
-        # The other particle is also a Disk
+        if 'Disk' == class_name_other_particle or 'CylindricalFiber' == class_name_other_particle:
+            # The other particle is also a Disk
             intersection_area = self.intersectionAreaDiskDisk(other_particle)
             # Computing the intersection area
             return intersection_area
@@ -582,15 +611,12 @@ class Disk(Ellipse):
         '''
         This function computes the intersection area between two disks
         '''
-        box = np.array([1,1],dtype='float')
-
-
+        box = Particle.box
+        # Saving the simulation box
         diff_center = self.position_center - other_disk.position_center
-
         diff_center = diff_center - box*np.round(diff_center/box)
-
+        # Vector from the current disk to the nearest image of the other disk
         d = np.sqrt(diff_center.dot(diff_center))
-
         # Distance between the center of the disks
         if self.radius >= other_disk.radius:
         # The radius of the self is larger than the radius of the other disk
@@ -604,11 +630,11 @@ class Disk(Ellipse):
             # Disk 1 is the disk with the larger radius
             r_2 = self.radius
             # Disk 2 is the disk with the smaller radius
-        if d>=(r_1 + r_2):
+        if d >= (r_1 + r_2):
         # The disks intersect at most at one point
             intersection_area = 0
             # The intersection area of the disks is zero
-        elif d<=r_1 - r_2:
+        elif d <= r_1 - r_2:
         # Disk 2 is interely contained within Disk 1
             intersection_area = np.pi*r_2**2
             # The intersection area is equal to the area of the smaller disk, Disk 2
@@ -624,8 +650,6 @@ class Disk(Ellipse):
         return intersection_area
         # Returning the intersection area
 
-    def intersectionAreaDiskEllipse(self, ellipse):
-        pass
 
     def intersectionVerlet(self, other_particle):
         '''
@@ -637,7 +661,7 @@ class Disk(Ellipse):
         '''
         class_name_other_particle = other_particle.__class__.__name__
         # Saving the class name of the other particle as a string
-        if 'Disk' == class_name_other_particle:
+        if 'Disk' == class_name_other_particle or 'CylindricalFiber' == class_name_other_particle:
         # The other particle is also a Disk
             intersection_verlet = self.intersectionVerletDiskDisk(other_particle)
             # Computing the intersection area
@@ -651,8 +675,8 @@ class Disk(Ellipse):
             # Returning the intersection area
 
     def pointInside(self, point):
-        
-        if np.linalg.norm(self.position_center-point)<=self.radius:
+
+        if np.linalg.norm(self.position_center-point) <= self.radius:
             point_in = True
         else:
             point_in = False
@@ -672,7 +696,7 @@ class Disk(Ellipse):
         # disk
         d = np.sqrt(diff_center.dot(diff_center))
         # Distance between the disks
-        if d<(self.radius+other_disk.radius)*Particle.verlet_factor:
+        if d < (self.radius+other_disk.radius)*Particle.verlet_factor:
         # The disks are in eachothers neighboorhoods
             intersection_verlet = True
         else:
@@ -691,15 +715,54 @@ class Disk(Ellipse):
     def insideVerlet(self):
         """Check if the ellipse has moved outside its Verlet neighboorhood."""
         if np.linalg.norm(self.displacement_last_verlet) >= \
-            self.radius*(Particle.verlet_factor - 1):
+           self.radius*(Particle.verlet_factor - 1):
         # Its possible for the ellipse to have moved outside its Verlet neighboorhood
             point_in = False
             # Checking if the ellipse is still inside its Verlet neighboorhood
         else:
         # the center of the ellipse has not
             point_in = True
+        return point_in
+
+class CylindricalFiber(Disk):
+    '''
+    This is the subclass of particles with the form of a circular disk.
+
+    Attributes
+    ----------
+    radius: float
+        Radius of the disk
+    '''
+
+    def __init__(self, phase, radius, direction, rve_dims):
+        """
+        The constructor of the cylindrical fiber particle.
+
+        Parameters
+        ----------
+        phase: string
+            Phase to which the particle belongs to.
+
+        radius: float
+            Radius of the disk
+        """
+        self.direction_fibers = direction
+        # Integer giving the direction of the fibers
+        self.length_dir_fibers = rve_dims[self.direction_fibers]
+        # Length of the fibers
+        rve_dims = np.delete(rve_dims, self.direction_fibers)
+        Particle.box = rve_dims
+        # Setting the size of the simulation box
+        super().__init__(phase, radius)
+        # Using the constructor of the parent class
 
 
+    def volume(self):
+        """Compute the volume of the cylindrical fiber."""
+
+        volume = np.pi*self.radius**2*self.length_dir_fibers
+
+        return volume
 
 
 class Ellipsoid(Particle):
@@ -828,9 +891,9 @@ class Ellipsoid(Particle):
         # Point in local coordinates
         if verlet:
         # Multiply the semi_minor_axis by the Verlet factor
-            semi_axis_1 = self.semi_axis_1*Particle.verlet_factor
-            semi_axis_2 = self.semi_axis_2*Particle.verlet_factor
-            semi_axis_3 = self.semi_axis_3*Particle.verlet_factor
+            semi_axis_1 = self.semi_axis_1*(1 - Particle.verlet_factor)
+            semi_axis_2 = self.semi_axis_2*(1 - Particle.verlet_factor)
+            semi_axis_3 = self.semi_axis_3*(1 - Particle.verlet_factor)
             # Semi minor axis of the Verlet neighboorhood
         else:
             semi_axis_1 = self.semi_axis_1
@@ -1467,8 +1530,8 @@ if __name__ == '__main__':
     
     ellipse_1 = Ellipse('1', 0.4, 0.2, np.pi/3+0.3)
     ellipse_1.position_center = np.array([0.5, 0.5])
-    ellipse_2 = Ellipse('1', 0.4, 0.2, np.pi/3+0.2)
-    ellipse_2.position_center = np.array([0.5, 0.6])
+    ellipse_2 = Ellipse('1', 0.4, 0.2, np.pi/2+0.2)
+    ellipse_2.position_center = np.array([0.65, 0.5])
     
     particles = [ellipse_1, ellipse_2]
     fig = plt.figure()
@@ -1492,7 +1555,7 @@ if __name__ == '__main__':
     intersect_pts_ord = ellipse_1.sortPointsOnEllipse(intersect_pts)
     
 
-    for i in range(1):
+    for i in range(N):
         for j in range(-1,2):
             for k in range(-1,2):
                 ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j,1*k]), particles[i].major_axis, particles[i].minor_axis,angle=180/np.pi*particles[i].angle,alpha=0.1)

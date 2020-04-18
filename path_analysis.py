@@ -1,5 +1,6 @@
 def plotParticles(particles, dir, grid='off', verlet_ngh=False, center_part=False,
                   show=False, save=False, **kwargs):
+    from particle_classes import Particle
     """Plot the particles."""
     import matplotlib.patches as mpatches
     import matplotlib.pyplot as plt
@@ -16,7 +17,7 @@ def plotParticles(particles, dir, grid='off', verlet_ngh=False, center_part=Fals
             class_name_i_particle = particles[i].__class__.__name__
             for j in range(-1, 2):
                 for k in range(-1, 2):
-                    if 'Disk' == class_name_i_particle:
+                    if 'Disk' == class_name_i_particle or 'CylindricalFiber' == class_name_i_particle:
                         circ = mpatches.Circle(
                             particles[i].position_center+np.array([1*j, 1*k]), radius=particles[i].radius, alpha=0.8)
                         ax.add_artist(circ)
@@ -40,7 +41,7 @@ def plotParticles(particles, dir, grid='off', verlet_ngh=False, center_part=Fals
                         if center_part:
                             plt.annotate(xy=particles[i].position_center, s=str(i))
                             plt.scatter(particles[i].position_center[0],
-                                        particles[i].position_center[1])
+                                        particles[i].position_center[1], s=0.01)
 
         if grid == 'cell_list':
             plt.xticks(np.linspace(0, 1, Particle.n_cell_dim+1, endpoint=True))
@@ -288,7 +289,7 @@ def plotPaths(particles, dim, dp_dir):
         for i in range(len(particles)):
             for j in range(-1, 2):
                 for k in range(-1, 2):
-                    if particles[i].__class__.__name__== 'Disk':
+                    if particles[i].__class__.__name__== 'Disk' or 'CylindricalFiber' == particles[i].__class__.__name__:
                         circ = mpatches.Circle(
                             np.array(particles[i].position_center_history)[0, :]+np.array([1*j, 1*k]),
                              radius=particles[i].radius, alpha=0.5)
