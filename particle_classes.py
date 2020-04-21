@@ -1,5 +1,6 @@
 import numpy as np
 
+from scipy import integrate
 
 class Particle():
     '''
@@ -42,6 +43,11 @@ class Particle():
     # List containing the volume occupied by each phase
     volume_RVE = 0
     # Volume of the RVE
+    relative_energy_history = []
+    # List containing the relative energy for each iteration
+    kinetic_energy_history = []
+    # List containing the kinetic energy for each iteration
+
 
     def __init__(self, dim, phase):
         '''
@@ -141,6 +147,8 @@ class Ellipse(Particle):
         self.angle = angle
         self.eccentricity = np.sqrt(1-minor_axis**2/major_axis**2)
         self.radius = major_axis/2
+        self.rot_mat = np.array([[ np.cos(self.angle), np.sin(self.angle)],
+                                 [-np.sin(self.angle), np.cos(self.angle)]])
         super().__init__(2, phase)
 
     def volume(self):
@@ -914,7 +922,7 @@ class Ellipsoid(Particle):
         return point_in
 
 
-    def intersectionVolumeEllipsoidOther(self, other_particle, tol=5, max_it=1000,
+    def intersectionVolumeEllipsoidOther(self, other_particle, type, tol=5, max_it=1000,
                                          seq_size=50):
         """
         Compute the overlap volume between this ellipsoid and another particle.
@@ -944,7 +952,7 @@ class Ellipsoid(Particle):
         Returns
         -------
         overlap_volume: float
-        Overlap volume of the two particles.
+            Overlap volume of the two particles.
         """
         box = Particle.box
         # Saving the RVE dimensions
@@ -953,43 +961,86 @@ class Ellipsoid(Particle):
         diff_nearest_other = box*np.round(diff_in_box/box)
         # Vector between the other particle in the RVE to its nearest image to the current
         # ellipsoid
-        k_iteration = 0
-        # Initializing the iteration counter
-        overlap_volume_est = []
-        # Vector of the overlap volume estimates
-        error = 10
-        # Initializing the error
-        while (error > tol) and (k_iteration < max_it):
-        # Run the Monte Carlo method while the error estimate is larger than the tolerance
-        # and the number of iterations is smaller than the maximm allowed number of
-        # iterations
-            total_n_points = 0
-            points_inside = 0
-            # Initializing the counters for the number of points generated and the number of
-            # points inside both volumes
-            for i_point in range(seq_size):
-            # Generating seq_size points
-                total_n_points += 1
-                # Counting the generated points
-                point = self.generatePointInside()
-                # Generating a random point inside the current ellipsoid
-                if other_particle.pointInside(point - diff_nearest_other):
-                # If the generated point is inside the volume of the other particle
-                    points_inside += 1
-                    # Counting the points inside both particles
-            overlap_volume_est.append(self.volume()*points_inside/total_n_points)
-            # Estimation for the overlap volume
-            k_iteration += 1
-            # Increasing the iteration couter
-            if k_iteration > 2:
-            # If there are more than 2 estimations
-                overlap_volume = np.mean(overlap_volume_est)
-                error = (np.std(overlap_volume_est)/np.sqrt(len(overlap_volume_est))
-                         /overlap_volume * 100)
-                # Estimation and error computed assuming that each iteration is independent
-                # from the last and follow a normal distribution
+        if type == 'random':
+            k_iteration = 0
+            # Initializing the iteration counter
+            overlap_volume_est = []
+            # Vector of the overlap volume estimates
+            error = 10
+            # Initializing the error
+            while (error > tol) and (k_iteration < max_it):
+            # Run the Monte Carlo method while the error estimate is larger than the tolerance
+            # and the number of iterations is smaller than the maximm allowed number of
+            # iterations
+                total_n_points = 0
+                points_inside = 0
+                # Initializing the counters for the number of points generated and the number of
+                # points inside both volumes
+                for i_point in range(seq_size):
+                # Generating seq_size points
+                    total_n_points += 1
+                    # Counting the generated points
+                    point = self.generatePointInside()
+                    # Generating a random point inside the current ellipsoid
+                    if other_particle.pointInside(point - diff_nearest_other):
+                    # If the generated point is inside the volume of the other particle
+                        points_inside += 1
+                        # Counting the points inside both particles
+                overlap_volume_est.append(self.volume()*points_inside/total_n_points)
+                # Estimation for the overlap volume
+                k_iteration += 1
+                # Increasing the iteration couter
+                if k_iteration > 2:
+                # If there are more than 2 estimations
+                    overlap_volume = np.mean(overlap_volume_est)
+                    error = (np.std(overlap_volume_est)/np.sqrt(len(overlap_volume_est))
+                             /overlap_volume * 100)
+                    # Estimation and error computed assuming that each iteration is independent
+                    # from the last and follow a normal distribution
+        elif type == 'regular':
+            A = self.semi_axis_1
+            B = self.semi_axis_2
+            C = self.semi_axis_3
+
+            def pointsInside(x, y, z):
+                pointIn = other_particle.pointInside(self.rotation_mat.dot([x, y, z]) + self.position_center - diff_nearest_other)
+                if pointIn:
+                    value = 1
+                else:
+                    value = 0
+                return value
+
+            (overlap_volume, _) = integrate.tplquad(pointsInside, -A, A,
+                lambda x: -B*np.sqrt(1 - x**2/A**2),
+                lambda x: B*np.sqrt(1 - x**2/A**2),
+                lambda x, y: -C*np.sqrt(1 - x**2/A**2 - y**2/B**2),
+                lambda x, y: C*np.sqrt(1 - x**2/A**2 - y**2/B**2), epsrel=0.1)
+
         return overlap_volume
 
+    def generateRegularGrid(self, n_samples):
+        """Generate a regular sample of points in the ellipsoid."""
+        n_theta = int(np.sqrt(n_samples**(1)))
+        n_phi = int(np.cbrt(n_samples**(1)))
+        # Number of sample points for the angle
+        n_r = int(np.round(n_samples/n_theta/n_phi))
+        # Number of sample points for the radius. Muliplied by the number of points for the
+        # angle gives the number of sample points
+        radius = (np.linspace(0.01, 1, n_r, endpoint=True))**(1/3)
+        theta = np.linspace(0, np.pi, n_theta, endpoint=False)
+        phi = np.linspace(0, 2*np.pi, n_phi, endpoint=False)
+        # Regularly and uniformly sampling the angle and the radius
+        x_samples = []
+        for i_theta in theta:
+            for j_phi in phi:
+                for k_radius in radius:
+                    x_loc = np.array(
+                        [k_radius*self.semi_axis_1*np.sin(i_theta)*np.cos(j_phi),
+                         k_radius*self.semi_axis_2*np.sin(i_theta)*np.sin(j_phi),
+                         k_radius*self.semi_axis_3*np.cos(i_theta)])
+                    x_glob = self.rotation_mat.dot(x_loc) + self.position_center
+                    x_samples.append(x_glob)
+        return x_samples
 
     def generatePointInside(self):
         """Generate a random point inside the ellipsoid."""
@@ -1023,7 +1074,7 @@ class Ellipsoid(Particle):
         # Saving the class name of the other particle as a string
         if intersection:
         # There is overlap
-            overlap_volume = self.intersectionVolumeEllipsoidOther(other_particle, max_it=50, seq_size=100)
+            overlap_volume = self.intersectionVolumeEllipsoidOther(other_particle, type='regular', max_it=50, seq_size=100)
             # Computing the intersection area
         else:
         # There is no overlap
@@ -1492,6 +1543,29 @@ def uniformSampleEllipse(center, A, B, angle):
 
     return [x + center[0] , y + center[1]]
 
+def regularSampleEllipse(center, A, B, angle, n_samples):
+    n_theta = int(np.sqrt(n_samples**(1)))
+    n_r = int(np.round(n_samples/n_theta))
+    print(n_theta, n_r)
+    theta = np.linspace(0, 2*np.pi, n_theta, endpoint=False)
+    rot_mat = np.array([[ np.cos(angle), -np.sin(angle)],
+                        [np.sin(angle), np.cos(angle)]])
+    r = np.linspace(0.01, 1, n_r, endpoint=True)
+    k_sample = 0
+    x = []
+    y = []
+    for i_theta in theta:
+        for j_radius in r:
+            x.append(j_radius*A*np.cos(i_theta))
+            y.append(j_radius*B*np.sin(i_theta))
+            
+            [x[k_sample], y[k_sample]] = rot_mat.dot([x[k_sample], y[k_sample]]) + [center[0], center[1]]
+            k_sample += 1
+
+    return [x, y] 
+
+
+
 if __name__ == '__main__':
 # Test drive
 
@@ -1499,96 +1573,131 @@ if __name__ == '__main__':
     import numpy as np
     import matplotlib.pyplot as plt
     import matplotlib.patches as mpatches
-    
+    from scipy import integrate
+    import time
 
-    # Particle.volume = 0
-    # Particle.number = 0
-    # Particle.box = [1., 1., 1.]
-    # 
-    # 
-    # 
-    # ellipsoid_1 = Ellipsoid('1', 0.3, 0.3, 0.3, np.array([np.sqrt(3)/3, np.sqrt(3)/3, np.sqrt(3)/3]), 0)
-    # ellipsoid_1.position_center = np.array([0.1, 0.5, 0.5])
-    # ellipsoid_2 = Ellipsoid('1', 0.3, 0.3, 0.3, np.array([0., 0., 1.]), 0)
-    # ellipsoid_2.position_center = np.array([0.9, 0.5, 0.5])
-    # 
-    # box = Particle.box
-    # # Saving the array defining the RVE box
-    # diff_in_box = ellipsoid_1.position_center - ellipsoid_2.position_center
-    # diff_nearest_other = box*np.round(diff_in_box/box)
-    # # Computing the difference vector between the centers of the current sphere and
-    # # the nearest image of the other sphere
-    # 
-    # intersect = ellipsoid_1.intersectionEllipsoids(ellipsoid_2, diff_nearest_other)
-    # 
-    # overlap_volume = ellipsoid_1.intersectionVolumeEllipsoidOther(ellipsoid_2)
-    # v_ellipsoid_2 = ellipsoid_2.volume()
 
     Particle.volume = 0
     Particle.number = 0
-    Particle.box = [1., 1.]
+    Particle.box = [1., 1., 1.]
     
-    ellipse_1 = Ellipse('1', 0.4, 0.2, np.pi/3+0.3)
-    ellipse_1.position_center = np.array([0.5, 0.5])
-    ellipse_2 = Ellipse('1', 0.4, 0.2, np.pi/2+0.2)
-    ellipse_2.position_center = np.array([0.65, 0.5])
     
-    particles = [ellipse_1, ellipse_2]
-    fig = plt.figure()
     
-    ax = plt.gca()
-    
-    N = len(particles)
+    ellipsoid_1 = Ellipsoid('1', 0.3, 0.3, 0.2, np.sqrt(3)/3, np.sqrt(3)/3, np.sqrt(3)/3, 0)
+    ellipsoid_1.position_center = np.array([0.95, 0.5, 0.5])
+    ellipsoid_2 = Ellipsoid('1', 0.3, 0.3, 0.3, 0., 0., 1., 0)
+    ellipsoid_2.position_center = np.array([0.05, 0.5, 0.6])
     
     box = Particle.box
-    # Saving the RVE dimensions
-    diff_in_box = ellipse_1.position_center - ellipse_2.position_center
-    # Difference vector between the center of the two ellipses
+    # Saving the array defining the RVE box
+    diff_in_box = ellipsoid_1.position_center - ellipsoid_2.position_center
     diff_nearest_other = box*np.round(diff_in_box/box)
-    # Vector from the position of the other ellipse to its nearest image to the current
-    # ellipse
+    # Computing the difference vector between the centers of the current sphere and
+    # the nearest image of the other sphere
     
-    intersect_pts = np.array(intersectionPointsEllipses(ellipse_1.semi_major_axis, ellipse_1.semi_minor_axis,
-        ellipse_1.position_center, ellipse_1.angle, ellipse_2.semi_major_axis,
-        ellipse_2.semi_minor_axis, ellipse_2.position_center + diff_nearest_other, ellipse_2.angle))
+    intersect = ellipsoid_1.intersectionEllipsoids(ellipsoid_2, diff_nearest_other)
+    print(intersect)
     
-    intersect_pts_ord = ellipse_1.sortPointsOnEllipse(intersect_pts)
-    
+    start_1 = time.time()
+    overlap_volume_1 = ellipsoid_1.intersectionVolumeEllipsoidOther(ellipsoid_2, type='random')
+    end_1 = time.time()
+    start_2 = time.time()
+    overlap_volume_2 = ellipsoid_1.intersectionVolumeEllipsoidOther(ellipsoid_2, type='regular')
+    end_2 = time.time()
+    v_ellipsoid_2 = ellipsoid_2.volume()
+    print(overlap_volume_1, end_1-start_1, overlap_volume_2, end_2-start_2)
 
-    for i in range(N):
-        for j in range(-1,2):
-            for k in range(-1,2):
-                ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j,1*k]), particles[i].major_axis, particles[i].minor_axis,angle=180/np.pi*particles[i].angle,alpha=0.1)
-                ax.add_artist(ellip)
-                plt.annotate(xy = particles[i].position_center, s=str(i))
-                plt.scatter(particles[i].position_center[0],particles[i].position_center[1])
-                plt.axis([0, 1, 0, 1])
-    
-    number = 1000
-    k = 0
-    for i_point in range(number):
-        [x, y] = uniformSampleEllipse(ellipse_1.position_center, ellipse_1.semi_major_axis, ellipse_1.semi_minor_axis, ellipse_1.angle)
-        point_in = ellipse_2.pointInside(np.array([x, y])-diff_nearest_other)
-        if point_in:
-            plt.scatter(x, y, c='r', s=1)
-            k += 1
-        else:
-            plt.scatter(x, y, c='k', s=1)
-    
-    A1 = ellipse_1.intersectionArea(ellipse_2)
-    print('exact', A1)
-    A2 = ellipse_1.volume()*k/number
-    print('approx', A2)
-    
-    for i_intr_pt in range(len(intersect_pts_ord)):
-        midpoint = ellipse_1.midpointOnEllipse(intersect_pts_ord[i_intr_pt], intersect_pts_ord[np.mod(i_intr_pt+1,len(intersect_pts_ord))])
-        plt.scatter(midpoint[0], midpoint[1], color='r')
-
-    intersect_pts_ord = np.array(intersect_pts_ord)
-    plt.scatter(intersect_pts_ord[:,0], intersect_pts_ord[:,1])
-    for i_intr_pt in range(len(intersect_pts_ord)):
-        plt.annotate(xy = intersect_pts_ord[i_intr_pt,:], s=str(i_intr_pt))
-    
-
-    # plt.axis([-1, 2, -1, 2])
-    plt.show()
+    # Particle.volume = 0
+    # Particle.number = 0
+    # Particle.box = [1., 1.]
+    # 
+    # ellipse_1 = Ellipse('1', 0.4, 0.2, 0)
+    # ellipse_1.position_center = np.array([0.6, 0.5])
+    # ellipse_2 = Ellipse('1', 0.4, 0.2, np.pi/3)
+    # ellipse_2.position_center = np.array([0.6, 0.5])
+    # 
+    # particles = [ellipse_1, ellipse_2]
+    # fig = plt.figure()
+    # 
+    # ax = plt.gca()
+    # 
+    # N = len(particles)
+    # 
+    # box = Particle.box
+    # # Saving the RVE dimensions
+    # diff_in_box = ellipse_1.position_center - ellipse_2.position_center
+    # # Difference vector between the center of the two ellipses
+    # diff_nearest_other = box*np.round(diff_in_box/box)
+    # # Vector from the position of the other ellipse to its nearest image to the current
+    # # ellipse
+    # 
+    # intersect_pts = np.array(intersectionPointsEllipses(ellipse_1.semi_major_axis, ellipse_1.semi_minor_axis,
+    #     ellipse_1.position_center, ellipse_1.angle, ellipse_2.semi_major_axis,
+    #     ellipse_2.semi_minor_axis, ellipse_2.position_center + diff_nearest_other, ellipse_2.angle))
+    # 
+    # intersect_pts_ord = ellipse_1.sortPointsOnEllipse(intersect_pts)
+    # 
+    # 
+    # for i in range(N):
+    #     for j in range(-1,2):
+    #         for k in range(-1,2):
+    #             ellip = mpatches.Ellipse(particles[i].position_center+np.array([1*j,1*k]), particles[i].major_axis, particles[i].minor_axis,angle=180/np.pi*particles[i].angle,alpha=0.1)
+    #             ax.add_artist(ellip)
+    #             plt.annotate(xy = particles[i].position_center, s=str(i))
+    #             plt.scatter(particles[i].position_center[0],particles[i].position_center[1])
+    #             plt.axis([0, 1, 0, 1])
+    # 
+    # number = 20
+    # k = 0
+    # for i_point in range(number):
+    #     [x, y] = uniformSampleEllipse(ellipse_1.position_center, ellipse_1.semi_major_axis, ellipse_1.semi_minor_axis, ellipse_1.angle)
+    #     point_in = ellipse_2.pointInside(np.array([x, y])-diff_nearest_other)
+    #     if point_in:
+    #         plt.scatter(x, y, c='r', s=1)
+    #         k += 1
+    #     else:
+    #         plt.scatter(x, y, c='k', s=1)
+    # 
+    # x, y = regularSampleEllipse(ellipse_1.position_center, ellipse_1.semi_major_axis, ellipse_1.semi_minor_axis, ellipse_1.angle, number)
+    # k_reg = 0
+    # for i_point in range(len(x)):
+    #     point_in = ellipse_2.pointInside(np.array([x[i_point], y[i_point]])-diff_nearest_other)
+    #     if point_in:
+    #         plt.scatter(x[i_point], y[i_point], c='b', s=1)
+    #         k_reg += 1
+    #     else:
+    #         plt.scatter(x[i_point], y[i_point], c='g', s=1)
+    # 
+    # 
+    # A = ellipse_1.semi_major_axis
+    # B = ellipse_1.semi_minor_axis
+    # def pointsInside(x, y):
+    #     [x_glob, y_glob] = ellipse_1.rot_mat.dot([x, y]) + ellipse_1.position_center
+    #     pointIn = ellipse_2.pointInside(ellipse_1.rot_mat.dot([x, y]) + ellipse_1.position_center)
+    #     if pointIn:
+    #         value = 1
+    #     else:
+    #         value = 0
+    #     return value
+    # 
+    # A1 = ellipse_1.intersectionArea(ellipse_2)
+    # print('exact', A1)
+    # A2 = ellipse_1.volume()*k/number
+    # print('approx', A2)
+    # A3 = ellipse_1.volume()*k_reg/number
+    # print('approx_reg', A3)
+    # A4 = integrate.dblquad(pointsInside, -B, B, lambda y: -A*np.sqrt(1 - y**2/B**2), lambda y: A*np.sqrt(1 - y**2/B**2), epsrel=1 )
+    # print('quad', A4[0])
+    # 
+    # for i_intr_pt in range(len(intersect_pts_ord)):
+    #     midpoint = ellipse_1.midpointOnEllipse(intersect_pts_ord[i_intr_pt], intersect_pts_ord[np.mod(i_intr_pt+1,len(intersect_pts_ord))])
+    #     plt.scatter(midpoint[0], midpoint[1], color='r')
+    # 
+    # intersect_pts_ord = np.array(intersect_pts_ord)
+    # plt.scatter(intersect_pts_ord[:,0], intersect_pts_ord[:,1])
+    # for i_intr_pt in range(len(intersect_pts_ord)):
+    #     plt.annotate(xy = intersect_pts_ord[i_intr_pt,:], s=str(i_intr_pt))
+    # 
+    # 
+    # # plt.axis([-1, 2, -1, 2])
+    # plt.show()
