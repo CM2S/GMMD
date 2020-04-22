@@ -2,6 +2,9 @@ import numpy as np
 
 from scipy import integrate
 
+import error_classes as errors
+
+
 class Particle():
     '''
     This is the class for particles.
@@ -14,6 +17,15 @@ class Particle():
 
     dim: int
         Number of the dimensions of the space where the particle "lives"
+
+    force: array of floats
+        Array containing the force acting on the particle.
+
+    verlet_list: list(int)
+        List containing the Verlet neighboors of the particle.
+
+    phase: str
+        Phase to which the particle belongs.
 
     Class Atributes
     ---------------
@@ -32,6 +44,22 @@ class Particle():
 
     volume_RVE: float
         Volume of the RVE.
+
+    relative_energy_history: list(float)
+        List containing the relative energy at each iteration.
+
+    kinetic_energy_history: list(float)
+        List containing the kinetic energy at each iteration.
+
+    list_phase: list(str)
+        List containing the phases in the RVE.
+
+    n_cell_dim: list(int)
+        List containing the number of cells (for force computation) of cells in each
+        direction.
+
+    matrix_phase: str
+        Name of the matrix phase.
     '''
     box = []
     # Size of the simulation box
@@ -39,34 +67,61 @@ class Particle():
     # Initializing the total volume of all particles
     number = 0
     # Initializing the total number of particles
-    volume_phase = []
-    # List containing the volume occupied by each phase
+    volume_phase = {}
+    # Dictionary containing the volume occupied by each phase
     volume_RVE = 0
     # Volume of the RVE
     relative_energy_history = []
     # List containing the relative energy for each iteration
     kinetic_energy_history = []
     # List containing the kinetic energy for each iteration
-
+    list_phases = []
+    # List containing the phases in the RVE
+    n_cell_dim = []
+    # List containing the number of cells in each direction
+    matrix_phase = ''
+    # Matrix phase of the RVE
 
     def __init__(self, dim, phase):
         '''
         The constructor for the Particle class.
 
-        Parameters:
-            dim: int
-                Number of the dimensions of the space where the particle "lives"
-            phase: string
-                Phase to which the particle belongs
+        Parameters
+        ----------
+        dim: int
+            Number of the dimensions of the space where the particle "lives".
+
+        phase: string
+            Phase to which the particle belongs.
         '''
         self.dim = dim
         # Setting the the dimension where the particle "lives"
-        self.force = np.zeros((dim))
-        self.n_cell_dim = []
-        self.verlet_list = []
-        Particle.volume += self.volume()
-        Particle.number += 1
         self.phase = phase
+        # Phase to which the particle belongs
+        self.force = np.zeros((dim))
+        # Setting the initial force on the particle as zero
+        self.verlet_list = []
+        # Initializing the particles Verlet list
+        Particle.volume += self.volume()
+        # Updating the total volume
+        try:
+            if Particle.volume/Particle.volume_RVE > 1:
+            # Checking if the volume fraction is below 1
+                raise errors.VolumeFractionLargerOne(phase)
+        except errors.VolumeFractionLargerOne as error:
+            error.message()
+            quit()
+        Particle.number += 1
+        # Updating the number of particles in the RVE
+        Particle.volume_phase[self.phase] += self.volume()
+        # Updating the volume corresponding to the particle's phase
+        if Particle.matrix_phase != '':
+        # The matrix phase has already been identified
+            Particle.volume_phase[Particle.matrix_phase] = (
+                1 - np.sum(list(Particle.volume_phase.values()))
+                + Particle.volume_phase[Particle.matrix_phase])
+            # Updating the volume occupied by the matrix
+
 
     def setPositionCenter(self, position):
         '''
@@ -922,7 +977,7 @@ class Ellipsoid(Particle):
         return point_in
 
 
-    def intersectionVolumeEllipsoidOther(self, other_particle, type, tol=5, max_it=1000,
+    def intersectionVolumeEllipsoidOther(self, other_particle, type='random', tol=5, max_it=1000,
                                          seq_size=50):
         """
         Compute the overlap volume between this ellipsoid and another particle.
@@ -939,6 +994,11 @@ class Ellipsoid(Particle):
 
         other_particle: `.Particle`
             Other particle.
+
+        type: {'random', 'regular'}, optional
+            Integration method. 
+            'random' - Monte Carlo method
+            'regular' - Quadrature (scipy)
 
         tol: float, optional
             Tolerance for the error estimate.
@@ -1074,7 +1134,7 @@ class Ellipsoid(Particle):
         # Saving the class name of the other particle as a string
         if intersection:
         # There is overlap
-            overlap_volume = self.intersectionVolumeEllipsoidOther(other_particle, type='regular', max_it=50, seq_size=100)
+            overlap_volume = self.intersectionVolumeEllipsoidOther(other_particle, max_it=50, seq_size=100)
             # Computing the intersection area
         else:
         # There is no overlap

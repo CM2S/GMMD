@@ -22,7 +22,7 @@ from integration_methods import Newmark
 # Importing an integration method for the equation of motion
 from particle_classes import Disk, Particle, Ellipse, Sphere, Ellipsoid, CylindricalFiber
 # Importing the particle class
-from meshing_interface import generateMesh
+from meshing_interface import generateMesh, checkMeshSpecs
 # Importing meshing interfaces
 import error_classes as errors
 # Importing the error clases
@@ -41,6 +41,13 @@ from path_analysis import plotPaths, plotParticles
 #     # Print to '.screen file'
 #     screen_file.close()
 
+
+def RepresentsInt(s):
+    try: 
+        int(s)
+        return True
+    except ValueError:
+        return False
 
 def newVerletList(particles):
     '''
@@ -291,7 +298,7 @@ def computeForces(particles, speed_up_scheme):
                 # Running through the neighboor cells
                     pos_neighboor_cell = \
                         neighboorCell(pos_cell_list,
-                            k_neighboor_cell, dim, Particle.n_cell_dim)
+                                      k_neighboor_cell, dim, Particle.n_cell_dim)
                     # Computing the index of the neighboor cell
                     for j_particle in Particle.cell_list[pos_neighboor_cell]:
                     # Running through all the particles in the neighboring cell
@@ -468,17 +475,16 @@ def generateDisks(phase, rve_dims, descriptors):
     used_parameters = {parameter for parameter in possible_parameters if
                        any([descriptor.startswith(parameter) for
                             descriptor in descriptors.keys()])}
-    print(used_parameters)
     # Collecting the parameters used
     acceptable_descriptions = [{'r', 'n'}, {'r', 'vf'}, {'n', 'vf'}, {'area', 'vf'},
                                {'area', 'n'}]
     # List of acceptable collections of parameters
     if any([used_parameters == acceptable_description for
             acceptable_description in acceptable_descriptions]):
+    # Checking acceptable sets of parameters
         acceptable_description = True
     else:
         acceptable_description = False
-    # Checking acceptable sets of parameters
     try:
         if not acceptable_description:
             raise errors.UnacceptableParameters(used_parameters, phase,
@@ -491,8 +497,8 @@ def generateDisks(phase, rve_dims, descriptors):
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
         for i_parameter in used_parameters:
-            samples[i_parameter] = generateSampleParameter(i_parameter, descriptors, phase,
-                                                           n_samples=descriptors['n'])
+            samples[i_parameter] = generateSampleParameter(
+                i_parameter, descriptors, phase, rve_dims, n_samples=descriptors['n'])
         r = canonicalParametersDisk(samples, rve_dims)
         for i in range(descriptors['n']):
             disks.append(Disk(phase, r[i]))
@@ -504,8 +510,8 @@ def generateDisks(phase, rve_dims, descriptors):
         # Initializing the real volume fraction
         while vf_real < descriptors['vf']:
             for i_parameter in used_parameters:
-                current_sample[i_parameter] = generateSampleParameter(i_parameter,
-                                                                      descriptors, phase)
+                current_sample[i_parameter] = generateSampleParameter(
+                    i_parameter, descriptors, phase, rve_dims)
             r = canonicalParametersDisk(current_sample, rve_dims)
             disks.append(Disk(phase, r))
             vf_real += disks[-1].volume()/(rve_dims[0]*rve_dims[1])
@@ -513,8 +519,8 @@ def generateDisks(phase, rve_dims, descriptors):
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
         for i_parameter in used_parameters:
-            samples[i_parameter] = generateSampleParameter(i_parameter, descriptors, phase,
-                                                           n_samples=descriptors['n'])
+            samples[i_parameter] = generateSampleParameter(
+                i_parameter, descriptors, phase, rve_dims, n_samples=descriptors['n'])
         r = canonicalParametersDisk(samples, rve_dims)
         for i in range(descriptors['n']):
             disks.append(Disk(phase, r))
@@ -566,8 +572,8 @@ def generateSpheres(phase, rve_dims, descriptors):
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
         for i_parameter in used_parameters:
-            samples[i_parameter] = generateSampleParameter(i_parameter, descriptors, phase,
-                                                           n_samples=descriptors['n'])
+            samples[i_parameter] = generateSampleParameter(
+                i_parameter, descriptors, phase, rve_dims, n_samples=descriptors['n'])
         r = canonicalParametersSphere(samples, rve_dims)
         for i in range(descriptors['n']):
             spheres.append(Sphere(phase, r[i]))
@@ -579,8 +585,8 @@ def generateSpheres(phase, rve_dims, descriptors):
         # Initializing the real volume fraction
         while vf_real < descriptors['vf']:
             for i_parameter in used_parameters:
-                current_sample[i_parameter] = generateSampleParameter(i_parameter,
-                                                                      descriptors, phase)
+                current_sample[i_parameter] = generateSampleParameter(
+                    i_parameter, descriptors, phase, rve_dims)
             r = canonicalParametersSphere(current_sample, rve_dims)
             spheres.append(Sphere(phase, r))
             vf_real += spheres[-1].volume()/(rve_dims[0]*rve_dims[1]*rve_dims[2])
@@ -589,8 +595,8 @@ def generateSpheres(phase, rve_dims, descriptors):
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
         for i_parameter in used_parameters:
-            samples[i_parameter] = generateSampleParameter(i_parameter, descriptors, phase,
-                                                           n_samples=descriptors['n'])
+            samples[i_parameter] = generateSampleParameter(
+                i_parameter, descriptors, phase, rve_dims, n_samples=descriptors['n'])
         r = canonicalParametersSphere(samples, rve_dims)
         for i in range(descriptors['n']):
             spheres.append(Sphere(phase, r))
@@ -633,8 +639,8 @@ def generateEllipses(phase, rve_dims, descriptors):
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
         for i_parameter in used_parameters:
-            samples[i_parameter] = generateSampleParameter(i_parameter, descriptors, phase,
-                                                           n_samples=descriptors['n'])
+            samples[i_parameter] = generateSampleParameter(
+                i_parameter, descriptors, phase, rve_dims, n_samples=descriptors['n'])
         [major_axis, minor_axis, angle] = canonicalParametersEllipse(samples,
                                                                      rve_dims)
         for i in range(descriptors['n']):
@@ -647,8 +653,8 @@ def generateEllipses(phase, rve_dims, descriptors):
         # Initializing the real volume fraction
         while vf_real < descriptors['vf']:
             for i_parameter in used_parameters:
-                current_sample[i_parameter] = generateSampleParameter(i_parameter, phase,
-                                                                      descriptors)
+                current_sample[i_parameter] = generateSampleParameter(
+                    i_parameter, descriptors, phase, rve_dims)
             [major_axis, minor_axis, angle] = canonicalParametersEllipse(current_sample,
                                                                          rve_dims)
             ellipses.append(Ellipse(phase, major_axis, minor_axis, angle))
@@ -657,8 +663,8 @@ def generateEllipses(phase, rve_dims, descriptors):
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
         for i_parameter in used_parameters:
-            samples[i_parameter] = generateSampleParameter(i_parameter, descriptors, phase,
-                                                           n_samples=descriptors['n'])
+            samples[i_parameter] = generateSampleParameter(
+                i_parameter, descriptors, phase, rve_dims, n_samples=descriptors['n'])
         [major_axis, minor_axis, angle] = canonicalParametersEllipse(samples,
                                                                      rve_dims)
         for i in range(descriptors['n']):
@@ -703,14 +709,14 @@ def generateEllipsoids(phase, rve_dims, descriptors):
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
         for i_parameter in used_parameters:
-            samples[i_parameter] = generateSampleParameter(i_parameter, descriptors, phase,
-                                                           n_samples=descriptors['n'])
+            samples[i_parameter] = generateSampleParameter(
+                i_parameter, descriptors, phase, rve_dims, n_samples=descriptors['n'])
         [axis_1, axis_2, axis_3, euler_angle_x, euler_angle_y, euler_angle_z, angle] = \
             canonicalParametersEllipsoid(samples, rve_dims)
         for i in range(descriptors['n']):
-            ellipsoids.append(Ellipsoid(phase, axis_1[i], axis_2[i], axis_3[i],
-                                        euler_angle_x[i], euler_angle_y[i], euler_angle_z[i],
-                                        angle[i]))
+            ellipsoids.append(Ellipsoid(
+                phase, axis_1[i], axis_2[i], axis_3[i], euler_angle_x[i], euler_angle_y[i],
+                euler_angle_z[i], angle[i]))
     elif 'vf' in descriptors and 'n' not in descriptors:
     # The desired volume fraction was specfied
         current_sample = {}
@@ -719,11 +725,10 @@ def generateEllipsoids(phase, rve_dims, descriptors):
         # Initializing the real volume fraction
         while vf_real < descriptors['vf']:
             for i_parameter in used_parameters:
-                current_sample[i_parameter] = generateSampleParameter(i_parameter,
-                                                                      descriptors, phase)
+                current_sample[i_parameter] = generateSampleParameter(
+                    i_parameter, descriptors, phase, rve_dims)
             [axis_1, axis_2, axis_3, euler_angle_x, euler_angle_y, euler_angle_z, angle] = \
                 canonicalParametersEllipsoid(current_sample, rve_dims)
-            print(axis_1, axis_2, axis_3, euler_angle_x, euler_angle_y, euler_angle_z, angle)
             ellipsoids.append(Ellipsoid(phase, axis_1[0], axis_2[0], axis_3[0],
                                         euler_angle_x[0], euler_angle_y[0],
                                         euler_angle_z[0], angle[0]))
@@ -732,8 +737,8 @@ def generateEllipsoids(phase, rve_dims, descriptors):
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
         for i_parameter in used_parameters:
-            samples[i_parameter] = generateSampleParameter(i_parameter, descriptors, phase,
-                                                           n_samples=descriptors['n'])
+            samples[i_parameter] = generateSampleParameter(
+                i_parameter, descriptors, phase, rve_dims, n_samples=descriptors['n'])
         [axis_1, axis_2, axis_3, euler_angle_x, euler_angle_y, euler_angle_z, angle] = \
             canonicalParametersEllipsoid(samples, rve_dims)
         for i in range(descriptors['n']):
@@ -790,8 +795,8 @@ def generateCylindricalFibers(phase, rve_dims, descriptors):
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
         for i_parameter in used_parameters:
-            samples[i_parameter] = generateSampleParameter(i_parameter, descriptors, phase,
-                                                           n_samples=descriptors['n'])
+            samples[i_parameter] = generateSampleParameter(
+                i_parameter, descriptors, phase, rve_dims, n_samples=descriptors['n'])
         r = canonicalParametersDisk(samples, rve_dims)
         for i in range(descriptors['n']):
             fibers.append(CylindricalFiber(phase, r[i], descriptors['direction'], rve_dims))
@@ -803,8 +808,8 @@ def generateCylindricalFibers(phase, rve_dims, descriptors):
         # Initializing the real volume fraction
         while vf_real < descriptors['vf']:
             for i_parameter in used_parameters:
-                current_sample[i_parameter] = generateSampleParameter(i_parameter,
-                                                                      descriptors, phase)
+                current_sample[i_parameter] = generateSampleParameter(
+                    i_parameter, descriptors, phase, rve_dims)
             r = canonicalParametersDisk(current_sample, rve_dims)
             fibers.append(CylindricalFiber(phase, r, descriptors['direction'], rve_dims))
             vf_real += fibers[-1].volume()/(rve_dims[0]*rve_dims[1])
@@ -812,13 +817,14 @@ def generateCylindricalFibers(phase, rve_dims, descriptors):
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
         for i_parameter in used_parameters:
-            samples[i_parameter] = generateSampleParameter(i_parameter, descriptors, phase,
-                                                           n_samples=descriptors['n'])
+            samples[i_parameter] = generateSampleParameter(
+                i_parameter, descriptors, phase, rve_dims, n_samples=descriptors['n'])
         r = canonicalParametersDisk(samples, rve_dims)
         for i in range(descriptors['n']):
             fibers.append(CylindricalFiber(phase, r, descriptors['direction'], rve_dims))
 
     return fibers
+
 
 def generateInitialConfiguration(particles, **kwargs):
     """Generate the initial configuration (positions and velocities) for the particles."""
@@ -827,7 +833,7 @@ def generateInitialConfiguration(particles, **kwargs):
         for i_particle in particles:
             k += 1
         # Running through all the particles
-            i_particle.setPositionCenter(np.array([0.5, 0.5 + k*0.45, 0.5])) #np.random.uniform(size=i_particle.dim)) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
+            i_particle.setPositionCenter(np.random.uniform(size=i_particle.dim)) #np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
             # Generating the positions from a random uniform distribution between 0 and 1
             i_particle.setVelocityCenter(np.zeros((i_particle.dim))) #np.array([0,0],dtype='float')
             # Generating the velocities from a random uniform distribution between -1 and 1
@@ -857,20 +863,53 @@ def generateInitialConfiguration(particles, **kwargs):
                     p += 1
 
 
-def generateSampleParameter(parameter, descriptors, phase, n_samples=1):
+def generateSampleParameter(parameter, descriptors, phase, rve_dims, n_samples=1,
+                            max_sample=100):
     """Generate a sample of values for *parameter* according to descriptors"""
+    size_geom_param = {'r', 'major_axis', 'minor_axis', 'axis_1', 'axis_2', 'axis_3'}
+    # Geometrical parameters related to the size of the particle that must larger than
+    # ans smaller than half the size of the smallest dimension of the RVE
     if descriptors.get(parameter + '_distribution') == 'uniform':
     # the radius follows a uniform distribution
         try:
             if parameter + '_low' not in descriptors:
+            # Checking if the  lower bound was supplied
                 raise errors.ParameterMissing(parameter + '_low', phase)
             elif parameter + '_high' not in descriptors:
+            # Checking if the upper bound was supplied
                 raise errors.ParameterMissing(parameter + '_high', phase)
-        except errors.ParameterMissing as error:
+            elif descriptors[parameter + '_low'] >= descriptors[parameter + '_high']:
+            # Checking if the lower bound is smaller than the upper bound
+                raise errors.UnexpectedValue(
+                    descriptors[parameter + '_low'], '{0}_low of phase {1}'.format(
+                     parameter, phase),
+                    'smaller than ' + parameter + '_high: {0}'.format(
+                     descriptors[parameter + '_high']))
+        except (errors.ParameterMissing, errors.UnexpectedValue) as error:
         # One of the parameters is missing
             error.message()
             quit()
             # Printing message and aborting
+        try:
+            if parameter in size_geom_param:
+            # Checking if the parameter is a size parameter
+                if descriptors[parameter + "_low"] < 0:
+                # Ensuring that it will not produce values smaller than 0
+                    raise errors.UnexpectedValue(
+                        descriptors[parameter + '_low'], '{0}_low of phase {1}'.format(
+                         parameter, phase),
+                        'larger than 0')
+                elif descriptors[parameter + "_high"] > np.min(rve_dims)/2:
+                # Ensuring that it will not produce values larger than half the size of the
+                # smallest dimension of the RVE
+                    raise errors.UnexpectedValue(
+                        descriptors[parameter + '_high'], '{0}_high of phase {1}'.format(
+                         parameter, phase),
+                        'smaller than half the smallest dimension of the RVE: {0}'.format(
+                         np.min(rve_dims)/2))
+        except errors.UnexpectedValue as error:
+            error.message()
+            quit()
         sample = np.random.uniform(low=descriptors[parameter + '_low'],
                                    high=descriptors[parameter + '_high'],
                                    size=n_samples)
@@ -887,9 +926,51 @@ def generateSampleParameter(parameter, descriptors, phase, n_samples=1):
             error.message()
             quit()
             # Printing message and aborting
-        sample = np.random.normal(loc=descriptors[parameter + '_mean'],
-                                  scale=descriptors[parameter + '_sigma'],
-                                  size=n_samples)
+        try:
+            if parameter in size_geom_param:
+            # Geometric size parameters
+                low_25_prob = descriptors[parameter + '_mean'] - \
+                    2*descriptors[parameter + '_sigma']
+                # Upper bound of tail with 2.5% probability
+                high_25_prob = descriptors[parameter + '_mean'] + \
+                    2*descriptors[parameter + '_sigma']
+                # Lower bound of tail with 2.5% probability
+                if low_25_prob < 0:
+                # Ensuring that the probability of generating a value smaller than 0 is
+                # not greater than 2.5%
+                    raise errors.DangerousValueNormal(parameter, phase, 'low')
+                elif high_25_prob > np.min(rve_dims)/2:
+                # Ensuring that the probability of generating a value larger than half the
+                # size of the smallest dimension of the RVE is not greater than 2.5%
+                    raise errors.DangerousValueNormal(parameter, phase, 'high')
+        except errors.DangerousValueNormal as error:
+            error.message()
+            quit()
+        k_sample = 0
+        acceptable_values = False
+        while k_sample < max_sample and not acceptable_values:
+            sample = np.random.normal(loc=descriptors[parameter + '_mean'],
+                                      scale=descriptors[parameter + '_sigma'],
+                                      size=n_samples)
+            # Generate a sample
+            if parameter in size_geom_param:
+            # Geometric size parameters
+                if all([(i_sample > 0 and i_sample <= np.min(rve_dims)/2)
+                       for i_sample in sample]):
+                # All the values for the geometric size parameters are acceptable
+                    acceptable_values = True
+            else:
+            # Other parameters
+                acceptable_values = True
+                # Any sample is acceptable
+            k_sample += 1
+        try:
+            if not acceptable_values:
+            # No acceptable sample was generated
+                raise errors.UnableToGenerateSample(parameter, phase, max_sample)
+        except errors.UnableToGenerateSample as error:
+            error.message()
+            quit()
     elif descriptors.get(parameter + '_distribution') == 'discrete':
     # the radius follows a discrete distribution
         values = []
@@ -898,7 +979,28 @@ def generateSampleParameter(parameter, descriptors, phase, n_samples=1):
         # characterize the discrete distribution required
         for i_descriptor in descriptors:
             if i_descriptor.startswith(parameter + '_value'):
+                try:
+                    if parameter in size_geom_param:
+                    # Checking if the parameter is a size parameter
+                        if descriptors[i_descriptor] < 0:
+                        # Ensuring that it will not produce values smaller than 0
+                            raise errors.UnexpectedValue(
+                                descriptors[i_descriptor], '{0} of phase {1}'.format(
+                                 i_descriptor, phase),
+                                'larger than 0')
+                        elif descriptors[parameter + "_high"] > np.min(rve_dims)/2:
+                        # Ensuring that it will not produce values larger than half the size
+                        # of the smallest dimension of the RVE
+                            raise errors.UnexpectedValue(
+                                descriptors[i_descriptor], '{0} of phase {1}'.format(
+                                 i_descriptor, phase),
+                                'smaller than half the smallest dimension'
+                                + 'of the RVE: {0}'.format(np.min(rve_dims)/2))
+                except errors.UnexpectedValue as error:
+                    error.message()
+                    quit()
                 values.append(descriptors[i_descriptor])
+                # Save the value
                 try:
                     if parameter + '_prob_' + i_descriptor[-1] not in descriptors:
                         raise errors.ParameterMissing(parameter + '_prob_'
@@ -923,8 +1025,42 @@ def generateSampleParameter(parameter, descriptors, phase, n_samples=1):
                 error.message()
                 quit()
         sample = np.random.choice(values, n_samples, p=probabilities)
+    elif parameter + '_distribution' in descriptors:
+    # A distribution was specified but it is not supported
+        try:
+            raise errors.UnsupportedDistribution(
+                descriptors[parameter + '_distribution'], parameter, phase)
+        except errors.UnsupportedDistribution as error:
+            error.message()
+            quit()
     else:
-    # the radius is fixed
+    # A single value was specified
+        try:
+            if parameter not in descriptors:
+                raise errors.ParameterMissing(parameter, phase)
+        except errors.ParameterMissing as error:
+            error.message()
+            quit()
+        try:
+            if parameter in size_geom_param:
+            # Checking if the parameter is a size parameter
+                if descriptors[parameter] < 0:
+                # Ensuring that it will not produce values smaller than 0
+                    raise errors.UnexpectedValue(
+                        descriptors[parameter], '{0} of phase {1}'.format(
+                         parameter, phase),
+                        'larger than 0')
+                elif descriptors[parameter] > np.min(rve_dims)/2:
+                # Ensuring that it will not produce values larger than half the size of the
+                # smallest dimension of the RVE
+                    raise errors.UnexpectedValue(
+                        descriptors[parameter], '{0} of phase {1}'.format(
+                         parameter, phase),
+                        'smaller than half the smallest dimension of the RVE: {0}'.format(
+                         np.min(rve_dims)/2))
+        except errors.UnexpectedValue as error:
+            error.message()
+            quit()
         sample = np.full((n_samples), descriptors[parameter])
 
     return sample
@@ -1002,7 +1138,8 @@ def canonicalParametersEllipsoid(sample, rve_dims):
     if 'angle' in sample:
         angle = sample['angle']
     if 'euler_angle_x' in sample and 'euler_angle_y' in sample \
-                                 and 'euler_angle_z' in sample:
+        and 'euler_angle_z' in sample:
+    # Euler angles
         euler_angle_x = sample['euler_angle_x']
         euler_angle_y = sample['euler_angle_y']
         euler_angle_z = sample['euler_angle_z']
@@ -1044,7 +1181,8 @@ def createResultsDirectory(particles, dp_dir):
     # Saving the file path in the Particle class
 
 
-def particleGeneration(descriptors, phase_types, rve_dims, problem_type, dp_dir):
+def particleGeneration(descriptors, phase_types, rve_dims, problem_type, dp_dir,
+                       save_history=False):
     """
     Generate all the particles from the geometrical descriptors.
 
@@ -1074,12 +1212,29 @@ def particleGeneration(descriptors, phase_types, rve_dims, problem_type, dp_dir)
     dp_dir: string
         Directory where the microstructure spatial discretization file(s) associated
         with the given design point are to be stored
+
+    save_history: bool, optional
+        Save the motion of the particles for later analysis.
     """
     Particle.box = rve_dims
     # Setting the size of the simulation box. It may be changed later if the phases are
     # made from cylindrical fibers, as their simulated in a plane despite being 3D
+    Particle.volume_RVE = np.prod(rve_dims)
+    # Volume of the RVE
     Particle.list_phases = [i_phase for i_phase in descriptors]
     # List containing the phases
+    Particle.volume_phase = {phase: 0 for phase in Particle.list_phases}
+    # Initializing the dictionary containing the volume of each phase
+    try:
+        if list(phase_types.values()).count(1) == 0:
+        # No matrix phase was specified
+            raise errors.NoMatrixPhase()
+        elif list(phase_types.values()).count(1) > 1:
+        # Too many phases were specified as the matrix phase
+            raise errors.TooManyMatrixPhases()
+    except (errors.NoMatrixPhase, errors.TooManyMatrixPhases) as error:
+        error.message()
+        quit()
     particles = []
     # Initializing the list containing the particles
     # if problem_type == 1:
@@ -1089,39 +1244,68 @@ def particleGeneration(descriptors, phase_types, rve_dims, problem_type, dp_dir)
     #     # Setting the dimension
     for i_phase in descriptors:
     # Running through all the phases listed in the dictionary
-        if phase_types[i_phase] == 1:
-        # This phase is the matrix
-            Particle.matrix_phase = i_phase
-            # No particles are generated
-        elif phase_types[i_phase] == 2:
-        # This phase is made up by disks
-            particles = particles + generateDisks(i_phase, rve_dims, descriptors[i_phase])
-            # Generating the number of disks requested and appending them to the list of
-            # particles
-        elif phase_types[i_phase] == 3:
-        # This phase is made up by ellipses
-            particles = (particles
-                         + generateEllipses(i_phase, rve_dims, descriptors[i_phase]))
-            # Generating the number of ellipses requested and appending them to the list of
-            # particles
-        elif phase_types[i_phase] == 4:
-        # This phase is made up by spheres
-            particles = particles + generateSpheres(i_phase, rve_dims, descriptors[i_phase])
-            # Generating the number of spheres requested and appending them to the list of
-            # particles
-        elif phase_types[i_phase] == 5:
-        # This phase is made up by ellipsoids
-            particles = (particles
-                         + generateEllipsoids(i_phase, rve_dims, descriptors[i_phase]))
-            # Generating the number of ellipsoids requested and appending them to the list
-            # of particles
-        elif phase_types[i_phase] == 6:
-        # This phase is made up by cylindrical fibers
-            particles = (particles
-                         + generateCylindricalFibers(i_phase, rve_dims,
-                                                     descriptors[i_phase]))
-            # Generating the number of cylindrical fibers requested and appending them to
-            # the list of particles
+        try:
+            if phase_types[i_phase] == 1:
+            # This phase is the matrix
+                Particle.matrix_phase = i_phase
+                # No particles are generated
+            elif phase_types[i_phase] == 2:
+            # This phase is made up by disks
+                print(rve_dims)
+                if len(rve_dims) != 2:
+                # The RVE must be 2D
+                    raise errors.IncompatibleDimensionsRVEphase('Disks', 2, 3, i_phase)
+                particles = particles + \
+                    generateDisks(i_phase, rve_dims, descriptors[i_phase])
+                # Generating the number of disks requested and appending them to the list of
+                # particles
+            elif phase_types[i_phase] == 3:
+            # This phase is made up by ellipses
+                if len(rve_dims) != 2:
+                # The RVE must be 2D
+                    raise errors.IncompatibleDimensionsRVEphase('Ellipses', 2, 3, i_phase)
+                particles = (particles
+                             + generateEllipses(i_phase, rve_dims, descriptors[i_phase]))
+                # Generating the number of ellipses requested and appending them to the list
+                # of particles
+            elif phase_types[i_phase] == 4:
+            # This phase is made up by spheres
+                if len(rve_dims) != 3:
+                # The RVE must be 3D
+                    raise errors.IncompatibleDimensionsRVEphase('Spheres', 3, 2, i_phase)
+                particles = particles + \
+                    generateSpheres(i_phase, rve_dims, descriptors[i_phase])
+                # Generating the number of spheres requested and appending them to the list
+                # of  particles
+            elif phase_types[i_phase] == 5:
+            # This phase is made up by ellipsoids
+                if len(rve_dims) != 3:
+                # The RVE must be 3D
+                    raise errors.IncompatibleDimensionsRVEphase('Ellipsoids', 3, 2, i_phase)
+                particles = (particles
+                             + generateEllipsoids(i_phase, rve_dims, descriptors[i_phase]))
+                # Generating the number of ellipsoids requested and appending them to the
+                # list of particles
+            elif phase_types[i_phase] == 6:
+            # This phase is made up by cylindrical fibers
+                if len(rve_dims) != 3:
+                # The RVE must be 3D
+                    raise errors.IncompatibleDimensionsRVEphase(
+                        'Cylindrical Fibers', 3, 2, i_phase)
+                if any([phase_type != 1 or phase_type != 6 for phase_type in
+                        list(phase_types.values())]):
+                    raise errors.OnlyCylindricalFibers()
+                particles = (particles
+                             + generateCylindricalFibers(i_phase, rve_dims,
+                                                         descriptors[i_phase]))
+                # Generating the number of cylindrical fibers requested and appending them
+                # to the list of particles
+            else:
+                raise errors.UnsupportedPhaseType(phase_types[i_phase], i_phase)
+        except (errors.IncompatibleDimensionsRVEphase,
+                errors.OnlyCylindricalFibers) as error:
+            error.message()
+            quit()
 
     generateInitialConfiguration(particles, save_history=True)
     # FIXME: save history as option
@@ -1223,34 +1407,37 @@ def readDescriptors():
     #     Number of microstructures (samples) to be generated, associated to
     #     the given design point
     n_dp_samples = info_dict.get('n_dp_samples', 1)
+    try:
+        if not isinstance(n_dp_samples, int) or n_dp_samples < 1:
+        # The number of samples must be an integer larger or equal to 1
+            raise errors.NumberSamples(n_dp_samples)
+    except errors.NumberSamples() as error:
+        error.message()
+        quit()
     # mic_gen_descriptors_array: dictionary
-    #     A dictionary which contains all the microstructure
-    #     descriptor-related information required to generate the
-    #     given design point microstructure(s) automatically,
-    #     stored as
-    #                                     Microstructure Descriptors
-    #                               _                                    _
-    #     dictionary['phase_id'] = |  'desc_name'   'desc_name'     ...   |
-    #                              |_  < value >     < value >      ...  _|
-    #
     descriptors = info_dict.get('mic_gen_descriptors', {})
 
-    # descriptors['4'] = {'rve_dims':[1.0, 1.0, 1.0]}
-    # rve_dims = descriptors['4']['rve_dims']
-    # descriptors['2'] = {'r':0.1, 'n':3}
-    # descriptors['2'] = {'distribution':'uniform','r_low':0.02,'r_high':0.04, 'n':190}
-    # descriptors['2'] = {'major_axis':0.20,'minor_axis':0.1,'angle':0,'n':10}
     # phase_types: dictionary
-    #     Dictionary which contains each material phase type, stored as
-    #                    dictionary['phase_id'] = phase_types
-    ## phase_types = info_micro['phase_types']
-    # Types of particles
-    # 1 - Matrix
-    # 2 - Circular particle (disk)
-    # 3 - Elliptical particle
     phase_types = info_dict.get('phase_types', {})
-    # phase_types['4'] = 1 # Matrix
-    # phase_types['2'] = 4 # Elliptical particle
+    try:
+        if set(phase_types.keys()) != set(descriptors.keys()):
+        # There are phases which not have descriptors or a phase type
+            for phase in descriptors:
+                if phase not in phase_types:
+                # If there is a phase that has descriptors but no phase type
+                    raise errors.PhaseDescriptorsMatch(phase)
+    except errors.PhaseDescriptorsMatch as error:
+        error.message()
+        quit()
+    try:
+        for phase in phase_types:
+            if not RepresentsInt(phase) or not isinstance(phase, str):
+                raise errors.UnexpectedValue(phase, 'key of phase_types',
+                                             'string containing an integer')
+    except errors.UnexpectedValue as error:
+        error.message()
+        quit()
+
     # discret_file_ext: list
     #     List which contains the required spatial discretization file(s), stored as
     #                     array = [ < discret_type > < discret_type >  ... ]
@@ -1260,19 +1447,47 @@ def readDescriptors():
     #     each type of specified discretization file, stored as
     #                            dictionary['disc_ext']['parameter'] = [ ... ]
 
+    discret_file_ext = info_dict.get('discret_file_ext', {})
+    # Saving the list containing the meshes required
     discret_spec_array = info_dict.get('discret_spec_array', {})
-    # discret_spec_array['rgmsh'] = {}
-    # discret_spec_array['rgmsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
-    # discret_spec_array['rgmsh']['n_voxels_dims'] = np.array([ 50, 50, 50])
-    # discret_spec_array['femsh'] = {}
-    # discret_spec_array['femsh']['rve_dims'] = np.array([ 1.0, 1.0, 1.0 ])
-    # discret_spec_array['femsh']['mesh_size'] = 0.1
-    if 'rgmsh' in discret_spec_array:
-        rve_dims = discret_spec_array['rgmsh']['rve_dims']
-    elif 'femsh' in discret_spec_array:
-        rve_dims = discret_spec_array['femsh']['rve_dims']
+    # Dictionary containing arrays with the specifications for each meash
+    for ext in discret_spec_array:
+    # Completing the list of extensions from the specification
+        if ext not in discret_file_ext:
+            discret_file_ext.append(ext)
+    try:
+        if len(discret_file_ext) == 0:
+        # No mesh was specified
+            raise errors.NoMesh()
+    except errors.NoMesh as error:
+        error.message()
+        quit()
+    try:
+        for ext in discret_file_ext:
+        # Check if all the required outputs have a description
+            if ext not in discret_spec_array:
+                raise errors.MissingInfoExtension(ext)
+            for spec in discret_spec_array[ext]:
+            # Check if the required extensions specify the bare minimum
+                checkMeshSpecs(ext, discret_spec_array[ext])
+    except errors.MissingInfoExtension as error:
+        error.message()
+        quit()
 
-    discret_file_ext = info_dict.get('discret_file_ext')
+    rve_dims_spec = []
+    for ext in discret_file_ext:
+    # Running through the specified meshes
+        rve_dims_spec.append(tuple(discret_spec_array[ext]['rve_dims']))
+        # Collecting the RVE dimensions specified
+    rve_dims_spec = set(rve_dims_spec)
+    # Obtaining the unique RVE size specifications
+    if len(rve_dims_spec) > 1:
+    # There are multiple RVE size specifications
+        print('Different RVE sizes in the mesh specifications.')
+        rve_dims = np.array(list(rve_dims_spec)[0])
+        # Keeping the first
+    else:
+        rve_dims = np.array(list(rve_dims_spec)[0])
 
     return [dp_dir, descriptors, phase_types, options, n_dp_samples, rve_dims, problem_type,
             discret_spec_array, discret_file_ext]
@@ -1280,21 +1495,25 @@ def readDescriptors():
 
 def computeRelativeEnergy(particles):
     N = Particle.number
-    norm_force_vec = np.array([np.linalg.norm(particles[i].force) for i in range(N)],dtype='float')
+    norm_force_vec = np.array([np.linalg.norm(particles[i].force)
+                              for i in range(N)], dtype='float')
     # Obtaining a list with the norms of the vector forces
     relative_energy = norm_force_vec.dot(norm_force_vec)
     # Computing the relative energy
-    print('new',relative_energy)
+    print('new', relative_energy)
+    Particle.relative_energy_history.append(relative_energy)
 
     return relative_energy
 
 
 def computeKineticEnergy(particles):
     N = Particle.number
-    norm_velocity_vec = np.array([np.linalg.norm(particles[i].velocity_center) for i in range(N)],dtype='float')
+    norm_velocity_vec = np.array(
+        [np.linalg.norm(particles[i].velocity_center) for i in range(N)], dtype='float')
     # Obtaining a list with the norms of the vector forces
     kin_energy = norm_velocity_vec.dot(norm_velocity_vec)
-    print('kinetic',kin_energy)
+    print('kinetic', kin_energy)
+    Particle.kinetic_energy_history.append(kin_energy)
 
     return kin_energy
 
@@ -1415,12 +1634,11 @@ def run(particles, max_residue_per_particle, max_step, options):
     # potential energy (related to the overlap)
     relative_energy = computeRelativeEnergy(particles)
     relative_vec = [relative_energy]
-    jump = np.max([np.int(np.floor(1500/N)), 2])
-    last_alt = jump
-    # e_min = 1e-1
-    # e_max = 1e-1
-    e_min = 1
-    e_max = 1
+    jump = 50 #20 #np.max([np.int(np.floor(1500/N)), 2])
+    last_alt = 100
+    T_ref = 1e-4*1/3
+    Particle.change = []
+    Particle.max_residue = max_residue
     # Computing the relative energy
     kin_energy = computeKineticEnergy(particles)
     # Computing the kinetic energy
@@ -1450,26 +1668,20 @@ def run(particles, max_residue_per_particle, max_step, options):
         # Computing the kinetic energy
         if thermostat == 'isokinetic':
             # The thermostat used is the isokinetic scheme
-            if np.random.uniform() > (1-Particle.volume/2):
-                # Probability of rescaling the velocities modelled as Poisson
-                if step > last_alt:
-                    if np.max(relative_vec[-jump:-1])/np.min(relative_vec[-jump:-1]) <= 10:
-                        if e_max*relative_energy > e_min:
-                            e_max = e_max*1e-1
-                            print('e_max', e_max)
-                        else:
-                            e_min = e_min*(1/(1.3)) # np.min([e_min*(1/(1 + N/1e3)), 1e-2])
-                            print('e_min', e_min)
-                        last_alt = step + jump
-                lambda_vel = np.sqrt(np.max([e_max*relative_energy, e_min])/kin_energy)
-                # Rescalling factor (why? 250 -  equipartition theorem)
-                for i_particle in range(N):
-                    # Running through all the particles
-                    particles[i_particle].velocity_center *= lambda_vel
-                    # Rescalling the velocities
-                    # for j_component in range(2):
-                    #     particles[i_particle].velocity_center[j_component] =
-                    #         np.max()
+            if step > last_alt:
+                if np.max(relative_vec[-jump:-1])/np.min(relative_vec[-jump:-1]) <= 10 and relative_energy > max_residue:
+                    T_ref *= 1/(1.2)
+                    last_alt = step + jump
+                    Particle.change.append(step)
+            lambda_vel = np.sqrt(3*N*T_ref/kin_energy)
+            # Rescalling factor (why? 250 -  equipartition theorem)
+            for i_particle in range(N):
+                # Running through all the particles
+                particles[i_particle].velocity_center *= lambda_vel
+                # Rescalling the velocities
+                # for j_component in range(2):
+                #     particles[i_particle].velocity_center[j_component] =
+                #         np.max()
         else:
             # There is no thermostat
             pass
@@ -1549,8 +1761,13 @@ def main():
     # Generating samples of microstructures and meshing
         for i_sample in range(n_samples):
             # Producing the number of samples required
-            particles = particleGeneration(descriptors, phase_types, rve_dims, problem_type,
-                                           dp_dir)
+            if options.get('save_history', False):
+            # If the saving the history of the particles' motion is required
+                particles = particleGeneration(descriptors, phase_types, rve_dims,
+                                               problem_type, dp_dir, save_history=True)
+            else:
+                particles = particleGeneration(descriptors, phase_types, rve_dims,
+                                               problem_type, dp_dir)
             # Generating the list of particles from the geometrical descriptors
             plotParticles(particles, Particle.file_path + "_initial_conf",
                           save=options.get('save_plot', True),
@@ -1573,11 +1790,10 @@ def main():
                 # Generate corresponding mesh
             plotParticles(particles, Particle.file_path + "_final_config",
                           save=options.get('save_plot', True),
-                          show=options.get('save_plot',  True),
-                          verlet_ngh=True,
-                          center_part=True)
-            plotPaths(particles, particles[0].dim, Particle.file_path)
+                          show=options.get('save_plot',  True))
             # Ploting final configuration
+            if options.get('save_history'):
+                plotPaths(particles, particles[0].dim, Particle.file_path)
     print(end - start)
 
     screen_path.close()

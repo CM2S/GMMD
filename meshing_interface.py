@@ -24,6 +24,7 @@ from particle_classes import Disk, Particle, Ellipse
 # Importing the particle class
 import numpy as np
 import shutil
+import error_classes as errors
 
 def generateMeshFEM(particles, mesh_size, rve_dims, element_type="tri3", **kwargs):
     '''
@@ -960,6 +961,99 @@ def generateMesh(particles, disc_ext, discret_spec_array):
             quit()
         generateMeshFEM(particles, mesh_size, discret_spec_array['rve_dims'])
         # Generating the FEM mesh using gmsh and saving an input data file for LINKS
+
+
+def checkMeshSpecs(disc_ext, discret_spec_array):
+    """Check if the extension has been correctly specified."""
+    if disc_ext == 'rgmsh':
+    # A regular mesh was specified
+        necessary_parameters = {'rve_dims', 'n_voxels_dims'}
+        try:
+            if any([necessary_parameter not in discret_spec_array
+                    for necessary_parameter in necessary_parameters]):
+            # Checking if all the required parameters were supplied
+                raise errors.InsufficientInfoMesh(list(discret_spec_array.keys()),
+                                                  necessary_parameters,
+                                                  disc_ext)
+            rve_dims = discret_spec_array['rve_dims']
+            n_voxels_dims = discret_spec_array['n_voxels_dims']
+            # Saving the RVE dims and the number of voxels in each direction
+            if (rve_dims.shape != (3,) and rve_dims.shape != (2,)):
+            # The RVE dims must be given as 1-arrays with 2 or 3 elements
+                raise(errors.UnexpectedValue(rve_dims, 'rve_dims',
+                                             '1-array with shape (2,) or (3,)'))
+            if any(rve_dims < 0):
+            # The RVE dimensions must be positive real numbers
+                raise errors.UnexpectedValue(rve_dims, 'rve_dims',
+                                             'array of positive reals')
+            if len(rve_dims) != len(n_voxels_dims.T):
+            # The dimension of RVE is not compatible with number of voxels specified
+                raise errors.IncompatibleDimension('rve_dims', 'n_voxels_dims')
+            if any([not np.issubdtype(n_voxels_dims.flat[i_voxel_dim], np.integer)
+                    or n_voxels_dims.flat[i_voxel_dim] < 1
+                    for i_voxel_dim in range(n_voxels_dims.size)]):
+                # The specified number of voxels in any direction must be a positve integer
+                raise errors.UnexpectedValue(n_voxels_dims, 'n_voxels_dims',
+                                             'array of positive integers')
+        except (errors.InsufficientInfoMesh, errors.IncompatibleDimension,
+                errors.UnexpectedValue) as error:
+            error.message()
+            quit()
+    elif disc_ext == 'femsh':
+    # A finite elment mesh was specified
+        necessary_parameters = {'rve_dims', 'mesh_size'}
+        try:
+            if any([necessary_parameter not in discret_spec_array
+                    for necessary_parameter in necessary_parameters]):
+                raise errors.InsufficientInfoMesh(list(discret_spec_array.keys()),
+                                                  necessary_parameters,
+                                                  disc_ext)
+            rve_dims = discret_spec_array['rve_dims']
+            mesh_size = discret_spec_array['mesh_size']
+            if rve_dims.shape != (3,) or rve_dims != (2,):
+            # The RVE dims must be given as 1-arrays with 2 or 3 elements
+                raise errors.UnexpectedValue(rve_dims, 'rve_dims',
+                                             '1-array with shape (2,) or (3,)')
+            if any(rve_dims < 0):
+            # The RVE dimensions must be positive real numbers
+                raise errors.UnexpectedValue(rve_dims, 'rve_dims',
+                                             'array of positive reals')
+            # Saving the RVE dims and the mesh size
+            if mesh_size <= 0:
+            # The meshsize is smaller than one
+                raise errors.UnexpectedValue(mesh_size, 'mesh_size',
+                                             'positive real')
+        except (errors.InsufficientInfoMesh, errors.UnexpectedValue) as error:
+            error.message()
+            quit()
+    elif disc_ext == 'nomsh':
+    # No mesh was specified
+        necessary_parameters = {'rve_dims'}
+        try:
+            if any([necessary_parameter not in discret_spec_array
+                    for necessary_parameter in necessary_parameters]):
+                raise errors.InsufficientInfoMesh(list(discret_spec_array.keys()),
+                                                  necessary_parameters,
+                                                  disc_ext)
+            rve_dims = discret_spec_array['rve_dims']
+            if rve_dims.shape != (3,) or rve_dims != (2,):
+            # The RVE dims must be given as 1-arrays with 2 or 3 elements
+                raise errors.UnexpectedValue(rve_dims, 'rve_dims',
+                                             '1-array with saphe (2,) or (3,)')
+            if any(rve_dims < 0):
+            # The RVE dimensions must be positive real numbers
+                raise errors.UnexpectedValue(rve_dims, 'rve_dims',
+                                             'array of positive reals')
+        except (errors.InsufficientInfoMesh, errors.UnexpectedValue) as error:
+            error.message()
+            quit()
+    else:
+    # Unsupported mesh
+        try:
+            raise errors.UnsupportedMesh(disc_ext)
+        except errors.UnsupportedMesh as error:
+            error.message()
+            quit()
 
 
 def plotPixels(pixel_grid, dir, show=False, save=True):
