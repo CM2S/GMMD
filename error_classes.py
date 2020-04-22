@@ -186,7 +186,7 @@ class NoMesh(Error):
 class MissingInfoExtension(Error):
     """Raised when no specifications were given for some mesh."""
 
-    def _init__(self, ext):
+    def __init__(self, ext):
         self.ext = ext
 
     def message(self):
