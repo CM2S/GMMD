@@ -1540,9 +1540,8 @@ def run(particles, max_residue_per_particle, max_step, options):
     options: dictionary
         Other options. See notes.
 
-    Notes
+    Options(dict)
     ----------------
-    Other parameters used such as:
     dt: float
         Time step
 
@@ -1747,7 +1746,8 @@ def main():
             if file.endswith(".p") and file != 'info_micro.p':
                 mic_name = file
         particles = pickle.load(open(options['dir_previous_mic'] + '/' + mic_name, 'rb'))
-        original_info_dict = pickle.load(open(options['dir_previous_mic'] + '/info_micro.p', 'rb'))
+        original_info_dict = pickle.load(
+            open(options['dir_previous_mic'] + '/info_micro.p', 'rb'))
         # No need to generate a new microstructure. Using a previous microstructure.
         reconstructParticleAttributes(particles, rve_dims, original_info_dict)
         # Reconstructing the relevant Particle attributes that could not be pickled
