@@ -168,6 +168,30 @@ def plotParticles(particles, dir, grid='off', verlet_ngh=False, center_part=Fals
         ax.set_clip_on(True)
         # plt.axis([0, 1, 0, 1, 0, 1])
 
+    if len(Particle.kinetic_energy_history) > 2:
+        fig = plt.figure()
+        plt.plot(range(len(Particle.kinetic_energy_history)), Particle.kinetic_energy_history)
+        if save:
+            plt.savefig(dir + "kinetic_energy" + ".png")
+
+        if show:
+            plt.show()
+
+        fig = plt.figure()
+        ax = plt.gca()
+        for line in Particle.change:
+            plt.semilogy([line, line], [np.min(Particle.relative_energy_history), np.max(Particle.relative_energy_history)])
+        plt.semilogy([0, len(Particle.relative_energy_history)], [Particle.max_residue, Particle.max_residue])
+        plt.ylabel('Relative Energy')
+        plt.semilogy(range(len(Particle.relative_energy_history)), Particle.relative_energy_history)
+        plt.grid()
+        plt.axis([0, len(Particle.relative_energy_history), np.min(Particle.relative_energy_history), np.max(Particle.relative_energy_history)])
+
+        if save:
+            plt.savefig(dir + "relative_energy" + ".png")
+
+        if show:
+            plt.show()
 
 def plotPaths(particles, dim, dp_dir):
     """Plot particle paths."""
@@ -179,6 +203,8 @@ def plotPaths(particles, dim, dp_dir):
     from mpl_toolkits.mplot3d import Axes3D
     import time
     plt.rcParams['animation.ffmpeg_path'] = "/usr/bin/ffmpeg"
+
+    only_center = False
 
     if dim == 3:
         fig = plt.figure()
@@ -285,20 +311,35 @@ def plotPaths(particles, dim, dp_dir):
         loop_len = 5.0  # seconds per loop
         scale = 5
 
-        particle_patches = []
-        for i in range(len(particles)):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    if particles[i].__class__.__name__== 'Disk' or 'CylindricalFiber' == particles[i].__class__.__name__:
-                        circ = mpatches.Circle(
-                            np.array(particles[i].position_center_history)[0, :]+np.array([1*j, 1*k]),
-                             radius=particles[i].radius, alpha=0.5)
-                        particle_patches.append(ax.add_artist(circ))
-                    elif particles[i].__class__.__name__== 'Ellipse':
-                        ellip = mpatches.Ellipse(
-                            np.array(particles[i].position_center_history)[0, :]+np.array([1*j, 1*k]),
-                             particles[i].major_axis, particles[i].minor_axis, angle=180/np.pi*particles[i].angle, alpha=0.5)
-                        particle_patches.append(ax.add_artist(ellip))
+        if only_center:
+            k = 0
+            x = []
+            y = []
+            for i_particle in particles:
+                k += 1
+                path_i = np.array(i_particle.position_center_history)
+                color = np.random.uniform(size=3)
+                c = np.array([np.concatenate((color, np.array([1]))) for i in range(len(path_i[:, 0]))])
+                # my_col = map.to_rgba(c)
+                x.append(path_i[0, 0])
+                y.append(path_i[0, 1])
+                plt.scatter(path_i[:, 0], path_i[:, 1], s=0.01, c='black')
+            particle_patches = plt.scatter(x, y)
+        else:
+            particle_patches = []
+            for i in range(len(particles)):
+                for j in range(-1, 2):
+                    for k in range(-1, 2):
+                        if particles[i].__class__.__name__== 'Disk' or 'CylindricalFiber' == particles[i].__class__.__name__:
+                            circ = mpatches.Circle(
+                                np.array(particles[i].position_center_history)[0, :]+np.array([1*j, 1*k]),
+                                 radius=particles[i].radius, alpha=0.5)
+                            particle_patches.append(ax.add_artist(circ))
+                        elif particles[i].__class__.__name__== 'Ellipse':
+                            ellip = mpatches.Ellipse(
+                                np.array(particles[i].position_center_history)[0, :]+np.array([1*j, 1*k]),
+                                 particles[i].major_axis, particles[i].minor_axis, angle=180/np.pi*particles[i].angle, alpha=0.5)
+                            particle_patches.append(ax.add_artist(ellip))
 
         ax.axis("square")
         plt.axis([0, 1, 0, 1])
@@ -316,10 +357,19 @@ def plotPaths(particles, dim, dp_dir):
 
         def update(frame):
             # update curve
-            for i in range(len(particles)):
-                for j in range(-1, 2):
-                    for k in range(-1, 2):
-                        particle_patches[9*i + 3*(j+1) + (k+1)].set_center(np.array(particles[i].position_center_history)[int(frame), :]+np.array([1*j, 1*k]))
+            if only_center:
+                x = []
+                y = []
+                for i_particle in particles:
+                    path_i = np.array(i_particle.position_center_history)
+                    x.append(path_i[int(frame), 0])
+                    y.append(path_i[int(frame), 1])
+                particle_patches.set_offsets(np.array([x, y]).T)
+            else:
+                for i in range(len(particles)):
+                    for j in range(-1, 2):
+                        for k in range(-1, 2):
+                            particle_patches[9*i + 3*(j+1) + (k+1)].set_center(np.array(particles[i].position_center_history)[int(frame), :]+np.array([1*j, 1*k]))
 
         def update_plot(num): #, *args):
             # is_manual = args[0]
@@ -348,7 +398,7 @@ def plotPaths(particles, dim, dp_dir):
 
         fig.canvas.mpl_connect('button_press_event', on_click)
 
-        ani = animation.FuncAnimation(fig, update_plot, len(particles[0].position_center_history)) #, fargs=(is_manual, is_manual), interval=interval)
+        ani = animation.FuncAnimation(fig, update_plot, 500) #len(particles[0].position_center_history)) #, fargs=(is_manual, is_manual), interval=interval)
 
 
         Writer = animation.writers['ffmpeg']
