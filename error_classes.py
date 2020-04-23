@@ -76,7 +76,7 @@ class PhaseDescriptorsMatch(Error):
 
     def message(self):
         print("Phase {0} has descriptors but no phase type.".format(
-            self.number_samples))
+            self.phase))
 
 
 class InsufficientInfoMesh(Error):
@@ -101,6 +101,17 @@ class UnsupportedMesh(Error):
 
     def message(self):
         print("The mesh with extension {0} is not supported.".format(self.disc_ext))
+
+
+class UnsupportedInitialConfigurationType(Error):
+    """Raised when an unsupported initial configuration is specified."""
+
+    def __init__(self, init_conf):
+        self.init_conf = init_conf
+
+    def message(self):
+        print("The initial configuration type {0} is not supported.".format(self.init_conf))
+
 
 
 class UnsupportedDistribution(Error):
