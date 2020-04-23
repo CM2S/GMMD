@@ -27,6 +27,8 @@ from meshing_interface import generateMesh, checkMeshSpecs
 import error_classes as errors
 # Importing the error clases
 import os
+import shutil
+
 import sys
 from path_analysis import plotPaths, plotParticles
 # ==========================================================================================
@@ -1229,13 +1231,13 @@ def createResultsDirectory(particles, dp_dir):
         os.makedirs(results_folder)
         # Creating the directory
         if os.path.exists("input_data\\info_micro.p"):
-            os.replace("input_data\\info_micro.p",
+            shutil.copy("input_data\\info_micro.p",
                        os.path.join(results_folder, "info_micro.p"))
     else:
         os.makedirs(results_folder)
         # Creating the directory
         if os.path.exists("input_data\\info_micro.p"):
-            os.replace("input_data\\info_micro.p",
+            shutil.copy("input_data\\info_micro.p",
                        os.path.join(results_folder, "info_micro.p"))
     # FIXME: Only the first sample keeps the info folder.
     Particle.file_path = os.path.join(results_folder, Particle.file_name)
@@ -1243,7 +1245,7 @@ def createResultsDirectory(particles, dp_dir):
 
 
 def particleGeneration(descriptors, phase_types, rve_dims, problem_type, dp_dir,
-                       save_history=False):
+                       type_init_conf, save_history=False):
     """
     Generate all the particles from the geometrical descriptors.
 
@@ -1274,9 +1276,16 @@ def particleGeneration(descriptors, phase_types, rve_dims, problem_type, dp_dir,
         Directory where the microstructure spatial discretization file(s) associated
         with the given design point are to be stored
 
+    type_init_conf: {'random', 'grid'}
+        Type of initial configuration for the particle centers.
+
     save_history: bool, optional
         Save the motion of the particles for later analysis.
     """
+    Particle.number = 0
+    # Initializing the total number of particles
+    Particle.volume = 0
+    # Initializing the total volume of all particles
     Particle.box = rve_dims
     # Setting the size of the simulation box. It may be changed later if the phases are
     # made from cylindrical fibers, as their simulated in a plane despite being 3D
@@ -1353,7 +1362,7 @@ def particleGeneration(descriptors, phase_types, rve_dims, problem_type, dp_dir,
                 # The RVE must be 3D
                     raise errors.IncompatibleDimensionsRVEphase(
                         'Cylindrical Fibers', 3, 2, i_phase)
-                if any([phase_type != 1 or phase_type != 6 for phase_type in
+                if any([phase_type != 1 and phase_type != 6 for phase_type in
                         list(phase_types.values())]):
                     raise errors.OnlyCylindricalFibers()
                 particles = (particles
@@ -1773,9 +1782,23 @@ def run(particles, max_residue_per_particle, max_step, options):
 
         print(step)
 
-
     # Integrating Newton's equations of motion
 
+
+def dilateParticles(particles, min_distance):
+    """ Dilate all the particles so that a minimum distance is ensured after contraction."""
+    for i_particle in particles:
+    # Running through all the particles
+        i_particle.dilate(min_distance)
+        # Dilate i_particle
+
+
+def contractParticles(particles, min_distance):
+    """Contract all the particles so that a minimum distance is ensured."""
+    for i_particle in particles:
+    # Running through all the particles
+        i_particle.contract(min_distance)
+        # contract i_particle
 
 
 
@@ -1822,25 +1845,39 @@ def main():
     # Generating samples of microstructures and meshing
         for i_sample in range(n_samples):
             # Producing the number of samples required
-            if options.get('save_history', False):
-            # If the saving the history of the particles' motion is required
-                particles = particleGeneration(descriptors, phase_types, rve_dims,
-                                               problem_type, dp_dir, save_history=True)
-            else:
-                particles = particleGeneration(descriptors, phase_types, rve_dims,
-                                               problem_type, dp_dir)
+            save_history = options.get('save_history', False)
+            # Saving if the history of the particles' motion needs to be saved
+            type_init_conf = options.get('type_initial_configuration', 'random')
+            # Saving the type of initial configuration specified, with 'random' as the
+            # default value
+            particles = particleGeneration(descriptors, phase_types, rve_dims, problem_type,
+                                           dp_dir, type_init_conf=type_init_conf,
+                                           save_history=save_history)
             # Generating the list of particles from the geometrical descriptors
             plotParticles(particles, Particle.file_path + "_initial_conf",
                           save=options.get('save_plot', True),
                           show=options.get('save_plot', True))
             # Ploting initial configuration
-            try:
-                run(particles, options['max_residue_per_particle'], options['max_step'],
-                    options)
-                # Running the molecular dynamics simulation
-            except KeyboardInterrupt:
-                pass
+            for ext in discret_file_ext:
+                if 'min_distance' in discret_spec_array[ext]:
+                # If any of the extensions required specifies a minimum distance
+                    dilateParticles(particles, discret_spec_array[ext]['min_distance'])
+                    # Dilate all particles
+                    break
+            run(particles, options['max_residue_per_particle'], options['max_step'],
+                options)
+            # Running the molecular dynamics simulation
+            for ext in discret_file_ext:
+                if 'min_distance' in discret_spec_array[ext]:
+                # If any of the extensions required specifies a minimum distance
+                    contractParticles(particles, discret_spec_array[ext]['min_distance'])
+                    # Contract all particles
+                    break
             end = time.time()
+            plotParticles(particles, Particle.file_path + "_final_config",
+                          save=options.get('save_plot', True),
+                          show=options.get('save_plot',  True))
+            # Ploting final configuration
             print('cell_list', Particle.cell_list)
             print('verlet_list', [particles[i].verlet_list for i in range(len(particles))])
             pickle.dump(particles, open(Particle.file_path + ".p", "wb"))
@@ -1849,10 +1886,6 @@ def main():
             # For each file extension asked
                 generateMesh(particles, disc_ext, discret_spec_array[disc_ext])
                 # Generate corresponding mesh
-            plotParticles(particles, Particle.file_path + "_final_config",
-                          save=options.get('save_plot', True),
-                          show=options.get('save_plot',  True))
-            # Ploting final configuration
             if options.get('save_history'):
                 plotPaths(particles, particles[0].dim, Particle.file_path)
     print(end - start)

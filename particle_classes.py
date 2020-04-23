@@ -178,22 +178,60 @@ class Particle():
 
 # ==========================================================================================
 
+
 class Ellipse(Particle):
-    """docstring for Ellipse."""
+    """
+    This is the class for Ellipse.
+
+
+    Attributes
+    ----------
+    phase: string
+        Phase to which the ellipse belongs
+
+    major_axis: float
+        Major axis of the ellipse.
+
+    semi_major_axis: float
+        Half the major axis.
+
+    minor_axis: float
+        Minor axis of the ellipse.
+
+    semi_minor_axis: float
+        Half the minor axis.
+
+    eccentricity: float
+        Eccentricity of the ellipse.
+
+    radius: float
+        Radius of the circunscribed circle
+
+    rot_mat: 2-array(floats)
+        Rotation matrix from the global to the local coordinates.
+
+    angle: float
+        Angle in radians that the major axis forms with the x-axis.
+    """
+
 
     def __init__(self, phase, major_axis, minor_axis, angle):
         '''
         This is the generator for the classe Ellipse.
 
-        Parameters:
-            phase: string
-                Phase to which the ellipse belongs
-            major_axis: float
-                Major axis of the ellipse.
-            minor_axis: float
-                Minor axis of the ellipse.
-            angle: float
-                Angle in radians that the major axis forms with the x-axis
+        Parameters
+        ----------
+        phase: string
+            Phase to which the ellipse belongs
+
+        major_axis: float
+            Major axis of the ellipse.
+
+        minor_axis: float
+            Minor axis of the ellipse.
+
+        angle: float
+            Angle in radians that the major axis forms with the x-axis
         '''
         self.major_axis = major_axis
         self.semi_major_axis = major_axis/2
@@ -215,25 +253,53 @@ class Ellipse(Particle):
 
         return volume
 
+    def contract(self, distance):
+        """Contract the particle."""
+        self.semi_major_axis -= distance
+        self.semi_minor_axis -= distance
+        # Contracting the particle size subracting the minimum distance from the semi-axis
+        self.major_axis = 2*self.semi_major_axis
+        self.minor_axis = 2*self.semi_minor_axis
+        self.eccentricity = np.sqrt(1 - self.minor_axis**2/self.major_axis**2)
+        self.radius = self.semi_major_axis
+        # Updating the other geometrical parameters
+
+    def dilate(self, distance):
+        """Dilate the particle."""
+        self.semi_major_axis += distance
+        self.semi_minor_axis += distance
+        # Dilating the particle size adding the minimum distance to the semi-axis
+        self.major_axis = 2*self.semi_major_axis
+        self.minor_axis = 2*self.semi_minor_axis
+        self.eccentricity = np.sqrt(1 - self.minor_axis**2/self.major_axis**2)
+        self.radius = self.semi_major_axis
+        # Updating the other geometrical parameters
+
     def pointInside(self, point, tol=1e-4, position='inside', verlet=False):
         '''
-        This function determines if the point is inside, outside or on the ellipse given a tolerance
+        Check if the point is inside, outside or on the ellipse given a tolerance.
 
-        Parameters:
-            self: Ellipse
-                Ellipse under analysis
-            point: array
-                Point under analysis
-            tol: float
-                Tolerance
-            position: string
-                'inside' or 'on'
-            verlet: boolean
-                Inside the ellipse itself or its neighboor, related to the Verlet list
+        Parameters
+        ---------
+        self: `.Ellipse`
+            Ellipse under analysis
 
-        Returns:
-            point_in: bool
-                True if the point is inside the ellipse and False otherwise.
+        point: array
+            Point under analysis
+
+        tol: float
+            Tolerance
+
+        position: string
+            'inside' or 'on'
+
+        verlet: boolean
+            Inside the ellipse itself or its neighboor, related to the Verlet list
+
+        Returns
+        -------
+        point_in: bool
+            True if the point is inside the ellipse and False otherwise.
         '''
         rot_mat = np.array([[ np.cos(self.angle), np.sin(self.angle)],
                             [-np.sin(self.angle), np.cos(self.angle)]])
@@ -352,7 +418,7 @@ class Ellipse(Particle):
                 # The correct segment belongs to the other ellipse
                 k_ellipse = 1
                 # Index of the other ellipse
-            for i_segment in range(1,2):
+            for i_segment in range(1, 2):
             # Running through each segment
                 k_ellipse = np.mod(k_ellipse + 1, 2)
                 # Index of the ellipse whose area segment needs to calculated
@@ -372,10 +438,10 @@ class Ellipse(Particle):
             # Ordering the intersection points according to their angle relative to the
             # major axis of the current ellipse counter clockwise
             intersection_area += 0.5*np.abs(
-                (intersect_pts_ord[2][0]-intersect_pts_ord[0][0])*\
-                (intersect_pts_ord[3][1]-intersect_pts_ord[1][1])-\
-                (intersect_pts_ord[3][0]-intersect_pts_ord[1][0])*\
-                (intersect_pts_ord[2][1]-intersect_pts_ord[0][1]))
+                (intersect_pts_ord[2][0]-intersect_pts_ord[0][0])
+                * (intersect_pts_ord[3][1]-intersect_pts_ord[1][1])
+                - (intersect_pts_ord[3][0]-intersect_pts_ord[1][0])
+                * (intersect_pts_ord[2][1]-intersect_pts_ord[0][1]))
             # Computing the area of the quadrilateral inscribed in the overlap of the
             # two ellipses
             ellipses = [self, other_ellipse]
@@ -871,13 +937,13 @@ class Ellipsoid(Particle):
         self.rotation_axis = (np.array([euler_angle_x, euler_angle_y, euler_angle_z])
                               / np.linalg.norm(np.array([euler_angle_x, euler_angle_y,
                                                          euler_angle_z])))
-        print(self.rotation_axis)
+
         self.angle = angle
         self.rot_quat = np.array([np.cos(angle/2),
                                   np.sin(angle/2)*self.rotation_axis[0],
                                   np.sin(angle/2)*self.rotation_axis[1],
                                   np.sin(angle/2)*self.rotation_axis[2]])
-        self.radius = axis_1/2
+        self.radius = np.max([self.semi_axis_1, self.semi_axis_3, self.semi_axis_3])
         # Radius of the circunscribed sphere
         q = self.rot_quat
         self.rotation_mat = np.array([[1-2*(q[2]**2+q[3]**2), 2*(q[1]*q[2]-q[3]*q[0]),
@@ -888,6 +954,30 @@ class Ellipsoid(Particle):
                                        1-2*(q[1]**2+q[2]**2)]])
         # Rotation matrix from local to global coordinates
         super().__init__(3, phase)
+
+    def contract(self, distance):
+        """Contract the particle."""
+        self.semi_axis_1 -= distance
+        self.semi_axis_2 -= distance
+        self.semi_axis_3 -= distance
+        # Contracting the particle size subracting the minimum distance from the semi-axis
+        self.axis_1 = 2*self.semi_axis_1
+        self.axis_2 = 2*self.semi_axis_2
+        self.axis_3 = 2*self.semi_axis_3
+        self.radius = np.max([self.semi_axis_1, self.semi_axis_3, self.semi_axis_3])
+        # Updating the other geometrical parameters
+
+    def dilate(self, distance):
+        """Dilate the particle."""
+        self.semi_axis_1 += distance
+        self.semi_axis_2 += distance
+        self.semi_axis_3 += distance
+        # Dilating the particle size adding the minimum distance to the semi-axis
+        self.axis_1 = 2*self.semi_axis_1
+        self.axis_2 = 2*self.semi_axis_2
+        self.axis_3 = 2*self.semi_axis_3
+        self.radius = np.max([self.semi_axis_1, self.semi_axis_3, self.semi_axis_3])
+        # Updating the other geometrical parameters
 
     def M(self):
         M = np.concatenate((np.concatenate((self.rotation_mat, np.array([self.position_center]).T),
