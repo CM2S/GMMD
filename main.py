@@ -826,9 +826,25 @@ def generateCylindricalFibers(phase, rve_dims, descriptors):
     return fibers
 
 
-def generateInitialConfiguration(particles, **kwargs):
-    """Generate the initial configuration (positions and velocities) for the particles."""
-    if True:
+def generateInitialConfiguration(particles, type_init_conf, **kwargs):
+    """
+    Generate the initial configuration (positions and velocities) for the particles.
+
+    Parameters
+    ----------
+    particles: `.Particle`
+        Particles in the RVE.
+
+    type_inti_conf: {'random', 'grid'}
+        Type of initial configuration.
+        'random': Random configuration for the particle centers and the zero velocity.
+        'grid': Particles randomly assigned to a place in a grid constructed to have an
+        equal number of cells in each direction and a total number of cells larger than the
+        number of particles.
+
+    """
+    if type_init_conf == 'random':
+    # Random configuration for the particle centers and the zero velocity
         k = 0
         for i_particle in particles:
             k += 1
@@ -840,27 +856,72 @@ def generateInitialConfiguration(particles, **kwargs):
             if kwargs.get('save_history'):
             # Saving particle history
                 i_particle.position_center_history = [i_particle.position_center.flatten()]
-    elif False:
-        side = np.int(np.ceil(np.cbrt(len(particles))))
-        step = 1/side
-        p = 0
-        place = np.arange(27)
-        np.random.shuffle(place)
-        print(place)
-        print(len(particles))
-        for j in range(side):
-            for k in range(side):
-                for l in range(side):
-                    if place[p] < len(particles):
-                        print(place[p])
-                        particles[place[p]].setPositionCenter(np.array([j*step+step/2, k*step+step/2, l*step+step/2])) # np.array([(i+1)*1/24-np.floor((i+1)*1/24), (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
+    elif type_init_conf == 'grid':
+    # Particles randomly assigned to a place in a grid constructed to have an equal number
+    # of cells in each direction and a total number of cells larger than the number of
+    # particles
+        if particles[0].dim == 3:
+            n_cells_side = np.int(np.ceil(np.cbrt(len(particles))))
+            # Number of cells in each direction
+            cell_length = Particle.box/n_cells_side
+            # Length of the cells in each direction
+            k_counter = 0
+            # Initializing the counter
+            grid_places = np.arange(n_cells_side**3)
+            # Label of each grid place
+            np.random.shuffle(grid_places)
+            # Distributing the particles randomly to different cells of the grid
+            for j in range(n_cells_side):
+                for k in range(n_cells_side):
+                    for l in range(n_cells_side):
+                        if grid_places[k_counter] < len(particles):
+                            # np.array([(i+1)*1/24-np.floor((i+1)*1/24), (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
+                            particles[grid_places[k_counter]].setPositionCenter(np.array(
+                                [j*cell_length[0]+cell_length[0]/2,
+                                 k*cell_length[1]+cell_length[1]/2,
+                                 l*cell_length[2]+cell_length[2]/2]))
+                            # Gene<><rating the positions from a random uniform distribution between 0 and 1
+                            particles[grid_places[k_counter]].setVelocityCenter(
+                                np.random.uniform(low=0.01, high=0.6, size=3))  # np.array([0,0],dtype='float')
+                            # Generating the velocities from a random uniform distribution between -1 and 1
+                            if kwargs.get('save_history'):
+                            # Saving particle history
+                                particles[grid_places[k_counter]].position_center_history = [
+                                    particles[grid_places[k_counter]].position_center.flatten()]
+                        k_counter += 1
+        elif particles[0].dim == 2:
+            n_cells_side = np.int(np.ceil(np.sqrt(len(particles))))
+            # Number of cells in each direction
+            cell_length = Particle.box/n_cells_side
+            # Length of the cells in each direction
+            k_counter = 0
+            # Initializing the counter
+            grid_places = np.arange(n_cells_side**2)
+            # Label of each grid place
+            np.random.shuffle(grid_places)
+            # Distributing the particles randomly to different cells of the grid
+            for j in range(n_cells_side):
+                for k in range(n_cells_side):
+                    if grid_places[k_counter] < len(particles):
+                        # np.array([(i+1)*1/24-np.floor((i+1)*1/24), (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
+                        particles[grid_places[k_counter]].setPositionCenter(np.array(
+                            [j*cell_length[0]+cell_length[0]/2,
+                             k*cell_length[1]+cell_length[1]/2]))
                         # Gene<><rating the positions from a random uniform distribution between 0 and 1
-                        particles[place[p]].setVelocityCenter(np.random.uniform(low=0.01, high=0.6, size=3)) #np.array([0,0],dtype='float')
-                        # Generating the velocities from a random uniform distribution between -1 and 1                    
+                        particles[grid_places[k_counter]].setVelocityCenter(
+                            np.random.uniform(low=0.01, high=0.6, size=2))  # np.array([0,0],dtype='float')
+                        # Generating the velocities from a random uniform distribution between -1 and 1
                         if kwargs.get('save_history'):
                         # Saving particle history
-                            particles[place[p]].position_center_history = [particles[place[p]].position_center.flatten()]
-                    p += 1
+                            particles[grid_places[k_counter]].position_center_history = [
+                                particles[grid_places[k_counter]].position_center.flatten()]
+                    k_counter += 1
+    else:
+        try:
+            raise errors.UnsupportedInitialConfigurationType(type_init_conf)
+        except errors.UnsupportedInitialConfigurationType as error:
+            error.message()
+            quit()
 
 
 def generateSampleParameter(parameter, descriptors, phase, rve_dims, n_samples=1,
@@ -1306,8 +1367,8 @@ def particleGeneration(descriptors, phase_types, rve_dims, problem_type, dp_dir,
                 errors.OnlyCylindricalFibers) as error:
             error.message()
             quit()
-
-    generateInitialConfiguration(particles, save_history=True)
+    
+    generateInitialConfiguration(particles, type_init_conf, save_history=True)
     # FIXME: save history as option
 
     createResultsDirectory(particles, dp_dir)
