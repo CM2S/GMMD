@@ -30,6 +30,7 @@ import os
 import shutil
 
 import sys
+
 from path_analysis import plotPaths, plotParticles
 # ==========================================================================================
 
@@ -45,11 +46,12 @@ from path_analysis import plotPaths, plotParticles
 
 
 def RepresentsInt(s):
-    try: 
+    try:
         int(s)
         return True
     except ValueError:
         return False
+
 
 def newVerletList(particles):
     '''
@@ -107,6 +109,7 @@ def newVerletList(particles):
                     # If the neighboorhoods of the particles intersect
                         particles[i_particle].verlet_list.append(j_particle)
                         # Add the particle j_particle to i_particle's Verlet list
+
 
 def neighboorCell(pos_current_cell, local_pos_neighboor_cell, dim, n_cells):
     '''
@@ -348,8 +351,6 @@ def computeForces(particles, speed_up_scheme):
                                 - force_i_j
                             # Adding the force due to the interaction between particle 1 and 2 to the total
                             # force acting on particle 2
-
-
     elif speed_up_scheme == 'Verlet':
     # Cell list + Verlet list: O(N)
         newCellList(particles)
@@ -377,7 +378,6 @@ def computeForces(particles, speed_up_scheme):
                     # Adding the force due to the interaction between particle 1 and 2 to the total
                     # force acting on particle 2
 
-
 # ==========================================================================================
 def computeForceij(particle_i, particle_j):
     '''
@@ -397,6 +397,17 @@ def computeForceij(particle_i, particle_j):
     return force_i_j
 
 
+def putSystemAtRest(particles):
+    """Put the system as a whole at rest."""
+    total_linear_momentum = np.sum(
+        [particle.volume()*particle.velocity_center for particle in particles], axis=0)
+    # Computing total linear momemtum of the system
+    for i_particle in particles:
+    # Running through all the particles
+        i_particle.setVelocityCenter(i_particle.velocity_center - total_linear_momentum)
+        # Removing the linear momentum of the system as a whole putting at rest
+
+
 def integrate(particles, dt, speed_up_scheme, integration_scheme='Newmark', **kwargs):
     """Integrate the equations of motion."""
     dim = particles[0].dim
@@ -407,13 +418,13 @@ def integrate(particles, dt, speed_up_scheme, integration_scheme='Newmark', **kw
     # Saving the size of the RVE
     for i_particle in range(N):
     # Running through all the particles
-        if integration_scheme=='Newmark':
+        if integration_scheme == 'Newmark':
         # The integration scheme chosen was Newmark
             c = kwargs.get('damping_constant', 0)
             [new_position, new_velocity, new_accelaration] = \
                 Newmark(particles[i_particle].position_center,
                 particles[i_particle].velocity_center,
-                Particle.global_force_factor*np.array([particles[i_particle].force],dtype='float').T,
+                np.array([particles[i_particle].force],dtype='float').T,
                 particles[i_particle].volume()*np.eye(particles[i_particle].dim,dtype='float'), #10e-6*np.eye(2,dtype='float'),#
                 c*np.eye(particles[i_particle].dim,dtype='float'),
                 np.zeros((particles[i_particle].dim,particles[i_particle].dim),dtype='float'),
@@ -1404,88 +1415,128 @@ def readDescriptors():
     phase types and options.
 
     Returns
-    -------
-    dp_dir: str
+    ----------
+    dp_dir: string
         Directory where the microstructure spatial discretization file(s) associated
-        with the given design point are to be stored.
+        with the given design point are to be stored
 
-    descriptors: dict
+    mic_gen_program: integer
+        Integer variable (read from the user input data file) which specifies an
+        available program to generate the microstructure(s) and associated
+        discretization file(s) of a given design point
 
-    phase_types: dict
+    mic_gen_parameters: array
+        An array which contains all the required parameters (or options)
+        for the selected program to generate the microstructure(s) and
+        and associated discretization file(s) of a given design point.
 
-    options: dict
+        ================================ ======================================
+        Option                           Description
+        ================================ ======================================
+        "max_residue_per_particle"       Maximum overlap residue per particle.
+        "max_step"                       Maximum number of iterations.
+        "integration_scheme"             Optional. {'Newmark'}. Integration scheme
+                                         for the equations of motion.
+        "speed_up_scheme"                Optional. {'Naive', 'Cell', 'Verlet'}.
+                                         Speed up scheme used for force computation
+        "remesh"                         Optional. Boolean signaling a remesh action.
+        "dir_previous_mic"               Optional. Directory where the input and
+                                         output files of a previous microstructure
+                                         are saved. They must have their original names.
+        ================================ ======================================
 
-    n_dp_samples: int
+    problem_type: integer
+        Problem type    | 1. 2D problem (plain strain)
+                        | 2. 2D problem (plain stress)
+                        | 3. 2D problem (axisymmetric)
+                        | 4. 3D problem
 
-    rve_dims: list
+    n_dp_samples: integer
+        Number of microstructures (samples) to be generated, associated to
+        the given design point
 
-    problem_type: int
+    mic_gen_descriptors_array: array
+        A dictionary which contains all the microstructure
+        descriptor-related information required to generate the
+        given design point microstructure(s) automatically stored as:
 
-    discret_spec_array: dict
+                                        Microstructure Descriptors
+                                  _                                    _
+        dictionary['phase_id'] = |  'desc_name'   'desc_name'     ...   |
+                                 |_  < value >     < value >      ...  _|.
+
+        See notes_.
+
+    phase_types: dictionary
+        Dictionary which contains each material phase type, stored as
+                       dictionary['phase_id'] = phase_type
+    discret_file_ext: list
+        List which contains the required spatial discretization file(s), stored as:
+
+                        array = [ < discret_type > < discret_type >  ... ]
+
+    discret_spec_array: dictionary
+        Dictionary which contains the required parameters to generate
+        each type of specified discretization file, stored as:
+
+                               dictionary['disc_ext']['parameter'] = [ ... ]
+    Notes
+    -----
+    The parameters for microstructure generation depend on the shape of the particle. They
+    are detailed in the following tables. Particular choices of their values may lead to
+    incompatibilities.
+
+        ================================ ======================================
+        Disk: Choose 2 of the parameters
+        -----------------------------------------------------------------------
+        'r'                              Radius of the disk
+        'n'                              Number of particles
+        'vf'                             Volume fraction
+        ================================ ======================================
+
+        ================================ ======================================
+        Ellipse: Choose 4 of the parameters, including 'angle'
+        -----------------------------------------------------------------------
+        'major_axis'                     Radius of the disk
+        'minor_axis'                     Number of particles
+        'angle'                          Volume fraction
+        'n'                              Number of particles
+        'vf'                             Volume fraction
+        ================================ ======================================
+
+    Any parameter may have a chosen distribution, specified as detailed below:
+    - Fixed distribution: The parameters are fixed. Simply specify the parameter.
+    - Discrete distribution: There parameters follow a discrete distribution, where the
+    parameters take only the given values with the given probability.
+        1. Specify the distribution of parameter *param* as::
+
+                    np.array([['param_distribution']['fixed'], dtype=obj)
+
+        2. Specify the value of the parameter and the probability of that value occuring::
+
+                (np.array([['param_1', 'prob_param_1', 'param_2', 'prob_param_2'],
+                        [1, 0.4, 2, 0.6]], dtype=obj))
+
+    - Uniform distribution: "*_distribution"
+
+            np.array([['distribution_param']['uniform'], dtype=obj)
+
+    - Gaussian distribution:
     """
     info_dict = pickle.load(open('input_data\\info_micro.p', 'rb'))
     # Loading the dictionary containing the information about the microstructure and its
     # generation
-    # dp_dir: string
-    #     Directory where the microstructure spatial discretization file(s) associated
-    #     with the given design point are to be stored
     dp_dir = info_dict.get('dp_dir')
-    # mic_gen_parameters: array
-    #     An array which contains all the required parameters (or options)
-    #     for the selected program to generate the microstructure(s) and
-    #     and associated discretization file(s) of a given design point
-    #     (to be discussed...)
+    # Directory where the microstructure spatial discretization file(s) associated
+    # with the given design point are to be stored
     options = info_dict.get('mic_gen_parameters')
-    # # Initializing the dictionary containing the options
-    # #                                                                    Stopping criteria
-    # # --------------------------------------------------------------------------------------
-    # options['max_residue_per_particle'] = 0
-    # options['max_step'] = 1000
-    # # Maximum number of steps
-    # options['max_steps_to_relax'] = 250
-    # # Maximum number of steps after the legal configuration has been found after which the
-    # # configuration is accepted
-    # #                                                                   Integration scheme
-    # # --------------------------------------------------------------------------------------
-    # options['integration_scheme']='Newmark'
-    # # Integration scheme to be used:
-    # # 'Newmark'  - Newmark beta method
-    # options['damping_constant'] = 0
-    # # Damping constant (only for Newmark)
-    # options['dt'] = 0.005
-    # # Time step
-    # #
-    # #                                        Speed up scheme for the computation of forces
-    # # --------------------------------------------------------------------------------------
-    # options['speed_up_scheme']='Naive'
-    # # Speed up scheme
-    # # 'Naive' - the forces are computed between every pair of particles (O(N**2))
-    # # 'Cell' - the forces are computed making use of a cell list, such that each particle
-    # # only interacts with the particles in its cell or the nearest neighboring cells (O(N))
-    # # 'Verlet' - the forces are computed using a Verlet list for each particle, that in
-    # # turn in computed using a cell list method
-    # options['verlet_factor'] = 1.5
-    # # The Verlet list is computing making use of neighboorhood around the particle, whose
-    # # shape is the same, but dilated by the 'verlet_factor'
-    # #
-    # #                                                                Computation of forces
-    # # --------------------------------------------------------------------------------------
-    # options['initial_global_force_factor'] = 200 #4
-    # 
-    # options['global_force_factor_multiplier'] = 1.8
-    # #                                                                           Thermostat
-    # # --------------------------------------------------------------------------------------
-    # options['thermostat']='isokinetic'
-    # # problem_type: integer
-    # #     Problem type    | 1. 2D problem (plain strain)
-    # #                     | 2. 2D problem (plain stress)
-    # #                     | 3. 2D problem (axisymmetric)
-    # #                     | 4. 3D problem
+    # An array which contains all the required parameters (or options)
+    # for the selected program to generate the microstructure(s) and
+    # and associated discretization file(s) of a given design point
     problem_type = info_dict.get('problem_type')
-    # n_dp_samples: integer
-    #     Number of microstructures (samples) to be generated, associated to
-    #     the given design point
+    # Getting the problem type
     n_dp_samples = info_dict.get('n_dp_samples', 1)
+    # Number of samples to be generated using the descriptors supplied
     try:
         if not isinstance(n_dp_samples, int) or n_dp_samples < 1:
         # The number of samples must be an integer larger or equal to 1
@@ -1493,11 +1544,12 @@ def readDescriptors():
     except errors.NumberSamples() as error:
         error.message()
         quit()
-    # mic_gen_descriptors_array: dictionary
-    descriptors = info_dict.get('mic_gen_descriptors', {})
 
-    # phase_types: dictionary
+    descriptors = info_dict.get('mic_gen_descriptors', {})
+    # mic_gen_descriptors_array: dictionary
+
     phase_types = info_dict.get('phase_types', {})
+    # phase_types: dictionary
     try:
         if set(phase_types.keys()) != set(descriptors.keys()):
         # There are phases which not have descriptors or a phase type
@@ -1516,15 +1568,6 @@ def readDescriptors():
     except errors.UnexpectedValue as error:
         error.message()
         quit()
-
-    # discret_file_ext: list
-    #     List which contains the required spatial discretization file(s), stored as
-    #                     array = [ < discret_type > < discret_type >  ... ]
-
-    # discret_spec_array: dictionary
-    #     Dictionary which contains the required parameters to generate
-    #     each type of specified discretization file, stored as
-    #                            dictionary['disc_ext']['parameter'] = [ ... ]
 
     discret_file_ext = info_dict.get('discret_file_ext', {})
     # Saving the list containing the meshes required
