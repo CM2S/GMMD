@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 # Plotting capabilities
 from integration_methods import Newmark
 # Importing an integration method for the equation of motion
-from particle_classes import Disk, Particle, Ellipse, Sphere, Ellipsoid, CylindricalFiber
+from particle_classes import Disk, Particle, Ellipse, Sphere, Ellipsoid, CylindricalFiber, RVE
 # Importing the particle class
 from meshing_interface import generateMesh, checkMeshSpecs
 # Importing meshing interfaces
@@ -1282,10 +1282,6 @@ def particleGeneration(descriptors, phase_types, rve_dims, problem_type, dp_dir,
     save_history: bool, optional
         Save the motion of the particles for later analysis.
     """
-    Particle.number = 0
-    # Initializing the total number of particles
-    Particle.volume = 0
-    # Initializing the total volume of all particles
     Particle.box = rve_dims
     # Setting the size of the simulation box. It may be changed later if the phases are
     # made from cylindrical fibers, as their simulated in a plane despite being 3D
@@ -1801,20 +1797,6 @@ def contractParticles(particles, min_distance):
         # contract i_particle
 
 
-
-def reconstructParticleAttributes(particles, rve_dims, info_dict):
-    """Reconstruct the relevant Particle attributes that could not be pickled."""
-    Particle.box = rve_dims
-    # FIXME: cylindrical fibers
-    Particle.volume = np.sum([i_particle.volume() for i_particle in particles])
-    Particle.number = len(particles)
-    Particle.list_phases = list(info_dict['phase_types'].keys())
-    for i_phase in Particle.list_phases:
-        if info_dict['phase_types'][i_phase] == 1:
-            Particle.matrix_phase = i_phase
-            break
-
-
 def main():
     """Run the microstructure generation program."""
     start = time.time()
@@ -1826,16 +1808,10 @@ def main():
     # Reading the descriptors and options for the microstructure generation
     if options.get('remesh'):
     # It is a remesh action
-        for file in os.listdir(options['dir_previous_mic']):
-            if file.endswith(".p") and file != 'info_micro.p':
-                mic_name = file
-        particles = pickle.load(open(options['dir_previous_mic'] + '/' + mic_name, 'rb'))
-        original_info_dict = pickle.load(
-            open(options['dir_previous_mic'] + '/info_micro.p', 'rb'))
+        current_RVE = pickle.load(open(options['dir_previous_mic'], 'rb'))
         # No need to generate a new microstructure. Using a previous microstructure.
-        reconstructParticleAttributes(particles, rve_dims, original_info_dict)
+        particles, rve_dims = current_RVE.useThisRVE()
         # Reconstructing the relevant Particle attributes that could not be pickled
-        createResultsDirectory(particles, dp_dir)
         end = time.time()
         for disc_ext in discret_file_ext:
         # For each file extension asked
@@ -1878,16 +1854,20 @@ def main():
                           save=options.get('save_plot', True),
                           show=options.get('save_plot',  True))
             # Ploting final configuration
-            print('cell_list', Particle.cell_list)
-            print('verlet_list', [particles[i].verlet_list for i in range(len(particles))])
-            pickle.dump(particles, open(Particle.file_path + ".p", "wb"))
+            # print('cell_list', Particle.cell_list)
+            # print('verlet_list', [particles[i].verlet_list for i in range(len(particles))])
+            current_RVE = RVE(particles, rve_dims)
+            # Saving the RVE properties in an RVE object
+            pickle.dump(current_RVE, open(Particle.file_path + ".p", "wb"))
             # Saving the configuration for later use
             for disc_ext in discret_file_ext:
             # For each file extension asked
                 generateMesh(particles, disc_ext, discret_spec_array[disc_ext])
                 # Generate corresponding mesh
-            if options.get('save_history'):
+            if save_history:
                 plotPaths(particles, particles[0].dim, Particle.file_path)
+            Particle.resetRVE()
+            # Clearing the properties of the RVE
     print(end - start)
 
     screen_path.close()
