@@ -262,6 +262,11 @@ def computeForces(particles, speed_up_scheme):
         particles[i_particle].cleanForces()
         # Setting all forces to zero at the beginning of the iteration as they are added
         # sequentially as each pair is considered
+        particles[i_particle].cleanOverlapArea()
+        # Setting all the overlap areas to zero at the beginning of the iteration as
+        # they are added sequentially as each pair is considered
+    Particle.total_overlap = 0
+    # Setting the total overlap to zero as it will computed again
     if speed_up_scheme == 'Naive':
     # Naive approach: O(N^2)
         for i_particle in range(len(particles)):
@@ -380,6 +385,10 @@ def computeForceij(particle_i, particle_j):
     '''
     intersection_area = particle_i.intersectionArea(particle_j)
     # Intersection area between particle i and j
+    particle_i.overlap_area += intersection_area
+    particle_j.overlap_area += intersection_area
+    Particle.total_overlap += intersection_area
+    # Updating the overlap area
     unit_vector_i_j = particle_i.intersectionVector(particle_j)
     # Unit vector from particle i to particle j
     force_i_j = -intersection_area*unit_vector_i_j
@@ -451,6 +460,9 @@ def integrate(particles, dt, speed_up_scheme, integration_scheme='Newmark', **kw
         if kwargs.get('save_history'):
         # The history of the particle's motion is required
             particles[i_particle].position_center_history.append(new_position.flatten())
+            Particle.total_overlap_history.append(Particle.total_overlap)
+    # putSystemAtRest(particles)
+    # Putting the systemas a whole at rest
 
 # ==========================================================================================
 
@@ -1565,20 +1577,22 @@ def computeRelativeEnergy(particles):
     norm_force_vec = np.array([np.linalg.norm(particles[i].force)
                               for i in range(N)], dtype='float')
     # Obtaining a list with the norms of the vector forces
-    relative_energy = norm_force_vec.dot(norm_force_vec)
+    relative_energy =  norm_force_vec.dot(norm_force_vec)
     # Computing the relative energy
     print('new', relative_energy)
     Particle.relative_energy_history.append(relative_energy)
+    Particle.total_overlap_history.append(Particle.total_overlap)
 
     return relative_energy
 
 
 def computeKineticEnergy(particles):
-    N = Particle.number
-    norm_velocity_vec = np.array(
-        [np.linalg.norm(particles[i].velocity_center) for i in range(N)], dtype='float')
-    # Obtaining a list with the norms of the vector forces
-    kin_energy = norm_velocity_vec.dot(norm_velocity_vec)
+    # N = Particle.number
+    # norm_velocity_vec = np.array(
+    #     [np.linalg.norm(particles[i].velocity_center) for i in range(N)], dtype='float')
+    # # Obtaining a list with the norms of the vector forces
+    # kin_energy = norm_velocity_vec.dot(norm_velocity_vec)
+    kin_energy = np.sum([i_particle.volume()*np.sum(i_particle.velocity_center**2) for i_particle in particles])
     print('kinetic', kin_energy)
     Particle.kinetic_energy_history.append(kin_energy)
 
@@ -1692,18 +1706,14 @@ def run(particles, max_residue_per_particle, max_step, options):
     # Maximum residual overlap
     step = 0
     # Initializing the the time step at 0
-    initial_global_force_factor = options.get('initial_global_force_factor', 1)
+    initial_global_force_factor = 1 # options.get('initial_global_force_factor', 1)
     Particle.global_force_factor = initial_global_force_factor
     # Initializing the global force factor
     computeForces(particles, speed_up_scheme)
     # Computing the forces in the initial configuration to obtain the initial relative
     # potential energy (related to the overlap)
     relative_energy = computeRelativeEnergy(particles)
-    relative_vec = [relative_energy]
-    jump = 50 #20 #np.max([np.int(np.floor(1500/N)), 2])
-    last_alt = 100
-    T_ref = 1e-4*1/3
-    Particle.change = []
+    total_overlap_vec = [Particle.total_overlap]
     Particle.max_residue = max_residue
     # Computing the relative energy
     kin_energy = computeKineticEnergy(particles)
@@ -1713,6 +1723,11 @@ def run(particles, max_residue_per_particle, max_step, options):
     max_steps_to_relax = options.get('max_steps_to_relax', 100)
     dt = options.get('dt', 0.005)
     thermostat = options.get('thermostat', 'isokinetic')
+    if thermostat == 'isokinetic':
+    # The thermostat used is the isokinetic scheme
+        jump = 30 #20 #np.max([np.int(np.floor(1500/N)), 2])
+        last_alt = 150
+        T_ref = 1e-6*1/3*10
     # Setting the options
     while (step < max_step) and n_steps_relax < max_steps_to_relax:
         # Run the simulation while the number of steps the overlap has been smaller than the
@@ -1729,29 +1744,36 @@ def run(particles, max_residue_per_particle, max_step, options):
         # Computing the forces on all particles
         relative_energy = computeRelativeEnergy(particles)
         # Computing the relative energy
-        relative_vec.append(relative_energy)
+        total_overlap_vec.append(Particle.total_overlap)
         kin_energy = computeKineticEnergy(particles)
         # Computing the kinetic energy
         if thermostat == 'isokinetic':
             # The thermostat used is the isokinetic scheme
             if step > last_alt:
-                if np.max(relative_vec[-jump:-1])/np.min(relative_vec[-jump:-1]) <= 10 and relative_energy > max_residue:
-                    T_ref *= 1/(1.2)
-                    last_alt = step + jump
-                    Particle.change.append(step)
-            lambda_vel = np.sqrt(3*N*T_ref/kin_energy)
-            # Rescalling factor (why? 250 -  equipartition theorem)
+                if np.max(total_overlap_vec[-jump:-1]) != 0:
+                    if np.min(total_overlap_vec[-jump:-1])/np.max(total_overlap_vec[-jump:-1]) >= 0.1 and Particle.total_overlap > max_residue:
+                        T_ref *= 1/1.5
+                        last_alt = step + jump
+                        Particle.temp_change_steps.append(step)
+            if kin_energy > 1e-10:
+            # Compute the rescaling factor only if the kinetic energy is nonzero
+                lambda_vel = np.sqrt(3*N*T_ref/kin_energy)
+                # Rescalling factor (why? 250 -  equipartition theorem)
+            else:
+            # If the kinetic energy is zero
+                lambda_vel = 0
             for i_particle in range(N):
                 # Running through all the particles
                 particles[i_particle].velocity_center *= lambda_vel
                 # Rescalling the velocities
-                # for j_component in range(2):
-                #     particles[i_particle].velocity_center[j_component] =
-                #         np.max()
+            kin_energy_ref = computeKineticEnergy(particles)
+            if relative_energy/Particle.total_overlap < 1e-3:
+                print("diverged")
+                break
         else:
             # There is no thermostat
             pass
-        if relative_energy <= max_residue: # and all([len(Particle.cell_list[i]) < 2 for i in range(27)]): # and all(len(particles[i].verlet_list)<4 for i in range(len(particles))):
+        if Particle.total_overlap <= max_residue: # and all([len(Particle.cell_list[i]) < 2 for i in range(27)]): # and all(len(particles[i].verlet_list)<4 for i in range(len(particles))):
             # If the configuration has an overlap area smaller than the tolerance
             n_steps_relax += 1
             print('n_steps_relax', n_steps_relax)
