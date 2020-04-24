@@ -77,7 +77,7 @@ def newVerletList(particles):
         if dim == 2:
         # 2D problem
             pos_cell_list = pos_cell_list_dim[0] + \
-                pos_cell_list_dim[1]*Particle.n_cell_dim[1]
+                pos_cell_list_dim[1]*Particle.n_cell_dim[0]
             # Saving the position in the cell list of particle i_particle
             for k_neighboor_cell in range(9):
             # Running through the neighboor cells
@@ -132,28 +132,28 @@ def neighboorCell(pos_current_cell, local_pos_neighboor_cell, dim, n_cells):
         local_row_pos_neigh = np.int(np.mod(np.floor(local_pos_neighboor_cell/3), 3) - 1)
         # Local row position of the neighboor, going from -1 to 1 with the origin at the
         # current cell
-        local_col_pos_neigh = np.int(np.mod(local_pos_neighboor_cell,3) - 1)
+        local_col_pos_neigh = np.int(np.mod(local_pos_neighboor_cell, 3) - 1)
         # Local column position of the neighboor, going from -1 to 1 with the origin at the
         # current cell
         pos_neighboor_cell = \
-            np.int(pos_current_cell + local_col_pos_neigh + local_row_pos_neigh*n_cells[1])
+            np.int(pos_current_cell + local_col_pos_neigh + local_row_pos_neigh*n_cells[0])
         # Global position of the neighboor cell without enforcing periodic boundary
         # conditions
-        if pos_current_cell<n_cells[1] and local_row_pos_neigh==-1:
-        # Upper row of the grid
+        if pos_current_cell < n_cells[0] and local_row_pos_neigh == -1:
+        # Lower row of the grid
             pos_neighboor_cell = pos_neighboor_cell + n_cells[1]*n_cells[0]
             # Enforcing the periodic boundary conditions
-        elif pos_current_cell>=n_cells[1]*(n_cells[0]-1) and local_row_pos_neigh==1:
-        # Lower row of the grid
+        elif pos_current_cell >= n_cells[0]*(n_cells[1]-1) and local_row_pos_neigh == 1:
+        # Upper row of the grid
             pos_neighboor_cell = pos_neighboor_cell - n_cells[1]*n_cells[0]
             # Enforcing the periodic boundary conditions
-        if np.mod(pos_current_cell + 1, n_cells[1])==0 and local_col_pos_neigh==1:
+        if np.mod(pos_current_cell + 1, n_cells[0]) == 0 and local_col_pos_neigh == 1:
         # Right column of the grid
-            pos_neighboor_cell = pos_neighboor_cell - n_cells[1]
+            pos_neighboor_cell = pos_neighboor_cell - n_cells[0]
             # Enforcing the periodic boundary conditions
-        elif np.mod(pos_current_cell, n_cells[1])==0 and local_col_pos_neigh==-1:
+        elif np.mod(pos_current_cell, n_cells[0]) == 0 and local_col_pos_neigh == -1:
         # Left column of the grid
-            pos_neighboor_cell = pos_neighboor_cell + n_cells[1]
+            pos_neighboor_cell = pos_neighboor_cell + n_cells[0]
             # Enforcing the periodic boundary conditions
     elif dim == 3:
     # 3D problem
@@ -169,25 +169,25 @@ def neighboorCell(pos_current_cell, local_pos_neighboor_cell, dim, n_cells):
         pos_neighboor_cell = (
             np.int(pos_current_cell
                    + local_col_pos_neigh
-                   + local_row_pos_neigh*n_cells[1]
-                   + local_lay_pos_neigh*n_cells[1]*n_cells[2]))
+                   + local_row_pos_neigh*n_cells[0]
+                   + local_lay_pos_neigh*n_cells[0]*n_cells[1]))
         # Global position of the neighboor cell without enforcing periodic boundary
         # conditions
-        if pos_current_cell < n_cells[1] and local_row_pos_neigh == -1:
-        # Upper row of the grid
+        if pos_current_cell < n_cells[0] and local_row_pos_neigh == -1:
+        # Lower row of the grid
             pos_neighboor_cell = pos_neighboor_cell + n_cells[1]*n_cells[0]
             # Enforcing the periodic boundary conditions
-        elif pos_current_cell >= n_cells[1]*(n_cells[0]-1) and local_row_pos_neigh == 1:
-        # Lower row of the grid
+        elif pos_current_cell >= n_cells[0]*(n_cells[1] - 1) and local_row_pos_neigh == 1:
+        # Upper row of the grid
             pos_neighboor_cell = pos_neighboor_cell - n_cells[1]*n_cells[0]
             # Enforcing the periodic boundary conditions
-        if np.mod(pos_current_cell + 1, n_cells[1]) == 0 and local_col_pos_neigh == 1:
+        if np.mod(pos_current_cell + 1, n_cells[0]) == 0 and local_col_pos_neigh == 1:
         # Right column of the grid
-            pos_neighboor_cell = pos_neighboor_cell - n_cells[1]
+            pos_neighboor_cell = pos_neighboor_cell - n_cells[0]
             # Enforcing the periodic boundary conditions
-        elif np.mod(pos_current_cell, n_cells[1]) == 0 and local_col_pos_neigh == -1:
+        elif np.mod(pos_current_cell, n_cells[0]) == 0 and local_col_pos_neigh == -1:
         # Left column of the grid
-            pos_neighboor_cell = pos_neighboor_cell + n_cells[1]
+            pos_neighboor_cell = pos_neighboor_cell + n_cells[0]
             # Enforcing the periodic boundary conditions
         if pos_current_cell < n_cells[1]*n_cells[0] and local_lay_pos_neigh == -1:
         # Firsl layer of the grid
@@ -847,11 +847,12 @@ def generateInitialConfiguration(particles, type_init_conf, **kwargs):
     """
     if type_init_conf == 'random':
     # Random configuration for the particle centers and the zero velocity
+        np.random.seed(42)
         k = 0
         for i_particle in particles:
             k += 1
         # Running through all the particles
-            i_particle.setPositionCenter(np.random.uniform(size=i_particle.dim)) #np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
+            i_particle.setPositionCenter(Particle.box*np.random.uniform(size=i_particle.dim)) #np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
             # Generating the positions from a random uniform distribution between 0 and 1
             i_particle.setVelocityCenter(np.zeros((i_particle.dim))) #np.array([0,0],dtype='float')
             # Generating the velocities from a random uniform distribution between -1 and 1
