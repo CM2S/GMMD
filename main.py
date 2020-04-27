@@ -1235,7 +1235,7 @@ def canonicalParametersEllipsoid(sample, rve_dims):
     return [axis_1, axis_2, axis_3, euler_angle_x, euler_angle_y, euler_angle_z, angle]
 
 
-def createResultsDirectory(particles, dp_dir):
+def createResultsDirectory(particles, dp_dir, remesh=False):
     """Create the results directory."""
     Particle.file_name = (particles[0].__class__.__name__ + "_" + str(Particle.number)
                           + "_" + str(Particle.volume)[0:3])
@@ -1255,13 +1255,13 @@ def createResultsDirectory(particles, dp_dir):
             # folder
         os.makedirs(results_folder)
         # Creating the directory
-        if os.path.exists("input_data\\info_micro.p"):
+        if os.path.exists("input_data\\info_micro.p") and not remesh:
             shutil.copy("input_data\\info_micro.p",
                        os.path.join(results_folder, "info_micro.p"))
     else:
         os.makedirs(results_folder)
         # Creating the directory
-        if os.path.exists("input_data\\info_micro.p"):
+        if os.path.exists("input_data\\info_micro.p") and not remesh:
             shutil.copy("input_data\\info_micro.p",
                        os.path.join(results_folder, "info_micro.p"))
     # FIXME: Only the first sample keeps the info folder.
@@ -1856,6 +1856,8 @@ def main():
         # No need to generate a new microstructure. Using a previous microstructure.
         particles, rve_dims = current_RVE.useThisRVE(dp_dir)
         # Reconstructing the relevant Particle attributes that could not be pickled
+        createResultsDirectory(particles, dp_dir, remesh=True)
+        # Create results directory
         end = time.time()
         for disc_ext in discret_file_ext:
         # For each file extension asked

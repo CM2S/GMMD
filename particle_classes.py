@@ -151,7 +151,7 @@ class RVE():
         # List containing the number of cells in each direction
         Particle.matrix_phase = self.matrix_phase
         # Matrix phase of the RVE
-        Particle.file_path = os.path.join(dp_dir, os.path.basename(self.file_path)[0])
+        Particle.file_path = os.path.join(dp_dir, os.path.split(self.file_path)[0])
         # File path that all outputs use
         Particle.cell_side_length = self.cell_side_length
         # List containing the side lengths of the cells for force computation in each
