@@ -31,7 +31,7 @@ import shutil
 
 import sys
 
-from path_analysis import plotPaths, plotParticles
+from path_analysis import plotPaths, plotParticles, plotVoronoi2D
 # ==========================================================================================
 
 
@@ -471,7 +471,6 @@ def integrate(particles, dt, speed_up_scheme, integration_scheme='Newmark', **kw
         if kwargs.get('save_history'):
         # The history of the particle's motion is required
             particles[i_particle].position_center_history.append(new_position.flatten())
-            Particle.total_overlap_history.append(Particle.total_overlap)
     # putSystemAtRest(particles)
     # Putting the systemas a whole at rest
 
@@ -538,7 +537,7 @@ def generateDisks(phase, rve_dims, descriptors):
                 current_sample[i_parameter] = generateSampleParameter(
                     i_parameter, descriptors, phase, rve_dims)
             r = canonicalParametersDisk(current_sample, rve_dims)
-            disks.append(Disk(phase, r))
+            disks.append(Disk(phase, r[0]))
             vf_real += disks[-1].volume()/(rve_dims[0]*rve_dims[1])
     elif 'vf' in descriptors and 'n' in descriptors:
         samples = {}
@@ -547,6 +546,8 @@ def generateDisks(phase, rve_dims, descriptors):
             samples[i_parameter] = generateSampleParameter(
                 i_parameter, descriptors, phase, rve_dims, n_samples=descriptors['n'])
         r = canonicalParametersDisk(samples, rve_dims)
+        # Obtaining the radius corresponding to the specified volume fraction and number of
+        # particles
         for i in range(descriptors['n']):
             disks.append(Disk(phase, r))
 
@@ -870,7 +871,7 @@ def generateInitialConfiguration(particles, type_init_conf, **kwargs):
     """
     if type_init_conf == 'random':
     # Random configuration for the particle centers and the zero velocity
-        np.random.seed(42)
+        # np.random.seed(42)
         k = 0
         for i_particle in particles:
             k += 1
@@ -1623,8 +1624,8 @@ def computeRelativeEnergy(particles):
     relative_energy =  norm_force_vec.dot(norm_force_vec)
     # Computing the relative energy
     print('new', relative_energy)
+    print('overlap', Particle.total_overlap)
     Particle.relative_energy_history.append(relative_energy)
-    Particle.total_overlap_history.append(Particle.total_overlap)
 
     return relative_energy
 
@@ -1749,9 +1750,6 @@ def run(particles, max_residue_per_particle, max_step, options):
     # Maximum residual overlap
     step = 0
     # Initializing the the time step at 0
-    initial_global_force_factor = 1 # options.get('initial_global_force_factor', 1)
-    Particle.global_force_factor = initial_global_force_factor
-    # Initializing the global force factor
     computeForces(particles, speed_up_scheme)
     # Computing the forces in the initial configuration to obtain the initial relative
     # potential energy (related to the overlap)
@@ -1768,9 +1766,9 @@ def run(particles, max_residue_per_particle, max_step, options):
     thermostat = options.get('thermostat', 'isokinetic')
     if thermostat == 'isokinetic':
     # The thermostat used is the isokinetic scheme
-        jump = 30 #20 #np.max([np.int(np.floor(1500/N)), 2])
+        jump = 40 #20 #np.max([np.int(np.floor(1500/N)), 2])
         last_alt = 150
-        T_ref = 1e-6*1/3*10
+        T_ref = 1e-5*1/3
     # Setting the options
     while (step < max_step) and n_steps_relax < max_steps_to_relax:
         # Run the simulation while the number of steps the overlap has been smaller than the
@@ -1787,6 +1785,7 @@ def run(particles, max_residue_per_particle, max_step, options):
         # Computing the forces on all particles
         relative_energy = computeRelativeEnergy(particles)
         # Computing the relative energy
+        Particle.total_overlap_history.append(Particle.total_overlap)
         total_overlap_vec.append(Particle.total_overlap)
         kin_energy = computeKineticEnergy(particles)
         # Computing the kinetic energy
@@ -1809,8 +1808,7 @@ def run(particles, max_residue_per_particle, max_step, options):
                 # Running through all the particles
                 particles[i_particle].velocity_center *= lambda_vel
                 # Rescalling the velocities
-            kin_energy_ref = computeKineticEnergy(particles)
-            if relative_energy/Particle.total_overlap < 1e-3:
+            if relative_energy/Particle.total_overlap < 1e-8 and Particle.total_overlap > max_residue:
                 print("diverged")
                 break
         else:
@@ -1824,27 +1822,7 @@ def run(particles, max_residue_per_particle, max_step, options):
         else:
             n_steps_relax = 0
             # Restarting the count
-
-        # Particle.global_force_factor *= 10e-3/relative_energy #options['global_force_factor_multiplier']
-
-        # if relative_energy/relative_energy_old < 0.5:
-        # # If the relative energy has decreased by a factor of two in this iteraton
-        #     relative_energy_old = relative_energy
-        #     # Saving the value of the previous relative energy
-        #     Particle.global_force_factor *= \
-        #         kwargs.get('global_force_factor_multiplier', 1)
-        #     # Increase the global factor multiplying the forces
-        # elif relative_energy/relative_energy_old > 2:
-        # # If the relative energy has increased by a factor of two in this iteraton
-        #     relative_energy_old = relative_energy
-        #     # Saving the value of the previous relative energy
-        #     Particle.global_force_factor *= \
-        #         1/kwargs.get('global_force_factor_multiplier', 1)
-        #     # Increase the global factor multiplying the forces
-
         print(step)
-
-    # Integrating Newton's equations of motion
 
 
 def dilateParticles(particles, min_distance):
@@ -1876,7 +1854,7 @@ def main():
     # It is a remesh action
         current_RVE = pickle.load(open(options['dir_previous_mic'], 'rb'))
         # No need to generate a new microstructure. Using a previous microstructure.
-        particles, rve_dims = current_RVE.useThisRVE()
+        particles, rve_dims = current_RVE.useThisRVE(dp_dir)
         # Reconstructing the relevant Particle attributes that could not be pickled
         end = time.time()
         for disc_ext in discret_file_ext:
@@ -1930,8 +1908,9 @@ def main():
             # For each file extension asked
                 generateMesh(particles, disc_ext, discret_spec_array[disc_ext])
                 # Generate corresponding mesh
-            if save_history:
-                plotPaths(particles, particles[0].dim, Particle.file_path)
+            # if save_history:
+            #     plotPaths(particles, particles[0].dim, Particle.file_path)
+            plotVoronoi2D(particles, Particle.file_path + "_voronoi")
             Particle.resetRVE()
             # Clearing the properties of the RVE
     print(end - start)

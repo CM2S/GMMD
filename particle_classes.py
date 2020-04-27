@@ -4,6 +4,8 @@ from scipy import integrate
 
 import error_classes as errors
 
+import os
+
 
 class RVE():
     """
@@ -127,7 +129,7 @@ class RVE():
         self.total_overlap_history = Particle.total_overlap_history
         # History of the particles' overlap
 
-    def useThisRVE(self):
+    def useThisRVE(self, dp_dir):
         """Intialize the the Particle class attributes using this RVE."""
         Particle.box = self.box
         # Size of the simulation box
@@ -149,7 +151,7 @@ class RVE():
         # List containing the number of cells in each direction
         Particle.matrix_phase = self.matrix_phase
         # Matrix phase of the RVE
-        Particle.file_path = self.file_path
+        Particle.file_path = os.path.join(dp_dir, os.path.basename(self.file_path)[0])
         # File path that all outputs use
         Particle.cell_side_length = self.cell_side_length
         # List containing the side lengths of the cells for force computation in each
@@ -953,6 +955,16 @@ class Disk(Ellipse):
         Particle.volume += self.volume()
         Particle.number += 1
         self.phase = phase
+
+    def generatePointsOnSurface(self, n_points):
+        """Generate *n_points* on the surface of the Disk."""
+        points_loc = np.array([[self.radius*np.cos(theta), self.radius*np.sin(theta)]
+                              for theta in np.linspace(0, 2*np.pi, n_points, endpoint=False)])
+        # Generating the points in the Disk's local coordinates
+        points_glob = points_loc + self.position_center
+        # Transforming local in global coordinates
+        print('pts', points_glob)
+        return points_glob
 
     def intersectionArea(self, other_particle):
         '''
