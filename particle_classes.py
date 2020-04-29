@@ -916,6 +916,30 @@ class Ellipse(Particle):
 
         return point_in
 
+    def generatePointsOnSurface(self, n_points, erosion_thick=0):
+        """Generate *n_points* on the surface of the ellipse."""
+        points_loc = np.array([[self.semi_major_axis*np.cos(theta), self.semi_minor_axis*np.sin(theta)]
+                              for theta in np.linspace(0, 2*np.pi, n_points, endpoint=False)])
+        # Generating the points in the Disk's local coordinates
+        if erosion_thick > 0:
+        # If erosion was sepcified
+            for point_ind, _ in enumerate(points_loc):
+            # For each point on the surface with its corresponding homogeneous angle
+                angle_normal = np.arctan2(self.semi_major_axis/self.semi_minor_axis*points_loc[point_ind][1], points_loc[point_ind][0])
+                # Computing the angle of the normal at the current point
+                points_loc[point_ind] -= erosion_thick*np.array([np.cos(angle_normal), np.sin(angle_normal)])
+                # Translation of the point in the normal direction to the surface by the
+                # specified thickness (erosion)
+        points_glob = np.array([self.rot_mat.T.dot(point_loc) + self.position_center for point_loc in points_loc])
+        # Transforming local in global coordinates
+        return points_glob
+
+    def computeCriticalErosionThickness(self):
+        """Compute the critical erosion thickness for an ellipse."""
+        erosion_thickness = self.semi_minor_axis**2/self.semi_major_axis
+        # Semi-latus rectum
+        return erosion_thickness
+
 
 class Disk(Ellipse):
     '''
@@ -956,14 +980,20 @@ class Disk(Ellipse):
         Particle.number += 1
         self.phase = phase
 
-    def generatePointsOnSurface(self, n_points):
+    def generatePointsOnSurface(self, n_points, erosion_thick=0):
         """Generate *n_points* on the surface of the Disk."""
         points_loc = np.array([[self.radius*np.cos(theta), self.radius*np.sin(theta)]
                               for theta in np.linspace(0, 2*np.pi, n_points, endpoint=False)])
         # Generating the points in the Disk's local coordinates
         points_glob = points_loc + self.position_center
         # Transforming local in global coordinates
-        print('pts', points_glob)
+        if erosion_thick > 0:
+        # If erosion was sepcified
+            for (point_ind, _), theta in zip(enumerate(points_glob), np.linspace(0, 2*np.pi, n_points, endpoint=False)):
+            # For each point on the surface with its corresponding homogeneous angle
+                points_glob[point_ind] -= erosion_thick*np.array([np.cos(theta), np.sin(theta)])
+                # Translation of the point in the normal direction to the surface by the
+                # specified thickness (erosion)
         return points_glob
 
     def intersectionArea(self, other_particle):
@@ -1058,7 +1088,7 @@ class Disk(Ellipse):
 
     def pointInside(self, point):
 
-        if np.linalg.norm(self.position_center-point) <= self.radius:
+        if np.linalg.norm(self.position_center - point) <= self.radius:
             point_in = True
         else:
             point_in = False
@@ -1105,6 +1135,11 @@ class Disk(Ellipse):
         # the center of the ellipse has not
             point_in = True
         return point_in
+
+    def computeCriticalErosionThickness(self):
+        """Compute the critical erosion thickness for a disk."""
+        erosion_thickness = self.radius
+        return erosion_thickness
 
 class CylindricalFiber(Disk):
     '''
@@ -1266,7 +1301,7 @@ class Ellipsoid(Particle):
 
         return volume
 
-    def pointInside(self, point, tol=1e-4, position='inside', verlet=False):
+    def pointInside(self, point, tol=1e-6, position='inside', verlet=False):
         """
         Check if a given point is inside the ellipsoid.
 

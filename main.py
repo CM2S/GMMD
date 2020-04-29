@@ -26,6 +26,9 @@ from meshing_interface import generateMesh, checkMeshSpecs
 # Importing meshing interfaces
 import error_classes as errors
 # Importing the error clases
+
+from voronoi_analysis import doVoronoiAnalysis
+
 import os
 import shutil
 
@@ -1238,7 +1241,8 @@ def canonicalParametersEllipsoid(sample, rve_dims):
 def createResultsDirectory(particles, dp_dir, remesh=False):
     """Create the results directory."""
     Particle.file_name = (particles[0].__class__.__name__ + "_" + str(Particle.number)
-                          + "_" + str(Particle.volume)[0:3])
+                          + "_" + str(Particle.volume)[0:5])
+    print(Particle.volume)
     # Defining the file name associated with this sampling
     results_folder = os.path.join(dp_dir,  Particle.file_name)
     # Creating a tentative path for the results folder
@@ -1868,6 +1872,7 @@ def main():
         for i_sample in range(n_samples):
             # Producing the number of samples required
             save_history = options.get('save_history', False)
+            voronoi_analysis = options.get('voronoi_analysis', True)
             # Saving if the history of the particles' motion needs to be saved
             type_init_conf = options.get('type_initial_configuration', 'random')
             # Saving the type of initial configuration specified, with 'random' as the
@@ -1912,7 +1917,8 @@ def main():
                 # Generate corresponding mesh
             # if save_history:
             #     plotPaths(particles, particles[0].dim, Particle.file_path)
-            plotVoronoi2D(particles, Particle.file_path + "_voronoi")
+            if voronoi_analysis:
+                doVoronoiAnalysis(particles, Particle.file_path)
             Particle.resetRVE()
             # Clearing the properties of the RVE
     print(end - start)
