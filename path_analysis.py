@@ -806,7 +806,7 @@ def plotVoronoi2DwithIMTs(particles, voronoi, IMTs, dir, voronoi_type, save=True
         if show:
             plt.show()
 
-def plotVoronoi3D(particles, voronoi, rve_dims, dir, voronoi_type, save=True, show=True):
+def plotVoronoi3Dpbc(particles, voronoi, rve_dims, dir, voronoi_type, save=True, show=True):
     """Plot the Voronoi for circular particles."""
     # ======================================================================================
     # Set up GMSH in Python
@@ -1122,6 +1122,296 @@ def plotVoronoi3D(particles, voronoi, rve_dims, dir, voronoi_type, save=True, sh
     fin.close()
     fout.close()
     os.remove(meshfile_temp)
+
+
+def plotVoronoi3D(particles, voronoi, rve_dims, dir, voronoi_type, save=True, show=True):
+    """Plot the Voronoi for circular particles."""
+    # ======================================================================================
+    # Set up GMSH in Python
+    # ======================================================================================
+    # Select the geometry engine
+    # occ - OpenCASCADE CAD (more advanced)
+    # geo - built-in CAD kernel (less sophisticated)
+    model = gmsh.model
+    factory = model.occ
+
+    # Initialise GMSH
+    gmsh.initialize()
+
+    # Output to terminal
+    gmsh.option.setNumber("General.Terminal", 1)
+
+    # 2D Meshing algorithm
+    # --------------------
+    # 1 - Mesh Adapt
+    # 2 - Automatic
+    # 5 - Delaunay (default)
+    # 6 - Frontal-Delaunay
+    # 7 - BAMG
+    # 8 - Frontal-Delaunay for Quads
+    # 9 - Packing of Parallelograms
+    gmsh.option.setNumber("Mesh.Algorithm", 5)
+
+    # 3D Meshing algorithm
+    # --------------------
+    # 1 - Delaunay (default)
+    # 2 - Frontal
+    # 7 - MMG3D
+    # 9 - R-tree
+    # 10 - HXT
+    gmsh.option.setNumber("Mesh.Algorithm3D", 1)
+
+    # Characteristic mesh length factor (applied acroos all mesh)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthFactor", 1)
+
+    # Multi-threading
+    gmsh.option.setNumber("Mesh.MaxNumThreads1D", 0)
+    gmsh.option.setNumber("Mesh.MaxNumThreads2D", 0)
+    gmsh.option.setNumber("Mesh.MaxNumThreads3D", 0)
+
+    # MSH file version
+    gmsh.option.setNumber("Mesh.MshFileVersion", 4.1)
+
+    # Quad/Hex recombination algorithms
+    # ---------------------------------
+    # 0 - simple
+    # 1 - blossom (default)
+    # 2 - simple full-quad
+    # 3 - blosson full-quad
+    gmsh.option.setNumber("Mesh.RecombinationAlgorithm", 0)
+
+    # Force recombination in all surfaces
+    gmsh.option.setNumber("Mesh.RecombineAll", 0)
+
+    # Number of topological optimization passes of recombined surface meshes (5 by default)
+    gmsh.option.setNumber("Mesh.RecombineOptimizeTopology", 5)
+
+    # Force recombination in all volumes
+    gmsh.option.setNumber("Mesh.Recombine3DAll", 0)
+
+    # Recombination level in 3D
+    # -------------------------
+    # 0 - hex (default)
+    # 1 - hex + prisms
+    # 2 - hex + prisms + pyramids
+    gmsh.option.setNumber("Mesh.Recombine3DLevel", 0)
+
+    # Recombination conformity type in 3D meshes
+    # ------------------------------------------
+    # 0 - nonconforming (default)
+    # 1 - trihedra
+    # 2 - pyramids + trihedra
+    # 2 - pyramids + hexSplit + trihedra
+    # 4 - hexSplit + trihedra
+    gmsh.option.setNumber("Mesh.Recombine3DConformity", 1)
+
+    # Renumber nodes and elements after mesh generation
+    gmsh.option.setNumber("Mesh.Renumber", 1)
+
+    # Save all elements even if they do not belong to physical groups
+    gmsh.option.setNumber("Mesh.SaveAll", 0)
+
+    # Number of smoothing step applied to the final mesh
+    gmsh.option.setNumber("Mesh.Smoothing", 1)
+
+    # Element order
+    gmsh.option.setNumber("Mesh.ElementOrder", 1)
+
+    # Crete second-order nodes by linear interpolation
+    gmsh.option.setNumber("Mesh.SecondOrderLinear", 0)
+
+    # Second-order incomplete elements
+    gmsh.option.setNumber("Mesh.SecondOrderIncomplete", 0)
+
+    # ==========================================================================================
+    # Generate the finite element mesh
+    # ==========================================================================================
+    # Define model name
+
+    title = Particle.file_path
+    model.add(title)
+
+    particleTags = []
+    k_particle_image = 0
+    phaseDimTag = {phase: [] for phase in Particle.list_phases}
+    for i_particle in particles:
+    # Running through all the particles
+        class_name_i_particle = i_particle.__class__.__name__
+        # Saving the class name of the particle as a string
+        for j in range(1):
+        # Periodic images in the x direction
+            for p in range(1):
+            # Periodic images in the y direction
+                for l in range(1):
+                # Periodic images in the z direction
+                    if 'CylindricalFiber' == class_name_i_particle:
+                        if l != 0:
+                            continue
+                        xc = i_particle.position_center[0] + Particle.box[0]*j
+                        yc = i_particle.position_center[1] + Particle.box[1]*p
+                        zc = 0
+                        rx = i_particle.radius
+                        ry = i_particle.radius
+                        # Speciying the position and the radius of the fibers face
+                        faceTag = factory.addDisk(xc, yc, zc, rx, ry)
+                        # Saving the properties of the particles
+                        if i_particle.direction_fibers == 0:
+                        # The fibers run in the x direction
+                            factory.rotate([(2, faceTag)],
+                                           0, 0, 0, 0, 1, 0, 3*np.pi/2)
+                            # Rotating the fiber face to the yz plane as it was ploted
+                            # in the xy plane
+                            extrusionTags = factory.extrude(
+                                [(2, faceTag)], i_particle.length_dir_fibers, 0, 0)
+                            # Extruding the fiber from the fiber face in the yz plane in the
+                            # x direction
+                        elif i_particle.direction_fibers == 1:
+                        # The fibers run in the y direction
+                            factory.rotate([(2, faceTag)],
+                                           0, 0, 0, 1, 0, 0, np.pi/2)
+                            # Rotating the fiber faces to the xz plane as it was ploted
+                            # in the xy plane
+                            extrusionTags = factory.extrude(
+                                [(2, faceTag)], 0, i_particle.length_dir_fibers, 0)
+                            # Extruding the fiber from the fiber face in the xz plane in the
+                            # y direction
+                        elif i_particle.direction_fibers == 2:
+                        # The fibers run in the z direction
+                            extrusionTags = factory.extrude(
+                                [(2, faceTag)], 0, 0, i_particle.length_dir_fibers)
+                            # Extruding the fiber from the fiber face in the xy plane in the
+                            # z direction
+    
+                        for i_dimTag in extrusionTags:
+                            if i_dimTag[0] == 3:
+                                particleTags.append(i_dimTag[1])
+                                break
+    
+                        phaseDimTag[str(i_particle.phase)].append(
+                            (3, particleTags[-1]))
+    
+                        factory.synchronize()
+                        k_particle_image += 1
+                    if 'Sphere' == class_name_i_particle:
+                    # Particle is a Sphere
+                        xc = i_particle.position_center[0] + Particle.box[0]*j
+                        yc = i_particle.position_center[1] + Particle.box[1]*p
+                        zc = i_particle.position_center[2] + Particle.box[2]*l
+                        r = i_particle.radius
+                        # Saving the properties of the particles
+                        sphereTag = factory.addSphere(xc, yc, zc, r)
+
+                        factory.synchronize()
+                        particleTags.append(gmsh.model.getBoundary((3, sphereTag))[0][1])
+                        gmsh.model.removeEntities((3, sphereTag))
+                        phaseDimTag[str(i_particle.phase)].append((2, particleTags[k_particle_image]))
+    
+                        factory.synchronize()
+                        k_particle_image += 1
+                    elif 'Ellipsoid' == class_name_i_particle:
+                    # Particle is an Ellipsoid
+                        xc = i_particle.position_center[0] + Particle.box[0]*j
+                        yc = i_particle.position_center[1] + Particle.box[1]*p
+                        zc = i_particle.position_center[2] + Particle.box[2]*l
+                        r = 1
+                        # Saving the properties of the particles
+                        particleTags.append(factory.addSphere(xc, yc, zc, r))
+                        # Creating a sphere without rotation
+                        # Rotate the disk
+                        factory.synchronize()
+                        affineTags = [(3, particleTags[k_particle_image])]
+                        # affineTags.extend(
+                        #     model.getBoundary([(3, particleTags[k_particle_image])]))
+                        factory.dilate(affineTags, xc, yc, zc,
+                                       i_particle.semi_axis_1,
+                                       i_particle.semi_axis_2,
+                                       i_particle.semi_axis_3)
+                        factory.rotate(affineTags, xc, yc, zc,
+                                       i_particle.rotation_axis[0],
+                                       i_particle.rotation_axis[1],
+                                       i_particle.rotation_axis[2],
+                                       i_particle.angle)
+    
+                        phaseDimTag[str(i_particle.phase)].append((3, particleTags[k_particle_image]))
+    
+                        factory.synchronize()
+                        k_particle_image += 1
+
+    verticesTags = np.array([factory.addPoint(vertex[0], vertex[1], vertex[2]) for vertex in voronoi.vertices])
+    edgeTags = {}
+    for i_particle in range(13, len(voronoi.point_region), 27):
+        particle_region = voronoi.regions[voronoi.point_region[i_particle]]
+        for ridge in voronoi.ridge_vertices:
+            if -1 in ridge or any([vertex not in particle_region for vertex in ridge]):
+                continue
+            ridge_out_phase = ridge[-1:] + ridge[0:-1]
+            for vertex_1, vertex_2 in zip(ridge, ridge_out_phase):
+                if (vertex_1, vertex_2) not in edgeTags or (vertex_2, vertex_1) not in edgeTags:
+                    edgeTags[(vertex_1, vertex_2)] = factory.addLine(verticesTags[vertex_1], verticesTags[vertex_2])
+
+
+    # all_voronoi_lines = list(set([voronoi_line[1] for voronoi_line in voronoi_lines] + [edgeTag[1] for edgeTag in outDimTag4]))
+    voronoiWires = model.addPhysicalGroup(1, list(edgeTags.values())) #[(1, all_voronoi_line) for all_voronoi_line in all_voronoi_lines])
+    model.setPhysicalName(1, voronoiWires, "Voronoi")
+    # voronoiWires = model.addPhysicalGroup(1, [tag[1] for tag in outDimTag_3]) #[(1, all_voronoi_line) for all_voronoi_line in all_voronoi_lines])
+    # model.setPhysicalName(1, voronoiWires, "Voronoi")
+
+    materials = []
+    for i_phase in Particle.list_phases:
+        materials.append(phaseDimTag[i_phase])
+    
+    # Set the mesh size on the geometry points
+    # Synchronize the CAD engine (always needed before generating the mesh)
+    # It may also be useful for some intermidate operations, like checking the tags of
+    # entities
+    factory.synchronize()
+    
+    for i_phase in range(len(Particle.list_phases)):
+        print(materials[i_phase])
+        materialTag = model.addPhysicalGroup(2, [particle[1] for particle in materials[i_phase]])
+        model.setPhysicalName(2, materialTag, "Phase " + Particle.list_phases[i_phase])
+
+
+    # model.mesh.setSize(points, mesh_size)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.03)
+
+    # Generate a 3D mesh
+    model.mesh.generate(2)
+
+    # Write the mesh to the .msh file
+    meshfile = title + ".msh"
+    meshfile_temp = title + "_temp.msh"
+    vtkfile = title + '.vtk'
+    vtkfile_temp = title + '_temp.vtk'
+    gmsh.write(meshfile_temp)
+    gmsh.write(vtkfile_temp)
+    
+    # Close GMSH
+    gmsh.finalize()
+
+    fin = open(meshfile_temp, "rt")
+    fout = open(meshfile, "wt")
+
+    for line in fin:
+    	fout.write(line.replace(',', '.'))
+
+    fin.close()
+    fout.close()
+    os.remove(meshfile_temp)
+
+    fin = open(vtkfile_temp, "rt")
+    fout = open(vtkfile, "wt")
+
+    for line in fin:
+    	fout.write(line.replace(',', '.'))
+
+    fin.close()
+    fout.close()
+    os.remove(vtkfile_temp)
+
+    
+
 
 def plotVoronoi3DwithIMTs(particles, voronoi, rve_dims, dir, voronoi_type, save=True, show=True):
     """Plot the Voronoi for circular particles."""
