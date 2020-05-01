@@ -1,6 +1,6 @@
 from particle_classes import Particle, Disk, Ellipse, Sphere, Ellipsoid, CylindricalFiber
 
-from path_analysis import plotVoronoi2D, plotVoronoi2DwithIMTs
+from path_analysis import plotVoronoi2D, plotVoronoi2DwithIMTs, plotVoronoi3D, plotVoronoi3DwithIMTs
 
 from scipy.spatial import Voronoi
 
@@ -123,7 +123,7 @@ def computeGlobalCriticalErosionThickness(particles):
     return glob_crit_erosion_thick
 
 
-def computeIrreducibleMinkowskiTensors(voronoi):
+def compute2DIrreducibleMinkowskiTensors(voronoi):
     """Compute the Irreducible Minkowski Tensors."""
     IMT_region = []
     # Initializing the list containing the list of IMTs for each Voronoi cell
@@ -163,7 +163,48 @@ def computeIrreducibleMinkowskiTensors(voronoi):
 
     return IMT_region
 
-def computeSetVoronoi(particles, n_surf_points=20):
+# def compute2DIrreducibleMinkowskiTensors(voronoi):
+#     """Compute the Irreducible Minkowski Tensors."""
+#     IMT_region = []
+#     # Initializing the list containing the list of IMTs for each Voronoi cell
+#     for i_region in voronoi.regions:
+#         if len(i_region) == 0:
+#             continue
+#         if any([vertex == -1 for vertex in i_region]):
+#             continue
+#     # Running through all the cells in the Voronoi
+#         IMT_region.append([])
+#         # Initializing the list containing the IMTs of the cell
+#         n_vertices = len(i_region)
+#         sides = \
+#             [voronoi.vertices[i_region[j_pair]]
+#              - voronoi.vertices[i_region[np.mod(j_pair + 1, n_vertices)]]
+#              for j_pair in range(n_vertices)]
+#         lengths = [np.linalg.norm(i_side) for i_side in sides]
+#         angles = []
+#         for i_side in sides:
+#             if i_side[0] >= 0 and i_side[1] >= 0:
+#                 angles.append(np.pi/2 + np.arctan2(np.abs(i_side[1]), np.abs(i_side[0])))
+#             elif i_side[0] >= 0 and i_side[1] <= 0:
+#                 angles.append(np.pi/2 - np.arctan2(np.abs(i_side[1]), np.abs(i_side[0])))
+#             elif i_side[0] <= 0 and i_side[1] <= 0:
+#                 angles.append(3*np.pi/2 + np.arctan2(np.abs(i_side[1]), np.abs(i_side[0])))
+#             elif i_side[0] <= 0 and i_side[1] >= 0:
+#                 angles.append(3*np.pi/2 - np.arctan2(np.abs(i_side[1]), np.abs(i_side[0])))
+#             else:
+#                 print(i_side)
+#         # angles = [np.pi/2 - np.arctan(i_side[1]/i_side[0]) for i_side in sides]
+#         print('angles', angles)
+#         print('lengths', lengths)
+#         for j_tensor in range(7):
+#         # Computing the 7 first IMTs
+#             IMT_region[-1].append(np.sum([lengths[k_side]*np.exp(1j
+#                                   * j_tensor*angles[k_side]) for k_side in range(len(lengths))]))
+# 
+#     return IMT_region
+
+
+def compute2DSetVoronoi(particles, n_surf_points=20):
     """
     Compute the set Voronoi of the *particles*.
 
@@ -208,7 +249,7 @@ def computeSetVoronoi(particles, n_surf_points=20):
     return set_voronoi
 
 
-def computeStandardVoronoi(particles, n_surf_points=20):
+def compute2DStandardVoronoi(particles):
     """
     Compute the standard Voronoi of the *particles*.
 
@@ -235,8 +276,35 @@ def computeStandardVoronoi(particles, n_surf_points=20):
     # Computing the standard voronoi of the particles
     return std_voronoi
 
+def compute3DStandardVoronoi(particles):
+    """
+    Compute the standard Voronoi of the *particles*.
 
-def doVoronoiAnalysis(particles, dp_dir, voronoi_type='set', plot_voronoi=True, plot_IMTs=True):
+    Parameters
+    ----------
+    particles: list(`.Particle`)
+        List of particles in the RVE.
+
+    Returns
+    -------
+    std_voronoi: `.scipy.Qhull.Voronoi`
+        Standard voronoi of the particles.
+    """
+    particle_centers = []
+    # Intializing the list containing the centers of the particles and their images
+    for i_part_ind, i_particle in enumerate(particles):
+        for j in range(-1, 2):
+            for k in range(-1, 2):
+                for l in range(-1, 2):
+            # Running through all the particles and their periodic images
+                    particle_centers.append(i_particle.position_center
+                                            + Particle.box*np.array([j, k, l]))
+                # Sampling points on the surface of each eroded particle and collecing then
+    std_voronoi = Voronoi(particle_centers)
+    # Computing the standard voronoi of the particles
+    return std_voronoi
+
+def doVoronoiAnalysis(particles, rve_dims, dp_dir, voronoi_type='set', plot_voronoi=True, plot_IMTs=True):
     """
     Do a Voronoi analysis on the RVE.
 
@@ -252,12 +320,18 @@ def doVoronoiAnalysis(particles, dp_dir, voronoi_type='set', plot_voronoi=True, 
     # 2D problem
         if voronoi_type == 'set':
         # The required Voronoi is a set Voronoi
-            voronoi = computeSetVoronoi(particles)
+            voronoi = compute2DSetVoronoi(particles)
         elif voronoi_type == 'standard':
         # The required Voronoi is a standard Voronoi
-            voronoi = computeStandardVoronoi(particles)
+            voronoi = compute2DStandardVoronoi(particles)
         if plot_voronoi:
             plotVoronoi2D(particles, voronoi, dp_dir, voronoi_type)
-        IMTs = computeIrreducibleMinkowskiTensors(voronoi)
+        IMTs = compute2DIrreducibleMinkowskiTensors(voronoi)
         if plot_IMTs:
             plotVoronoi2DwithIMTs(particles, voronoi, IMTs, dp_dir, voronoi_type)
+    elif particles[0].dim == 3:
+        # if voronoi_type == 'standard':
+        voronoi = compute3DStandardVoronoi(particles)
+        if plot_voronoi:
+            # print(voronoi.ridge_vertices)
+            plotVoronoi3DwithIMTs(particles, voronoi, rve_dims, dp_dir, voronoi_type)
