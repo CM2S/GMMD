@@ -37,46 +37,49 @@ if __name__ == '__main__':
     # radius = integrate.quad(lambda phi: normal_dens*np.exp(1j*phi), 0, phi)
     # radius = ((-1j/30)*(-5 + 30*np.exp((4*1j)*phi) + 3*np.exp((8*1j)*phi)))/np.exp((3*1j)*phi)
     _, axs = plt.subplots(nrows=1, ncols=2)
-    norm_dens = np.real(
+    norm_dens = (
             1
-            + 0.011*(np.exp(2*1j*phi) + np.exp(-2*1j*phi))
-            + 0.028*(np.exp(1j*3*phi) + np.exp(-3*1j*phi))
-            + 0.945*(np.exp(1j*4*phi) + np.exp(-4*1j*phi))
-            + 0.081*(np.exp(1j*5*phi) + np.exp(-5*1j*phi))
-            + 0.115*(np.exp(1j*6*phi) + np.exp(-6*1j*phi)))
+            + 0.21*(np.exp(2*1j*phi) + np.exp(-2*1j*phi))
+            + 0.18*(np.exp(1j*3*phi) + np.exp(-3*1j*phi))
+            + 0*(np.exp(1j*4*phi) + np.exp(-4*1j*phi))
+            + 0*(np.exp(1j*5*phi) + np.exp(-5*1j*phi))
+            + 0*(np.exp(1j*6*phi) + np.exp(-6*1j*phi)))
     plt.sca(axs[0])
-    plt.scatter(phi, norm_dens, color=color)
+    plt.scatter(np.real(norm_dens), np.imag(norm_dens), color=color)
     plt.sca(axs[1])
     radius = 1/(-1j)*np.exp(-1j*phi) \
-        + 0.011*(1/1j*np.exp(1j*phi) + 1/(-3*1j)*np.exp(-3*1j*phi)) \
-        + 0.028*(1/(2*1j)*np.exp(1j*2*phi) + 1/(-4*1j)*np.exp(-4*1j*phi)) \
-        + 0.945*(1/(3*1j)*np.exp(1j*3*phi) + 1/(-5*1j)*np.exp(-5*1j*phi)) \
-        + 0.081*(1/(4*1j)*np.exp(1j*4*phi) + 1/(-6*1j)*np.exp(-6*1j*phi)) \
-        + 0.115*(1/(5*1j)*np.exp(1j*5*phi) + 1/(-7*1j)*np.exp(-7*1j*phi))
+        + 0.21*(1/1j*np.exp(1j*phi) + 1/(-3*1j)*np.exp(-3*1j*phi)) \
+        + 0.18*(1/(2*1j)*np.exp(1j*2*phi) + 1/(-4*1j)*np.exp(-4*1j*phi)) \
+        + 0*(1/(3*1j)*np.exp(1j*3*phi) + 1/(-5*1j)*np.exp(-5*1j*phi)) \
+        + 0*(1/(4*1j)*np.exp(1j*4*phi) + 1/(-6*1j)*np.exp(-6*1j*phi)) \
+        + 0*(1/(5*1j)*np.exp(1j*5*phi) + 1/(-7*1j)*np.exp(-7*1j*phi))
         # 2/(-1j)*np.exp(-1j*phi) + 1/1j*np.exp(1j*phi) + 1/(2*1j)*np.exp(1j*2*phi) + 1/(-3*1j)*np.exp(-3*1j*phi) + 1/(-4*1j)*np.exp(-4*1j*phi)
     plt.axis("equal")
     # plt.plot(phi, 1 + np.cos(3*phi))
     # plt.plot(phi, 3 + 1/2*np.exp(-3*1j*phi) + 1/2*np.exp(3*1j*phi) + 1)
     plt.scatter(np.real(radius), np.imag(radius), color=color)
+    plt.figure()
+    plt.polar(phi, np.abs(radius))
     plt.show()
 
 
-    vertices = np.array(
-        [[150, 150],
-         [150, 350],
-         [350, 350],
-         [350, 150],
-         [250, 167]])
-    region = [[4, 3, 2, 1, 0]]
-    test_pol = Polygon(vertices, region)
 
-    IMTs = computeIrreducibleMinkowskiTensors(test_pol)[0]
-    print(np.abs(IMTs[0]))
-    print(np.abs(IMTs[2]/IMTs[0]))
-    print(np.abs(IMTs[3]/IMTs[0]))
-    print(np.abs(IMTs[4]/IMTs[0]))
-    print(np.abs(IMTs[5]/IMTs[0]))
-    print(np.abs(IMTs[6]/IMTs[0]))
+    # vertices = np.array(
+    #     [[150, 150],
+    #      [150, 350],
+    #      [350, 350],
+    #      [350, 150],
+    #      [250, 167]])
+    # region = [[4, 3, 2, 1, 0]]
+    # test_pol = Polygon(vertices, region)
+    # 
+    # IMTs = computeIrreducibleMinkowskiTensors(test_pol)[0]
+    # print(np.abs(IMTs[0]))
+    # print(np.abs(IMTs[2]/IMTs[0]))
+    # print(np.abs(IMTs[3]/IMTs[0]))
+    # print(np.abs(IMTs[4]/IMTs[0]))
+    # print(np.abs(IMTs[5]/IMTs[0]))
+    # print(np.abs(IMTs[6]/IMTs[0]))
 
 def set_voronoi_plot_2d(vor, ax=None, **kw):
     """
@@ -1413,7 +1416,7 @@ def plotVoronoi3D(particles, voronoi, rve_dims, dir, voronoi_type, save=True, sh
     
 
 
-def plotVoronoi3DwithIMTs(particles, voronoi, rve_dims, dir, voronoi_type, save=True, show=True):
+def plotVoronoi3DwithIMTspbc(particles, voronoi, rve_dims, dir, voronoi_type, save=True, show=True):
     """Plot the Voronoi for circular particles."""
     # ======================================================================================
     # Set up GMSH in Python
@@ -1538,25 +1541,8 @@ def plotVoronoi3DwithIMTs(particles, voronoi, rve_dims, dir, voronoi_type, save=
             edgeFaceTags.append(edgeTags.get((vertex_1, vertex_2), edgeTags.get((vertex_2, vertex_1))))
         curveLoopTag = factory.addCurveLoop(edgeFaceTags)
 
-        print(edgeFaceTags)
-        print(curveLoopTag)
         planeSurfaceTags.append(factory.addPlaneSurface([curveLoopTag]))
         planeSurfaceDictTags[tuple(ridge)] = planeSurfaceTags[-1]
-    
-    regionRidges = {}
-    regionNormals = {}
-    for region in voronoi.regions:
-        regionRidges[tuple(region)] = []
-        regionNormals[tuple(region)] = []
-        for ridge in voronoi.ridge_vertices:
-            if all([vertex in region for vertex in ridge]):
-                regionRidges[tuple(region)].append(ridge)
-                regionNormals[tuple(region)].append(gmsh.model.getNormal(planeSurfaceDictTags[tuple(ridge)], [0.5, 0.5]))
-
-
-    for region in voronoi.regions:
-        for ridge in regionRidges[tuple(region)]:
-            gmsh.model.getNormal(planeSurfaceDictTags[tuple(ridge)], [0.5, 0.5])
 
     factory.synchronize()
     # box_surface = gmsh.model.getBoundary([(3, boxTag)])
@@ -1583,9 +1569,10 @@ def plotVoronoi3DwithIMTs(particles, voronoi, rve_dims, dir, voronoi_type, save=
     # Write the mesh to the .msh file
     meshfile_temp = title + "_temp.msh"
     meshfile = title + '.msh'
+    vtk_file_temp = title + "_temp.msh"
     vtk_file = title + '.vtk'
     gmsh.write(meshfile_temp)
-    gmsh.write(vtk_file)
+    gmsh.write(vtk_file_temp)
     
     # Close GMSH
     gmsh.finalize()
@@ -1603,6 +1590,20 @@ def plotVoronoi3DwithIMTs(particles, voronoi, rve_dims, dir, voronoi_type, save=
     fout.close()
 
     os.remove(meshfile_temp)
+
+    fin = open(vtk_file_temp, "rt")
+    fout = open(vtk_file, "wt")
+
+    for line in fin:
+    	fout.write(line.replace(',', '.'))
+
+    fin.close()
+    fout.close()
+
+    os.remove(vtk_file_temp)
+
+
+
 
     
     dataName = "test"
@@ -1631,3 +1632,256 @@ def plotVoronoi3DwithIMTs(particles, voronoi, rve_dims, dir, voronoi_type, save=
         msh_vtk.write("\nLOOKUP_TABLE default")
         for cell_id in element_cell[2:]:
             msh_vtk.write("\n{0}".format(colors[int(cell_id) - 1]))
+
+def plotVoronoi3DwithIMTs(particles, voronoi, rve_dims, IMTs, dir, voronoi_type, save=True, show=True):
+    """Plot the Voronoi for circular particles."""
+    # ======================================================================================
+    # Set up GMSH in Python
+    # ======================================================================================
+    # Select the geometry engine
+    # occ - OpenCASCADE CAD (more advanced)
+    # geo - built-in CAD kernel (less sophisticated)
+    model = gmsh.model
+    factory = model.occ
+
+    # Initialise GMSH
+    gmsh.initialize()
+
+    # Output to terminal
+    gmsh.option.setNumber("General.Terminal", 1)
+
+    # 2D Meshing algorithm
+    # --------------------
+    # 1 - Mesh Adapt
+    # 2 - Automatic
+    # 5 - Delaunay (default)
+    # 6 - Frontal-Delaunay
+    # 7 - BAMG
+    # 8 - Frontal-Delaunay for Quads
+    # 9 - Packing of Parallelograms
+    gmsh.option.setNumber("Mesh.Algorithm", 5)
+
+    # 3D Meshing algorithm
+    # --------------------
+    # 1 - Delaunay (default)
+    # 2 - Frontal
+    # 7 - MMG3D
+    # 9 - R-tree
+    # 10 - HXT
+    gmsh.option.setNumber("Mesh.Algorithm3D", 2)
+
+    # Characteristic mesh length factor (applied acroos all mesh)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthFactor", 1)
+
+    # Multi-threading
+    gmsh.option.setNumber("Mesh.MaxNumThreads1D", 0)
+    gmsh.option.setNumber("Mesh.MaxNumThreads2D", 0)
+    gmsh.option.setNumber("Mesh.MaxNumThreads3D", 0)
+
+    # MSH file version
+    gmsh.option.setNumber("Mesh.MshFileVersion", 4.1)
+
+    # Quad/Hex recombination algorithms
+    # ---------------------------------
+    # 0 - simple
+    # 1 - blossom (default)
+    # 2 - simple full-quad
+    # 3 - blosson full-quad
+    gmsh.option.setNumber("Mesh.RecombinationAlgorithm", 1)
+
+    # Force recombination in all surfaces
+    gmsh.option.setNumber("Mesh.RecombineAll", 0)
+
+    # Number of topological optimization passes of recombined surface meshes (5 by default)
+    gmsh.option.setNumber("Mesh.RecombineOptimizeTopology", 5)
+
+    # Force recombination in all volumes
+    gmsh.option.setNumber("Mesh.Recombine3DAll", 0)
+
+    # Recombination level in 3D
+    # -------------------------
+    # 0 - hex (default)
+    # 1 - hex + prisms
+    # 2 - hex + prisms + pyramids
+    gmsh.option.setNumber("Mesh.Recombine3DLevel", 0)
+
+    # Recombination conformity type in 3D meshes
+    # ------------------------------------------
+    # 0 - nonconforming (default)
+    # 1 - trihedra
+    # 2 - pyramids + trihedra
+    # 2 - pyramids + hexSplit + trihedra
+    # 4 - hexSplit + trihedra
+    gmsh.option.setNumber("Mesh.Recombine3DConformity", 0)
+
+    # Renumber nodes and elements after mesh generation
+    gmsh.option.setNumber("Mesh.Renumber", 1)
+
+    # Save all elements even if they do not belong to physical groups
+    gmsh.option.setNumber("Mesh.SaveAll", 0)
+
+    # Number of smoothing step applied to the final mesh
+    gmsh.option.setNumber("Mesh.Smoothing", 1)
+
+    # Element order
+    gmsh.option.setNumber("Mesh.ElementOrder", 1)
+
+    # Crete second-order nodes by linear interpolation
+    gmsh.option.setNumber("Mesh.SecondOrderLinear", 0)
+
+    # Second-order incomplete elements
+    gmsh.option.setNumber("Mesh.SecondOrderIncomplete", 0)
+
+    # ==========================================================================================
+    # Generate the finite element mesh
+    # ==========================================================================================
+    # Define model name
+
+    title = Particle.file_path + "voronoi_wIMTs"
+    model.add(title)
+
+    boxTag = factory.addBox(-2*rve_dims[0], -2*rve_dims[1], -2*rve_dims[2], 3*rve_dims[0], 3*rve_dims[1], 3*rve_dims[2])
+    # RVE
+
+    verticesTags = np.array([factory.addPoint(vertex[0], vertex[1], vertex[2]) for vertex in voronoi.vertices])
+    planeSurfaceTags = []
+    planeSurfaceDictTags = {}
+    edgeTags = {}
+    for i_particle in range(13, len(voronoi.point_region), 27):
+        particle_region = voronoi.regions[voronoi.point_region[i_particle]]
+        for ridge in voronoi.ridge_vertices:
+            edgeFaceTags = []
+            if -1 in ridge or any([vertex not in particle_region for vertex in ridge]):
+                continue
+            ridge_out_phase = ridge[-1:] + ridge[0:-1]
+            for vertex_1, vertex_2 in zip(ridge, ridge_out_phase):
+                if (vertex_1, vertex_2) not in edgeTags or (vertex_2, vertex_1) not in edgeTags:
+                    edgeTags[(vertex_1, vertex_2)] = factory.addLine(verticesTags[vertex_1], verticesTags[vertex_2])
+                edgeFaceTags.append(edgeTags.get((vertex_1, vertex_2), edgeTags.get((vertex_2, vertex_1))))
+            curveLoopTag = factory.addCurveLoop(edgeFaceTags)
+
+            planeSurfaceTags.append(factory.addPlaneSurface([curveLoopTag]))
+            planeSurfaceDictTags[tuple(ridge)] = planeSurfaceTags[-1]
+
+    factory.synchronize()
+    # box_surface = gmsh.model.getBoundary([(3, boxTag)])
+    outDimTag_3, _ = factory.fragment(
+        [(2, planeSurface) for planeSurface in planeSurfaceTags], [(3, boxTag)],
+        removeObject=False, removeTool=True)
+
+    print(outDimTag_3)
+
+    gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
+    eps = 1e-2
+    number_cells = 0
+    cellCheckTags = []
+    for i_particle in range(13, len(voronoi.point_region), 27):
+        region = voronoi.regions[voronoi.point_region[i_particle]]
+        voronoiSurfaceTags = []
+        if -1 in region:
+            continue
+        for ridge in voronoi.ridge_vertices:
+            if all([vertex in region for vertex in ridge]):
+                voronoiSurfaceTags.append(planeSurfaceDictTags[tuple(ridge)])
+        surfaceLoop = factory.addSurfaceLoop(voronoiSurfaceTags)
+        volumeCell = factory.addVolume([surfaceLoop])
+        factory.synchronize()
+        xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(3, volumeCell)
+        print(volumeCell)
+        cellCheckTags.append(volumeCell)
+        i_voronoi_cell = gmsh.model.getEntitiesInBoundingBox(xmin-eps, ymin-eps, zmin-eps, xmax+eps, ymax+eps, zmax+eps, dim=3)
+        print(i_voronoi_cell)
+        factory.synchronize()
+        materialTag = model.addPhysicalGroup(3, [cell[1] for cell in i_voronoi_cell if cell[0] == 3])
+        model.setPhysicalName(3, materialTag, "Cell " + str(number_cells))
+        number_cells += 1
+    print(gmsh.model.getEntities(3))
+    gmsh.model.removeEntities([(3, tag) for tag in cellCheckTags])
+
+
+
+    # factory.synchronize()
+    # # box_surface = gmsh.model.getBoundary([(3, boxTag)])
+    # outDimTag_3, _ = factory.fragment(
+    #     [(2, planeSurface) for planeSurface in planeSurfaceTags], [(3, boxTag)],
+    #     removeObject=True, removeTool=True)
+    # 
+    # factory.synchronize()
+    # number_cells = 0
+    # particle_centers = np.array([voronoi.points[point] for point in range(13, len(voronoi.point_region), 27)])
+    # for index, i_voronoi_cell in enumerate(outDimTag_3):
+    #     if i_voronoi_cell[0] == 3:
+    #         xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(3, i_voronoi_cell[1])
+    #         number_cells += 1
+    #         materialTag = model.addPhysicalGroup(3, [i_voronoi_cell[1]])
+    #         model.setPhysicalName(3, materialTag, "Cell " + str(number_cells))
+    # 
+    # 
+    # getElementByCoordinates
+    # model.mesh.setSize(points, mesh_size)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.1)
+
+    # Generate a 3D mesh
+    model.mesh.generate(3)
+
+    # Write the mesh to the .msh file
+    meshfile_temp = title + "_temp.msh"
+    meshfile = title + '.msh'
+    vtk_file_temp = title + "_temp.vtk"
+    vtk_file = title + '.vtk'
+    gmsh.write(meshfile_temp)
+    gmsh.write(vtk_file_temp)
+    
+    # Close GMSH
+    gmsh.finalize()
+    # ==========================================================================================
+    # Convert it to LINKS format and write the respective input file
+    # ==========================================================================================
+
+    fin = open(meshfile_temp, "rt")
+    fout = open(meshfile, "wt")
+
+    for line in fin:
+    	fout.write(line.replace(',', '.'))
+
+    fin.close()
+    fout.close()
+
+    os.remove(meshfile_temp)
+
+    fin = open(vtk_file_temp, "rt")
+    fout = open(vtk_file, "wt")
+
+    for line in fin:
+    	fout.write(line.replace(',', '.'))
+
+    fin.close()
+    fout.close()
+
+    os.remove(vtk_file_temp)
+    
+
+    dataType = "float"
+    numComp = "1"
+    
+    fin = open(vtk_file,'rt')
+    
+    element_cell = []
+    save = 0
+    for line in fin:
+        if line.startswith('CELL_DATA'):
+            save = True
+            continue
+        if save:
+            element_cell.append(line.rstrip('\n'))
+    
+    fin.close()
+    with open(vtk_file, "a") as msh_vtk:
+        for i_IMT in range(7):
+            dataName = "q_" + str(i_IMT)
+            msh_vtk.write("\n\nSCALARS {0} {1} {2}".format(dataName, dataType, numComp))
+            msh_vtk.write("\nLOOKUP_TABLE default")
+            for cell_id in element_cell[2:]:
+                msh_vtk.write("\n{0}".format(IMTs[int(cell_id) - 1][i_IMT]))
+    

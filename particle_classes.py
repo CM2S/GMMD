@@ -1659,6 +1659,42 @@ class Ellipsoid(Particle):
 
         return point_in
 
+    def generatePointsOnSurface(self, n_points, erosion_thick=0):
+        """Generate *n_points* on the surface of the ellipse."""
+        theta = np.linspace(0, np.pi, n_points)
+        phi = np.linspace(0, 2*np.pi, n_points, endpoint=False)
+        # Using the convention from physics for the angles
+        points_loc = []
+        for i_theta in theta:
+            for j_phi in phi:
+                points_loc.append([
+                    self.semi_axis_1*np.sin(i_theta)*np.cos(j_phi),
+                    self.semi_axis_2*np.sin(i_theta)*np.sin(j_phi),
+                    self.semi_axis_3*np.cos(i_theta)])
+        # Generating the points in the Disk's local coordinates
+        if erosion_thick > 0:
+        # If erosion was sepcified
+            for point_ind, i_point in enumerate(points_loc):
+            # For each point on the surface with its corresponding homogeneous angle
+                normal_vec = np.array([i_point[0]/self.semi_axis_1**2,
+                                       i_point[1]/self.semi_axis_2**2,
+                                       i_point[2]/self.semi_axis_3**2])
+                unit_normal = normal_vec/np.linalg.norm(normal_vec)
+                # Outward unit normal
+                points_loc[point_ind] -= erosion_thick*unit_normal
+                # Translation of the point in the normal direction to the surface by the
+                # specified thickness (erosion)
+        points_glob = np.array([self.rotation_mat.dot(point_loc) + self.position_center for point_loc in points_loc])
+        # Transforming local in global coordinates
+        return points_glob
+
+    def computeCriticalErosionThickness(self):
+        """Compute the critical erosion thickness for an ellipse."""
+        smallest_semi_axis = np.min([self.semi_axis_1, self.semi_axis_2, self.semi_axis_3])
+        largest_semi_axis = np.max([self.semi_axis_1, self.semi_axis_2, self.semi_axis_3])
+        erosion_thickness = smallest_semi_axis**2/largest_semi_axis
+        # Semi-latus rectum
+        return erosion_thickness
 
 class Sphere(Ellipsoid):
     '''
@@ -1801,9 +1837,9 @@ class Sphere(Ellipsoid):
             return intersection_verlet
             # Returning the intersection area
 
-    def pointInside(self, point):
+    def pointInside(self, point, tol=1e-3):
 
-        if np.linalg.norm(self.position_center-point)<=self.radius:
+        if np.linalg.norm(self.position_center-point) - self.radius <= tol:
             point_in = True
         else:
             point_in = False
@@ -1841,7 +1877,35 @@ class Sphere(Ellipsoid):
         # the center of the ellipse has not
             point_in = True
 
+    def generatePointsOnSurface(self, n_points, erosion_thick=0):
+        """Generate *n_points* on the surface of the sphere."""
+        theta = np.linspace(0, np.pi, n_points)
+        phi = np.linspace(0, 2*np.pi, n_points, endpoint=False)
+        # Convention from physics
+        if erosion_thick > 0:
+        # If erosion was sepcified
+            radius = self.radius - erosion_thick
+            # Eroding the radius
+        else:
+            radius = self.radius
+        points_loc = []
+        for i_theta in theta:
+            for j_phi in phi:
+                points_loc.append([
+                    radius*np.sin(i_theta)*np.cos(j_phi),
+                    radius*np.sin(i_theta)*np.sin(j_phi),
+                    radius*np.cos(i_theta)])
+        # Generating the points in the Sphere's local coordinates
+        points_glob = points_loc + self.position_center
+        # Transforming local in global coordinates
+        print(points_glob)
+        return points_glob
 
+    def computeCriticalErosionThickness(self):
+        """Compute the critical erosion thickness for a sphere."""
+        erosion_thickness = 0.9*self.radius
+        # Semi-latus rectum
+        return erosion_thickness
 
 def intersectionPointsEllipses(A1, B1, center_1, angle_1,
                                A2, B2, center_2, angle_2, tol=1e-10):

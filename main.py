@@ -1918,7 +1918,7 @@ def main():
             # if save_history:
             #     plotPaths(particles, particles[0].dim, Particle.file_path)
             if voronoi_analysis:
-                doVoronoiAnalysis(particles, Particle.file_path)
+                doVoronoiAnalysis(particles, rve_dims, Particle.file_path)
             Particle.resetRVE()
             # Clearing the properties of the RVE
     print(end - start)
