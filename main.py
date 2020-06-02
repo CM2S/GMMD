@@ -27,12 +27,15 @@ import error_classes as errors
 
 from voronoi_analysis import doVoronoiAnalysis
 
+from motion_analysis import doMotionAnalysis
+
+from scipy.stats import maxwell, rayleigh
+
 import os
 import shutil
 
 import sys
 
-from path_analysis import plotPaths, plotParticles, plotVoronoi2D
 # ==========================================================================================
 
 
@@ -1868,44 +1871,28 @@ def main():
             # Generate corresponding mesh
     else:
     # Generating samples of microstructures and meshing
+        Particle.time = []
+        # Initializing list containing the time taken to generate each sample
         for i_sample in range(n_samples):
             # Producing the number of samples required
-            save_history = options.get('save_history', False)
-            voronoi_analysis = options.get('voronoi_analysis', True)
-            # Saving if the history of the particles' motion needs to be saved
+            save_history = options.get('save_history', True)
+            voronoi_analysis = options.get('voronoi_analysis', False)
+            motion_analysis = options.get('motion_analysis', False)
             type_init_conf = options.get('type_initial_configuration', 'random')
-            # Saving the type of initial configuration specified, with 'random' as the
-            # default value
+            max_residue_per_particle = options.get('max_residue_per_particle', 0)
+            max_step = options.get('max_step', 1)
+            # Collecting options
+            start = time.time()
+            # Counting time
             particles = particleGeneration(descriptors, phase_types, rve_dims, problem_type,
                                            dp_dir, type_init_conf=type_init_conf,
                                            save_history=save_history)
             # Generating the list of particles from the geometrical descriptors
-            plotParticles(particles, Particle.file_path + "_initial_conf",
-                          save=options.get('save_plot', True),
-                          show=options.get('save_plot', True))
-            # Ploting initial configuration
-            for ext in discret_file_ext:
-                if 'min_distance' in discret_spec_array[ext]:
-                # If any of the extensions required specifies a minimum distance
-                    dilateParticles(particles, discret_spec_array[ext]['min_distance'])
-                    # Dilate all particles
-                    break
-            run(particles, options['max_residue_per_particle'], options['max_step'],
-                options)
+            run(particles, max_residue_per_particle, max_step, options)
             # Running the molecular dynamics simulation
-            for ext in discret_file_ext:
-                if 'min_distance' in discret_spec_array[ext]:
-                # If any of the extensions required specifies a minimum distance
-                    contractParticles(particles, discret_spec_array[ext]['min_distance'])
-                    # Contract all particles
-                    break
             end = time.time()
-            plotParticles(particles, Particle.file_path + "_final_config",
-                          save=options.get('save_plot', True),
-                          show=options.get('save_plot',  True))
-            # Ploting final configuration
-            # print('cell_list', Particle.cell_list)
-            # print('verlet_list', [particles[i].verlet_list for i in range(len(particles))])
+            Particle.time.append(end - start)
+            # Time spent on microstructure generation
             current_RVE = RVE(particles, rve_dims)
             # Saving the RVE properties in an RVE object
             pickle.dump(current_RVE, open(Particle.file_path + ".p", "wb"))
@@ -1914,21 +1901,24 @@ def main():
             # For each file extension asked
                 generateMesh(particles, disc_ext, discret_spec_array[disc_ext])
                 # Generate corresponding mesh
-            # if save_history:
-            #     plotPaths(particles, particles[0].dim, Particle.file_path)
+            if motion_analysis:
+                doMotionAnalysis(particles, rve_dims, Particle.file_path)
+                # Do analysis of the motion of the particles
             if voronoi_analysis:
-                doVoronoiAnalysis(particles, rve_dims, Particle.file_path)
+                voronoi_type = options.get('voronoi_type', 'standard')
+                doVoronoiAnalysis(particles, rve_dims, Particle.file_path, voronoi_type=voronoi_type)
+                # Do a voronoi analysis
             Particle.resetRVE()
             # Clearing the properties of the RVE
     print(end - start)
 
-    screen_path.close()
-    sys.stdout = sys.__stdout__
-
-    with open('test.txt') as file:
-        data = file.read()
-        print(data)
-    os.replace("test.txt", Particle.file_path + ".txt")
+    # screen_path.close()
+    # sys.stdout = sys.__stdout__
+    # 
+    # with open('test.txt') as file:
+    #     data = file.read()
+    #     print(data)
+    # os.replace("test.txt", Particle.file_path + ".txt")
 
 
 if __name__ == '__main__':

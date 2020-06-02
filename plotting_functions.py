@@ -14,6 +14,8 @@ from gmsh2links.main import readMesh
 # Simple math tools
 # Finite element mesh conversor to LINKS
 
+import matplotlib
+import matplotlib.pyplot as plt
 
 def _adjust_bounds(ax, points):
     ptp_bound = points.ptp(axis=0)
@@ -22,64 +24,60 @@ def _adjust_bounds(ax, points):
     ax.set_ylim(points[:,1].min() - 0.1*ptp_bound[1],
                 points[:,1].max() + 0.1*ptp_bound[1])
 
+def createFigure(nrows=2, ncols=1, nrows_sub=1, ncols_sub=1, sharey=False):
 
+    matplotlib.rcParams['mathtext.fontset'] = 'stix'
+    matplotlib.rcParams['font.family'] = 'Adobe Caslon Pro'
+    matplotlib.rcParams['text.usetex'] = True
+    matplotlib.rcParams['text.latex.unicode'] = True
+    w = (5.92 - 0.2*(ncols - 1))/ncols
+    h = (9.63 - 1.63*(nrows - 1))/nrows
+    fig, axs = plt.subplots(figsize=(w, h), nrows=nrows_sub, ncols=ncols_sub, sharey=sharey)
+    # \textwidth = 496py = 5.92 in
+    # \textheigth = 674pt = 9.63 in
+    return [fig, axs, (w, h)]
 
-if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-    import matplotlib
-    cmap = matplotlib.cm.get_cmap('Blues')
-    phi = np.linspace(0, 2*np.pi, 200, endpoint=True)
-    color = cmap(phi/(2*np.pi))
-    # def normal_dens(phi):
-    #     normal_dens = 1 + np.cos(3*phi)
-    #     return normal_dens
-    # def position_function:
-    # radius = integrate.quad(lambda phi: normal_dens*np.exp(1j*phi), 0, phi)
-    # radius = ((-1j/30)*(-5 + 30*np.exp((4*1j)*phi) + 3*np.exp((8*1j)*phi)))/np.exp((3*1j)*phi)
-    _, axs = plt.subplots(nrows=1, ncols=2)
-    norm_dens = (
-            1
-            + 0.21*(np.exp(2*1j*phi) + np.exp(-2*1j*phi))
-            + 0.18*(np.exp(1j*3*phi) + np.exp(-3*1j*phi))
-            + 0*(np.exp(1j*4*phi) + np.exp(-4*1j*phi))
-            + 0*(np.exp(1j*5*phi) + np.exp(-5*1j*phi))
-            + 0*(np.exp(1j*6*phi) + np.exp(-6*1j*phi)))
-    plt.sca(axs[0])
-    plt.scatter(np.real(norm_dens), np.imag(norm_dens), color=color)
-    plt.sca(axs[1])
-    radius = 1/(-1j)*np.exp(-1j*phi) \
-        + 0.21*(1/1j*np.exp(1j*phi) + 1/(-3*1j)*np.exp(-3*1j*phi)) \
-        + 0.18*(1/(2*1j)*np.exp(1j*2*phi) + 1/(-4*1j)*np.exp(-4*1j*phi)) \
-        + 0*(1/(3*1j)*np.exp(1j*3*phi) + 1/(-5*1j)*np.exp(-5*1j*phi)) \
-        + 0*(1/(4*1j)*np.exp(1j*4*phi) + 1/(-6*1j)*np.exp(-6*1j*phi)) \
-        + 0*(1/(5*1j)*np.exp(1j*5*phi) + 1/(-7*1j)*np.exp(-7*1j*phi))
-        # 2/(-1j)*np.exp(-1j*phi) + 1/1j*np.exp(1j*phi) + 1/(2*1j)*np.exp(1j*2*phi) + 1/(-3*1j)*np.exp(-3*1j*phi) + 1/(-4*1j)*np.exp(-4*1j*phi)
-    plt.axis("equal")
-    # plt.plot(phi, 1 + np.cos(3*phi))
-    # plt.plot(phi, 3 + 1/2*np.exp(-3*1j*phi) + 1/2*np.exp(3*1j*phi) + 1)
-    plt.scatter(np.real(radius), np.imag(radius), color=color)
-    plt.figure()
-    plt.polar(phi, np.abs(radius))
-    plt.show()
+def createLegend(artists, labels, axes, to_fig= False, fig_h=4, ncols=3):
+    if to_fig:
+        lw_common = axes.spines["bottom"].get_linewidth()
+        fig = plt.gcf()
+        legend = fig.legend(handles=artists, labels=labels, bbox_to_anchor=(0., 1, 1., .102), loc='lower center',
+                   ncol=ncols, mode="tight", borderaxespad=0., fontsize=12,  bbox_transform=plt.gcf().transFigure)
+            
+        frame = legend.get_frame()
+        
+        frame.set_linewidth(lw_common)
+        frame.set_edgecolor('k')
+    else:
+        print('h_fig', fig_h)
+        lw_common = axes.spines["bottom"].get_linewidth()
+        plt.legend(handles=artists, labels=labels, bbox_to_anchor=(0., 1 + 4*.02/fig_h, 1., .102), loc='lower center',
+                   ncol=ncols, mode="tight", borderaxespad=0., fontsize=12)
+        
+        legend = axes.get_legend()
+        frame = legend.get_frame()
+        
+        frame.set_linewidth(lw_common)
+        frame.set_edgecolor('k')
+    return legend
 
+def setStyle(artists, ax, style):
+    from matplotlib import cm
+    if style == "divergent":
+        colors = [cm.RdBu(level) for level in np.linspace(0, 1, len(artists), endpoint=True)]
+    if style == "qualitative":
+        color_scheme = [
+            (68/255, 119/255, 170/255, 1),
+            (102/255, 204/255, 238/255, 1),
+            (34/255, 136/255, 51/255, 1),
+            (204/255, 187/255, 68/255, 1),
+            (238/255, 102/255, 119/255, 1),
+            (170/255, 51/255, 119/255, 1),
+            (187/255, 187/255, 187/255, 1)]
+        colors = color_scheme[:len(artists)]
+    for ind, artist in enumerate(artists):
+        artist.set_color(colors[ind])
 
-
-    # vertices = np.array(
-    #     [[150, 150],
-    #      [150, 350],
-    #      [350, 350],
-    #      [350, 150],
-    #      [250, 167]])
-    # region = [[4, 3, 2, 1, 0]]
-    # test_pol = Polygon(vertices, region)
-    # 
-    # IMTs = computeIrreducibleMinkowskiTensors(test_pol)[0]
-    # print(np.abs(IMTs[0]))
-    # print(np.abs(IMTs[2]/IMTs[0]))
-    # print(np.abs(IMTs[3]/IMTs[0]))
-    # print(np.abs(IMTs[4]/IMTs[0]))
-    # print(np.abs(IMTs[5]/IMTs[0]))
-    # print(np.abs(IMTs[6]/IMTs[0]))
 
 def set_voronoi_plot_2d(vor, ax=None, **kw):
     """
@@ -179,7 +177,14 @@ def set_voronoi_plot_2d(vor, ax=None, **kw):
 def generateColors(particles):
     """Generate a color for each pahse."""
     colors = {}
-    colors_def = ['c', 'r', 'g', 'm', 'b', 'y']
+    colors_def = [
+            (68/255, 119/255, 170/255, 1),
+            (102/255, 204/255, 238/255, 1),
+            (34/255, 136/255, 51/255, 1),
+            (204/255, 187/255, 68/255, 1),
+            (238/255, 102/255, 119/255, 1),
+            (170/255, 51/255, 119/255, 1),
+            (187/255, 187/255, 187/255, 1)]
     k_color = 0
     for phase in Particle.list_phases:
     # Running through all the phases
@@ -190,21 +195,25 @@ def generateColors(particles):
 
     return colors
 
-def plotParticles(particles, dir, grid='off', verlet_ngh=False, center_part=False,
+def plotParticles(particles, iteration, dir, grid='off', verlet_ngh=False, center_part=False,
                   show=False, save=False, **kwargs):
-
     """Plot the particles."""
     import matplotlib.patches as mpatches
     import matplotlib.pyplot as plt
     import numpy as np
 
-
     N = len(particles)
     if particles[0].dim == 2:
+        if 'ax' in kwargs:
+            ax = kwargs['ax']
+            print(ax)
+            plt.sca(ax)
+            fig = plt.gcf()
         # Two dimensional problem
-        fig = plt.figure()
+        else:
+            fig = plt.figure()
 
-        ax = plt.gca()
+            ax = plt.gca()
 
         if Particle.box[0] == Particle.box[1]:
             ax.axis("square")
@@ -222,29 +231,29 @@ def plotParticles(particles, dir, grid='off', verlet_ngh=False, center_part=Fals
                 for k in range(-1, 2):
                     if 'Disk' == class_name_i_particle or 'CylindricalFiber' == class_name_i_particle:
                         circ = mpatches.Circle(
-                            particles[i].position_center + Particle.box*np.array([j, k]), radius=particles[i].radius, alpha=0.8, color=colors[particles[i].phase])
+                            particles[i].position_center_history[iteration] + Particle.box*np.array([j, k]), radius=particles[i].radius, alpha=0.8, edgecolor=None, facecolor=colors[particles[i].phase])
                         ax.add_artist(circ)
                         if verlet_ngh:
                             circ = mpatches.Circle(
-                                particles[i].position_center+Particle.box*np.array([1*j, 1*k]+particles[i].displacement_last_verlet), radius=Particle.verlet_factor*particles[i].radius, alpha=0.1, color=colors[particles[i].phase])
+                                particles[i].position_center_history[iteration]+Particle.box*np.array([1*j, 1*k]+particles[i].displacement_last_verlet), radius=Particle.verlet_factor*particles[i].radius, alpha=0.1, color=colors[particles[i].phase])
                             ax.add_artist(circ)
                         if center_part:
-                            plt.annotate(xy=particles[i].position_center, s=str(i))
-                            plt.scatter(particles[i].position_center[0],
-                                        particles[i].position_center[1])
+                            plt.annotate(xy=particles[i].position_center_history[iteration], s=str(i))
+                            plt.scatter(particles[i].position_center_history[iteration][0],
+                                        particles[i].position_center_history[iteration][1])
                     if 'Ellipse' == class_name_i_particle:
-                        ellip = mpatches.Ellipse(particles[i].position_center+Particle.box*np.array(
+                        ellip = mpatches.Ellipse(particles[i].position_center_history[iteration]+Particle.box*np.array(
                             [1*j, 1*k]), particles[i].major_axis, particles[i].minor_axis,
-                            angle=180/np.pi*particles[i].angle, alpha=0.8, color=colors[particles[i].phase])
+                            angle=180/np.pi*particles[i].angle, alpha=0.8, edgecolor=None, facecolor=colors[particles[i].phase])
                         ax.add_artist(ellip)
                         if verlet_ngh:
-                            ellip = mpatches.Ellipse(particles[i].position_center+Particle.box*np.array([1*j, 1*k]+particles[i].displacement_last_verlet), particles[i].major_axis
+                            ellip = mpatches.Ellipse(particles[i].position_center_history[iteration]+Particle.box*np.array([1*j, 1*k]+particles[i].displacement_last_verlet), particles[i].major_axis
                                                      * Particle.verlet_factor, particles[i].minor_axis*Particle.verlet_factor, angle=180/np.pi*particles[i].angle, alpha=0.2, color=colors[particles[i].phase])
                             ax.add_artist(ellip)
                         if center_part:
-                            plt.annotate(xy=particles[i].position_center, s=str(i))
-                            plt.scatter(particles[i].position_center[0],
-                                        particles[i].position_center[1], s=0.01)
+                            plt.annotate(xy=particles[i].position_center_history[iteration], s=str(i))
+                            plt.scatter(particles[i].position_center_history[iteration][0],
+                                        particles[i].position_center_history[iteration][1], s=0.01)
 
         if grid == 'cell_list':
             plt.xticks(np.linspace(0, 1, Particle.n_cell_dim[0]+1, endpoint=True))
@@ -258,140 +267,329 @@ def plotParticles(particles, dir, grid='off', verlet_ngh=False, center_part=Fals
                 0, 1, discret_spec_array['rgmsh']['n_voxels_dims'][1]+1, endpoint=True))
             plt.grid(b=True, which='both')
 
-        
+        plt.xticks([])
+        plt.yticks([])
         if save:
-            plt.savefig(dir + ".png")
+            plt.savefig(dir + ".pdf", bbox_inches='tight')
 
         if show:
             plt.show()
 
     elif particles[0].dim == 3:
-        pass
+            """Plot the Voronoi for circular particles."""
+            # ======================================================================================
+            # Set up GMSH in Python
+            # ======================================================================================
+            # Select the geometry engine
+            # occ - OpenCASCADE CAD (more advanced)
+            # geo - built-in CAD kernel (less sophisticated)
+            model = gmsh.model
+            factory = model.occ
+
+            # Initialise GMSH
+            gmsh.initialize()
+
+            # Output to terminal
+            gmsh.option.setNumber("General.Terminal", 1)
+
+            # 2D Meshing algorithm
+            # --------------------
+            # 1 - Mesh Adapt
+            # 2 - Automatic
+            # 5 - Delaunay (default)
+            # 6 - Frontal-Delaunay
+            # 7 - BAMG
+            # 8 - Frontal-Delaunay for Quads
+            # 9 - Packing of Parallelograms
+            gmsh.option.setNumber("Mesh.Algorithm", 5)
+
+            # 3D Meshing algorithm
+            # --------------------
+            # 1 - Delaunay (default)
+            # 2 - Frontal
+            # 7 - MMG3D
+            # 9 - R-tree
+            # 10 - HXT
+            gmsh.option.setNumber("Mesh.Algorithm3D", 1)
+
+            # Characteristic mesh length factor (applied acroos all mesh)
+            gmsh.option.setNumber("Mesh.CharacteristicLengthFactor", 1)
+
+            # Multi-threading
+            gmsh.option.setNumber("Mesh.MaxNumThreads1D", 0)
+            gmsh.option.setNumber("Mesh.MaxNumThreads2D", 0)
+            gmsh.option.setNumber("Mesh.MaxNumThreads3D", 0)
+
+            # MSH file version
+            gmsh.option.setNumber("Mesh.MshFileVersion", 4.1)
+
+            # Quad/Hex recombination algorithms
+            # ---------------------------------
+            # 0 - simple
+            # 1 - blossom (default)
+            # 2 - simple full-quad
+            # 3 - blosson full-quad
+            gmsh.option.setNumber("Mesh.RecombinationAlgorithm", 0)
+
+            # Force recombination in all surfaces
+            gmsh.option.setNumber("Mesh.RecombineAll", 0)
+
+            # Number of topological optimization passes of recombined surface meshes (5 by default)
+            gmsh.option.setNumber("Mesh.RecombineOptimizeTopology", 5)
+
+            # Force recombination in all volumes
+            gmsh.option.setNumber("Mesh.Recombine3DAll", 0)
+
+            # Recombination level in 3D
+            # -------------------------
+            # 0 - hex (default)
+            # 1 - hex + prisms
+            # 2 - hex + prisms + pyramids
+            gmsh.option.setNumber("Mesh.Recombine3DLevel", 0)
+
+            # Recombination conformity type in 3D meshes
+            # ------------------------------------------
+            # 0 - nonconforming (default)
+            # 1 - trihedra
+            # 2 - pyramids + trihedra
+            # 2 - pyramids + hexSplit + trihedra
+            # 4 - hexSplit + trihedra
+            gmsh.option.setNumber("Mesh.Recombine3DConformity", 1)
+
+            # Renumber nodes and elements after mesh generation
+            gmsh.option.setNumber("Mesh.Renumber", 1)
+
+            # Save all elements even if they do not belong to physical groups
+            gmsh.option.setNumber("Mesh.SaveAll", 0)
+
+            # Number of smoothing step applied to the final mesh
+            gmsh.option.setNumber("Mesh.Smoothing", 1)
+
+            # Element order
+            gmsh.option.setNumber("Mesh.ElementOrder", 1)
+
+            # Crete second-order nodes by linear interpolation
+            gmsh.option.setNumber("Mesh.SecondOrderLinear", 0)
+
+            # Second-order incomplete elements
+            gmsh.option.setNumber("Mesh.SecondOrderIncomplete", 0)
+
+            # ==========================================================================================
+            # Generate the finite element mesh
+            # ==========================================================================================
+            # Define model name
+
+            title = Particle.file_path
+            model.add(title)
+
+            boxTag = factory.addBox(0, 0, 0, Particle.box[0], Particle.box[1], Particle.box[2])
+
+            particleDimTags = []
+            k_particle_image = 0
+            phaseDimTag = {phase: [] for phase in Particle.list_phases}
+            for i_particle in particles:
+            # Running through all the particles
+                class_name_i_particle = i_particle.__class__.__name__
+                # Saving the class name of the particle as a string
+                for j in range(-1, 2):
+                # Periodic images in the x direction
+                    for p in range(-1, 2):
+                    # Periodic images in the y direction
+                        for l in range(-1, 2):
+                        # Periodic images in the z direction
+                            if 'CylindricalFiber' == class_name_i_particle:
+                                if l != 0:
+                                    continue
+                                xc = i_particle.position_center[0] + Particle.box[0]*j
+                                yc = i_particle.position_center[1] + Particle.box[1]*p
+                                zc = 0
+                                rx = i_particle.radius
+                                ry = i_particle.radius
+                                # Speciying the position and the radius of the fibers face
+                                faceTag = factory.addDisk(xc, yc, zc, rx, ry)
+                                # Saving the properties of the particles
+                                if i_particle.direction_fibers == 0:
+                                # The fibers run in the x direction
+                                    factory.rotate([(2, faceTag)],
+                                                   0, 0, 0, 0, 1, 0, 3*np.pi/2)
+                                    # Rotating the fiber face to the yz plane as it was ploted
+                                    # in the xy plane
+                                    extrusionTags = factory.extrude(
+                                        [(2, faceTag)], i_particle.length_dir_fibers, 0, 0)
+                                    # Extruding the fiber from the fiber face in the yz plane in the
+                                    # x direction
+                                elif i_particle.direction_fibers == 1:
+                                # The fibers run in the y direction
+                                    factory.rotate([(2, faceTag)],
+                                                   0, 0, 0, 1, 0, 0, np.pi/2)
+                                    # Rotating the fiber faces to the xz plane as it was ploted
+                                    # in the xy plane
+                                    extrusionTags = factory.extrude(
+                                        [(2, faceTag)], 0, i_particle.length_dir_fibers, 0)
+                                    # Extruding the fiber from the fiber face in the xz plane in the
+                                    # y direction
+                                elif i_particle.direction_fibers == 2:
+                                # The fibers run in the z direction
+                                    extrusionTags = factory.extrude(
+                                        [(2, faceTag)], 0, 0, i_particle.length_dir_fibers)
+                                    # Extruding the fiber from the fiber face in the xy plane in the
+                                    # z direction
+            
+                                for i_dimTag in extrusionTags:
+                                    if i_dimTag[0] == 3:
+                                        particleTags.append(i_dimTag[1])
+                                        break
+            
+                                phaseDimTag[str(i_particle.phase)].append(
+                                    (3, particleTags[-1]))
+            
+                                factory.synchronize()
+                                k_particle_image += 1
+                            if 'Sphere' == class_name_i_particle:
+                            # Particle is a Sphere
+                                xc = i_particle.position_center[0] + Particle.box[0]*j
+                                yc = i_particle.position_center[1] + Particle.box[1]*p
+                                zc = i_particle.position_center[2] + Particle.box[2]*l
+                                r = i_particle.radius
+                                # Saving the properties of the particles
+                                sphereTag = factory.addSphere(xc, yc, zc, r)
+                                outDimTag, _ = factory.intersect(
+                                    [(3, sphereTag)], [(3, boxTag)], removeObject=True, removeTool=False)
+                                if len(outDimTag) > 0:
+                                    factory.synchronize()
+                                    particleDimTags += gmsh.model.getBoundary(outDimTag[0])
+                                    gmsh.model.removeEntities(outDimTag[0])
+                                    phaseDimTag[str(i_particle.phase)] += particleDimTags
+            
+                                    factory.synchronize()
+                                    k_particle_image += 1
+                            elif 'Ellipsoid' == class_name_i_particle:
+                            # Particle is an Ellipsoid
+                                xc = i_particle.position_center[0] + Particle.box[0]*j
+                                yc = i_particle.position_center[1] + Particle.box[1]*p
+                                zc = i_particle.position_center[2] + Particle.box[2]*l
+                                r = 1
+                                # Saving the properties of the particles
+                                particleTags.append(factory.addSphere(xc, yc, zc, r))
+                                # Creating a sphere without rotation
+                                # Rotate the disk
+                                factory.synchronize()
+                                affineTags = [(3, particleTags[k_particle_image])]
+                                # affineTags.extend(
+                                #     model.getBoundary([(3, particleTags[k_particle_image])]))
+                                factory.dilate(affineTags, xc, yc, zc,
+                                               i_particle.semi_axis_1,
+                                               i_particle.semi_axis_2,
+                                               i_particle.semi_axis_3)
+                                factory.rotate(affineTags, xc, yc, zc,
+                                               i_particle.rotation_axis[0],
+                                               i_particle.rotation_axis[1],
+                                               i_particle.rotation_axis[2],
+                                               i_particle.angle)
+            
+                                phaseDimTag[str(i_particle.phase)].append((3, particleTags[k_particle_image]))
+            
+                                factory.synchronize()
+                                k_particle_image += 1
+
+            materials = []
+            for i_phase in Particle.list_phases:
+                materials.append(phaseDimTag[i_phase])
+            
+            # Set the mesh size on the geometry points
+            # Synchronize the CAD engine (always needed before generating the mesh)
+            # It may also be useful for some intermidate operations, like checking the tags of
+            # entities
+            factory.synchronize()
+            
+            for i_phase in range(len(Particle.list_phases)):
+                materialTag = model.addPhysicalGroup(2, [particle[1] for particle in materials[i_phase]])
+                model.setPhysicalName(2, materialTag, "Phase " + Particle.list_phases[i_phase])
+
+
+            # model.mesh.setSize(points, mesh_size)
+            gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
+            gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.03)
+
+            # Generate a 3D mesh
+            model.mesh.generate(2)
+
+            # Write the mesh to the .msh file
+            meshfile = title + ".msh"
+            meshfile_temp = title + "_temp.msh"
+            vtkfile = title + '.vtk'
+            vtkfile_temp = title + '_temp.vtk'
+            gmsh.write(meshfile_temp)
+            gmsh.write(vtkfile_temp)
+            
+            # Close GMSH
+            gmsh.finalize()
+
+            fin = open(meshfile_temp, "rt")
+            fout = open(meshfile, "wt")
+
+            for line in fin:
+            	fout.write(line.replace(',', '.'))
+
+            fin.close()
+            fout.close()
+            os.remove(meshfile_temp)
+
+            fin = open(vtkfile_temp, "rt")
+            fout = open(vtkfile, "wt")
+
+            for line in fin:
+            	fout.write(line.replace(',', '.'))
+
+            fin.close()
+            fout.close()
+            os.remove(vtkfile_temp)
+
+    if 'ax' not in kwargs:
+        plt.close()
+    # Closing the current figure
+
+
+def plotKineticEnergyHistory(kinetic_energy_history, save=True, show=False,**kwargs):
+    if 'axes' in kwargs:
+        plt.sca(kwargs['axes'])
     else:
-        box = Particle.box
-        from mpl_toolkits.mplot3d import Axes3D
-        from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
-        import matplotlib.pyplot as plt
-
-        def drawSphere(pos, r):
-            # draw sphere
-            u, v = np.mgrid[0:2*np.pi:5j, 0:np.pi:5j]
-            x = np.cos(u)*np.sin(v)
-            y = np.sin(u)*np.sin(v)
-            z = np.cos(v)
-            # shift and scale sphere
-            x = r*x + pos[0]
-            y = r*y + pos[1]
-            z = r*z + pos[2]
-            return (x, y, z)
-
-        def plot_cube(cube_definition):
-            cube_definition_array = [
-                np.array(list(item))
-                for item in cube_definition
-            ]
-
-            points = []
-            points += cube_definition_array
-            vectors = [
-                cube_definition_array[1] - cube_definition_array[0],
-                cube_definition_array[2] - cube_definition_array[0],
-                cube_definition_array[3] - cube_definition_array[0]
-            ]
-
-            points += [cube_definition_array[0] + vectors[0] + vectors[1]]
-            points += [cube_definition_array[0] + vectors[0] + vectors[2]]
-            points += [cube_definition_array[0] + vectors[1] + vectors[2]]
-            points += [cube_definition_array[0] + vectors[0] + vectors[1] + vectors[2]]
-
-            points = np.array(points)
-
-            edges = [
-                [points[0], points[3], points[5], points[1]],
-                [points[1], points[5], points[7], points[4]],
-                [points[4], points[2], points[6], points[7]],
-                [points[2], points[6], points[3], points[0]],
-                [points[0], points[2], points[4], points[1]],
-                [points[3], points[6], points[7], points[5]]
-            ]
-
-            fig = plt.figure()
-            ax = fig.add_subplot(111, projection='3d')
-
-            faces = Poly3DCollection(edges, linewidths=1, edgecolors='k')
-            faces.set_facecolor((0, 0, 1, 0.05))
-
-            ax.add_collection3d(faces)
-
-            # Plot the points themselves to force the scaling of the axes
-            ax.scatter(points[:, 0], points[:, 1], points[:, 2], s=0)
-
-            ax.set_aspect('equal')
-
-        cube_definition = [
-            (0, 0, 0), (0, 1, 0), (1, 0, 0), (0, 0, 1)
-        ]
-        plot_cube(cube_definition)
-
-        fig = plt.gcf()
-        ax = fig.gca()
-
-        for i in range(N):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    for l in range(-1, 2):
-                        (xs, ys, zs) = drawSphere(
-                            particles[i].position_center+np.array([1*j, 1*k, 1*l]),
-                            particles[i].radius)
-                        x_clip = np.logical_or(np.abs(np.array(xs)) > 1, xs < 0)
-                        y_clip = np.logical_or(np.abs(np.array(ys)) > 1, ys < 0)
-                        z_clip = np.logical_or(np.abs(np.array(zs)) > 1, zs < 0)
-                        in_points = np.logical_or(np.logical_or(x_clip, y_clip), z_clip)
-                        # xs[in_points] = np.nan
-                        # ys[in_points] = np.nan
-                        zs[in_points] = np.nan
-                        ax.plot_wireframe(xs, ys, zs, color="b")
-                        ax.text(particles[i].position_center[0],
-                                particles[i].position_center[1],
-                                particles[i].position_center[2],
-                                str(i))
-                        plt.scatter(
-                            particles[i].position_center[0],
-                            particles[i].position_center[1],
-                            particles[i].position_center[2])
-
-        plt.grid(b=False)
-        ax.set_aspect('equal')
-        ax.set_xlim3d(0, 1)
-        ax.set_ylim3d(0, 1)
-        ax.set_zlim3d(0, 1)
-        ax.set_clip_on(True)
-        # plt.axis([0, 1, 0, 1, 0, 1])
-
-    if len(Particle.kinetic_energy_history) > 2:
-        fig = plt.figure()
-        plt.plot(range(len(Particle.kinetic_energy_history)), Particle.kinetic_energy_history)
+        plt.figure()
+    plt.plot(range(len(Particle.kinetic_energy_history)), Particle.kinetic_energy_history)
+    if 'axes' not in kwargs:
+        dir = kwargs.get('dir')
         if save:
-            plt.savefig(dir + "kinetic_energy" + ".png")
+            plt.savefig(dir + "kinetic_energy" + ".pdf")
 
         if show:
             plt.show()
+        plt.close()
 
-        fig = plt.figure()
-        ax = plt.gca()
-        for line in Particle.temp_change_steps:
-            plt.semilogy([line, line], [np.min(Particle.total_overlap_history), np.max(Particle.total_overlap_history)])
-        plt.semilogy([0, len(Particle.total_overlap_history)], [Particle.max_residue, Particle.max_residue])
-        plt.ylabel('Relative Energy')
-        plt.semilogy(range(len(Particle.total_overlap_history)), Particle.total_overlap_history)
-        plt.grid()
-        plt.axis([0, len(Particle.total_overlap_history), np.min(Particle.total_overlap_history), np.max(Particle.total_overlap_history)])
 
+def plotOverlapHistory(total_overlap_history, temp_change_steps, max_residue, temp_change=True, save=True, show=False, **kwargs):
+    import matplotlib.pyplot as plt
+    if 'axes' in kwargs:
+        ax = kwargs['axes']
+        plt.sca(ax)
+    else:
+        plt.figure()
+    if temp_change:
+        for line in temp_change_steps:
+            plt.axvline(line, linewidth=0.01, linestyle="--", color='k')
+    plt.semilogy([0, len(total_overlap_history)], [max_residue, max_residue])
+    graph_overlap_history = plt.semilogy(range(len(total_overlap_history)), total_overlap_history)
+    plt.grid()
+    # plt.axis([0, len(total_overlap_history), 1e-10, 1e-1])# np.min(total_overlap_history), np.max(total_overlap_history)])
+    if 'axes' not in kwargs:
+        dir = kwargs.get('dir')
         if save:
-            plt.savefig(dir + "relative_energy" + ".png")
+            plt.savefig(dir + "relative_energy" + ".pdf")
 
         if show:
             plt.show()
+        plt.close()
+    else:
+        return graph_overlap_history
 
 def plotPaths(particles, dim, dp_dir):
     """Plot particle paths."""
@@ -403,8 +601,6 @@ def plotPaths(particles, dim, dp_dir):
     from mpl_toolkits.mplot3d import Axes3D
     import time
     plt.rcParams['animation.ffmpeg_path'] = "/usr/bin/ffmpeg"
-
-
 
     only_center = False
 
@@ -618,7 +814,7 @@ def plotPaths(particles, dim, dp_dir):
 
         ani.save(dp_dir + ".mp4", writer=writer)
 
-        plt.show()
+        # plt.show()
 
 
 def plotPixels(pixel_grid, dir, show=False, save=True):
@@ -629,7 +825,7 @@ def plotPixels(pixel_grid, dir, show=False, save=True):
     plt.imshow(pixel_grid.T)
     plt.axis([0, np.size(pixel_grid.T, 0), 0, np.size(pixel_grid.T, 1)])
     if save:
-        plt.savefig(dir + ".png")
+        plt.savefig(dir + ".pdf")
     if show:
         plt.show(block=False)
 
@@ -651,11 +847,11 @@ def plotVoxels(voxel_grid, matrix_phase, list_phase, dir, show=True, save=True):
         k_color += 1
     ax.voxels(particle_voxels, facecolors=colors, edgecolor='k')
     if save:
-        plt.savefig(dir + ".png")
+        plt.savefig(dir + ".pdf")
     if show:
         plt.show()
 
-def plotVoronoi2D(particles, voronoi, dir, voronoi_type, save=True, show=True):
+def plotVoronoi2D(particles, voronoi, dir, voronoi_type, save=True, show=False):
     """Plot the Voronoi for circular particles."""
     import matplotlib.pyplot as plt
     import matplotlib.patches as mpatches
@@ -684,7 +880,7 @@ def plotVoronoi2D(particles, voronoi, dir, voronoi_type, save=True, show=True):
             for k in range(-1, 2):
                 if 'Disk' == class_name_i_particle or 'CylindricalFiber' == class_name_i_particle:
                     circ = mpatches.Circle(
-                        particles[i].position_center + Particle.box*np.array([j, k]), radius=particles[i].radius, alpha=0.8, color=colors[particles[i].phase])
+                        particles[i].position_center + Particle.box*np.array([j, k]), radius=particles[i].radius, edgecolor=(0, 0, 0, 0), facecolor=colors[particles[i].phase])
                     ax.add_artist(circ)
                 if 'Ellipse' == class_name_i_particle:
                     ellip = mpatches.Ellipse(particles[i].position_center+Particle.box*np.array(
@@ -700,26 +896,29 @@ def plotVoronoi2D(particles, voronoi, dir, voronoi_type, save=True, show=True):
     plt.axis([0, Particle.box[0], 0, Particle.box[1]])
 
     if save:
-        plt.savefig(dir + "_voronoi" + ".png")
+        plt.savefig(dir + "_voronoi" + ".pdf")
 
     if show:
         plt.show()
 
 
-def plotVoronoi2DwithIMTs(particles, voronoi, IMTs, dir, voronoi_type, save=True, show=True):
+def plotVoronoi2DwithIMTs(particles, voronoi, IMTs, dir, voronoi_type, save=True, show=False):
     """Plot the Voronoi for circular particles."""
     import matplotlib.pyplot as plt
     import matplotlib.patches as mpatches
     import matplotlib
     from scipy.spatial import voronoi_plot_2d
 
+    N = len(particles)
+    # for i in range(N):
+    #     print(particles[i].position_center[0], particles[i].position_center[1])
+
     for i_order in range(7):
 
-        fig = plt.figure()
+        fig, ax, (w_fig, h_fig) = createFigure(nrows=3, ncols=2)
 
         ax = plt.gca()
 
-        N = len(particles)
 
         if Particle.box[0] == Particle.box[1]:
             ax.axis("square")
@@ -732,36 +931,35 @@ def plotVoronoi2DwithIMTs(particles, voronoi, IMTs, dir, voronoi_type, save=True
         colors = generateColors(particles)
 
         for i in range(N):
+            # print(particles[i].position_center[0], particles[i].position_center[1])
             class_name_i_particle = particles[i].__class__.__name__
             # particles[i].dilate(global_crit_ero_thick)
             for j in range(-1, 2):
                 for k in range(-1, 2):
                     if 'Disk' == class_name_i_particle or 'CylindricalFiber' == class_name_i_particle:
                         circ = mpatches.Circle(
-                            particles[i].position_center + Particle.box*np.array([j, k]), radius=particles[i].radius, alpha=0.8, color=colors[particles[i].phase])
+                            particles[i].position_center + Particle.box*np.array([j, k]), radius=particles[i].radius, facecolor=(0, 0, 0, 0), edgecolor='k', linewidth=0.5, linestyle='-.') #colors[particles[i].phase])
                         ax.add_artist(circ)
                     if 'Ellipse' == class_name_i_particle:
                         ellip = mpatches.Ellipse(particles[i].position_center+Particle.box*np.array(
                             [1*j, 1*k]), particles[i].major_axis, particles[i].minor_axis,
-                            angle=180/np.pi*particles[i].angle, alpha=0.8, color=colors[particles[i].phase])
+                            angle=180/np.pi*particles[i].angle, facecolor=(0, 0, 0, 0), edgecolor='k', linewidth=0.5, linestyle='-.')
                         ax.add_artist(ellip)
 
         if voronoi_type == 'set':
             set_voronoi_plot_2d(voronoi, ax=plt.gca(), show_vertices=False)
         elif voronoi_type == 'standard':
-            voronoi_plot_2d(voronoi, ax=plt.gca())
+            voronoi_plot_2d(voronoi, ax=plt.gca(), show_vertices=False)
 
         plt.axis([0, Particle.box[0], 0, Particle.box[1]])
 
         cmap = matplotlib.cm.get_cmap('Blues')
         # Initializing the list containing the list of IMTs for each Voronoi cell
         k_cell = 0
-        for i_region in voronoi.regions:
-            print(i_region)
+        for ind, i_region in enumerate(voronoi.regions):
             if len(i_region) == 0:
                 continue
             if any([vertex == -1 for vertex in i_region]):
-                print(k_cell)
                 continue
         # Running through all the cells in the Voronoi
             # plt.sca(ax)
@@ -784,30 +982,67 @@ def plotVoronoi2DwithIMTs(particles, voronoi, IMTs, dir, voronoi_type, save=True
         ax.set_xlim(0, Particle.box[0])
 
         colors = generateColors(particles)
+        plt.xticks([])
+        plt.yticks([])
 
+        if i_order == 0:
+            plt.colorbar(matplotlib.cm.ScalarMappable(cmap=cmap), label=r'Perimeter')
+        else:
+            plt.colorbar(matplotlib.cm.ScalarMappable(cmap=cmap), label=r'$q_{0}$'.format(str(i_order)))
         if save:
-            plt.savefig(dir + "_" + str(i_order) + ".png")
+            plt.savefig(dir + "_" + str(i_order) + ".pdf", bbox_inches='tight')
 
         if show:
             plt.show()
 
+    region_point = np.zeros((len(voronoi.regions)), dtype=int)
+    in_box = []
+    for point_ind, region_ind in enumerate(voronoi.point_region):
+        if point_ind == -1:
+            continue
+        region_point[region_ind] = int(point_ind)
+    k_used_region = 0
+    for ind, i_region in enumerate(voronoi.regions):
+        if len(i_region) == 0:
+            continue
+        if any([vertex == -1 for vertex in i_region]):
+            continue
+        print(region_point[ind])
+        pos_center = voronoi.points[region_point[ind]]
+        if 0 < pos_center[0] < 1 and 0 < pos_center[1] < 1:
+            in_box.append(k_used_region)
+        k_used_region += 1
+    
+    print(len(in_box))
+            
+
     for i_order in range(7):
 
-        fig = plt.figure()
+        fig, ax, (w_fig, h_fig) = createFigure(nrows=3, ncols=2)
 
         ax = plt.gca()
 
         N = len(particles)
+        
+        if i_order == 0:
+            plt.hist(np.abs(np.array(IMTs)[in_box, i_order]), color=(68/255, 119/255, 170/255, 1))
+            ax.set_xlabel(r'Perimeter')
+        else:
+            plt.hist(np.abs(np.array(IMTs)[in_box, i_order])/np.real(np.array(IMTs)[in_box, 0]), color=(68/255, 119/255, 170/255, 1), range=(0, 1), bins=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
+            plt.axvline(np.mean(np.abs(np.array(IMTs)[in_box, i_order])/np.real(np.array(IMTs)[in_box, 0])), color='k', linestyle='--')
+            ax.set_xlabel(r'$q_{0}$'.format(str(i_order)))
+            plt.xlim([0, 1])
+            plt.xticks(ticks=[0, 0.2, 0.4, 0.6, 0.8, 1])
 
-        plt.hist(np.abs(np.array(IMTs)[:, i_order]), range=(0, 1))
 
-        plt.title(str(i_order))
+        ax.set_ylabel(r'$N$')
 
         if save:
-            plt.savefig(dir + "_" + str(i_order) + "_hist" + ".png")
+            plt.savefig(dir + "_" + str(i_order) + "_hist" + ".pdf", bbox_inches='tight' )
 
         if show:
             plt.show()
+        plt.close()
 
 def plotVoronoi3Dpbc(particles, voronoi, rve_dims, dir, voronoi_type, save=True, show=True):
     """Plot the Voronoi for circular particles."""
@@ -1737,10 +1972,10 @@ def plotVoronoi3DwithIMTs(particles, voronoi, rve_dims, IMTs, dir, voronoi_type,
     # ==========================================================================================
     # Define model name
 
-    title = Particle.file_path + "voronoi_wIMTs"
+    title = dir + "voronoi_wIMTs"
     model.add(title)
 
-    boxTag = factory.addBox(-2*rve_dims[0], -2*rve_dims[1], -2*rve_dims[2], 3*rve_dims[0], 3*rve_dims[1], 3*rve_dims[2])
+    boxTag = factory.addBox(-rve_dims[0], -rve_dims[1], -rve_dims[2], 3*rve_dims[0], 3*rve_dims[1], 3*rve_dims[2])
     # RVE
 
     verticesTags = np.array([factory.addPoint(vertex[0], vertex[1], vertex[2]) for vertex in voronoi.vertices])
@@ -1877,11 +2112,48 @@ def plotVoronoi3DwithIMTs(particles, voronoi, rve_dims, IMTs, dir, voronoi_type,
             element_cell.append(line.rstrip('\n'))
     
     fin.close()
+
     with open(vtk_file, "a") as msh_vtk:
         for i_IMT in range(7):
-            dataName = "q_" + str(i_IMT)
+            if i_IMT == 0:
+                dataName = "Surface_Area"
+            else:
+                dataName = "q_" + str(i_IMT)
             msh_vtk.write("\n\nSCALARS {0} {1} {2}".format(dataName, dataType, numComp))
             msh_vtk.write("\nLOOKUP_TABLE default")
             for cell_id in element_cell[2:]:
                 msh_vtk.write("\n{0}".format(IMTs[int(cell_id) - 1][i_IMT]))
     
+    
+            
+
+    for i_order in range(7):
+
+        fig, ax, (w_fig, h_fig) = createFigure(nrows=3, ncols=2)
+
+        ax = plt.gca()
+
+        N = len(particles)
+        
+        if i_order == 0:
+            plt.hist(np.abs(np.array(IMTs)[:, i_order]), color=(68/255, 119/255, 170/255, 1))
+            ax.set_xlabel(r'Surface Area')
+        else:
+            plt.hist(np.abs(np.array(IMTs)[:, i_order]), color=(68/255, 119/255, 170/255, 1), range=(0, 1), bins=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
+            plt.axvline(np.mean(np.abs(np.array(IMTs)[:, i_order])), color='k', linestyle='--')
+            ax.set_xlabel(r'$q_{0}$'.format(str(i_order)))
+            plt.xlim([0, 1])
+            plt.xticks(ticks=[0, 0.2, 0.4, 0.6, 0.8, 1])
+
+
+        ax.set_ylabel(r'$N$')
+
+        if save:
+            plt.savefig(dir + "_" + str(i_order) + "_hist" + ".pdf", bbox_inches='tight' )
+
+        if show:
+            plt.show()
+        plt.close()
+# def rescaleAxis(ax):
+#     for line in ax.lines:
+        
