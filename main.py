@@ -948,6 +948,70 @@ def generateInitialConfiguration(particles, type_init_conf, **kwargs):
                             particles[grid_places[k_counter]].position_center_history = [
                                 particles[grid_places[k_counter]].position_center.flatten()]
                     k_counter += 1
+    elif type_init_conf == "fcc":
+        center_points = np.array(
+            [[0, 0, 0],
+             [1, 0, 0],
+             [0, 1, 0],
+             [1, 1, 0],
+             [0.5, 0, 0.5],
+            [0.5, 1, 0.5],
+            [0, 0.5, 0.5],
+            [1, 0.5, 0.5],
+            [0, 0, 1],
+             [1, 0, 1],
+             [0, 1, 1],
+             [1, 1, 1],
+             [1.5, 1.3, 1],
+             [1.7, 0.3, 0.1],
+             [0.2, 1.1, 1.5]
+            ])
+        k = 0
+        for i_particle in particles:
+        # Running through all the particles
+            i_particle.setPositionCenter(center_points[k]/3) #np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
+            # Generating the positions from a random uniform distribution between 0 and 1
+            i_particle.setVelocityCenter(np.zeros((i_particle.dim))) #np.array([0,0],dtype='float')
+            # Generating the velocities from a random uniform distribution between -1 and 1
+            if kwargs.get('save_history'):
+            # Saving particle history
+                i_particle.position_center_history = [i_particle.position_center.flatten()]
+            k += 1
+    elif type_init_conf == 'overlap':
+        k = 0
+        for i_particle in particles:
+        # Running through all the particles
+            # i_particle.setPositionCenter(np.array([0.5 + 2*k*0.01, 0.5])) # Particle.box*np.random.uniform(size=i_particle.dim)) #np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
+            # # Generating the positions from a random uniform distribution between 0 and 1
+            # i_particle.setVelocityCenter(np.array([1e-4 - 2*k*1e-4, 0])) #np.array([0,0],dtype='float')
+            i_particle.setPositionCenter(np.array([0.5, 0.5])) # Particle.box*np.random.uniform(size=i_particle.dim)) #np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
+            # Generating the positions from a random uniform distribution between 0 and 1
+            i_particle.setVelocityCenter(np.array([0, 0])) #np.array([0,0],dtype='float')
+            # Generating the velocities from a random uniform distribution between -1 and 1
+            if kwargs.get('save_history'):
+            # Saving particle history
+                i_particle.position_center_history = [i_particle.position_center.flatten()]
+            k += 1
+    elif type_init_conf == 'custom':
+        path = "/home/zeluis/Documents/Tese/programa/studies/thermostats/minkowski/artificial_2D/results_tri.txt"
+        positions = np.loadtxt(path)
+        for ind, i_particle in enumerate(particles):
+            # Particle.box*np.random.uniform(size=i_particle.dim)) #np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
+            i_particle.setPositionCenter(positions[ind, 0:2]/500)
+            # Generating the positions from a random uniform distribution between 0 and 1
+            i_particle.setVelocityCenter(np.array([0, 0])) #np.array([0,0],dtype='float')
+            # Generating the velocities from a random uniform distribution between -1 and 1
+    elif type_init_conf == 'adjacent':
+        k = 0
+        for i_particle in particles:
+        # Running through all the particles
+            i_particle.setPositionCenter(np.array([0.1, 0.1, 0.01 + k*0.98])) # Particle.box*np.random.uniform(size=i_particle.dim)) #np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
+            # Generating the positions from a random uniform distribution between 0 and 1
+            i_particle.setVelocityCenter(np.array([0, 0, 0])) #np.array([0,0],dtype='float')
+            if kwargs.get('save_history'):
+            # Saving particle history
+                i_particle.position_center_history = [i_particle.position_center.flatten()]
+            k += 1
     else:
         try:
             raise errors.UnsupportedInitialConfigurationType(type_init_conf)
@@ -1629,6 +1693,7 @@ def computeRelativeEnergy(particles):
     print('new', relative_energy)
     print('overlap', Particle.total_overlap)
     Particle.relative_energy_history.append(relative_energy)
+    # Saving the relative energy
 
     return relative_energy
 
@@ -1642,6 +1707,7 @@ def computeKineticEnergy(particles):
     kin_energy = np.sum([i_particle.volume()*np.sum(i_particle.velocity_center**2) for i_particle in particles])
     print('kinetic', kin_energy)
     Particle.kinetic_energy_history.append(kin_energy)
+    # Saving the kinetic energy
 
     return kin_energy
 
@@ -1702,6 +1768,12 @@ def run(particles, max_residue_per_particle, max_step, options):
     # Saving the array containing the size of the box
     dim = particles[0].dim
     # Saving the array containing the dimension of the problem
+    min_distance = options.get('min_distance', 0)
+    # Saving the minimum distance
+    if min_distance > 0:
+    # There is a minimum distance
+        dilateParticles(particles, min_distance)
+        # Dilate all particles
     speed_up_scheme = options.get('speed_up_scheme', 'Cell')
     if speed_up_scheme == 'Cell':
         # Only a cell list scheme will be used
@@ -1940,8 +2012,6 @@ def contractParticles(particles, min_distance):
 
 def main():
     """Run the microstructure generation program."""
-    start = time.time()
-    # Counting time
     screen_path = open("test.txt", 'w')
     # sys.stdout = f
     [dp_dir, descriptors, phase_types, options, n_samples, rve_dims, problem_type,
