@@ -180,11 +180,11 @@ def neighboorCell(pos_current_cell, local_pos_neighboor_cell, dim, n_cells):
                    + local_lay_pos_neigh*n_cells[0]*n_cells[1]))
         # Global position of the neighboor cell without enforcing periodic boundary
         # conditions
-        if pos_current_cell < n_cells[0] and local_row_pos_neigh == -1:
+        if  pos_current_cell - n_cells[1]*n_cells[0]*(pos_current_cell//(n_cells[1]*n_cells[0])) < n_cells[0] and local_row_pos_neigh == -1:
         # Lower row of the grid
             pos_neighboor_cell = pos_neighboor_cell + n_cells[1]*n_cells[0]
             # Enforcing the periodic boundary conditions
-        elif pos_current_cell >= n_cells[0]*(n_cells[1] - 1) and local_row_pos_neigh == 1:
+        elif pos_current_cell - n_cells[1]*n_cells[0]*(pos_current_cell//(n_cells[1]*n_cells[0])) >= n_cells[0]*(n_cells[1] - 1) and local_row_pos_neigh == 1:
         # Upper row of the grid
             pos_neighboor_cell = pos_neighboor_cell - n_cells[1]*n_cells[0]
             # Enforcing the periodic boundary conditions
