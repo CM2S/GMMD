@@ -1765,14 +1765,61 @@ def run(particles, max_residue_per_particle, max_step, options):
     # relative_energy_old = relative_energy
     # Saving the current relative energy
     max_steps_to_relax = options.get('max_steps_to_relax', 100)
-    dt = options.get('dt', 0.005)
-    thermostat = options.get('thermostat', 'isokinetic')
-    if thermostat == 'isokinetic':
+    dt = options.get('dt', 0.05)
+    thermostat = options.get('thermostat', 'multi_temperature')
+    if thermostat == 'multi_temperature':
     # The thermostat used is the isokinetic scheme
-        jump = 40 #20 #np.max([np.int(np.floor(1500/N)), 2])
-        last_alt = 150
-        T_ref = 1e-5*1/3
     # Setting the options
+        if particles[0].dim == 2:
+            jump = options.get('equilibration_steps', 25) # + 5*100*0.65/(Particle.number*Particle.volume/Particle.volume_RVE))
+            # Number of steps allowed for the system to equilibrate and explore and given
+            # temperature before the criterion for temperature lowering is checked
+        elif particles[0].dim == 3:
+            jump = options.get('equilibration_steps', 25) # 20*np.max([1, 12*(Particle.volume/Particle.volume_RVE//0.66)]) + 5*100*0.65/(Particle.number*Particle.volume/Particle.volume_RVE))
+            
+        jump_list = []
+        jump_inc = options.get("inc_eq_step", 20)
+        last_alt = options.get('inital_temp_steps', 40)
+        # Number of steps allowed for the system to equilibrate and explore the initial
+        # temperature
+        T_ref = options.get('initial_temp', 2.5e10) #*(particles[0].radius/0.045)**2)
+        # Intial temperature
+        k_b = 1e-15
+        # Analog to the Boltzmann constant
+        # mean_v = np.sqrt(particles[0].dim*k_b*T_ref/particles[0].volume())
+        # l = np.sqrt(2)/4*np.sqrt(np.pi/(N*0.5))
+        if kin_energy > 1e-10:
+        # Compute the rescaling factor only if the kinetic energy is nonzero
+            lambda_vel = np.sqrt(2*particles[0].dim*N*k_b*T_ref/kin_energy)
+            # Rescalling factor (why? 250 -  equipartition theorem)
+            print('T_ref', T_ref)
+        else:
+        # If the kinetic energy is zero
+            lambda_vel = 0
+        for i_particle in range(N):
+            # Running through all the particles
+            particles[i_particle].velocity_center *= lambda_vel
+            # Rescalling the velocities
+    elif thermostat == 'isokinetic':
+        T_ref = options.get('initial_temp',  2.5e10) #*(particles[0].radius/0.045)**2)
+        # Intial temperature
+        k_b = 1e-15
+        # Analog to the Boltzmann constant
+        jump = options.get('equilibration_steps', 25) # + 5*100*0.65/(Particle.number*Particle.volume/Particle.volume_RVE))
+        # Number of steps allowed for the system to equilibrate and explore and given
+        # temperature before the criterion for temperature lowering is checked
+        if kin_energy > 1e-10:
+        # Compute the rescaling factor only if the kinetic energy is nonzero
+            lambda_vel = np.sqrt(2*particles[0].dim*N*k_b*T_ref/kin_energy)
+            # Rescalling factor (why? 250 -  equipartition theorem)
+            print('T_ref', T_ref)
+        else:
+        # If the kinetic energy is zero
+            lambda_vel = 0
+        for i_particle in range(N):
+            # Running through all the particles
+            particles[i_particle].velocity_center *= lambda_vel
+            # Rescalling the velocities
     while (step < max_step) and n_steps_relax < max_steps_to_relax:
         # Run the simulation while the number of steps the overlap has been smaller than the
         # allowed maximum residue is larger than options['max_steps_to_relax'], so that the
@@ -1791,29 +1838,65 @@ def run(particles, max_residue_per_particle, max_step, options):
         Particle.total_overlap_history.append(Particle.total_overlap)
         total_overlap_vec.append(Particle.total_overlap)
         kin_energy = computeKineticEnergy(particles)
+        print(particles[0].radius)
         # Computing the kinetic energy
-        if thermostat == 'isokinetic':
-            # The thermostat used is the isokinetic scheme
+        if thermostat == 'multi_temperature':
+        # The thermostat used is the multi_temperature scheme
+            print('step', step)
+            print('last_alt', last_alt)
+            print('jump', jump)
+            print('vf', Particle.volume/Particle.volume_RVE)
             if step > last_alt:
-                if np.max(total_overlap_vec[-jump:-1]) != 0:
-                    if np.min(total_overlap_vec[-jump:-1])/np.max(total_overlap_vec[-jump:-1]) >= 0.1 and Particle.total_overlap > max_residue:
-                        T_ref *= 1/1.5
+            # If the end of the equilibration time has been reached
+                # jump *= np.max([1, 1.5*(Particle.volume/Particle.volume_RVE/0.65) - 1])
+                if Particle.total_overlap > max_residue:
+                # If a legal configuration has not been achieved
+                    if any(np.array(Particle.total_overlap_history[-jump//2 :]) - np.array(Particle.total_overlap_history[-jump//2 -1: -1]) > 0):
+                        # jump += jump_inc*((Particle.volume/Particle.volume_RVE)//0.66)
+                        # jump *= 2
+                        # Updating jump according to a linear law for volume fractions larger or
+                        # equal to 0.66
+                        T_ref *= 1/4
+                        # T_ref *= np.min([1, 1/4*(particles[0].radius/0.045)**2])
+                        # jump = np.min([np.int(np.ceil(l*np.sqrt(particles[0].volume()/(particles[0].dim*k_b*T_ref))/dt)), 30])
+                        print('T_ref', T_ref)
+                        # print('thing', l*np.sqrt(particles[0].volume()/(particles[0].dim*k_b*T_ref))/dt)
+                        print('jump', jump)
+                        jump += step - last_alt - 1
                         last_alt = step + jump
                         Particle.temp_change_steps.append(step)
-            if kin_energy > 1e-10:
+                        jump_list.append(jump)
+                    # if step > 2*jump and all(np.array(Particle.total_overlap_history[-2*jump:]) - np.array(Particle.total_overlap_history[-2*jump - 1: -1]) < 0):
+                    #     T_ref *= 4
+                    #     jump += 10
+                    #     jump_list.append(jump)
+                    #     last_alt = step + jump
+
+            # if kin_energy > 1e-10:
             # Compute the rescaling factor only if the kinetic energy is nonzero
-                lambda_vel = np.sqrt(3*N*T_ref/kin_energy)
-                # Rescalling factor (why? 250 -  equipartition theorem)
-            else:
+            lambda_vel = np.sqrt(2*particles[0].dim*N*k_b*T_ref/kin_energy)
+            # Rescalling factor (why? 250 -  equipartition theorem)
+            print('T_ref', T_ref)
+            # else:
             # If the kinetic energy is zero
-                lambda_vel = 0
+                # lambda_vel = 0
+                # pass
             for i_particle in range(N):
                 # Running through all the particles
                 particles[i_particle].velocity_center *= lambda_vel
                 # Rescalling the velocities
             if relative_energy/Particle.total_overlap < 1e-8 and Particle.total_overlap > max_residue:
+            # FIXME: this criterion is giving false positives, relative energy falls
+            # much faster than total overlap
                 print("diverged")
-                break
+                # break
+        if thermostat == "isokinetic":
+        # The thermostate used is the isokinetic with constant temperature
+            lambda_vel = np.sqrt(2*particles[0].dim*N*k_b*T_ref/kin_energy)
+            for i_particle in range(N):
+                # Running through all the particles
+                particles[i_particle].velocity_center *= lambda_vel
+                # Rescalling the velocities
         else:
             # There is no thermostat
             pass
@@ -1826,6 +1909,17 @@ def run(particles, max_residue_per_particle, max_step, options):
             n_steps_relax = 0
             # Restarting the count
         print(step)
+        if step > 5*jump and all((np.abs(np.array(Particle.total_overlap_history[-5*jump:]) - np.array(Particle.total_overlap_history[-5*jump-1:-1])))/np.array(Particle.total_overlap_history[-5*jump-1:-1])*100 < 1e-5):
+            break
+    print('min_distance', min_distance)
+    if min_distance > 0:
+    # There is a minimum distance
+        print('min_distance')
+        contractParticles(particles, min_distance)
+        # Contract all particles
+    if thermostat == "multi_temperature":
+        Particle.equilibration_steps.append(jump_list)
+
 
 
 def dilateParticles(particles, min_distance):
