@@ -73,6 +73,9 @@ class RVE():
 
     max_residue: float
         Max residue allowed for the particles in the RVE
+
+    time: list(float)
+        Time taken to generate each sample of the microstructure
     """
 
     def __init__(self, particles, rve_dims):
@@ -128,6 +131,10 @@ class RVE():
         # Max residue allowed for the particles in the RVE
         self.total_overlap_history = Particle.total_overlap_history
         # History of the particles' overlap
+        self.time = Particle.time
+        # Time taken to generate each sample of the microstructure
+        self.equilibration_steps = Particle.equilibration_steps
+        # Equilibration steps at each temperature stage
 
     def useThisRVE(self, dp_dir):
         """Intialize the the Particle class attributes using this RVE."""
@@ -166,10 +173,17 @@ class RVE():
         # Max residue allowed for the particles in the RVE
         Particle.total_overlap_history = self.total_overlap_history
         # History of the particles' overlap
+        if hasattr(self, "time"):
+            Particle.time = self.time
+        # Time taken to generate each sample of the microstructure
+        if hasattr(self, "equilibration_steps"):
+            Particle.equilibration_steps = self.equilibration_steps
+        # Equilibration steps at each temperature stage
         particles = self.particles
         # Particles in the RVE
         rve_dims = self.rve_dims
         # RVE dims
+
         return [particles, rve_dims]
 
 
@@ -253,6 +267,12 @@ class Particle():
 
     total_overlap_history: list(float)
         History of the particle overlap
+
+    time: list(float)
+        Time taken to generate the microstructure
+
+    equilibration_steps: list(list(float))
+        Number of steps taken at each temperature stage
     """
     box = []
     # Size of the simulation box
@@ -290,6 +310,11 @@ class Particle():
     # Overlap area/volme between the particles
     total_overlap_history = []
     # History of the particle overlap
+    time = []
+    # Time taken to generate the microstructure
+    equilibration_steps = []
+    # Equilibration steps spent at each temperature stage
+
 
     def __init__(self, dim, phase):
         '''
@@ -343,6 +368,8 @@ class Particle():
         # List containing the relative energy for each iteration
         Particle.kinetic_energy_history = []
         # List containing the kinetic energy for each iteration
+        Particle.total_overlap_history = []
+        # List containing the total overlap for each iteration
         Particle.n_cell_dim = []
         # List containing the number of cells in each direction
         Particle.cell_side_length = []
@@ -1791,9 +1818,9 @@ class Sphere(Ellipsoid):
             d_2 = d - d_1
             # Distance in the x axis from the intersection point to disk 2
             intersection_volume = (
-                r_1**3/3*2*np.pi*(1 - d_1/r_1)   # Volume of spherical cap (Sphere 1)
+                r_1**3/3*2*np.pi*(1 - d_1/r_1)   # Volume of spherical sector (Sphere 1)
                 - d_1*(r_1**2-d_1**2)*np.pi/3    # Volume of cone (Sphere 1)
-                + r_2**3/3*2*np.pi*(1 - d_2/r_2)   # Volume of shperical cap (Sphere 2)
+                + r_2**3/3*2*np.pi*(1 - d_2/r_2)   # Volume of shperical sector (Sphere 2)
                 - d_2*(r_2**2 - d_2**2)*np.pi/3)  # Volume of cone (Sphere 2)
             # Computing the intersection area as the sum of the spherical caps minus the
             # corresponding cones
@@ -1876,6 +1903,7 @@ class Sphere(Ellipsoid):
         else:
         # the center of the ellipse has not
             point_in = True
+        return point_in
 
     def generatePointsOnSurface(self, n_points, erosion_thick=0):
         """Generate *n_points* on the surface of the sphere."""
