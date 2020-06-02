@@ -1242,41 +1242,38 @@ def canonicalParametersEllipsoid(sample, rve_dims):
 
 def createResultsDirectory(particles, dp_dir, remesh=False):
     """Create the results directory."""
-    Particle.file_name = (particles[0].__class__.__name__ + "_" + str(Particle.number)
-                          + "_" + str(Particle.volume)[0:5])
+    Particle.file_name = "mic"
+    # (particles[0].__class__.__name__ + "_" + str(Particle.number)
+    #                       + "_" + str(np.round(Particle.volume, decimals=3)))
     print(Particle.volume)
     # Defining the file name associated with this sampling
     results_folder = os.path.join(dp_dir,  Particle.file_name)
     # Creating a tentative path for the results folder
-    if os.path.exists(results_folder):
-    # If the folder already exists
-        results_folder_old = results_folder
-        # Saving the original name of the results folder
-        i = 0
-        while os.path.exists(results_folder):
+    # if os.path.exists(results_folder):
+    # # If the folder already exists
+    results_folder_old = results_folder
+    # Saving the original name of the results folder
+    i = 0
+    while True:
+        results_folder = results_folder_old + "_" + str(i)
+        # Creating a new folder name appending an integer to the name of the original
+        # folder
+        i += 1
+        if not os.path.exists(results_folder):
         # While the folder names already exists
-            i += 1
-            results_folder = results_folder_old + "_" + str(i)
-            # Creating a new folder name appending an integer to the name of the original
-            # folder
-        os.makedirs(results_folder)
-        # Creating the directory
-        if os.path.exists("input_data\\info_micro.p") and not remesh:
-            shutil.copy("input_data\\info_micro.p",
-                       os.path.join(results_folder, "info_micro.p"))
-    else:
-        os.makedirs(results_folder)
-        # Creating the directory
-        if os.path.exists("input_data\\info_micro.p") and not remesh:
-            shutil.copy("input_data\\info_micro.p",
-                       os.path.join(results_folder, "info_micro.p"))
-    # FIXME: Only the first sample keeps the info folder.
+            break
+    os.makedirs(results_folder)
+    # Creating the directory
+    if os.path.exists("input_data\\info_micro.p") and not remesh:
+        shutil.copy("input_data\\info_micro.p",
+                   os.path.join(results_folder, "info_micro.p"))
+        # copying inpyt file
     Particle.file_path = os.path.join(results_folder, Particle.file_name)
     # Saving the file path in the Particle class
 
 
 def particleGeneration(descriptors, phase_types, rve_dims, problem_type, dp_dir,
-                       type_init_conf, save_history=False):
+                       type_init_conf, save_history=True):
     """
     Generate all the particles from the geometrical descriptors.
 
