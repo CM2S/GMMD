@@ -16,9 +16,7 @@ import pickle
 # Dumping files in a binary format
 import time
 # To compute the time taken
-import matplotlib.pyplot as plt
-# Plotting capabilities
-from integration_methods import Newmark
+from integration_methods import Newmark, VerletSync
 # Importing an integration method for the equation of motion
 from particle_classes import Disk, Particle, Ellipse, Sphere, Ellipsoid, CylindricalFiber, RVE
 # Importing the particle class
@@ -411,7 +409,7 @@ def putSystemAtRest(particles):
         # Removing the linear momentum of the system as a whole putting at rest
 
 
-def integrate(particles, dt, speed_up_scheme, integration_scheme='Newmark', **kwargs):
+def integrate(particles, dt, speed_up_scheme, integration_scheme='Verlet', **kwargs):
     """Integrate the equations of motion."""
     dim = particles[0].dim
     # Dimension of the problem
@@ -446,7 +444,8 @@ def integrate(particles, dt, speed_up_scheme, integration_scheme='Newmark', **kw
             # Obtaining the new position and velocity of particle i
         elif integration_scheme == 'Verlet':
         # The integration scheme chosen was Verlet
-            pass
+            [new_position, new_velocity] = VerletSync(particles[i_particle].position_center, particles[i_particle].velocity_center, np.array([
+                                                      particles[i_particle].force], dtype='float').T, particles[i_particle].volume(), dt, 1, dim)
         else:
         # No integration scheme was chosen
             print('No integration scheme was chosen')

@@ -76,6 +76,61 @@ def Newmark(x_0, x_dot_0, f_vec, m_mat, c_mat, k_mat, dt, n_steps, dim):
 
     return [x_vec[:,1:], x_dot_vec[:,1:], x_ddot_vec[:,1:]]
 
+def VerletSync(x_0, x_dot_0, f_vec, m_part, dt, n_steps, dim):
+    '''
+    Integrate the equation of motion using the Verlet integration scheme.
+
+    An estimate of the velocity is also computed for the next time step, along with the
+    position with an error O(delta t) (hence the sync in the name of the function). This is
+    not the usual scheme where the velocity is computed for the previous time step with an
+    error O(delta t²^2).
+
+    Parameters:
+        x_0: vector array
+            Initial positions of the DOFs
+        x_dot_0: vector array
+            Initial velocities of the DOFs
+        f_vec: vector array
+            Forves acting on the DOFs at each time instant
+        m_part: float
+            Mass of the particle
+        dt: float
+            Time step
+        n_steps: int
+            Number of time steps to be used
+        dim: int
+            Dimension of the problem
+
+    Returns:
+        x_vec: vector array
+            Positions
+        x_dot_vec: vector array
+            Velocities
+    '''
+    x_vec = np.zeros((dim, n_steps+1), dtype='float')
+    x_vec[:, 0] = x_0
+    x_dot_vec = np.zeros((dim, n_steps+1), dtype='float')
+    x_dot_vec[:, 0] = x_dot_0
+    # Initializing the array vectors containing the positions, velocities and accelerations
+    x_vec[:, 1] = x_vec[:, 0] + dt*x_dot_vec[:, 0] + f_vec[:, 0]/m_part*dt**2
+    # Computing the next position
+    x_dot_vec[:, 1] = (x_vec[:, 1] - x_vec[:, 0])/dt
+    # Computing the velocitiy
+    step = 0
+    # Initializing the step counter
+    while step < n_steps - 1:
+        # Repeat n_steps times
+        x_vec[:, step + 2] = 2*x_vec[:, step + 1] - \
+            x_vec[:, step] + f_vec[:, step]/m_part*dt**2
+        # Computing the next position
+        x_dot_vec[:, step + 2] = (x_vec[:, step + 2] - x_vec[:, step + 1])/dt
+        # Computing the velocitiy
+        step += 1
+        # Moving to the next time step
+
+
+    return [x_vec[:,1:], x_dot_vec[:,1:]]
+
 if __name__ == '__main__':
 # Test drive
     import numpy as np
