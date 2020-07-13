@@ -618,6 +618,7 @@ class Ellipse(Particle):
             other_ellipse.major_axis/2, other_ellipse.minor_axis/2,
             other_ellipse.position_center + diff_nearest_other, other_ellipse.angle)
         # Computing the intersection points of the two ellipses
+        intersection_area = 0
         if len(intersect_pts) == 0:
         # Either the ellipses are disjoint or one of them is completly inside the other
             if self.volume() >= other_ellipse.volume():
@@ -738,6 +739,7 @@ class Ellipse(Particle):
                                           - k_ellipse*diff_nearest_other, \
                         intersect_pts_ord[np.mod(i_segment + 1, 4)]
                                           - k_ellipse*diff_nearest_other)
+        
         return intersection_area
 
     def midpointOnEllipse(self, *args):
@@ -1249,6 +1251,8 @@ class Ellipsoid(Particle):
         self.semi_axis_2 = axis_2/2
         self.axis_3 = axis_3
         self.semi_axis_3 = axis_3/2
+        print(axis_1, axis_2, axis_3, euler_angle_x, euler_angle_y,
+                     euler_angle_z, angle)
         self.rotation_axis = (np.array([euler_angle_x, euler_angle_y, euler_angle_z])
                               / np.linalg.norm(np.array([euler_angle_x, euler_angle_y,
                                                          euler_angle_z])))
@@ -1382,7 +1386,7 @@ class Ellipsoid(Particle):
         return point_in
 
 
-    def intersectionVolumeEllipsoidOther(self, other_particle, type='random', tol=5, max_it=1000,
+    def intersectionVolumeEllipsoidOther(self, other_particle, type='random', tol=1, max_it=1000,
                                          seq_size=50):
         """
         Compute the overlap volume between this ellipsoid and another particle.
@@ -1467,6 +1471,7 @@ class Ellipsoid(Particle):
             B = self.semi_axis_2
             C = self.semi_axis_3
 
+
             def pointsInside(x, y, z):
                 pointIn = other_particle.pointInside(self.rotation_mat.dot([x, y, z]) + self.position_center - diff_nearest_other)
                 if pointIn:
@@ -1481,7 +1486,7 @@ class Ellipsoid(Particle):
                 lambda x, y: -C*np.sqrt(1 - x**2/A**2 - y**2/B**2),
                 lambda x, y: C*np.sqrt(1 - x**2/A**2 - y**2/B**2), epsrel=0.1)
 
-        return overlap_volume
+        return np.round(overlap_volume, decimals=5)
 
     def generateRegularGrid(self, n_samples):
         """Generate a regular sample of points in the ellipsoid."""

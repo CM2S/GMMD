@@ -168,6 +168,14 @@ def generateMicrostructures(dp_dir, mic_gen_program, mic_gen_parameters, problem
         "dir_previous_mic"               Optional. Directory where the input and
                                          output files of a previous microstructure
                                          are saved. They must have their original names.
+        "save_history"                   Optional. {True, False}. Save the trajectory of
+                                         the particles, the relative energy, kinetic
+                                         energy and the overlap area/volume.
+        "voronoi_analysis"               Optional. {True, False}.
+        "type_initial_configuration"     Optional. {'random', 'grid'}. Type of initial
+                                         configuration.
+        "min_distance"                   Optional. float. Approximate minimum distance
+                                         between particles in the final configuration.
         ================================ ======================================
 
     problem_type: integer
@@ -283,7 +291,7 @@ if __name__ == '__main__':
     # dp_dir: string
     #     Directory where the microstructure spatial discretization file(s) associated
     #     with the given design point are to be stored
-    dp_dir = "/home/zeluis/Documents/Tese/programa/results"
+    dp_dir = "/home/zeluis/Documents/Tese/programa/results/to_show_2"
     # ======================================================================================
     # mic_gen_program: integer
     #     Integer variable (read from the user input data file) which specifies an
@@ -300,16 +308,24 @@ if __name__ == '__main__':
     # Initializing the dictionary containing the options
     #                                                                    Stopping criteria
     # --------------------------------------------------------------------------------------
-    mic_gen_parameters['max_residue_per_particle'] = 1e-8
-    mic_gen_parameters['max_step'] = 10000
-    mic_gen_parameters['max_steps_to_relax'] = 150
-    mic_gen_parameters['speed_up_scheme'] = 'Verlet'
-    mic_gen_parameters['verlet_factor'] = 1.2
+    mic_gen_parameters['max_residue_per_particle'] = 1e-7
+    mic_gen_parameters['max_step'] = 0
+    mic_gen_parameters['max_steps_to_relax'] = 1
+    mic_gen_parameters['verlet_factor'] = 1.5
     mic_gen_parameters['dt'] = 0.05
-    mic_gen_parameters['initial_global_force_factor'] = 0.01
-    # mic_gen_parameters['remesh'] = True
-    # Directory must contain both the output file and the input with their original names
-    # mic_gen_parameters['dir_previous_mic'] = "/home/zeluis/Documents/Tese/programa/results/Disk_20_0.3_1"
+    mic_gen_parameters['initial_global_force_factor'] = 1
+    mic_gen_parameters['save_history'] = True
+    mic_gen_parameters['type_initial_configuration'] = 'random'
+    mic_gen_parameters['initial_temp'] = 2.5e10
+    mic_gen_parameters['motion_analysis'] = True
+    # mic_gen_parameters['voronoi_analysis'] = True
+    mic_gen_parameters['thermostat'] = 'multi_temperature'
+    mic_gen_parameters['min_distance'] = 5e-3
+
+    # mic_gen_parameters['remesh'] = True 
+    # mic_gen_parameters['dir_previous_mic'] = "/home/zeluis/Documents/Tese/programa/results/to_show_2/mic_15/mic.p"
+    # File path of the output
+    # mic_gen_parameters['dir_previous_mic'] = "/home/zeluis/Documents/Tese/programa/results/to_show_2/Disk_3_0.1_1/Disk_3_0.1.p"
     # Maximum number of steps
     problem_type = 1
     # n_dp_samples: integer
@@ -328,35 +344,102 @@ if __name__ == '__main__':
     #
     mic_gen_descriptors_array = {}
 
-    mic_gen_descriptors_array['4'] = np.array([['rve_dims'], [[1.0, 1.0, 1.0]]], dtype=object)
+
+    mic_gen_descriptors_array['1'] = np.array([['rve_dims'], [[1.0, 1.0, 1.0]]], dtype=object)
     # mic_gen_descriptors_array['2'] = \
-    #     np.array([['n', 'axis_1', 'axis_2', 'axis_3', 'euler_angles', 'angle'],
-    #               [5, 0.2, 0.3, 0.1, np.array([0, 0, 1]), 0]], dtype=object)
-    # mic_gen_descriptors_array['3'] = \
-    #     np.array([['n', 'r'],
-    #               [15, 0.1]], dtype=object)
+    #     np.array([['n', 'axis_1', 'axis_2', 'axis_3', 'euler_angle_x', 'euler_angle_y', 'euler_angle_z', 'angle'],
+    #               [10, 0.2, 0.2, 0.1, 0, 0, 1, 0]], dtype=object)
+    # n = 14
+    # r = 50/500
     mic_gen_descriptors_array['2'] = \
-        np.array([['vf', 'n'],
-                  [0.3, 20]], dtype=object)
+                np.array([['vf', 'n'],
+                        [0.4, 50]], dtype=object)
+    # mic_gen_descriptors_array['3'] = \
+    #             np.array([['vf', 'n'],
+    #                     [0.025, 10]], dtype=object)
+    # mic_gen_descriptors_array['2'] = \
+    #             np.array([['angle_distribution', 'angle_mean', 'angle_sigma', 'n', 'vf', 'ratio_distribution', 'ratio_low', 'ratio_high'],
+    #                       ['normal', np.pi/4, np.pi/10, 30, 0.2, 'uniform', 1, 2]], dtype=object)
+    # mic_gen_descriptors_array['3'] = \
+    #         np.array([['vf', 'r_distribution', 'r_low', 'r_high'],
+    #                 [0.05, 'uniform', 0.02, 0.08 ]], dtype=object)
+    # mic_gen_descriptors_array['5'] = \
+    #             np.array([['vf', 'r_distribution', 'r_value_1', 'r_prob_1', 'r_value_2', 'r_prob_2', 'r_value_3', 'r_prob_3'],
+    #                     [0.1, 'discrete', 0.02, 0.34, 0.05, 0.33, 0.07, 0.33]], dtype=object)
+    # mic_gen_descriptors_array['2'] = \
+    #     np.array([['n', 'vf', 'ratio_12', 'ratio_13_distribution', 'ratio_13_low', 'ratio_13_high', 'euler_angle_x', 'euler_angle_y', 'euler_angle_z', 'angle'],
+    #               [40, 0.2, 1.2, 'uniform', 1.5, 2, 1, 0, 0, 0]], dtype=object)
+    # mic_gen_descriptors_array['3'] = \
+    #     np.array([['n', 'vf', 'ratio_12', 'ratio_13_distribution', 'ratio_13_low', 'ratio_13_high', 'euler_angle_x', 'euler_angle_y', 'euler_angle_z', 'angle'],
+    #               [30, 0.1, 2, 'uniform', 3, 4, 0, 1, 0.3, 0.2]], dtype=object)
+    # mic_gen_descriptors_array['3'] = \
+    #     np.array([['vf', 'n'],
+    #               [0.075, n]], dtype=object)
+    # mic_gen_descriptors_array['6'] = \
+    #     np.array([['vf', 'n'],
+    #               [0.0125, 10]], dtype=object)
+    # mic_gen_descriptors_array['3'] = \
+    #     np.array([['angle_distribution', 'angle_mean', 'angle_sigma', 'n', 'vf', 'ratio_distribution', 'ratio_low', 'ratio_high'],
+    #               ['normal', 0, np.pi/10, 20, 0.3, 'uniform', 3, 4]], dtype=object)
+    # r = (vf/(n*np.pi*4/3))**(1/3)
+    # print('r', r)
+    # min_distance = r*0.1
+    # mic_gen_parameters['min_distance'] = min_distance
+    # vf = 0.3
+    # n = 20
+    # mic_gen_descriptors_array['2'] = \
+    #     np.array([['vf', 'n'],
+    #               [0.05, n]], dtype=object)
+    # mic_gen_descriptors_array['3'] = \
+    #     np.array([['vf', 'n'],
+    #               [0.15, n]], dtype=object)
+    # mic_gen_descriptors_array['4'] = \
+    #     np.array([['vf', 'n'],
+    #               [0.1, n]], dtype=object)
+    # r = np.sqrt(0.15/(n*np.pi))
+    # min_distance = r*0.2
+    # mic_gen_parameters['min_distance'] = min_distance
+    # mic_gen_descriptors_array['2'] = \
+    #     np.array([['r_distribution', 'r_low', 'r_high', 'n'],
+    #               ['uniform', 0.01, 0.08, 30]], dtype=object)
+    # mic_gen_descriptors_array['3'] = \
+    #     np.array([['vf', 'n', 'direction'],
+    #               [0.2, 10, 2]], dtype=object)
+    # mic_gen_descriptors_array['3'] = \
+    #     np.array([['r', 'n', 'direction'],
+    #               [0.15, 10, 0]], dtype=object)
     # mic_gen_descriptors_array['2'] = \
     #     np.array([['vf', 'r_distribution', 'r_value_1', 'r_prob_1', 'r_value_3', 'r_prob_3', 'r_value_2', 'r_prob_2'],
-    #               [0.6, 'discrete', 0.05, 0.25, 0.1, 0.45, 0.08, 0.3]], dtype=object)
-    # mic_gen_descriptors_array['2'] = \
-    #     np.array([['major_axis_distribution', 'major_axis_sigma', 'major_axis_mean', 'angle_distribution', 'angle_low', 'angle_high', 'n', 'vf'],
-    #               ['normal', 0.05, 0.2, 'uniform', 0, 2*np.pi, 10, 0.5]], dtype=object)
+    #               [0.3, 'discrete', 0.05, 0.25, 0.1, 0.45, 0.08, 0.3]], dtype=object)
     # mic_gen_descriptors_array['3'] = \
-    #     np.array([['n', 'r'],
-    #               [5, 0.15]], dtype=object)
+    #     np.array([['minor_axis', 'major_axis', 'angle_distribution', 'angle_low', 'angle_high', 'n'],
+    #               [0.08, 0.1, 'uniform', 0, 2*np.pi, 3]], dtype=object)
+    # mic_gen_descriptors_array['2'] = \
+    #     np.array([['minor_axis', 'major_axis_distribution', 'major_axis_sigma', 'major_axis_mean', 'angle_distribution', 'angle_low', 'angle_high', 'n'],
+    #               [0.05, 'normal', 0.01, 0.08, 'uniform', 0, 2*np.pi, 10]], dtype=object)
+    # mic_gen_descriptors_array['2'] = \
+    #     np.array([['r_distribution', 'r_low', 'r_high', 'vf'],
+    #               ['uniform', 0.05, 0.2, 0.4]], dtype=object)
 
     # Types of particles
     # 1 - Matrix
     # 2 - Circular particle (disk)
     # 3 - Elliptical particle
     # 4 - Spherical particle
+    # 5 - Ellipsoidal particle
+    # 6 - Cylindrical fibers
     phase_types = {}
-    phase_types['4'] = 1  # Matrix
-    phase_types['2'] = 4 # Elliptical particle
-    # phase_types['3'] = 4  # Elliptical particle
+    phase_types['1'] = 1  # Matrix
+    phase_types['2'] = 2 # Elliptical particle
+    # phase_types['3'] = 5 # Elliptical particle
+    # phase_types['4'] = 5 # Elliptical particle
+    # phase_types['5'] = 4 # Elliptical particle
+    # phase_types['6'] = 4 # Elliptical particle
+    # phase_types['6'] = 2 # Elliptical particle
+    # phase_types['3'] = 5
+    # phase_types['3'] = 2 # Elliptical particle
+    # phase_types['4'] = 3 # Elliptical particle
+    # phase_types['3'] = 3  # Elliptical particle
     # discret_file_ext: list
     #     List which contains the required spatial discretization file(s), stored as
     #                     array = [ < discret_type > < discret_type >  ... ]
@@ -366,15 +449,20 @@ if __name__ == '__main__':
     #     each type of specified discretization file, stored as
     #                            dictionary['disc_ext']['parameter'] = [ ... ]
 
-    discret_file_ext = []
+    discret_file_ext = ['nomsh']
 
     discret_spec_array = {}
-    discret_spec_array['rgmsh'] = {}
-    discret_spec_array['rgmsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
-    discret_spec_array['rgmsh']['n_voxels_dims'] = np.array([[20, 20, 20], [50, 50, 50]])
+    discret_spec_array['nomsh'] = {}
+    discret_spec_array['nomsh']['rve_dims'] = np.array([2.0, 1.0])
+    # discret_spec_array['nomsh']['min_distance'] = 0.01
+    # discret_spec_array['rgmsh'] = {}
+    # discret_spec_array['rgmsh']['rve_dims'] = np.array([1.0, 1.0])
+    # discret_spec_array['rgmsh']['n_voxels_dims'] = np.array([[50, 50]])
     # discret_spec_array['femsh'] = {}
     # discret_spec_array['femsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
-    # discret_spec_array['femsh']['mesh_size'] = 0.05
+    # discret_spec_array['femsh']['mesh_size'] = min_distance*4
+    # discret_spec_array['femsh']['min_distance'] = min_distance
+
 
     generateMicrostructures(dp_dir, mic_gen_program, mic_gen_parameters, problem_type,
                             n_dp_samples, mic_gen_descriptors_array, phase_types,

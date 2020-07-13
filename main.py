@@ -357,6 +357,7 @@ def computeForces(particles, speed_up_scheme):
                             # force acting on particle 2
     elif speed_up_scheme == 'Verlet':
     # Cell list + Verlet list: O(N)
+        # FIXME
         newCellList(particles)
         # Computing a new cell list
         if Particle.new_verlet_list:
@@ -650,7 +651,8 @@ def generateEllipses(phase, rve_dims, descriptors):
     acceptable_descriptions = [{'major_axis', 'minor_axis', 'angle', 'n'},
                                {'major_axis', 'minor_axis', 'angle', 'vf'},
                                {'major_axis', 'angle', 'n', 'vf'},
-                               {'minor_axis', 'angle', 'n', 'vf'}]
+                               {'minor_axis', 'angle', 'n', 'vf'},
+                               {'ratio', 'angle', 'n', 'vf'}]
     # List of acceptable collections of parameters
     if any([used_parameters == acceptable_description for
             acceptable_description in acceptable_descriptions]):
@@ -709,7 +711,7 @@ def generateEllipsoids(phase, rve_dims, descriptors):
     ellipsoids = []
     # Initializing the list containing the disks
     possible_parameters = {'axis_1', 'axis_2', 'axis_3', 'euler_angle_x', 'euler_angle_y',
-                           'euler_angle_z', 'angle', 'n', 'vf'}
+                           'euler_angle_z', 'angle', 'n', 'vf', 'ratio_12', 'ratio_13'}
     # possible_parameters
     used_parameters = {parameter for parameter in possible_parameters if
                        any([descriptor.startswith(parameter) for
@@ -720,7 +722,9 @@ def generateEllipsoids(phase, rve_dims, descriptors):
         {'axis_1', 'axis_2', 'axis_3', 'euler_angle_x', 'euler_angle_y', 'euler_angle_z',
          'angle', 'n'},
         {'axis_1', 'axis_2', 'axis_3', 'euler_angle_x', 'euler_angle_y', 'euler_angle_z',
-         'angle', 'vf'}]
+         'angle', 'vf'},
+        {'vf', 'n', 'ratio_12', 'ratio_13', 'euler_angle_x', 'euler_angle_y',
+         'euler_angle_z', 'angle'}]
     # List of acceptable collections of parameters
     if any([used_parameters == acceptable_description for
             acceptable_description in acceptable_descriptions]):
@@ -774,7 +778,7 @@ def generateEllipsoids(phase, rve_dims, descriptors):
             canonicalParametersEllipsoid(samples, rve_dims)
         for i in range(descriptors['n']):
             ellipsoids.append(Ellipsoid(phase, axis_1[i], axis_2[i], axis_3[i],
-                                        euler_angle_x[i], euler_angle_y, euler_angle_z[i],
+                                        euler_angle_x[i], euler_angle_y[i], euler_angle_z[i],
                                         angle[i]))
 
     return ellipsoids
@@ -954,6 +958,7 @@ def generateInitialConfiguration(particles, type_init_conf, **kwargs):
              [1, 0, 0],
              [0, 1, 0],
              [1, 1, 0],
+             [0.5, 0.5, 0],
              [0.5, 0, 0.5],
             [0.5, 1, 0.5],
             [0, 0.5, 0.5],
@@ -962,14 +967,21 @@ def generateInitialConfiguration(particles, type_init_conf, **kwargs):
              [1, 0, 1],
              [0, 1, 1],
              [1, 1, 1],
-             [1.5, 1.3, 1],
-             [1.7, 0.3, 0.1],
-             [0.2, 1.1, 1.5]
+             [0.5, 0.5, 1],
+             [0, 2, 0],
+             [1, 2, 0],
+             [0.5, 1.5, 0],
+            [0.5, 2, 0.5],
+            [0, 1.5, 0.5],
+            [1, 1.5, 0.5],
+             [0, 2, 1],
+             [1, 2, 1],
+             [0.5, 1.5, 1]
             ])
         k = 0
         for i_particle in particles:
         # Running through all the particles
-            i_particle.setPositionCenter(center_points[k]/3) #np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
+            i_particle.setPositionCenter(center_points[k]/2) #np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
             # Generating the positions from a random uniform distribution between 0 and 1
             i_particle.setVelocityCenter(np.zeros((i_particle.dim))) #np.array([0,0],dtype='float')
             # Generating the velocities from a random uniform distribution between -1 and 1
@@ -993,7 +1005,7 @@ def generateInitialConfiguration(particles, type_init_conf, **kwargs):
                 i_particle.position_center_history = [i_particle.position_center.flatten()]
             k += 1
     elif type_init_conf == 'custom':
-        path = "/home/zeluis/Documents/Tese/programa/studies/thermostats/minkowski/artificial_2D/results_tri.txt"
+        path = "/home/zeluis/Documents/Tese/programa/studies/thermostats/minkowski/artificial_2D/ord.txt"
         positions = np.loadtxt(path)
         for ind, i_particle in enumerate(particles):
             # Particle.box*np.random.uniform(size=i_particle.dim)) #np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
@@ -1001,6 +1013,9 @@ def generateInitialConfiguration(particles, type_init_conf, **kwargs):
             # Generating the positions from a random uniform distribution between 0 and 1
             i_particle.setVelocityCenter(np.array([0, 0])) #np.array([0,0],dtype='float')
             # Generating the velocities from a random uniform distribution between -1 and 1
+            if kwargs.get('save_history'):
+            # Saving particle history
+                i_particle.position_center_history = [i_particle.position_center.flatten()]
     elif type_init_conf == 'adjacent':
         k = 0
         for i_particle in particles:
@@ -1145,7 +1160,7 @@ def generateSampleParameter(parameter, descriptors, phase, rve_dims, n_samples=1
                                 descriptors[i_descriptor], '{0} of phase {1}'.format(
                                  i_descriptor, phase),
                                 'larger than 0')
-                        elif descriptors[parameter + "_high"] > np.min(rve_dims)/2:
+                        elif descriptors[i_descriptor] > np.min(rve_dims)/2:
                         # Ensuring that it will not produce values larger than half the size
                         # of the smallest dimension of the RVE
                             raise errors.UnexpectedValue(
@@ -1247,6 +1262,10 @@ def canonicalParametersEllipse(sample, rve_dims):
         major_axis = np.max([aux_major_axis, sample['minor_axis']], axis=0)
         minor_axis = np.min([aux_major_axis, sample['minor_axis']], axis=0)
         # Ensuring that the major axis is greater than the minor axis
+    elif 'ratio' in sample and 'vf' in sample and 'n' in sample:
+        volume_part = sample['vf'][0]*rve_dims[0]*rve_dims[1]/sample['n'][0]
+        minor_axis = np.sqrt(volume_part/(np.pi*sample['ratio']*1/4))
+        major_axis = sample['ratio']*minor_axis
     if 'angle' in sample:
         angle = sample['angle']
 
@@ -1292,6 +1311,12 @@ def canonicalParametersEllipsoid(sample, rve_dims):
         axis_1 = sample['axis_1']
         axis_2 = sample['axis_2']
         axis_3 = sample['axis_3']
+    if 'ratio_12' in sample and 'ratio_13' in sample and 'vf' in sample and 'n' in sample:
+        volume = sample['vf']*rve_dims[0]*rve_dims[1]*rve_dims[2]/sample['n']
+        axis_1 = np.cbrt(volume*sample['ratio_12']*sample['ratio_13']*8/(np.pi*4/3))
+        axis_2 = axis_1/sample['ratio_12']
+        axis_3 = axis_1/sample['ratio_13']
+        print('axis', axis_1, axis_2, axis_3, 'volume', sample['n']*4/3*axis_1*axis_2*axis_3/8*np.pi, sample['vf'], sample['n'])
     if 'angle' in sample:
         angle = sample['angle']
     if 'euler_angle_x' in sample and 'euler_angle_y' in sample \
@@ -1711,6 +1736,74 @@ def computeKineticEnergy(particles):
 
     return kin_energy
 
+def forceOutTangentWall(particles, min_distance):
+    tol = 0.5*min_distance
+    if particles[0].dim == 2:
+        for i_particle in particles:
+            pos = i_particle.position_center
+            if np.abs(i_particle.radius - min_distance - pos[0]) <  tol:
+                i_particle.position_center += np.array([1e-2, 0])
+            elif np.abs(pos[0] - Particle.box[0] + i_particle.radius - min_distance) < tol:
+                i_particle.position_center += np.array([-1e-2, 0])
+            elif np.abs(i_particle.radius - min_distance - pos[1]) <  tol:
+                i_particle.position_center += np.array([0, 1e-2])
+            elif np.abs(pos[1] - Particle.box[1] + i_particle.radius - min_distance) < tol:
+                i_particle.position_center += np.array([0, -1e-2])
+    elif particles[0].dim == 3:
+        for i_particle in particles:
+            pos = i_particle.position_center
+            if np.abs(i_particle.radius - min_distance - pos[0]) <  tol:
+                i_particle.position_center += np.array([1e-2, 0, 0])
+            elif np.abs(pos[0] - Particle.box[0] + i_particle.radius - min_distance) < tol:
+                i_particle.position_center += np.array([-1e-2, 0, 0])
+            elif np.abs(i_particle.radius - min_distance - pos[1]) <  tol:
+                i_particle.position_center += np.array([0, 1e-2, 0])
+            elif np.abs(pos[1] - Particle.box[1] + i_particle.radius - min_distance) < tol:
+                i_particle.position_center += np.array([0, -1e-2, 0])
+            elif np.abs(i_particle.radius - min_distance - pos[2]) <  tol:
+                i_particle.position_center += np.array([0, 0, 1e-2])
+            elif np.abs(pos[2] - Particle.box[2] + i_particle.radius - min_distance) < tol:
+                i_particle.position_center += np.array([0, 0, -1e-2])
+
+def checkTangentToWall(particles, min_distance):
+    tol = 0.5*min_distance
+    not_tangent_to_wall = True
+    print('tol', tol)
+    if particles[0].dim == 2:
+        for i_particle in particles:
+            pos = i_particle.position_center
+            # print('tol', tol, 'radius', i_particle.radius)
+            if (np.abs(i_particle.radius - min_distance - pos[0]) <  tol or
+               np.abs(pos[0] - Particle.box[0] + i_particle.radius - min_distance) < tol or
+               np.abs(i_particle.radius - min_distance - pos[1]) <  tol or
+               np.abs(pos[1] - Particle.box[1] + i_particle.radius - min_distance) < tol ):
+                not_tangent_to_wall = False
+    elif particles[0].dim == 3:
+        for i_particle in particles:
+            pos = i_particle.position_center
+            # print('tol', tol, 'radius', i_particle.radius)
+            if (np.abs(i_particle.radius - min_distance - pos[0]) <  tol or
+               np.abs(pos[0] - Particle.box[0] + i_particle.radius - min_distance) < tol or
+               np.abs(i_particle.radius - min_distance - pos[1]) <  tol or
+               np.abs(pos[1] - Particle.box[1] + i_particle.radius - min_distance) < tol or
+               np.abs(i_particle.radius - min_distance - pos[2]) <  tol or
+               np.abs(pos[2] - Particle.box[2] + i_particle.radius - min_distance) < tol ):
+                not_tangent_to_wall = False
+    # for i_particle in particles:
+    #     for j_image in range(-1, 2):
+    #         for k_image in range(-1, 2):
+    #             pos = i_particle.position_c enter + [j_image, k_image]*Particle.box
+    #             if (i_particle.radius < pos[0] < i_particle.radius + tol or
+    #                -i_particle.radius < pos[0] < -i_particle.radius + tol or
+    #                Particle.box[0] - i_particle.radius - tol < pos[0] < Particle.box[0] - i_particle.radius or
+    #                Particle.box[0] + i_particle.radius - tol < pos[0] < Particle.box[0] + i_particle.radius or
+    #                i_particle.radius  < pos[1] <  i_particle.radius + tol or
+    #                -i_particle.radius < pos[1] < -i_particle.radius + tol or
+    #                Particle.box[1] - i_particle.radius < pos[1] < Particle.box[1] - i_particle.radius + tol or
+    #                Particle.box[1] + i_particle.radius < pos[1] < Particle.box[1] + i_particle.radius + tol):
+    #                 not_tangent_to_wall = False
+    return not_tangent_to_wall
+
 
 def run(particles, max_residue_per_particle, max_step, options):
     """
@@ -1972,14 +2065,18 @@ def run(particles, max_residue_per_particle, max_step, options):
         else:
             # There is no thermostat
             pass
-        if Particle.total_overlap <= max_residue: # and all([len(Particle.cell_list[i]) < 2 for i in range(27)]): # and all(len(particles[i].verlet_list)<4 for i in range(len(particles))):
-            # If the configuration has an overlap area smaller than the tolerance
-            n_steps_relax += 1
-            print('n_steps_relax', n_steps_relax)
-            # print('yes',n_steps_relax)
-        else:
-            n_steps_relax = 0
-            # Restarting the count
+        if Particle.total_overlap <= max_residue:
+            check_tangent = checkTangentToWall(particles, min_distance)
+            if check_tangent:                
+                # If the configuration has an overlap area smaller than the tolerance
+                n_steps_relax += 1
+                print('n_steps_relax', n_steps_relax)
+                # print('yes',n_steps_relax)
+            else:
+                n_steps_relax = 0
+                forceOutTangentWall(particles, min_distance)
+                # T_ref *= 4**2
+                # Restarting the count
         print(step)
         if step > 5*jump and all((np.abs(np.array(Particle.total_overlap_history[-5*jump:]) - np.array(Particle.total_overlap_history[-5*jump-1:-1])))/np.array(Particle.total_overlap_history[-5*jump-1:-1])*100 < 1e-5):
             break
@@ -2030,6 +2127,10 @@ def main():
         # For each file extension asked
             generateMesh(particles, disc_ext, discret_spec_array[disc_ext])
             # Generate corresponding mesh
+        motion_analysis = options.get('motion_analysis', False)
+        if motion_analysis:
+            doMotionAnalysis(particles, rve_dims, Particle.file_path)
+            # Do analysis of the motion of the particles
     else:
     # Generating samples of microstructures and meshing
         Particle.time = []
@@ -2070,8 +2171,8 @@ def main():
                 doVoronoiAnalysis(particles, rve_dims, Particle.file_path, voronoi_type=voronoi_type)
                 # Do a voronoi analysis
             Particle.resetRVE()
+            print(end - start)
             # Clearing the properties of the RVE
-    print(end - start)
 
     # screen_path.close()
     # sys.stdout = sys.__stdout__

@@ -66,15 +66,24 @@ def setStyle(artists, ax, style):
     if style == "divergent":
         colors = [cm.RdBu(level) for level in np.linspace(0, 1, len(artists), endpoint=True)]
     if style == "qualitative":
-        color_scheme = [
+        color_scheme = np.array([
             (68/255, 119/255, 170/255, 1),
             (102/255, 204/255, 238/255, 1),
             (34/255, 136/255, 51/255, 1),
             (204/255, 187/255, 68/255, 1),
             (238/255, 102/255, 119/255, 1),
             (170/255, 51/255, 119/255, 1),
-            (187/255, 187/255, 187/255, 1)]
-        colors = color_scheme[:len(artists)]
+            (187/255, 187/255, 187/255, 1)])
+        colors = color_scheme[np.array(np.linspace(0, 6, len(artists)), dtype=int)]
+    if style == "qualitative_pairs":
+        color_scheme = np.array([
+            (119/255, 170/255, 221/255, 1),
+            (153/255, 221/255, 255/255, 1),
+            (170/255, 170/255, 0/255, 1),
+            (238/255, 221/255, 136/255, 1),
+            (238/255, 136/255, 102/255, 1),
+            (255/255, 170/255, 187/255, 1)])
+        colors = color_scheme[np.array(np.linspace(0, 5, len(artists)), dtype=int)]
     for ind, artist in enumerate(artists):
         artist.set_color(colors[ind])
 
@@ -366,7 +375,7 @@ def plotParticles(particles, iteration, dir, grid='off', verlet_ngh=False, cente
             gmsh.option.setNumber("Mesh.Smoothing", 1)
 
             # Element order
-            gmsh.option.setNumber("Mesh.ElementOrder", 1)
+            gmsh.option.setNumber("Mesh.ElementOrder", 2)
 
             # Crete second-order nodes by linear interpolation
             gmsh.option.setNumber("Mesh.SecondOrderLinear", 0)
@@ -379,7 +388,7 @@ def plotParticles(particles, iteration, dir, grid='off', verlet_ngh=False, cente
             # ==========================================================================================
             # Define model name
 
-            title = Particle.file_path
+            title = dir # Particle.file_path
             model.add(title)
 
             boxTag = factory.addBox(0, 0, 0, Particle.box[0], Particle.box[1], Particle.box[2])
@@ -447,9 +456,9 @@ def plotParticles(particles, iteration, dir, grid='off', verlet_ngh=False, cente
                                 k_particle_image += 1
                             if 'Sphere' == class_name_i_particle:
                             # Particle is a Sphere
-                                xc = i_particle.position_center[0] + Particle.box[0]*j
-                                yc = i_particle.position_center[1] + Particle.box[1]*p
-                                zc = i_particle.position_center[2] + Particle.box[2]*l
+                                xc = i_particle.position_center_history[iteration][0] + Particle.box[0]*j
+                                yc = i_particle.position_center_history[iteration][1] + Particle.box[1]*p
+                                zc = i_particle.position_center_history[iteration][2] + Particle.box[2]*l
                                 r = i_particle.radius
                                 # Saving the properties of the particles
                                 sphereTag = factory.addSphere(xc, yc, zc, r)
@@ -465,16 +474,16 @@ def plotParticles(particles, iteration, dir, grid='off', verlet_ngh=False, cente
                                     k_particle_image += 1
                             elif 'Ellipsoid' == class_name_i_particle:
                             # Particle is an Ellipsoid
-                                xc = i_particle.position_center[0] + Particle.box[0]*j
-                                yc = i_particle.position_center[1] + Particle.box[1]*p
-                                zc = i_particle.position_center[2] + Particle.box[2]*l
+                                xc = i_particle.position_center_history[iteration][0] + Particle.box[0]*j
+                                yc = i_particle.position_center_history[iteration][1] + Particle.box[1]*p
+                                zc = i_particle.position_center_history[iteration][2] + Particle.box[2]*l
                                 r = 1
                                 # Saving the properties of the particles
-                                particleTags.append(factory.addSphere(xc, yc, zc, r))
+                                ellipseTag = factory.addSphere(xc, yc, zc, r)
                                 # Creating a sphere without rotation
                                 # Rotate the disk
                                 factory.synchronize()
-                                affineTags = [(3, particleTags[k_particle_image])]
+                                affineTags = [(3, ellipseTag)]
                                 # affineTags.extend(
                                 #     model.getBoundary([(3, particleTags[k_particle_image])]))
                                 factory.dilate(affineTags, xc, yc, zc,
@@ -486,11 +495,17 @@ def plotParticles(particles, iteration, dir, grid='off', verlet_ngh=False, cente
                                                i_particle.rotation_axis[1],
                                                i_particle.rotation_axis[2],
                                                i_particle.angle)
+                                
+                                outDimTag, _ = factory.intersect(
+                                    [(3, ellipseTag)], [(3, boxTag)], removeObject=True, removeTool=False)
+                                if len(outDimTag) > 0:
+                                    factory.synchronize()
+                                    particleDimTags += gmsh.model.getBoundary(outDimTag[0])
+                                    gmsh.model.removeEntities(outDimTag[0])
+                                    phaseDimTag[str(i_particle.phase)] += particleDimTags
             
-                                phaseDimTag[str(i_particle.phase)].append((3, particleTags[k_particle_image]))
-            
-                                factory.synchronize()
-                                k_particle_image += 1
+                                    factory.synchronize()
+                                    k_particle_image += 1
 
             materials = []
             for i_phase in Particle.list_phases:
@@ -515,25 +530,25 @@ def plotParticles(particles, iteration, dir, grid='off', verlet_ngh=False, cente
             model.mesh.generate(2)
 
             # Write the mesh to the .msh file
-            meshfile = title + ".msh"
-            meshfile_temp = title + "_temp.msh"
+            # meshfile = title + ".msh"
+            # meshfile_temp = title + "_temp.msh"
             vtkfile = title + '.vtk'
             vtkfile_temp = title + '_temp.vtk'
-            gmsh.write(meshfile_temp)
+            # gmsh.write(meshfile_temp)
             gmsh.write(vtkfile_temp)
             
             # Close GMSH
             gmsh.finalize()
 
-            fin = open(meshfile_temp, "rt")
-            fout = open(meshfile, "wt")
-
-            for line in fin:
-            	fout.write(line.replace(',', '.'))
-
-            fin.close()
-            fout.close()
-            os.remove(meshfile_temp)
+            # fin = open(meshfile_temp, "rt")
+            # fout = open(meshfile, "wt")
+            # 
+            # for line in fin:
+            # 	fout.write(line.replace(',', '.'))
+            # 
+            # fin.close()
+            # fout.close()
+            # os.remove(meshfile_temp)
 
             fin = open(vtkfile_temp, "rt")
             fout = open(vtkfile, "wt")
@@ -544,6 +559,8 @@ def plotParticles(particles, iteration, dir, grid='off', verlet_ngh=False, cente
             fin.close()
             fout.close()
             os.remove(vtkfile_temp)
+
+
 
     if 'ax' not in kwargs:
         plt.close()
@@ -576,7 +593,7 @@ def plotOverlapHistory(total_overlap_history, temp_change_steps, max_residue, te
     if temp_change:
         for line in temp_change_steps:
             plt.axvline(line, linewidth=0.01, linestyle="--", color='k')
-    plt.semilogy([0, len(total_overlap_history)], [max_residue, max_residue])
+    # plt.semilogy([0, len(total_overlap_history)], [max_residue, max_residue])
     graph_overlap_history = plt.semilogy(range(len(total_overlap_history)), total_overlap_history)
     plt.grid()
     # plt.axis([0, len(total_overlap_history), 1e-10, 1e-1])# np.min(total_overlap_history), np.max(total_overlap_history)])
@@ -857,7 +874,7 @@ def plotVoronoi2D(particles, voronoi, dir, voronoi_type, save=True, show=False):
     import matplotlib.patches as mpatches
     from scipy.spatial import voronoi_plot_2d
 
-    _ = plt.figure()
+    fig, ax, (w_fig, h_fig) = createFigure(nrows=3, ncols=3)
 
     ax = plt.gca()
 
@@ -885,15 +902,19 @@ def plotVoronoi2D(particles, voronoi, dir, voronoi_type, save=True, show=False):
                 if 'Ellipse' == class_name_i_particle:
                     ellip = mpatches.Ellipse(particles[i].position_center+Particle.box*np.array(
                         [1*j, 1*k]), particles[i].major_axis, particles[i].minor_axis,
-                        angle=180/np.pi*particles[i].angle, alpha=0.8, color=colors[particles[i].phase])
+                        angle=180/np.pi*particles[i].angle, edgecolor=(0, 0, 0, 0), facecolor=colors[particles[i].phase])
                     ax.add_artist(ellip)
 
     if voronoi_type == 'set':
-        set_voronoi_plot_2d(voronoi, ax=plt.gca(), show_vertices=False)
+        set_voronoi_plot_2d(voronoi, ax=plt.gca(), show_vertices=False, point_size=1)
     elif voronoi_type == 'standard':
-        voronoi_plot_2d(voronoi, ax=plt.gca())
+        voronoi_plot_2d(voronoi, ax=plt.gca(), show_vertices=False, point_size=1)
 
     plt.axis([0, Particle.box[0], 0, Particle.box[1]])
+
+    plt.xticks([])
+    plt.yticks([])
+
 
     if save:
         plt.savefig(dir + "_voronoi" + ".pdf")
@@ -1453,7 +1474,7 @@ def plotVoronoi3D(particles, voronoi, rve_dims, dir, voronoi_type, save=True, sh
     gmsh.option.setNumber("Mesh.Smoothing", 1)
 
     # Element order
-    gmsh.option.setNumber("Mesh.ElementOrder", 1)
+    gmsh.option.setNumber("Mesh.ElementOrder", 2)
 
     # Crete second-order nodes by linear interpolation
     gmsh.option.setNumber("Mesh.SecondOrderLinear", 0)
