@@ -333,16 +333,20 @@ def compute2DIrreducibleMinkowskiTensors(voronoi, degree=6):
         lengths = [np.linalg.norm(i_side) for i_side in sides]
         angles = []
         for i_side in sides:
-            if i_side[0] >= 0 and i_side[1] >= 0:
-                angles.append(np.pi/2 + np.arctan2(np.abs(i_side[1]), np.abs(i_side[0])))
-            elif i_side[0] >= 0 and i_side[1] <= 0:
-                angles.append(np.pi/2 - np.arctan2(np.abs(i_side[1]), np.abs(i_side[0])))
-            elif i_side[0] <= 0 and i_side[1] <= 0:
-                angles.append(3*np.pi/2 + np.arctan2(np.abs(i_side[1]), np.abs(i_side[0])))
-            elif i_side[0] <= 0 and i_side[1] >= 0:
-                angles.append(3*np.pi/2 - np.arctan2(np.abs(i_side[1]), np.abs(i_side[0])))
-            else:
-                pass
+            if i_side[1] >= 0:
+                angles.append(np.pi/2 + np.arccos(i_side[0]/np.linalg.norm(i_side)))
+            elif i_side[1] < 0:
+                angles.append(np.pi/2 + 2*np.pi - np.arccos(i_side[0]/np.linalg.norm(i_side)))
+                            # if i_side[0] >= 0 and i_side[1] >= 0:
+            #     angles.append(np.pi/2 + np.arctan2(np.abs(i_side[1]), np.abs(i_side[0])))
+            # elif i_side[0] >= 0 and i_side[1] <= 0:
+            #     angles.append(np.pi/2 - np.arctan2(np.abs(i_side[1]), np.abs(i_side[0])))
+            # elif i_side[0] <= 0 and i_side[1] <= 0:
+            #     angles.append(3*np.pi/2 + np.arctan2(np.abs(i_side[1]), np.abs(i_side[0])))
+            # elif i_side[0] <= 0 and i_side[1] >= 0:
+            #     angles.append(3*np.pi/2 - np.arctan2(np.abs(i_side[1]), np.abs(i_side[0])))
+            # else:
+            #     pass
                 # print(i_side)
         # angles = [np.pi/2 - np.arctan(i_side[1]/i_side[0]) for i_side in sides]
         # print('angles', angles)
@@ -437,7 +441,7 @@ def compute3DIrreducibleMinkowskiTensors(voronoi):
             if degree == 0:
                 IMT_region[-1].append(A_total)
             else:
-                IMT_region[-1].append(np.sqrt(4*np.pi/(2*degree+1)*1/A_total**2*np.sum([np.abs(phi[degree, order + 6])**2 for order in range(-6, 7)])))
+                IMT_region[-1].append(np.sqrt(4*np.pi/(2*degree+1)/(A_total**2)*np.sum([np.abs(phi[degree, order + 6])**2 for order in range(-6, 7)])))
         phi_region[-1].append(phi)
     print(IMT_region)
     return IMT_region
@@ -725,12 +729,12 @@ def doVoronoiAnalysis(particles, rve_dims, dp_dir, voronoi_type='standard', plot
             voronoi = compute2DStandardVoronoi(particles)
         if plot_voronoi:
             plotVoronoi2D(particles, voronoi, dp_dir, voronoi_type)
-        IMTs, in_box = compute2DIrreducibleMinkowskiTensors(voronoi)
-        # Computing the irreducible Minkowski tensors for the current microsturcture
-        Particle.IMTs = np.array(IMTs)[in_box, :]
-        # Saving the irreducible Minkowski tensors of the voronoi cells associated with
-        # particles inside the box
         if plot_IMTs:
+            IMTs, in_box = compute2DIrreducibleMinkowskiTensors(voronoi)
+            # Computing the irreducible Minkowski tensors for the current microsturcture
+            Particle.IMTs = np.array(IMTs)[in_box, :]
+            # Saving the irreducible Minkowski tensors of the voronoi cells associated with
+            # particles inside the box
             plotVoronoi2DwithIMTs(particles, voronoi, IMTs, dp_dir, voronoi_type)
     elif particles[0].dim == 3:
         # if voronoi_type == 'standard':
@@ -738,13 +742,14 @@ def doVoronoiAnalysis(particles, rve_dims, dp_dir, voronoi_type='standard', plot
             voronoi = compute3DSetVoronoi(particles)
         if voronoi_type == 'standard':
             voronoi = compute3DStandardVoronoi(particles)
-        IMTs = compute3DIrreducibleMinkowskiTensors(voronoi)
-        Particle.IMTs = np.array(IMTs)
         if plot_voronoi:
             # print(voronoi.ridge_vertices)
             # Saving the irreducible Minkowski tensors of the voronoi cells associated with
             # particles inside the box
             plotVoronoi3D(particles, voronoi, rve_dims, dp_dir, voronoi_type)
+        if plot_IMTs:
+            IMTs = compute3DIrreducibleMinkowskiTensors(voronoi)
+            Particle.IMTs = np.array(IMTs)
             plotVoronoi3DwithIMTs(particles, voronoi, rve_dims, IMTs, dp_dir, voronoi_type)
 
 
