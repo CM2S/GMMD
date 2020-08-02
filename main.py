@@ -2180,165 +2180,139 @@ def main():
                 # Do analysis of the motion of the particles
             if voronoi_analysis:
                 voronoi_type = options.get('voronoi_type', 'standard')
-                doVoronoiAnalysis(particles, rve_dims, Particle.file_path, voronoi_type=voronoi_type)
+                doVoronoiAnalysis(
+                    particles, rve_dims, Particle.file_path, voronoi_type=voronoi_type)
                 # Do a voronoi analysis
+            os.replace("temp.screen", Particle.file_path + ".screen")
+            # Moving the screnn of this sample to the respective directory
             Particle.resetRVE()
-            print(end - start)
-            # Clearing the properties of the RVE
-
-    # screen_path.close()
-    # sys.stdout = sys.__stdout__
-    # 
-    # with open('test.txt') as file:
-    #     data = file.read()
-    #     print(data)
-    # os.replace("test.txt", Particle.file_path + ".txt")
+            # Clearing the properties of the simulation box
 
 
 if __name__ == '__main__':
 
-    # ======================================================================================
-    # dp_dir: string
+    def str2type(value_option):
+        '''Convert string containing a parameter value to the correct type.'''
+        if value_option == 'True':
+            return True
+        elif value_option == 'False':
+            return False
+        else:
+            try:
+                value_option = int(value_option)
+                return value_option
+            except ValueError:
+                pass
+            try:
+                value_option = float(value_option)
+                return value_option
+            except ValueError:
+                pass
+            return value_option
+
+    if len(sys.argv) == 0:
+        # No input file has been supplied
+        print('No input file was supplied.')
+        quit()
+        # Exiting the script
+    input_file_path = sys.argv[1]
+    input_file_dir = os.path.dirname(sys.argv[1])
+    input_file_name, _ = os.path.splitext(os.path.basename(sys.argv[1]))
+    # Obtaining the directory and the name of the input file
+    dp_dir = input_file_dir
     #     Directory where the microstructure spatial discretization file(s) associated
     #     with the given design point are to be stored
-    dp_dir = ("C: \\Users\\José\\Notebooks\\Database"
-              + "\\Universidade\\Dissertacao\\programa\\results")
-    # ======================================================================================
-    # mic_gen_program: integer
-    #     Integer variable (read from the user input data file) which specifies an
-    #     available program to generate the microstructure(s) and associated
-    #     discretization file(s) of a given design point
-    mic_gen_program = 1
-    # ======================================================================================
-    # mic_gen_parameters: array
-    #     An array which contains all the required parameters (or options)
-    #     for the selected program to generate the microstructure(s) and
-    #     and associated discretization file(s) of a given design point
-    #     (to be discussed...)
     mic_gen_parameters = {}
-    # Initializing the dictionary containing the options
-    #                                                                    Stopping criteria
-    # --------------------------------------------------------------------------------------
-    mic_gen_parameters['max_residue_per_particle'] = 0
-    mic_gen_parameters['max_step'] = 1000
-    # Maximum number of steps
-    mic_gen_parameters['max_steps_to_relax'] = 250
-    # Maximum number of steps after the legal configuration has been found after which the
-    # configuration is accepted
-    #                                                                   Integration scheme
-    # --------------------------------------------------------------------------------------
-    mic_gen_parameters['integration_scheme'] = 'Newmark'
-    # Integration scheme to be used:
-    # 'Newmark'  - Newmark beta method
-    mic_gen_parameters['damping_constant'] = 0
-    # Damping constant (only for Newmark)
-    mic_gen_parameters['dt'] = 0.005
-    # Time step
-    #
-    #                                        Speed up scheme for the computation of forces
-    # --------------------------------------------------------------------------------------
-    mic_gen_parameters['speed_up_scheme'] = 'Naive'
-    # Speed up scheme
-    # 'Naive' - the forces are computed between every pair of particles (O(N**2))
-    # 'Cell' - the forces are computed making use of a cell list, such that each particle
-    # only interacts with the particles in its cell or the nearest neighboring cells (O(N))
-    # 'Verlet' - the forces are computed using a Verlet list for each particle, that in
-    # turn in computed using a cell list method
-    mic_gen_parameters['verlet_factor'] = 1.5
-    # The Verlet list is computing making use of neighboorhood around the particle, whose
-    # shape is the same, but dilated by the 'verlet_factor'
-    #
-    #                                                                Computation of forces
-    # --------------------------------------------------------------------------------------
-    mic_gen_parameters['initial_global_force_factor'] = 200  # 4
-
-    mic_gen_parameters['global_force_factor_multiplier'] = 1.8
-    #                                                                           Thermostat
-    # --------------------------------------------------------------------------------------
-    mic_gen_parameters['thermostat'] = 'isokinetic'
-    # problem_type: integer
-    #     Problem type    | 1. 2D problem (plain strain)
-    #                     | 2. 2D problem (plain stress)
-    #                     | 3. 2D problem (axisymmetric)
-    #                     | 4. 3D problem
-    problem_type = 1
-    # n_dp_samples: integer
-    #     Number of microstructures (samples) to be generated, associated to
-    #     the given design point
-    n_dp_samples = 1
-    # mic_gen_descriptors_array: dictionary
-    #     A dictionary which contains all the microstructure
-    #     descriptor-related information required to generate the
-    #     given design point microstructure(s) automatically,
-    #     stored as
-    #                                     Microstructure Descriptors
-    #                               _                                    _
-    #     dictionary['phase_id'] = |  'desc_name'   'desc_name'     ...   |
-    #                              |_  < value >     < value >      ...  _|
-    #
-    mic_gen_descriptors_array = {}
-
-    mic_gen_descriptors_array['4'] = np.array([['rve_dims'], [[1.0, 1.0, 1.0]]])
-    mic_gen_descriptors_array['2'] = np.array([['r', 'n'], [0.1, 5]], dtype=object)
-
-    # descriptors['2'] = {'distribution':'uniform','r_low':0.02,'r_high':0.04, 'n':190}
-    # descriptors['2'] = {'major_axis':0.20,'minor_axis':0.1,'angle':0,'n':10}
-    # phase_types: dictionary
-    #     Dictionary which contains each material phase type, stored as
-    #                    dictionary['phase_id'] = phase_types
-    ## phase_types = info_micro['phase_types']
-    # Types of particles
-    # 1 - Matrix
-    # 2 - Circular particle (disk)
-    # 3 - Elliptical particle
+    # Dictionayr with generation parameters
+    mic_gen_descriptors = {}
+    # Dictionaty containing the descriptors for the phases
     phase_types = {}
-    phase_types['4'] = 1  # Matrix
-    phase_types['2'] = 4  # Elliptical particle
-    # discret_file_ext: list
-    #     List which contains the required spatial discretization file(s), stored as
-    #                     array = [ < discret_type > < discret_type >  ... ]
-
-    # discret_spec_array: dictionary
-    #     Dictionary which contains the required parameters to generate
-    #     each type of specified discretization file, stored as
-    #                            dictionary['disc_ext']['parameter'] = [ ... ]
-
+    # Dictionary containing the phase types
     discret_file_ext = []
-
+    # list containing the extensions for the output mesh files
     discret_spec_array = {}
-    discret_spec_array['rgmsh'] = {}
-    discret_spec_array['rgmsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
-    discret_spec_array['rgmsh']['n_voxels_dims'] = np.array([50, 50, 50])
-    discret_spec_array['femsh'] = {}
-    discret_spec_array['femsh']['rve_dims'] = np.array([1.0, 1.0, 1.0])
-    discret_spec_array['femsh']['mesh_size'] = 0.1
-
-    mic_gen_descriptors_dict = {}
-    # Initializing the dictionary containing the microstructure descriptors
-    print(mic_gen_descriptors_array)
-    for i_phase in mic_gen_descriptors_array:
-        # Running through all the phases
-        mic_gen_descriptors_dict[i_phase] = (
-            {mic_gen_descriptors_array[i_phase][0, i]:
-                mic_gen_descriptors_array[i_phase][1, i]
-                for i in range(len(mic_gen_descriptors_array[i_phase][0]))})
+    # Parameters for the generation of the meshes
+    problem_type = 0
+    # Problem type
+    n_dp_samples = 0
+    # Number of samples to be generated    
+    keywords = ['PROBLEM_TYPE', 'N_DP_SAMPLES', 'MIC_GEN_PARAMETERS', 'MIC_GEN_DESCRIPTORS',
+                'MESH_OPTIONS']
+    keyword = ''
+    # Possible keywords appearing in the input file
+    with open(input_file_path, 'r') as input:
+        for line in input:
+            if line.strip() == '' or line.startswith("#"):
+            # if the line is empty move on to the next
+                continue
+            for possible_keyword in keywords:
+            # Checking what is the current keyword
+                if line.strip() == possible_keyword:
+                    keyword = possible_keyword
+            if keyword == 'MIC_GEN_PARAMETERS':
+            # Collecting the microgeneration parameters
+                if line.strip() == 'MIC_GEN_PARAMETERS':
+                    continue
+                parameter = line.split()[0]
+                value = line.split()[1]
+                mic_gen_parameters[parameter] = str2type(value)
+            elif keyword == 'MIC_GEN_DESCRIPTORS':
+            # Collecting the microstructure descriptors
+                if line.strip() == 'MIC_GEN_DESCRIPTORS':
+                    continue
+                if line.startswith('PHASE'):
+                    name_current_phase = line.split()[1]
+                    mic_gen_descriptors[name_current_phase] = {}
+                elif line.startswith('phase_type'):
+                    phase_types[name_current_phase] = int(line.split()[1])
+                else:
+                    parameter = line.split()[0]
+                    value = line.split()[1]
+                    mic_gen_descriptors[name_current_phase][parameter] = str2type(value)
+            elif keyword == 'PROBLEM_TYPE':
+            # Saving the problem type
+                if line.strip() == 'PROBLEM_TYPE':
+                    continue
+                else:
+                    problem_type = int(line)
+            elif keyword == 'N_DP_SAMPLES':
+            # Saving the number of samples
+                if line.strip() == 'N_DP_SAMPLES':
+                    continue
+                else:
+                    n_dp_samples = int(line)
+            elif keyword == 'MESH_OPTIONS':
+            # Collecting the meshing options
+                if line.strip() == 'MESH_OPTIONS':
+                    continue
+                if line.strip().endswith('MSH'):
+                    name_current_msh = line.strip().lower()
+                    discret_file_ext.append(name_current_msh)
+                    discret_spec_array[name_current_msh] = {}
+                else:
+                    parameter = line.split()[0]
+                    value = line.split()[1:]
+                    if len(value) == 1:
+                        discret_spec_array[name_current_msh][parameter] = str2type(
+                            value[0])
+                    else:
+                        discret_spec_array[name_current_msh][parameter] = np.array(
+                            [str2type(val) for val in value])
 
     info_dict = {
         "dp_dir": dp_dir,
         "mic_gen_parameters": mic_gen_parameters,
         "problem_type": problem_type,
         "n_dp_samples": n_dp_samples,
-        "mic_gen_descriptors_array": mic_gen_descriptors_array,
+        "mic_gen_descriptors": mic_gen_descriptors,
         "phase_types": phase_types,
         "discret_file_ext": discret_file_ext,
         "discret_spec_array": discret_spec_array
         }
     # Building a dictionary to be pickled with all the information coming from the
     # interfacing program
-    pickle.dump(info_dict, open("src\\info_micro.p", "wb"))
+    pickle.dump(info_dict, open("input_data\\info_micro.p", "wb"))
     # Dumping the info_dict dictionary into info_micro.p to be loaded in the program
     # that generates microstructures
     main()
     # Executing the script for microstructure generation
-    os.remove("src\\info_micro.p")
-    # Deleting the file containing the input data
