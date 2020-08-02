@@ -6,6 +6,7 @@ import error_classes as errors
 
 import os
 
+import printing as print_funcs
 
 class RVE():
     """
@@ -325,12 +326,12 @@ class Particle():
         dim: int
             Number of the dimensions of the space where the particle "lives".
 
-        phase: string
+        phase: `.Phase`
             Phase to which the particle belongs.
         '''
         self.dim = dim
         # Setting the the dimension where the particle "lives"
-        self.phase = phase
+        self.phase = phase.name
         # Phase to which the particle belongs
         self.force = np.zeros((dim))
         # Setting the initial force on the particle as zero
@@ -347,13 +348,15 @@ class Particle():
             quit()
         Particle.number += 1
         # Updating the number of particles in the RVE
-        Particle.volume_phase[self.phase] += self.volume()
+        phase.real_volume_fraction += self.volume()/Particle.volume_RVE
         # Updating the volume corresponding to the particle's phase
+        phase.real_number += 1
+        # Updating the number of particles corresponding to the particle's phase
         if Particle.matrix_phase != '':
         # The matrix phase has already been identified
-            Particle.volume_phase[Particle.matrix_phase] = (
-                1 - np.sum(list(Particle.volume_phase.values()))
-                + Particle.volume_phase[Particle.matrix_phase])
+            Particle.phases[Particle.matrix_phase].real_volume_fraction = (
+                Particle.volume_RVE - np.sum([i_phase.real_volume_fraction for i_phase in Particle.phases.values()])
+                + Particle.phases[Particle.matrix_phase].real_volume_fraction)/Particle.volume_RVE
             # Updating the volume occupied by the matrix
 
     def resetRVE():
@@ -362,8 +365,6 @@ class Particle():
         # Initializing the total volume of all particles
         Particle.number = 0
         # Initializing the total number of particles
-        Particle.volume_phase = {}
-        # Dictionary containing the volume occupied by each phase
         Particle.relative_energy_history = []
         # List containing the relative energy for each iteration
         Particle.kinetic_energy_history = []
@@ -482,8 +483,27 @@ class Ellipse(Particle):
 
     angle: float
         Angle in radians that the major axis forms with the x-axis.
-    """
 
+    Class Attributes
+    ----------------
+    possible_parameters: dict
+        Dictionary containing as keys the possible parameters used to describe an ellipse,
+        and their names for printing
+
+    acceptable_descriptions: list(set(strings))
+        Acceptable sets of parameters that fully describe a phase containing ellipses.
+    """
+    possible_parameters = {'major_axis': 'Major axis', 'minor_axis': 'Minor axis',
+                           'angle': 'Angle', 'eccentricity': 'Eccentricity',
+                           'ratio': 'Ratio a/b', 'n': 'Number of particles',
+                           'vf': 'Volume fraction'}
+    # all possible_parameters
+    acceptable_descriptions =  [{'major_axis', 'minor_axis', 'angle', 'n'},
+                               {'major_axis', 'minor_axis', 'angle', 'vf'},
+                               {'major_axis', 'angle', 'n', 'vf'},
+                               {'minor_axis', 'angle', 'n', 'vf'},
+                               {'ratio', 'angle', 'n', 'vf'}]
+    # List of acceptable collections of parameters
 
     def __init__(self, phase, major_axis, minor_axis, angle):
         '''
@@ -811,27 +831,30 @@ class Ellipse(Particle):
 
     def areaEllipseSection(self, intersect_pt_1, intersect_pt_2):
         '''
-        This function computes the area of the segment defined by the secant line drawn
-        between the two points given and the ellipse, anti clockwise from point 1 to point 2.
+        Compute the area of the segment defined by the secant line drawn between the two
+        points given and the ellipse, anti clockwise from point 1 to point 2.
 
-        Parameters:
-            self: Ellipse
-                Ellipse under analysis.
-            intersect_pt_1: array
-                Array containing the coordinates of the first intersection point. The
-                funtion does not check if the point is indeed on the ellipse
-            intersect_pt_2: array
-                Array containing the coordinates of the second intersection point. The
-                funtion does not check if the point is indeed on the ellipse
+        Parameters
+        ----------
+        self: `.Ellipse`
+            Ellipse under analysis.
 
-        Returns:
-            area_segment: float
-                Area of the segment defined by the secant line drawn between the two
-                points given and the ellipse
-        '''
+        intersect_pt_1: array
+            Array containing the coordinates of the first intersection point. The
+            funtion does not check if the point is indeed on the ellipse
 
+        intersect_pt_2: array
+            Array containing the coordinates of the second intersection point. The
+            funtion does not check if the point is indeed on the ellipse
 
-        rot_mat = np.array([[ np.cos(self.angle), np.sin(self.angle)],
+        Returns
+        --------
+        area_segment: float
+            Area of the segment defined by the secant line drawn between the two
+            points given and the ellipse
+       '''
+
+        rot_mat = np.array([[np.cos(self.angle), np.sin(self.angle)],
                             [-np.sin(self.angle), np.cos(self.angle)]])
         # Rotation matrix
         pt_1 = rot_mat.dot(intersect_pt_1 - self.position_center)
@@ -978,7 +1001,25 @@ class Disk(Ellipse):
     ----------
     radius: float
         Radius of the disk
+
+    Class Attributes
+    ----------------
+    possible_parameters: dict
+        Dictionary containing as keys the possible parameters used to describe a disk, and
+        their names for printing
+
+    acceptable_descriptions: list(set(strings))
+        Acceptable sets of parameters that fully describe a phase containing disks.
     '''
+
+    possible_parameters = {'r': 'Radius', 'area': 'Area per particle',
+                           'n': "Number of particles", 'vf': 'Volume fraction'}
+    # all possible_parameters
+    geom_possible_parameters = {'r': 'Radius', 'area': 'Area per particle'}
+    # all possible geometrical parameters
+    acceptable_descriptions = [{'r', 'n'}, {'r', 'vf'}, {'n', 'vf'}, {'area', 'vf'},
+                               {'area', 'n'}]
+    # List of acceptable collections of parameters
 
     def __init__(self, phase, radius):
         '''
@@ -995,19 +1036,8 @@ class Disk(Ellipse):
         radius: float
             Radius of the disk
         '''
-        self.dim = 2
-        self.radius = radius
-        self.major_axis = 2*radius
-        self.minor_axis = 2*radius
-        self.semi_major_axis = radius
-        self.semi_minor_axis = radius
-        self.angle = 0
-        self.force = np.zeros((self.dim), dtype='float')
-        self.n_cell_dim = []
-        self.verlet_list = []
-        Particle.volume += self.volume()
-        Particle.number += 1
-        self.phase = phase
+
+        super().__init__(phase, 2*radius, 2*radius, 0)
 
     def generatePointsOnSurface(self, n_points, erosion_thick=0):
         """Generate *n_points* on the surface of the Disk."""
@@ -1178,7 +1208,26 @@ class CylindricalFiber(Disk):
     ----------
     radius: float
         Radius of the disk
+
+    Class Attributes
+    ----------------
+    possible_parameters: dict
+        Dictionary containing as keys the possible parameters used to describe a disk, and
+        their names for printing
+
+    acceptable_descriptions: list(set(strings))
+        Acceptable sets of parameters that fully describe a phase containing disks.
     '''
+
+    possible_parameters = {'r': 'Radius', 'area': 'Area per particle',
+                           'n': "Number of particles", 'vf': 'Volume fraction',
+                           'direction': 'Fiber direction'}
+    # all possible_parameters
+    acceptable_descriptions = [{'r', 'n', 'direction'}, {'r', 'vf', 'direction'},
+                               {'n', 'vf', 'direction'}, {'area', 'vf', 'direction'},
+                               {'area', 'n', 'direction'}]
+    # List of acceptable collections of parameters
+
 
     def __init__(self, phase, radius, direction, rve_dims):
         """
@@ -1212,7 +1261,49 @@ class CylindricalFiber(Disk):
 
 
 class Ellipsoid(Particle):
-    """docstring for Ellipsoid."""
+    '''
+    This is the subclass of particles with the form of an ellipsoid.
+
+    Attributes
+    ----------
+    axis_1: float
+        Principal axis along xx
+
+    axis_2: float
+        Principal axis along xx
+
+    axis_3: float
+        Principal axis along xx
+
+    Class Attributes
+    ----------------
+    possible_parameters: dict
+        Dictionary containing as keys the possible parameters used to describe a disk, and
+        their names for printing
+
+    acceptable_descriptions: list(set(strings))
+        Acceptable sets of parameters that fully describe a phase containing disks.
+    '''
+
+    possible_parameters = {'axis_1': 'Major axis 1', 'axis_2': 'Major axis 2',
+                           'axis_3': 'Major axis 3',
+                           'euler_angle_x': 'x-component rotation axis',
+                           'euler_angle_y': 'y-component rotation axis',
+                           'euler_angle_z': 'z-component rotation axis',
+                           'angle': 'Rotation angle',
+                           'n': 'Number of particles',
+                           'vf': 'Volume fraction',
+                           'ratio_12': 'Ratio a1/a2',
+                           'ratio_13': 'Ratio a1/a3'}
+    # all possible_parameters
+    acceptable_descriptions = [
+        {'axis_1', 'axis_2', 'axis_3', 'euler_angle_x', 'euler_angle_y', 'euler_angle_z',
+         'angle', 'n'},
+        {'axis_1', 'axis_2', 'axis_3', 'euler_angle_x', 'euler_angle_y', 'euler_angle_z',
+         'angle', 'vf'},
+        {'vf', 'n', 'ratio_12', 'ratio_13', 'euler_angle_x', 'euler_angle_y',
+         'euler_angle_z', 'angle'}]
+    # List of acceptable collections of parameters
 
     def __init__(self, phase, axis_1, axis_2, axis_3, euler_angle_x, euler_angle_y,
                  euler_angle_z, angle):
@@ -1736,7 +1827,25 @@ class Sphere(Ellipsoid):
     ----------
     radius: float
         Radius of the disk
+
+    Class Attributes
+    ----------------
+    possible_parameters: dict
+        Dictionary containing as keys the possible parameters used to describe a sphere,
+        and their names for printing
+
+    acceptable_descriptions: list(set(strings))
+        Acceptable sets of parameters that fully describe a phase containing spheres.
     '''
+    possible_parameters = {'r': 'Radius', 'volume': 'Volume per particle',
+                           'n': "Number of particles", 'vf': 'Volume fraction'}
+    # all possible_parameters
+    geom_possible_parameters = {'r': 'Radius', 'volume': 'Volume per particle'}
+    # all possible geometrical parameters
+    acceptable_descriptions = [{'r', 'n'}, {'r', 'vf'}, {'n', 'vf'}, {'volume', 'vf'},
+                               {'volume', 'n'}]
+    # List of acceptable collections of parameters
+
     def __init__(self, phase, radius):
         '''
         The constructor of the Sphere particle.
@@ -1897,7 +2006,6 @@ class Sphere(Ellipsoid):
             intersection_verlet = False
         return intersection_verlet
 
-
     def insideVerlet(self):
         """Check if the ellipse has moved outside its Verlet neighboorhood."""
         if np.linalg.norm(self.displacement_last_verlet) >= \
@@ -1939,6 +2047,157 @@ class Sphere(Ellipsoid):
         erosion_thickness = 0.9*self.radius
         # Semi-latus rectum
         return erosion_thickness
+
+
+class GeometricalParameter():
+    """
+    This is the class for GeometricalParameters, characterized by a name, statistical
+    distribution and the corresponding statistical parameters.
+
+    Attributes
+    ----------
+    name: string
+        Name of the geometrical parameter
+
+    distribution: string
+        Name of the distribution
+
+    distribution_parameters: list(tuples)
+        List of tuples containing the parameter name and the corresponding value.
+        (name, value)
+    """
+
+    def __init__(self, geom_parameter, distribution, distribution_parameters):
+        self.name = geom_parameter
+        self.distribution = distribution
+        self.distribution_parameters = distribution_parameters
+
+
+class Phase():
+    """
+    This is the classe for a phase.
+
+    Attributes
+    ----------
+    number_particles: integer
+        Number of particles in the phase.
+
+    volume_fraction: float
+        Volume fraction of the phase.
+
+    type: int
+        Type of phase.
+
+    type_name: string
+        Name of the phase type.
+
+    geometrical_descriptors: set(strings)
+        Geometrical descriptors of the phase.
+
+    Class Attributes
+    ----------------
+    phase_type_name: dict
+        Dictinary containing the correspondence between a phase type and its name.
+    """
+
+    phase_type_name = {1: 'Matrix', 2: 'Disks', 3: 'Ellipses', 4: 'Spheres',
+                           5: 'Ellipsoids'}
+    # Correspondence between phase type and phase type names
+
+    def __init__(self, name, type):
+        '''
+        Constructor for the Phase class.
+
+        Parameter
+        ---------
+        name: string
+            Name of the phase.
+
+        type: int
+            Type of phase
+        '''
+
+        self.name = name
+        # Name of the phase
+        self.type = type
+        # Type of the phase
+        self.type_name = Phase.phase_type_name[type]
+        # Type name
+        self.real_volume_fraction = 0
+        self.spec_volume_fraction = 0
+        self.virtual_volume_fraction = 0
+        self.real_number = 0
+        self.spec_number = 0
+        self.geometrical_parameters = []
+        # Initializing the list containing the geometrical parameters specified
+
+
+    # def specNumber():
+    #     pass
+    # 
+    # def realNumber():
+    #     pass
+    # 
+    # def specVolumeFraction(self, vf):
+    #     self.volume_fraction = vf
+    # 
+    # def realVolumeFraction():
+    #     pass
+    # 
+    # def virtualVolumeFraction():
+    #     pass
+
+    def addGeomParameter(self, name, distribution_name, distribution_parameters):
+        '''
+        Add a new geometrical parameter with a name, a distribution and the corresponding
+        parameters.
+
+        Parameter
+        ---------
+        name: str
+            Name of the geometrical parameter
+
+        distribution_name: str
+            Name of the distribution
+
+        distribution_parameters: list(tuple(str, float))
+            List containing the pairs parameter name and value in tuples.        
+        '''
+        if all([name != geom_parameter.name for geom_parameter in self.geometrical_parameters]):
+            self.geometrical_parameters.append(GeometricalParameter(name, distribution_name, distribution_parameters))
+
+    def printGeomParameteres(self):
+        for geom_parameter in self.geometrical_parameters:
+            print_funcs.printToFile("\t\t- {0}:".format(geom_parameter.name))
+            print_funcs.printToFile(
+                "\t\t\t- Distribution: {0}".format(geom_parameter.distribution))
+            for (dist_param_name, dist_param_value) in geom_parameter.distribution_parameters:
+                print_funcs.printToFile(
+                    "\t\t\t- {0}: {1}".format(dist_param_name, dist_param_value))
+
+    def printSpecDescriptors(self):
+        print_funcs.printToFile("\tPhase {0}: ({1})".format(self.name, self.type_name))
+        if self.spec_volume_fraction == 0:
+            print_funcs.printToFile("\t\t- Volume fraction: {:.6f}%".format(self.real_volume_fraction*100))
+        else:
+            print_funcs.printToFile("\t\t- Volume fraction:")
+            print_funcs.printToFile("\t\t\t- Specified: {:.6f}%".format(self.spec_volume_fraction*100))
+            print_funcs.printToFile("\t\t\t- Real: {:.6f}%".format(self.real_volume_fraction*100))
+            
+        if self.type != 1:
+            if self.spec_number == 0:
+                print_funcs.printToFile("\t\t- Number of particles: {0}".format(self.real_number))
+            else:
+                print_funcs.printToFile("\t\t- Number of particles:")
+                print_funcs.printToFile("\t\t\t- Specified: {0}".format(int(self.spec_number)))
+                print_funcs.printToFile("\t\t\t- Real: {0}".format(int(self.real_number)))
+            self.printGeomParameteres()
+            # print_funcs.printToFile()
+
+    def printRealDescriptors(self):
+        pass
+
+
 
 def intersectionPointsEllipses(A1, B1, center_1, angle_1,
                                A2, B2, center_2, angle_2, tol=1e-10):
