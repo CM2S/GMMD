@@ -27,9 +27,9 @@ import shutil
 import error_classes as errors
 from plotting_functions import plotPixels, plotVoxels
 
-def generateMeshFEM(particles, mesh_size, rve_dims, element_type="tri6", **kwargs):
+def generateMeshFEM(particles, mesh_size, rve_dims, element_type, **kwargs):
     '''
-    This function generates the mesh for the Finite Element Method.
+    Generate the mesh for the Finite Element Method.
 
     Parameters
     ----------
@@ -48,7 +48,7 @@ def generateMeshFEM(particles, mesh_size, rve_dims, element_type="tri6", **kwarg
         Optional parameters for the `generateMeshFEM2D` and `generateMeshFEM3D` functions.
     '''
 
-    output_term = kwargs.pop('output_term',1)
+    output_term = kwargs.pop('output_term', 1)
     # Option for the output in the terminal
     if len(rve_dims) == 2:
     # It is a 2D problem
@@ -92,8 +92,7 @@ def generateMeshFEM(particles, mesh_size, rve_dims, element_type="tri6", **kwarg
 def generateMeshFEM2D(particles, mesh_size, mesh_alg=5, force_recomb_all=0, element_order=1,
                       recomb_alg=1, element_order_incomp=0, output_term=0):
     '''
-    This function generates the mesh for the Finite Element Method in 2D. It generates by
-    default linear triangular elements.
+    Generate the mesh for the Finite Element Method in 2D.
 
     Parameters
     ----------
@@ -207,12 +206,7 @@ def generateMeshFEM2D(particles, mesh_size, mesh_alg=5, force_recomb_all=0, elem
     title = Particle.file_path
     model.add(title)
 
-    x = 0
-    y = 0
-    z = 0
-    lx = Particle.box[0]
-    ly = Particle.box[1]
-    eps =  0 #1.5*mesh_size
+    eps = 0
 
     rectTag = factory.addRectangle(0, 0, 0, Particle.box[0], Particle.box[1])
     # RVE
@@ -229,7 +223,7 @@ def generateMeshFEM2D(particles, mesh_size, mesh_alg=5, force_recomb_all=0, elem
         # Periodic images in the horizontal direction
             for p in range(-1,2):
             # Periodic images in the vertical direction
-                if 'Disk'==class_name_i_particle:
+                if 'Disk' == class_name_i_particle:
                 # Particle is a Disk
                     xc = i_particle.position_center[0] + Particle.box[0]*j
                     yc = i_particle.position_center[1] + Particle.box[1]*p
@@ -246,7 +240,7 @@ def generateMeshFEM2D(particles, mesh_size, mesh_alg=5, force_recomb_all=0, elem
 
                     factory.synchronize()
                     k_particle_image += 1
-                elif 'Ellipse'==class_name_i_particle:
+                elif 'Ellipse' == class_name_i_particle:
                 # Particle is an Ellipse
                     xc = i_particle.position_center[0] + Particle.box[0]*j
                     yc = i_particle.position_center[1] + Particle.box[1]*p
@@ -273,38 +267,36 @@ def generateMeshFEM2D(particles, mesh_size, mesh_alg=5, force_recomb_all=0, elem
                     k_particle_image += 1
 
     outDimTag, outDimTagMap = factory.intersect(
-        [(2, rectTag)], [(2, particleTags[k]) for k in range(k_particle_image)], removeObject=False, removeTool=True)
+        [(2, rectTag)], [(2, particleTags[k]) for k in range(k_particle_image)],
+        removeObject=False, removeTool=True)
+    # Computing the intersection of the particles with the volume element
 
     temp = set(outDimTag)
     for i_phase in Particle.list_phases:
-        phaseDimTag[i_phase] = [ value for value in phaseDimTag[i_phase] if value in temp ]
+        phaseDimTag[i_phase] = [value for value in phaseDimTag[i_phase] if value in temp]
+    # Saving what tags/geometry belongs to which phase
 
     factory.synchronize()
 
     outDimTag2, outDimTagMap2 = factory.fragment(
         [(2, rectTag)], outDimTag, removeObject=True, removeTool=True)
+    # Computing the fragment of the particles with the matrix
     
     phaseDimTag[Particle.matrix_phase] = outDimTag2[len(outDimTag):]
     materials = []
     for i_phase in Particle.list_phases:
         temp = set(phaseDimTag[i_phase])
         materials.append([value[1] for value in outDimTag2 if value in temp])
+    # Collection the tags in the correct phase
 
-
-    # Set the mesh size on the geometry points
+    factory.synchronize()
     # Synchronize the CAD engine (always needed before generating the mesh)
     # It may also be useful for some intermidate operations, like checking the tags of entities
-    factory.synchronize()
 
     for i_phase in range(len(Particle.list_phases)):
         materialTag = model.addPhysicalGroup(2, materials[i_phase])
         model.setPhysicalName(2, materialTag, "Phase " + Particle.list_phases[i_phase])
-
-    # material1Tag = model.addPhysicalGroup(material1[0][0], [material1[0][1]])
-    # model.setPhysicalName(material1[0][0], material1Tag, "Material 1")
-    # 
-    # material2Tag = model.addPhysicalGroup(material2[0][0], [material2[i][1] for i in range(len(material2))])
-    # model.setPhysicalName(material2[0][0], material2Tag, "Material 2")
+    # Setting each phase as a physical group
 
     factory.synchronize()
 
@@ -683,6 +675,9 @@ def generateMeshFEM3D(particles, mesh_size, rve_dims, mesh_alg=1, force_recomb_a
 
     boxTag = factory.addBox(0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2])
     # RVE
+    enforce_pbc = True
+    # Default value for the enforcement of periodic boundary conditions. Set to false
+    # if ellipsoids are included in the microstructure
 
     particleTags = []
     k_particle_image = 0
@@ -762,6 +757,8 @@ def generateMeshFEM3D(particles, mesh_size, rve_dims, mesh_alg=1, force_recomb_a
                         k_particle_image += 1
                     elif 'Ellipsoid' == class_name_i_particle:
                     # Particle is an Ellipsoid
+                        enforce_pbc = False
+                        # Do not enforce periodic boundary conditions
                         xc = i_particle.position_center[0] + Particle.box[0]*j
                         yc = i_particle.position_center[1] + Particle.box[1]*p
                         zc = i_particle.position_center[2] + Particle.box[2]*l
@@ -793,316 +790,277 @@ def generateMeshFEM3D(particles, mesh_size, rve_dims, mesh_alg=1, force_recomb_a
                         factory.synchronize()
                         k_particle_image += 1
 
-    print(phaseDimTag)
-    print([(3, particleTag) for particleTag in particleTags])
     outDimTag, outDimTagMap = factory.intersect(
         [(3, boxTag)], [(3, particleTag) for particleTag in particleTags],
         removeObject=False, removeTool=True)
+    # Computing the intersection of the particles with the volume element
 
-    print(outDimTag)
     temp = set(outDimTag)
     for i_phase in Particle.list_phases:
         phaseDimTag[i_phase] = [value for value in phaseDimTag[i_phase] if value in temp]
+    # Saving what tags/geometry belongs to which phase
 
     factory.synchronize()
 
     outDimTag2, outDimTagMap2 = factory.fragment(
         [(3, boxTag)], outDimTag, removeObject=True, removeTool=True)
+    # Computing the fragment of the particles with the matrix
 
     phaseDimTag[Particle.matrix_phase] = outDimTag2[len(outDimTag):]
     materials = []
     for i_phase in Particle.list_phases:
         temp = set(phaseDimTag[i_phase])
         materials.append([value[1] for value in outDimTag2 if value in temp])
+    # Collection the tags in the correct phase
 
-    # Set the mesh size on the geometry points
+    factory.synchronize()
     # Synchronize the CAD engine (always needed before generating the mesh)
     # It may also be useful for some intermidate operations, like checking the tags of
     # entities
-    factory.synchronize()
 
     for i_phase in range(len(Particle.list_phases)):
         materialTag = model.addPhysicalGroup(3, materials[i_phase])
         model.setPhysicalName(3, materialTag, "Phase " + Particle.list_phases[i_phase])
+    # Setting each phase as a physical group
 
-#     gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
-#     eps = 1e-4
-#     # Ask OpenCASCADE to compute more accurate bounding boxes of entities using
-#     # the STL mesh
-#     # --------------------------------------------------------------------------------------
-#     translation_l_r = [1, 0, 0, rve_dims[0],
-#                        0, 1, 0, 0,
-#                        0, 0, 1, 0,
-#                        0, 0, 0, 1]
-#     # Translation of the left face of the cube to the rigth face of the cube given as an
-#     # affine transformation, (4x4), written by row
-#     l_face = gmsh.model.getEntitiesInBoundingBox(
-#                 - eps,                 - eps,                 - eps,
-#                 + eps, Particle.box[1] + eps, rve_dims[2] + eps,
-#                 2)
-#     # First we get all surfaces on the left:
-#     for i_surf in l_face:
-#         # Then we get the bounding box of each left surface
-#         xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
-#         # We translate the bounding box to the right and look for surfaces inside
-#         # it:
-#         r_face = gmsh.model.getEntitiesInBoundingBox(
-#                     xmin - eps + rve_dims[0], ymin - eps, zmin - eps,
-#                     xmax + eps + rve_dims[0], ymax + eps, zmax + eps,
-#                     2)
-#         # For all the matches, we compare the corresponding bounding boxes...
-#         for j_surf in r_face:
-#             xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
-#                 j_surf[0], j_surf[1])
-#             xmin2 -= rve_dims[0]
-#             xmax2 -= rve_dims[0]
-#             # ...and if they match, we apply the periodicity constraint
-#             if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
-#                     and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
-#                     and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
-#                 gmsh.model.mesh.setPeriodic(2, [j_surf[1]], [i_surf[1]], translation_l_r)
-#                 print(j_surf[1], i_surf[1])
-#                 print(gmsh.model.getBoundary(j_surf))
-#                 print(gmsh.model.getBoundary(i_surf))
-# # --------------------------------------------------------------------------------------
-#                 # Ensuring periodicity
-#     # --------------------------------------------------------------------------------------
-#     gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
-#     translation_b_t = [1, 0, 0, 0,
-#                        0, 1, 0, Particle.box[1],
-#                        0, 0, 1, 0,
-#                        0, 0, 0, 1]
-#     # Translation of the top face of the cube to the bottom face of the cube given as an
-#     # affine transformation, (4x4), written by row
-#     b_face = gmsh.model.getEntitiesInBoundingBox(
-#                                 - eps, - eps,                 - eps,
-#                 rve_dims[0] + eps, + eps, rve_dims[2] + eps,
-#                 2)
-#     # First we get all surfaces on the bottom:
-#     for i_surf in b_face:
-#         # Then we get the bounding box of each bottom surface
-#         xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
-#         # We translate the bounding box upwards and look for surfaces inside
-#         # it:
-#         t_face = gmsh.model.getEntitiesInBoundingBox(
-#                     xmin - eps, ymin - eps + Particle.box[1], zmin - eps,
-#                     xmax + eps, ymax + eps + Particle.box[1], zmax + eps,
-#                     2)
-#         # For all the matches, we compare the corresponding bounding boxes...
-#         for j_surf in t_face:
-#             xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
-#                 j_surf[0], j_surf[1])
-# 
-#             ymin2 -= Particle.box[1]
-#             ymax2 -= Particle.box[1]
-#             # ...and if they match, we apply the periodicity constraint
-#             if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
-#                     and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
-#                     and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
-#                 gmsh.model.mesh.setPeriodic(2, [j_surf[1]], [i_surf[1]], translation_b_t)                
-#                 print(j_surf[1], i_surf[1])
-#                 print(gmsh.model.getBoundary(j_surf))
-#                 print(gmsh.model.getBoundary(i_surf))
-# # --------------------------------------------------------------------------------------
-#     gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
-#     translation_f_b = [1, 0, 0, 0,
-#                        0, 1, 0, 0,
-#                        0, 0, 1, rve_dims[2],
-#                        0, 0, 0, 1]
-#     # Translation of the front face of the cube to the back face of the cube given as an
-#     # affine transformation, (4x4), written by row
-#     f_face = gmsh.model.getEntitiesInBoundingBox(
-#                                 - eps,                 - eps, - eps,
-#                 rve_dims[0] + eps, Particle.box[1] + eps, + eps,
-#                 2)
-#     # First we get all surfaces on the front:
-#     for i_surf in f_face:
-#         # Then we get the bounding box of each front surface
-#         xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
-#         # We translate the bounding box to the back and look for surfaces inside
-#         # it:
-#         b_face = gmsh.model.getEntitiesInBoundingBox(
-#                     xmin - eps, ymin - eps, zmin - eps + rve_dims[2],
-#                     xmax + eps, ymax + eps, zmax + eps + rve_dims[2],
-#                     2)
-#         # For all the matches, we compare the corresponding bounding boxes...
-#         for j_surf in b_face:
-#             xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
-#                 j_surf[0], j_surf[1])
-#             zmin2 -= rve_dims[2]
-#             zmax2 -= rve_dims[2]
-#             # ...and if they match, we apply the periodicity constraint
-#             if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
-#                     and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
-#                     and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
-#                 gmsh.model.mesh.setPeriodic(2, [j_surf[1]], [i_surf[1]], translation_f_b)
-#                 print(j_surf[1], i_surf[1])
-#                 print(gmsh.model.getBoundary(j_surf))
-#                 print(gmsh.model.getBoundary(i_surf))
-# 
-# 
-# 
-#     gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
-#     eps = 1e-4
-#     # Ask OpenCASCADE to compute more accurate bounding boxes of entities using
-#     # the STL mesh
-#     # --------------------------------------------------------------------------------------
-#     translation_l_r = [1, 0, 0, rve_dims[0],
-#                        0, 1, 0, 0,
-#                        0, 0, 1, 0,
-#                        0, 0, 0, 1]
-#     # Translation of the left face of the cube to the rigth face of the cube given as an
-#     # affine transformation, (4x4), written by row
-#     l_face = gmsh.model.getEntitiesInBoundingBox(
-#                 - eps,                 - eps,                 - eps,
-#                 + eps, rve_dims[1] + eps, rve_dims[2] + eps,
-#                 1)
-#     # First we get all surfaces on the left:
-#     for i_surf in l_face:
-#         # Then we get the bounding box of each left surface
-#         xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
-#         # We translate the bounding box to the right and look for surfaces inside
-#         # it:
-#         r_face = gmsh.model.getEntitiesInBoundingBox(
-#                     xmin - eps + rve_dims[0], ymin - eps, zmin - eps,
-#                     xmax + eps + rve_dims[0], ymax + eps, zmax + eps,
-#                     1)
-#         # For all the matches, we compare the corresponding bounding boxes...
-#         for j_surf in r_face:
-#             xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
-#                 j_surf[0], j_surf[1])
-#             xmin2 -= rve_dims[0]
-#             xmax2 -= rve_dims[0]
-#             # ...and if they match, we apply the periodicity constraint
-#             if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
-#                     and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
-#                     and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
-#                 gmsh.model.mesh.setPeriodic(1, [j_surf[1]], [i_surf[1]], translation_l_r)
-#                 print(j_surf[1], i_surf[1])
-#                 print(gmsh.model.getBoundary(j_surf))
-#                 print(gmsh.model.getBoundary(i_surf))
-# # --------------------------------------------------------------------------------------
-#                 # Ensuring periodicity
-#     # --------------------------------------------------------------------------------------
-#     gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
-#     translation_b_t = [1, 0, 0, 0,
-#                        0, 1, 0, rve_dims[1],
-#                        0, 0, 1, 0,
-#                        0, 0, 0, 1]
-#     # Translation of the top face of the cube to the bottom face of the cube given as an
-#     # affine transformation, (4x4), written by row
-#     b_face = gmsh.model.getEntitiesInBoundingBox(
-#                                 - eps, - eps,                 - eps,
-#                 rve_dims[0] + eps, + eps, rve_dims[2] + eps,
-#                 1)
-#     # First we get all surfaces on the bottom:
-#     for i_surf in b_face:
-#         # Then we get the bounding box of each bottom surface
-#         xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
-#         # We translate the bounding box upwards and look for surfaces inside
-#         # it:
-#         t_face = gmsh.model.getEntitiesInBoundingBox(
-#                     xmin - eps, ymin - eps + rve_dims[1], zmin - eps,
-#                     xmax + eps, ymax + eps + rve_dims[1], zmax + eps,
-#                     1)
-#         # For all the matches, we compare the corresponding bounding boxes...
-#         for j_surf in t_face:
-#             xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
-#                 j_surf[0], j_surf[1])
-# 
-#             ymin2 -= rve_dims[1]
-#             ymax2 -= rve_dims[1]
-#             # ...and if they match, we apply the periodicity constraint
-#             if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
-#                     and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
-#                     and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
-#                 gmsh.model.mesh.setPeriodic(1, [j_surf[1]], [i_surf[1]], translation_b_t)                
-#                 print(j_surf[1], i_surf[1])
-#                 print(gmsh.model.getBoundary(j_surf))
-#                 print(gmsh.model.getBoundary(i_surf))
-# # --------------------------------------------------------------------------------------
-#     gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
-#     translation_f_b = [1, 0, 0, 0,
-#                        0, 1, 0, 0,
-#                        0, 0, 1, rve_dims[2],
-#                        0, 0, 0, 1]
-#     # Translation of the front face of the cube to the back face of the cube given as an
-#     # affine transformation, (4x4), written by row
-#     f_face = gmsh.model.getEntitiesInBoundingBox(
-#                                 - eps,                 - eps, - eps,
-#                 rve_dims[0] + eps, rve_dims[1] + eps, + eps,
-#                 1)
-#     # First we get all surfaces on the front:
-#     for i_surf in f_face:
-#         # Then we get the bounding box of each front surface
-#         xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
-#         # We translate the bounding box to the back and look for surfaces inside
-#         # it:
-#         b_face = gmsh.model.getEntitiesInBoundingBox(
-#                     xmin - eps, ymin - eps, zmin - eps + rve_dims[2],
-#                     xmax + eps, ymax + eps, zmax + eps + rve_dims[2],
-#                     1)
-#         # For all the matches, we compare the corresponding bounding boxes...
-#         for j_surf in b_face:
-#             xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
-#                 j_surf[0], j_surf[1])
-#             zmin2 -= rve_dims[2]
-#             zmax2 -= rve_dims[2]
-#             # ...and if they match, we apply the periodicity constraint
-#             if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
-#                     and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
-#                     and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
-#                 gmsh.model.mesh.setPeriodic(1, [j_surf[1]], [i_surf[1]], translation_f_b)
-#                 print(j_surf[1], i_surf[1])
-#                 print(gmsh.model.getBoundary(j_surf))
-#                 print(gmsh.model.getBoundary(i_surf))
-# # --------------------------------------------------------------------------------------
-# 
-#     factory.synchronize()
+    if enforce_pbc:
+        gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
+        eps = 1e-4
+        # Ask OpenCASCADE to compute more accurate bounding boxes of entities using
+        # the STL mesh
+        # --------------------------------------------------------------------------------------
+        translation_l_r = [1, 0, 0, rve_dims[0],
+                           0, 1, 0, 0,
+                           0, 0, 1, 0,
+                           0, 0, 0, 1]
+        # Translation of the left face of the cube to the rigth face of the cube given as an
+        # affine transformation, (4x4), written by row
+        l_face = gmsh.model.getEntitiesInBoundingBox(
+                    - eps,                 - eps,                 - eps,
+                    + eps, Particle.box[1] + eps, rve_dims[2] + eps,
+                    2)
+        # First we get all surfaces on the left:
+        for i_surf in l_face:
+            # Then we get the bounding box of each left surface
+            xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
+            # We translate the bounding box to the right and look for surfaces inside
+            # it:
+            r_face = gmsh.model.getEntitiesInBoundingBox(
+                        xmin - eps + rve_dims[0], ymin - eps, zmin - eps,
+                        xmax + eps + rve_dims[0], ymax + eps, zmax + eps,
+                        2)
+            # For all the matches, we compare the corresponding bounding boxes...
+            for j_surf in r_face:
+                xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
+                    j_surf[0], j_surf[1])
+                xmin2 -= rve_dims[0]
+                xmax2 -= rve_dims[0]
+                # ...and if they match, we apply the periodicity constraint
+                if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
+                        and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
+                        and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
+                    gmsh.model.mesh.setPeriodic(2, [j_surf[1]], [i_surf[1]], translation_l_r)
+                    print(j_surf[1], i_surf[1])
+                    print(gmsh.model.getBoundary(j_surf))
+                    print(gmsh.model.getBoundary(i_surf))
+    # --------------------------------------------------------------------------------------
+                    # Ensuring periodicity
+        # --------------------------------------------------------------------------------------
+        gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
+        translation_b_t = [1, 0, 0, 0,
+                           0, 1, 0, Particle.box[1],
+                           0, 0, 1, 0,
+                           0, 0, 0, 1]
+        # Translation of the top face of the cube to the bottom face of the cube given as an
+        # affine transformation, (4x4), written by row
+        b_face = gmsh.model.getEntitiesInBoundingBox(
+                                    - eps, - eps,                 - eps,
+                    rve_dims[0] + eps, + eps, rve_dims[2] + eps,
+                    2)
+        # First we get all surfaces on the bottom:
+        for i_surf in b_face:
+            # Then we get the bounding box of each bottom surface
+            xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
+            # We translate the bounding box upwards and look for surfaces inside
+            # it:
+            t_face = gmsh.model.getEntitiesInBoundingBox(
+                        xmin - eps, ymin - eps + Particle.box[1], zmin - eps,
+                        xmax + eps, ymax + eps + Particle.box[1], zmax + eps,
+                        2)
+            # For all the matches, we compare the corresponding bounding boxes...
+            for j_surf in t_face:
+                xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
+                    j_surf[0], j_surf[1])
 
-    # eps = 2e-1
-    # b_vol = gmsh.model.getEntitiesInBoundingBox(
-    #                             - eps, - eps,                 - eps,
-    #             rve_dims[0] + eps, + eps, rve_dims[2] + eps,
-    #             3)
-    # gmsh.model.removeEntities(b_vol, True)
-    # t_vol = gmsh.model.getEntitiesInBoundingBox(
-    #                             - eps, rve_dims[1] - eps,                 - eps,
-    #             rve_dims[0] + eps, rve_dims[1] + eps, rve_dims[2] + eps,
-    #             3)
-    # gmsh.model.removeEntities(t_vol, True)
-    # l_vol = gmsh.model.getEntitiesInBoundingBox(
-    #             - eps,                 - eps,                 - eps,
-    #             + eps, rve_dims[1] + eps, rve_dims[2] + eps,
-    #             3)
-    # gmsh.model.removeEntities(l_vol, True)
-    # r_vol = gmsh.model.getEntitiesInBoundingBox(
-    #              rve_dims[0] - eps,                 - eps,                 - eps,
-    #              rve_dims[0] + eps, rve_dims[1] + eps, rve_dims[2] + eps,
-    #             3)
-    # gmsh.model.removeEntities(r_vol, True)
-    # f_vol = gmsh.model.getEntitiesInBoundingBox(
-    #                             - eps,                  - eps, - eps,
-    #             rve_dims[0] + eps, rve_dims[1]  + eps, + eps,
-    #             3)
-    # gmsh.model.removeEntities(f_vol, True)
-    # ba_vol = gmsh.model.getEntitiesInBoundingBox(
-    #                             - eps,                  - eps, rve_dims[2] - eps,
-    #             rve_dims[0] + eps, rve_dims[1]  + eps, rve_dims[2] + eps,
-    #             3)
-    # gmsh.model.removeEntities(ba_vol, True)
+                ymin2 -= Particle.box[1]
+                ymax2 -= Particle.box[1]
+                # ...and if they match, we apply the periodicity constraint
+                if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
+                        and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
+                        and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
+                    gmsh.model.mesh.setPeriodic(2, [j_surf[1]], [i_surf[1]], translation_b_t)                
+                    print(j_surf[1], i_surf[1])
+                    print(gmsh.model.getBoundary(j_surf))
+                    print(gmsh.model.getBoundary(i_surf))
+    # --------------------------------------------------------------------------------------
+        gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
+        translation_f_b = [1, 0, 0, 0,
+                           0, 1, 0, 0,
+                           0, 0, 1, rve_dims[2],
+                           0, 0, 0, 1]
+        # Translation of the front face of the cube to the back face of the cube given as an
+        # affine transformation, (4x4), written by row
+        f_face = gmsh.model.getEntitiesInBoundingBox(
+                                    - eps,                 - eps, - eps,
+                    rve_dims[0] + eps, Particle.box[1] + eps, + eps,
+                    2)
+        # First we get all surfaces on the front:
+        for i_surf in f_face:
+            # Then we get the bounding box of each front surface
+            xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
+            # We translate the bounding box to the back and look for surfaces inside
+            # it:
+            b_face = gmsh.model.getEntitiesInBoundingBox(
+                        xmin - eps, ymin - eps, zmin - eps + rve_dims[2],
+                        xmax + eps, ymax + eps, zmax + eps + rve_dims[2],
+                        2)
+            # For all the matches, we compare the corresponding bounding boxes...
+            for j_surf in b_face:
+                xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
+                    j_surf[0], j_surf[1])
+                zmin2 -= rve_dims[2]
+                zmax2 -= rve_dims[2]
+                # ...and if they match, we apply the periodicity constraint
+                if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
+                        and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
+                        and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
+                    gmsh.model.mesh.setPeriodic(2, [j_surf[1]], [i_surf[1]], translation_f_b)
+                    print(j_surf[1], i_surf[1])
+                    print(gmsh.model.getBoundary(j_surf))
+                    print(gmsh.model.getBoundary(i_surf))
 
 
-    # model.setColor((2, material2[0][1]),0,0,255,a=1)
 
-    # Set mesh size
-    points = model.getEntities(0)
+        gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
+        eps = 1e-4
+        # Ask OpenCASCADE to compute more accurate bounding boxes of entities using
+        # the STL mesh
+        # --------------------------------------------------------------------------------------
+        translation_l_r = [1, 0, 0, rve_dims[0],
+                           0, 1, 0, 0,
+                           0, 0, 1, 0,
+                           0, 0, 0, 1]
+        # Translation of the left face of the cube to the rigth face of the cube given as an
+        # affine transformation, (4x4), written by row
+        l_face = gmsh.model.getEntitiesInBoundingBox(
+                    - eps,                 - eps,                 - eps,
+                    + eps, rve_dims[1] + eps, rve_dims[2] + eps,
+                    1)
+        # First we get all surfaces on the left:
+        for i_surf in l_face:
+            # Then we get the bounding box of each left surface
+            xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
+            # We translate the bounding box to the right and look for surfaces inside
+            # it:
+            r_face = gmsh.model.getEntitiesInBoundingBox(
+                        xmin - eps + rve_dims[0], ymin - eps, zmin - eps,
+                        xmax + eps + rve_dims[0], ymax + eps, zmax + eps,
+                        1)
+            # For all the matches, we compare the corresponding bounding boxes...
+            for j_surf in r_face:
+                xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
+                    j_surf[0], j_surf[1])
+                xmin2 -= rve_dims[0]
+                xmax2 -= rve_dims[0]
+                # ...and if they match, we apply the periodicity constraint
+                if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
+                        and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
+                        and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
+                    gmsh.model.mesh.setPeriodic(1, [j_surf[1]], [i_surf[1]], translation_l_r)
+                    print(j_surf[1], i_surf[1])
+                    print(gmsh.model.getBoundary(j_surf))
+                    print(gmsh.model.getBoundary(i_surf))
+    # --------------------------------------------------------------------------------------
+                    # Ensuring periodicity
+        # --------------------------------------------------------------------------------------
+        gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
+        translation_b_t = [1, 0, 0, 0,
+                           0, 1, 0, rve_dims[1],
+                           0, 0, 1, 0,
+                           0, 0, 0, 1]
+        # Translation of the top face of the cube to the bottom face of the cube given as an
+        # affine transformation, (4x4), written by row
+        b_face = gmsh.model.getEntitiesInBoundingBox(
+                                    - eps, - eps,                 - eps,
+                    rve_dims[0] + eps, + eps, rve_dims[2] + eps,
+                    1)
+        # First we get all surfaces on the bottom:
+        for i_surf in b_face:
+            # Then we get the bounding box of each bottom surface
+            xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
+            # We translate the bounding box upwards and look for surfaces inside
+            # it:
+            t_face = gmsh.model.getEntitiesInBoundingBox(
+                        xmin - eps, ymin - eps + rve_dims[1], zmin - eps,
+                        xmax + eps, ymax + eps + rve_dims[1], zmax + eps,
+                        1)
+            # For all the matches, we compare the corresponding bounding boxes...
+            for j_surf in t_face:
+                xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
+                    j_surf[0], j_surf[1])
+
+                ymin2 -= rve_dims[1]
+                ymax2 -= rve_dims[1]
+                # ...and if they match, we apply the periodicity constraint
+                if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
+                        and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
+                        and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
+                    gmsh.model.mesh.setPeriodic(1, [j_surf[1]], [i_surf[1]], translation_b_t)                
+                    print(j_surf[1], i_surf[1])
+                    print(gmsh.model.getBoundary(j_surf))
+                    print(gmsh.model.getBoundary(i_surf))
+    # --------------------------------------------------------------------------------------
+        gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
+        translation_f_b = [1, 0, 0, 0,
+                           0, 1, 0, 0,
+                           0, 0, 1, rve_dims[2],
+                           0, 0, 0, 1]
+        # Translation of the front face of the cube to the back face of the cube given as an
+        # affine transformation, (4x4), written by row
+        f_face = gmsh.model.getEntitiesInBoundingBox(
+                                    - eps,                 - eps, - eps,
+                    rve_dims[0] + eps, rve_dims[1] + eps, + eps,
+                    1)
+        # First we get all surfaces on the front:
+        for i_surf in f_face:
+            # Then we get the bounding box of each front surface
+            xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
+            # We translate the bounding box to the back and look for surfaces inside
+            # it:
+            b_face = gmsh.model.getEntitiesInBoundingBox(
+                        xmin - eps, ymin - eps, zmin - eps + rve_dims[2],
+                        xmax + eps, ymax + eps, zmax + eps + rve_dims[2],
+                        1)
+            # For all the matches, we compare the corresponding bounding boxes...
+            for j_surf in b_face:
+                xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
+                    j_surf[0], j_surf[1])
+                zmin2 -= rve_dims[2]
+                zmax2 -= rve_dims[2]
+                # ...and if they match, we apply the periodicity constraint
+                if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
+                        and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
+                        and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
+                    gmsh.model.mesh.setPeriodic(1, [j_surf[1]], [i_surf[1]], translation_f_b)
+                    print(j_surf[1], i_surf[1])
+                    print(gmsh.model.getBoundary(j_surf))
+                    print(gmsh.model.getBoundary(i_surf))
+    # --------------------------------------------------------------------------------------
     
-    # model.mesh.setSize(points, mesh_size)
     gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
     gmsh.option.setNumber("Mesh.CharacteristicLengthMax", mesh_size)
+    # Mesh size according to curvature with a maximum length
     
-
     # Generate a 3D mesh
     model.mesh.generate(3)
 
@@ -1110,17 +1068,15 @@ def generateMeshFEM3D(particles, mesh_size, rve_dims, mesh_alg=1, force_recomb_a
     local_coord, _ = model.mesh.getIntegrationPoints(tetra_type, "Gauss4")
     _, all_jacobians, _ = model.mesh.getJacobians(tetra_type, local_coord, tag=-1)
     _, tagsAllElements, _ = model.mesh.getElements(dim=3)
-    print(len(local_coord), len(tagsAllElements[0]))
     dimTagsErrors = []
     for i_ele, tagEle in enumerate(tagsAllElements[0]):
         for k_point in range(11): #int(len(local_coord)/3)):
             if all_jacobians[i_ele*11 + k_point] <= 0.00:
                 dimTagsErrors.append((3, tagEle))
                 break
-    print("Errors", dimTagsErrors)
-
+    # Finding elements with negative jacobian determinant
     model.mesh.optimize("HighOrder", force=False, niter=10, dimTags=dimTagsErrors)
-
+    # Trying to fix overly distorted elements
     tetra_type = model.mesh.getElementTypes(dim=3, tag=-1)[0]
     local_coord, _ = model.mesh.getIntegrationPoints(tetra_type, "Gauss4")
     _, all_jacobians, _ = model.mesh.getJacobians(tetra_type, local_coord, tag=-1)
@@ -1133,238 +1089,242 @@ def generateMeshFEM3D(particles, mesh_size, rve_dims, mesh_alg=1, force_recomb_a
                 dimTagsErrors.append((3, tagEle))
                 break
     print("Errors Final", dimTagsErrors)
+    
 
-    gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
-    eps = 1e-4
-    # Ask OpenCASCADE to compute more accurate bounding boxes of entities using
-    # the STL mesh
+    # Enforcing boundary conditions again
     # --------------------------------------------------------------------------------------
-    translation_l_r = [1, 0, 0, rve_dims[0],
-                       0, 1, 0, 0,
-                       0, 0, 1, 0,
-                       0, 0, 0, 1]
-    # Translation of the left face of the cube to the rigth face of the cube given as an
-    # affine transformation, (4x4), written by row
-    l_face = gmsh.model.getEntitiesInBoundingBox(
-                - eps,                 - eps,                 - eps,
-                + eps, Particle.box[1] + eps, rve_dims[2] + eps,
-                2)
-    # First we get all surfaces on the left:
-    for i_surf in l_face:
-        # Then we get the bounding box of each left surface
-        xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
-        # We translate the bounding box to the right and look for surfaces inside
-        # it:
-        r_face = gmsh.model.getEntitiesInBoundingBox(
-                    xmin - eps + rve_dims[0], ymin - eps, zmin - eps,
-                    xmax + eps + rve_dims[0], ymax + eps, zmax + eps,
+    if enforce_pbc:
+        gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
+        eps = 1e-4
+        # Ask OpenCASCADE to compute more accurate bounding boxes of entities using
+        # the STL mesh
+        # --------------------------------------------------------------------------------------
+        translation_l_r = [1, 0, 0, rve_dims[0],
+                           0, 1, 0, 0,
+                           0, 0, 1, 0,
+                           0, 0, 0, 1]
+        # Translation of the left face of the cube to the rigth face of the cube given as an
+        # affine transformation, (4x4), written by row
+        l_face = gmsh.model.getEntitiesInBoundingBox(
+                    - eps,                 - eps,                 - eps,
+                    + eps, Particle.box[1] + eps, rve_dims[2] + eps,
                     2)
-        # For all the matches, we compare the corresponding bounding boxes...
-        for j_surf in r_face:
-            xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
-                j_surf[0], j_surf[1])
-            xmin2 -= rve_dims[0]
-            xmax2 -= rve_dims[0]
-            # ...and if they match, we apply the periodicity constraint
-            if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
-                    and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
-                    and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
-                gmsh.model.mesh.setPeriodic(2, [j_surf[1]], [i_surf[1]], translation_l_r)
-                print(j_surf[1], i_surf[1])
-                print(gmsh.model.getBoundary(j_surf))
-                print(gmsh.model.getBoundary(i_surf))
-# --------------------------------------------------------------------------------------
-                # Ensuring periodicity
+        # First we get all surfaces on the left:
+        for i_surf in l_face:
+            # Then we get the bounding box of each left surface
+            xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
+            # We translate the bounding box to the right and look for surfaces inside
+            # it:
+            r_face = gmsh.model.getEntitiesInBoundingBox(
+                        xmin - eps + rve_dims[0], ymin - eps, zmin - eps,
+                        xmax + eps + rve_dims[0], ymax + eps, zmax + eps,
+                        2)
+            # For all the matches, we compare the corresponding bounding boxes...
+            for j_surf in r_face:
+                xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
+                    j_surf[0], j_surf[1])
+                xmin2 -= rve_dims[0]
+                xmax2 -= rve_dims[0]
+                # ...and if they match, we apply the periodicity constraint
+                if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
+                        and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
+                        and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
+                    gmsh.model.mesh.setPeriodic(2, [j_surf[1]], [i_surf[1]], translation_l_r)
+                    print(j_surf[1], i_surf[1])
+                    print(gmsh.model.getBoundary(j_surf))
+                    print(gmsh.model.getBoundary(i_surf))
     # --------------------------------------------------------------------------------------
-    gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
-    translation_b_t = [1, 0, 0, 0,
-                       0, 1, 0, Particle.box[1],
-                       0, 0, 1, 0,
-                       0, 0, 0, 1]
-    # Translation of the top face of the cube to the bottom face of the cube given as an
-    # affine transformation, (4x4), written by row
-    b_face = gmsh.model.getEntitiesInBoundingBox(
-                                - eps, - eps,                 - eps,
-                rve_dims[0] + eps, + eps, rve_dims[2] + eps,
-                2)
-    # First we get all surfaces on the bottom:
-    for i_surf in b_face:
-        # Then we get the bounding box of each bottom surface
-        xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
-        # We translate the bounding box upwards and look for surfaces inside
-        # it:
-        t_face = gmsh.model.getEntitiesInBoundingBox(
-                    xmin - eps, ymin - eps + Particle.box[1], zmin - eps,
-                    xmax + eps, ymax + eps + Particle.box[1], zmax + eps,
-                    2)
-        # For all the matches, we compare the corresponding bounding boxes...
-        for j_surf in t_face:
-            xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
-                j_surf[0], j_surf[1])
-
-            ymin2 -= Particle.box[1]
-            ymax2 -= Particle.box[1]
-            # ...and if they match, we apply the periodicity constraint
-            if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
-                    and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
-                    and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
-                gmsh.model.mesh.setPeriodic(2, [j_surf[1]], [i_surf[1]], translation_b_t)                
-                print(j_surf[1], i_surf[1])
-                print(gmsh.model.getBoundary(j_surf))
-                print(gmsh.model.getBoundary(i_surf))
-# --------------------------------------------------------------------------------------
-    gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
-    translation_f_b = [1, 0, 0, 0,
-                       0, 1, 0, 0,
-                       0, 0, 1, rve_dims[2],
-                       0, 0, 0, 1]
-    # Translation of the front face of the cube to the back face of the cube given as an
-    # affine transformation, (4x4), written by row
-    f_face = gmsh.model.getEntitiesInBoundingBox(
-                                - eps,                 - eps, - eps,
-                rve_dims[0] + eps, Particle.box[1] + eps, + eps,
-                2)
-    # First we get all surfaces on the front:
-    for i_surf in f_face:
-        # Then we get the bounding box of each front surface
-        xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
-        # We translate the bounding box to the back and look for surfaces inside
-        # it:
+                    # Ensuring periodicity
+        # --------------------------------------------------------------------------------------
+        gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
+        translation_b_t = [1, 0, 0, 0,
+                           0, 1, 0, Particle.box[1],
+                           0, 0, 1, 0,
+                           0, 0, 0, 1]
+        # Translation of the top face of the cube to the bottom face of the cube given as an
+        # affine transformation, (4x4), written by row
         b_face = gmsh.model.getEntitiesInBoundingBox(
-                    xmin - eps, ymin - eps, zmin - eps + rve_dims[2],
-                    xmax + eps, ymax + eps, zmax + eps + rve_dims[2],
+                                    - eps, - eps,                 - eps,
+                    rve_dims[0] + eps, + eps, rve_dims[2] + eps,
                     2)
-        # For all the matches, we compare the corresponding bounding boxes...
-        for j_surf in b_face:
-            xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
-                j_surf[0], j_surf[1])
-            zmin2 -= rve_dims[2]
-            zmax2 -= rve_dims[2]
-            # ...and if they match, we apply the periodicity constraint
-            if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
-                    and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
-                    and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
-                gmsh.model.mesh.setPeriodic(2, [j_surf[1]], [i_surf[1]], translation_f_b)
-                print(j_surf[1], i_surf[1])
-                print(gmsh.model.getBoundary(j_surf))
-                print(gmsh.model.getBoundary(i_surf))
+        # First we get all surfaces on the bottom:
+        for i_surf in b_face:
+            # Then we get the bounding box of each bottom surface
+            xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
+            # We translate the bounding box upwards and look for surfaces inside
+            # it:
+            t_face = gmsh.model.getEntitiesInBoundingBox(
+                        xmin - eps, ymin - eps + Particle.box[1], zmin - eps,
+                        xmax + eps, ymax + eps + Particle.box[1], zmax + eps,
+                        2)
+            # For all the matches, we compare the corresponding bounding boxes...
+            for j_surf in t_face:
+                xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
+                    j_surf[0], j_surf[1])
 
-
-
-    gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
-    eps = 1e-4
-    # Ask OpenCASCADE to compute more accurate bounding boxes of entities using
-    # the STL mesh
+                ymin2 -= Particle.box[1]
+                ymax2 -= Particle.box[1]
+                # ...and if they match, we apply the periodicity constraint
+                if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
+                        and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
+                        and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
+                    gmsh.model.mesh.setPeriodic(2, [j_surf[1]], [i_surf[1]], translation_b_t)                
+                    print(j_surf[1], i_surf[1])
+                    print(gmsh.model.getBoundary(j_surf))
+                    print(gmsh.model.getBoundary(i_surf))
     # --------------------------------------------------------------------------------------
-    translation_l_r = [1, 0, 0, rve_dims[0],
-                       0, 1, 0, 0,
-                       0, 0, 1, 0,
-                       0, 0, 0, 1]
-    # Translation of the left face of the cube to the rigth face of the cube given as an
-    # affine transformation, (4x4), written by row
-    l_face = gmsh.model.getEntitiesInBoundingBox(
-                - eps,                 - eps,                 - eps,
-                + eps, rve_dims[1] + eps, rve_dims[2] + eps,
-                1)
-    # First we get all surfaces on the left:
-    for i_surf in l_face:
-        # Then we get the bounding box of each left surface
-        xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
-        # We translate the bounding box to the right and look for surfaces inside
-        # it:
-        r_face = gmsh.model.getEntitiesInBoundingBox(
-                    xmin - eps + rve_dims[0], ymin - eps, zmin - eps,
-                    xmax + eps + rve_dims[0], ymax + eps, zmax + eps,
-                    1)
-        # For all the matches, we compare the corresponding bounding boxes...
-        for j_surf in r_face:
-            xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
-                j_surf[0], j_surf[1])
-            xmin2 -= rve_dims[0]
-            xmax2 -= rve_dims[0]
-            # ...and if they match, we apply the periodicity constraint
-            if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
-                    and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
-                    and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
-                gmsh.model.mesh.setPeriodic(1, [j_surf[1]], [i_surf[1]], translation_l_r)
-                print(j_surf[1], i_surf[1])
-                print(gmsh.model.getBoundary(j_surf))
-                print(gmsh.model.getBoundary(i_surf))
-# --------------------------------------------------------------------------------------
-                # Ensuring periodicity
-    # --------------------------------------------------------------------------------------
-    gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
-    translation_b_t = [1, 0, 0, 0,
-                       0, 1, 0, rve_dims[1],
-                       0, 0, 1, 0,
-                       0, 0, 0, 1]
-    # Translation of the top face of the cube to the bottom face of the cube given as an
-    # affine transformation, (4x4), written by row
-    b_face = gmsh.model.getEntitiesInBoundingBox(
-                                - eps, - eps,                 - eps,
-                rve_dims[0] + eps, + eps, rve_dims[2] + eps,
-                1)
-    # First we get all surfaces on the bottom:
-    for i_surf in b_face:
-        # Then we get the bounding box of each bottom surface
-        xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
-        # We translate the bounding box upwards and look for surfaces inside
-        # it:
-        t_face = gmsh.model.getEntitiesInBoundingBox(
-                    xmin - eps, ymin - eps + rve_dims[1], zmin - eps,
-                    xmax + eps, ymax + eps + rve_dims[1], zmax + eps,
-                    1)
-        # For all the matches, we compare the corresponding bounding boxes...
-        for j_surf in t_face:
-            xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
-                j_surf[0], j_surf[1])
+        gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
+        translation_f_b = [1, 0, 0, 0,
+                           0, 1, 0, 0,
+                           0, 0, 1, rve_dims[2],
+                           0, 0, 0, 1]
+        # Translation of the front face of the cube to the back face of the cube given as an
+        # affine transformation, (4x4), written by row
+        f_face = gmsh.model.getEntitiesInBoundingBox(
+                                    - eps,                 - eps, - eps,
+                    rve_dims[0] + eps, Particle.box[1] + eps, + eps,
+                    2)
+        # First we get all surfaces on the front:
+        for i_surf in f_face:
+            # Then we get the bounding box of each front surface
+            xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
+            # We translate the bounding box to the back and look for surfaces inside
+            # it:
+            b_face = gmsh.model.getEntitiesInBoundingBox(
+                        xmin - eps, ymin - eps, zmin - eps + rve_dims[2],
+                        xmax + eps, ymax + eps, zmax + eps + rve_dims[2],
+                        2)
+            # For all the matches, we compare the corresponding bounding boxes...
+            for j_surf in b_face:
+                xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
+                    j_surf[0], j_surf[1])
+                zmin2 -= rve_dims[2]
+                zmax2 -= rve_dims[2]
+                # ...and if they match, we apply the periodicity constraint
+                if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
+                        and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
+                        and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
+                    gmsh.model.mesh.setPeriodic(2, [j_surf[1]], [i_surf[1]], translation_f_b)
+                    print(j_surf[1], i_surf[1])
+                    print(gmsh.model.getBoundary(j_surf))
+                    print(gmsh.model.getBoundary(i_surf))
 
-            ymin2 -= rve_dims[1]
-            ymax2 -= rve_dims[1]
-            # ...and if they match, we apply the periodicity constraint
-            if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
-                    and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
-                    and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
-                gmsh.model.mesh.setPeriodic(1, [j_surf[1]], [i_surf[1]], translation_b_t)                
-                print(j_surf[1], i_surf[1])
-                print(gmsh.model.getBoundary(j_surf))
-                print(gmsh.model.getBoundary(i_surf))
-# --------------------------------------------------------------------------------------
-    gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
-    translation_f_b = [1, 0, 0, 0,
-                       0, 1, 0, 0,
-                       0, 0, 1, rve_dims[2],
-                       0, 0, 0, 1]
-    # Translation of the front face of the cube to the back face of the cube given as an
-    # affine transformation, (4x4), written by row
-    f_face = gmsh.model.getEntitiesInBoundingBox(
-                                - eps,                 - eps, - eps,
-                rve_dims[0] + eps, rve_dims[1] + eps, + eps,
-                1)
-    # First we get all surfaces on the front:
-    for i_surf in f_face:
-        # Then we get the bounding box of each front surface
-        xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
-        # We translate the bounding box to the back and look for surfaces inside
-        # it:
+
+
+        gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
+        eps = 1e-4
+        # Ask OpenCASCADE to compute more accurate bounding boxes of entities using
+        # the STL mesh
+        # --------------------------------------------------------------------------------------
+        translation_l_r = [1, 0, 0, rve_dims[0],
+                           0, 1, 0, 0,
+                           0, 0, 1, 0,
+                           0, 0, 0, 1]
+        # Translation of the left face of the cube to the rigth face of the cube given as an
+        # affine transformation, (4x4), written by row
+        l_face = gmsh.model.getEntitiesInBoundingBox(
+                    - eps,                 - eps,                 - eps,
+                    + eps, rve_dims[1] + eps, rve_dims[2] + eps,
+                    1)
+        # First we get all surfaces on the left:
+        for i_surf in l_face:
+            # Then we get the bounding box of each left surface
+            xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
+            # We translate the bounding box to the right and look for surfaces inside
+            # it:
+            r_face = gmsh.model.getEntitiesInBoundingBox(
+                        xmin - eps + rve_dims[0], ymin - eps, zmin - eps,
+                        xmax + eps + rve_dims[0], ymax + eps, zmax + eps,
+                        1)
+            # For all the matches, we compare the corresponding bounding boxes...
+            for j_surf in r_face:
+                xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
+                    j_surf[0], j_surf[1])
+                xmin2 -= rve_dims[0]
+                xmax2 -= rve_dims[0]
+                # ...and if they match, we apply the periodicity constraint
+                if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
+                        and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
+                        and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
+                    gmsh.model.mesh.setPeriodic(1, [j_surf[1]], [i_surf[1]], translation_l_r)
+                    print(j_surf[1], i_surf[1])
+                    print(gmsh.model.getBoundary(j_surf))
+                    print(gmsh.model.getBoundary(i_surf))
+    # --------------------------------------------------------------------------------------
+                    # Ensuring periodicity
+        # --------------------------------------------------------------------------------------
+        gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
+        translation_b_t = [1, 0, 0, 0,
+                           0, 1, 0, rve_dims[1],
+                           0, 0, 1, 0,
+                           0, 0, 0, 1]
+        # Translation of the top face of the cube to the bottom face of the cube given as an
+        # affine transformation, (4x4), written by row
         b_face = gmsh.model.getEntitiesInBoundingBox(
-                    xmin - eps, ymin - eps, zmin - eps + rve_dims[2],
-                    xmax + eps, ymax + eps, zmax + eps + rve_dims[2],
+                                    - eps, - eps,                 - eps,
+                    rve_dims[0] + eps, + eps, rve_dims[2] + eps,
                     1)
-        # For all the matches, we compare the corresponding bounding boxes...
-        for j_surf in b_face:
-            xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
-                j_surf[0], j_surf[1])
-            zmin2 -= rve_dims[2]
-            zmax2 -= rve_dims[2]
-            # ...and if they match, we apply the periodicity constraint
-            if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
-                    and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
-                    and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
-                gmsh.model.mesh.setPeriodic(1, [j_surf[1]], [i_surf[1]], translation_f_b)
-                print(j_surf[1], i_surf[1])
-                print(gmsh.model.getBoundary(j_surf))
-                print(gmsh.model.getBoundary(i_surf))
+        # First we get all surfaces on the bottom:
+        for i_surf in b_face:
+            # Then we get the bounding box of each bottom surface
+            xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
+            # We translate the bounding box upwards and look for surfaces inside
+            # it:
+            t_face = gmsh.model.getEntitiesInBoundingBox(
+                        xmin - eps, ymin - eps + rve_dims[1], zmin - eps,
+                        xmax + eps, ymax + eps + rve_dims[1], zmax + eps,
+                        1)
+            # For all the matches, we compare the corresponding bounding boxes...
+            for j_surf in t_face:
+                xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
+                    j_surf[0], j_surf[1])
+
+                ymin2 -= rve_dims[1]
+                ymax2 -= rve_dims[1]
+                # ...and if they match, we apply the periodicity constraint
+                if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
+                        and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
+                        and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
+                    gmsh.model.mesh.setPeriodic(1, [j_surf[1]], [i_surf[1]], translation_b_t)                
+                    print(j_surf[1], i_surf[1])
+                    print(gmsh.model.getBoundary(j_surf))
+                    print(gmsh.model.getBoundary(i_surf))
+    # --------------------------------------------------------------------------------------
+        gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
+        translation_f_b = [1, 0, 0, 0,
+                           0, 1, 0, 0,
+                           0, 0, 1, rve_dims[2],
+                           0, 0, 0, 1]
+        # Translation of the front face of the cube to the back face of the cube given as an
+        # affine transformation, (4x4), written by row
+        f_face = gmsh.model.getEntitiesInBoundingBox(
+                                    - eps,                 - eps, - eps,
+                    rve_dims[0] + eps, rve_dims[1] + eps, + eps,
+                    1)
+        # First we get all surfaces on the front:
+        for i_surf in f_face:
+            # Then we get the bounding box of each front surface
+            xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(i_surf[0], i_surf[1])
+            # We translate the bounding box to the back and look for surfaces inside
+            # it:
+            b_face = gmsh.model.getEntitiesInBoundingBox(
+                        xmin - eps, ymin - eps, zmin - eps + rve_dims[2],
+                        xmax + eps, ymax + eps, zmax + eps + rve_dims[2],
+                        1)
+            # For all the matches, we compare the corresponding bounding boxes...
+            for j_surf in b_face:
+                xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
+                    j_surf[0], j_surf[1])
+                zmin2 -= rve_dims[2]
+                zmax2 -= rve_dims[2]
+                # ...and if they match, we apply the periodicity constraint
+                if (abs(xmin2 - xmin) < eps and abs(xmax2 - xmax) < eps
+                        and abs(ymin2 - ymin) < eps and abs(ymax2 - ymax) < eps
+                        and abs(zmin2 - zmin) < eps and abs(zmax2 - zmax) < eps):
+                    gmsh.model.mesh.setPeriodic(1, [j_surf[1]], [i_surf[1]], translation_f_b)
+                    print(j_surf[1], i_surf[1])
+                    print(gmsh.model.getBoundary(j_surf))
+                    print(gmsh.model.getBoundary(i_surf))
 # --------------------------------------------------------------------------------------
 
     factory.synchronize()
@@ -1409,43 +1369,61 @@ def generateMeshFEM3D(particles, mesh_size, rve_dims, mesh_alg=1, force_recomb_a
 
 def gmshToLinks(meshfile, title, dim, list_phases, matrix_phase):
     '''
-    This function writes an input file for LINKS using a gmsh mesh saved at meshfile.
+    Write an input file for LINKS using a gmsh mesh saved at meshfile.
 
     Parameters
     ----------
     meshfile: string
         Path to the gmsh file containing the FEM mesh.
+
+    title: string
+        Name of the file where the input file to LINKS will be saved.
+
+    dim: int
+        Number of dimnesions of the problem.
+
+    list_phases: list(str)
+        List containing the names of the phases
+
+    matrix_phase: str
+        Name of the matrix phase
     '''
     mesh = readMesh(meshfile)
 
     nodeID, coord = mesh.getAllNodes()
     elementID, connectivities, elementType = mesh.getElementsByDim(dim)
     elemMat = len(list_phases)*[0]
+    # Initializing the list containing the elements
     conMat = len(list_phases)*[0]
+    # Initializing the list containing the connectivity lists
     typeMat = len(list_phases)*[0]
+    # Initializing the list containing the type of elements
     elemMat[0], conMat[0], typeMat[0] = \
         mesh.getElementsByName("Phase " + str(matrix_phase))
     list_phases.remove(matrix_phase)
+    # Collecting the information about the matrix phase
     for i_phase in range(len(list_phases)):
+    # Running through all the phases
         elemMat[i_phase+1], conMat[i_phase+1], typeMat[i_phase+1] = \
             mesh.getElementsByName("Phase " + str(list_phases[i_phase]))
+        # Collecting the information about phase i_phase
     if dim == 2:
         shutil.copy("LINKS_header.dat", title + ".rve")
+        # Header for 2D
     elif dim == 3:
         shutil.copy("LINKS_header_3d.dat", title + ".rve")
+        # Header for 3D
 
     with open(title + ".rve", "a") as dat:
-        # dat.write("TITLE\n{0}".format(title))
-        # dat.write("\n\nELEMENT_GROUPS 2\n1 1 1")
-        # dat.write("\n\nELEMENT_TYPES 1\n1 {0} \n3 GP".format(elementType[0]))
-        # # dat.write("\n\nELEMENT_TYPES 1\n1 TETRA4 \n4 GP")
-        # dat.write("\n\nMATERIALS 2\n1 VON_MISES\n0.0\n2000E3 0.3\n2\n0.0 10000\n1.0 12000\n2 VON_MISES\n0.0\n200E3 0.3\n2\n0.0 540\n1.0 940\n")
         dat.write("\n\nNODE_COORDINATES {0} CARTESIAN".format(len(nodeID)))
         for i in range(len(nodeID)):
             dat.write("\n{0} {1} {2} {3}".format(nodeID[i], coord[i][0], coord[i][1], coord[i][2]))
+        # Writing the coordinates of each node
         dat.write("\n\nELEMENTS {0}".format(len(elementID)))
         for i_phase in range(len(list_phases)+1):
+            # For each phase
             for j_node in range(len(elemMat[i_phase])):
+                # For each node
                 dat.write("\n{0} {1} ".format(
                     elemMat[i_phase][j_node], i_phase+1))
                 for k_con in conMat[i_phase][j_node]:
@@ -1560,20 +1538,31 @@ def generateMeshFFT(particles, options, disc_ext):
 
 
 def generateMesh(particles, disc_ext, discret_spec_array):
-    """Generate a mesh"""
+    """
+    Generate a mesh.
+
+    Parameters
+    ----------
+    particles: list(`.Particle`)
+        List containing the particles in the simulation box.
+
+    disc_ext: str
+        String containing the extension for the mesh.
+
+    discret_spec_array: dict
+        Dictionary containing the specifications for the mesh
+    """
     if disc_ext == 'rgmsh':
     # A mesh for FFT was requested
         generateMeshFFT(particles, discret_spec_array, disc_ext)
         # Generating the FFT mesh as a regular grid and saving it in a .dat file
     if disc_ext == 'femsh':
     # A mesh for FEM was requested
-        try:
-            mesh_size = discret_spec_array['mesh_size']
-            # Saving the value of the mesh size
-        except KeyError:
-            print('The mesh size for the FEM method was not supplied correctly')
-            quit()
-        generateMeshFEM(particles, mesh_size, discret_spec_array['rve_dims'])
+        generateMeshFEM(
+            particles,
+            discret_spec_array['mesh_size'],
+            discret_spec_array['element_type'],
+            discret_spec_array['rve_dims'])
         # Generating the FEM mesh using gmsh and saving an input data file for LINKS
 
 
@@ -1615,7 +1604,7 @@ def checkMeshSpecs(disc_ext, discret_spec_array):
             quit()
     elif disc_ext == 'femsh':
     # A finite elment mesh was specified
-        necessary_parameters = {'rve_dims', 'mesh_size'}
+        necessary_parameters = {'rve_dims', 'mesh_size', 'element_type'}
         try:
             if any([necessary_parameter not in discret_spec_array
                     for necessary_parameter in necessary_parameters]):
