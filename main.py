@@ -2241,6 +2241,65 @@ def main():
             Particle.resetRVE()
             # Clearing the properties of the simulation box
 
+class Keyword(object):
+    """This is the class for keywords used in the input file."""
+
+
+    def __init__(self, name, keyword_group, type=None, mandatory=True, **kwargs):
+        """
+        Constructor for the Keyword class.
+
+        Parameters
+        ----------
+        name: str
+            Name of the keyword.
+
+        keyword_group: {'PROBLEM_TYPE', 'N_DP_SAMPLES', 'MIC_GEN_PARAMETERS',
+            'MIC_GEN_DESCRIPTORS', 'MESH_OPTIONS'}
+            Group to wich the keyword belongs. Used for storage in the right variable.
+
+        type: str, optinal
+            Type of the variable
+
+        mandatory: boolean, optional
+            Mandatory or optional keyword. True by default.
+
+        Keyword Arguments
+        -----------------
+        default_value: object
+            Default value for the keyword
+        """
+        self.name = name
+        self.keyword_group = keyword_group
+        self.type = type
+        self.mandatory = mandatory
+        if 'default_value' in kwargs:
+            self.default_value = kwargs['default_value']
+
+    def readValue(self, line):
+        value_str = line.split()[1]
+        try:
+            if self.type == 'float':
+                final_val = float(value_str)
+        except ValueError:
+            errors.IncompatibleValue.messsage()
+            quit()
+        return final_val
+
+    # def readParameter(self, line):
+    #     """
+    #     Read current line according to the keyword *self*.
+    # 
+    #     Parameters
+    #     ----------
+    #     line: str
+    #         Line of the input file containing as the first word the keywrod *self*.
+    # 
+    #     Returns
+    #     -------
+    #     """
+    #     if self.keyword_group == "MIC_GEN_PARAMETERS":
+    # 
 
 if __name__ == '__main__':
 
@@ -2289,59 +2348,69 @@ if __name__ == '__main__':
     # Problem type
     n_dp_samples = 0
     # Number of samples to be generated
-    problem_type_keywords = {
-        'Max_Residue_Per_Particle': 'float',
-        'Max_Step': 'int'}
-    n_dp_samples_keywords = {
-        'N_Dp_Samples': 'int'}
-    mic_gen_parameters_keywords = {
-        'Max_Residue_Per_Particle': 'float',
-        'Max_Step': 'int'}
-    mic_gen_descriptors_keywords = {
-        'Max_Residue_Per_Particle': 'float',
-        'Max_Step': 'int'}
-    mesh_options_keywords = {
-        'Max_Residue_Per_Particle': 'float',
-        'Max_Step': 'int'}
-    all_keyword_dict = {
-        'PROBLEM_TYPE': problem_type_keywords,
-        'N_DP_SAMPLES': n_dp_samples_keywords,
-        'MIC_GEN_PARAMETERS': mic_gen_parameters_keywords,
-        'MIC_GEN_DESCRIPTORS': mic_gen_descriptors_keywords,
-        'MESH_OPTIONS': mesh_options_keywords}
+    all_keywords = [
+        Keyword('Max_Residue_Per_Particle', 'MIC_GEN_PARAMETERS', type='float'),
+        Keyword('Mic_Gen_Descriptors', 'MIC_GEN_DESCRIPTORS'),
+        Keyword('Mesh_Options', 'MESH_OPTIONS')
+]
     current_keyword_group = ''
     # Possible keywords appearing in the input file
     with open(input_file_path, 'r') as input:
-        for line in input:
+        input = input.readlines()
+        i_line = 0
+        # Initializing the line counter
+        while i_line < len(input):
+            # Going through all the line in the input file
+            line = input[i_line]
+            # Saving current line as line
             if line.strip() == '' or line.startswith("#"):
-            # if the line is empty move on to the next
+            # if the line is empty or a comment move on to the next
+                i_line += 1
                 continue
-            for keyword_group, keyword_list in all_keyword_dict.items():
-                for possible_keyword in keyword_list:
-                # Checking what is the current keyword
-                    if line.strip() == possible_keyword:
-                        current_keyword_group = keyword_group
+            keyword_in_line = False
+            for possible_keyword in all_keywords:
+            # Checking what is the current keyword
+                if line.split()[0] == possible_keyword.name:
+                    current_keyword_group = possible_keyword.keyword_group
+                    current_keyword = possible_keyword
+                    keyword_in_line = True
+            if not keyword_in_line:
+            # If the current line contains no keyword skip to the next
+                i_line += 1
+                continue
             if current_keyword_group == 'MIC_GEN_PARAMETERS':
             # Collecting the microgeneration parameters
-                if line.strip() == 'MIC_GEN_PARAMETERS':
-                    continue
-                parameter = line.split()[0]
-                value = line.split()[1]
-                # Allowable parameter ?
-                mic_gen_parameters[parameter] = str2type(value)
+                value = current_keyword.readValue(line)
+                mic_gen_parameters[current_keyword.name.lower()] = value
+                i_line += 1
             elif current_keyword_group == 'MIC_GEN_DESCRIPTORS':
             # Collecting the microstructure descriptors
-                if line.strip() == 'MIC_GEN_DESCRIPTORS':
-                    continue
-                if line.startswith('PHASE'):
-                    name_current_phase = line.split()[1]
-                    mic_gen_descriptors[name_current_phase] = {}
-                elif line.startswith('phase_type'):
-                    phase_types[name_current_phase] = int(line.split()[1])
-                else:
-                    parameter = line.split()[0]
-                    value = line.split()[1]
-                    mic_gen_descriptors[name_current_phase][parameter] = str2type(value)
+                i_line += 1
+                # Moving over the line containing "Mic_Gen_Descriptors"
+                while i_line < len(input):
+                    line = input[i_line]
+                    # New line
+                    if line.strip() == '' or line.startswith("#"):
+                    # if the line is empty or a comment move on to the next
+                        i_line += 1
+                        continue
+                    if any([line.split()[0] == possible_keyword.name
+                            for possible_keyword in all_keywords]):
+                    # If another keyword has been specified exit the MIC_GEN_DESCRIPTORS
+                    # block
+                        break
+                    if line.startswith('PHASE'):
+                        name_current_phase = line.split()[1]
+                        mic_gen_descriptors[name_current_phase] = {}
+                        i_line += 1
+                    elif line.startswith('phase_type'):
+                        phase_types[name_current_phase] = int(line.split()[1])
+                        i_line += 1
+                    else:
+                        parameter = line.split()[0]
+                        value = line.split()[1]
+                        mic_gen_descriptors[name_current_phase][parameter] = str2type(value)
+                        i_line += 1
             elif current_keyword_group == 'PROBLEM_TYPE':
             # Saving the problem type
                 value = line.split()[1]
@@ -2354,23 +2423,36 @@ if __name__ == '__main__':
                     n_dp_samples = int(line)
             elif current_keyword_group == 'MESH_OPTIONS':
             # Collecting the meshing options
-                if line.strip() == 'MESH_OPTIONS':
-                    continue
-                if line.strip().endswith('MSH'):
-                    name_current_msh = line.strip().lower()
-                    discret_file_ext.append(name_current_msh)
-                    discret_spec_array[name_current_msh] = {}
-                else:
-                    parameter = line.split()[0]
-                    value = line.split()[1:]
-                    if len(value) == 1:
-                        discret_spec_array[name_current_msh][parameter] = str2type(
-                            value[0])
+                i_line += 1
+                # Moving over the line containing "Mesh_Options"
+                while i_line < len(input):
+                    line = input[i_line]
+                    # New line
+                    if line.strip() == '' or line.startswith("#"):
+                    # if the line is empty or a comment move on to the next
+                        i_line += 1
+                        continue
+                    if any([line.split()[0] == possible_keyword.name
+                            for possible_keyword in all_keywords]):
+                    # If another keyword has been specified exit the MIC_GEN_DESCRIPTORS
+                    # block
+                        break
+                    if line.strip().endswith('msh'):
+                        name_current_msh = line.strip().lower()
+                        discret_file_ext.append(name_current_msh)
+                        discret_spec_array[name_current_msh] = {}
+                        i_line += 1
                     else:
-                        discret_spec_array[name_current_msh][parameter] = np.array(
-                            [str2type(val) for val in value])
+                        parameter = line.split()[0].lower()
+                        value = line.split()[1:]
+                        if len(value) == 1:
+                            discret_spec_array[name_current_msh][parameter] = str2type(
+                                value[0])
+                        else:
+                            discret_spec_array[name_current_msh][parameter] = np.array(
+                                [str2type(val) for val in value])
+                        i_line += 1
     
-
     info_dict = {
         "dp_dir": dp_dir,
         "mic_gen_parameters": mic_gen_parameters,
@@ -2381,10 +2463,11 @@ if __name__ == '__main__':
         "discret_file_ext": discret_file_ext,
         "discret_spec_array": discret_spec_array
         }
+    print(info_dict)
     # Building a dictionary to be pickled with all the information coming from the
     # interfacing program
     pickle.dump(info_dict, open("input_data\\info_micro.p", "wb"))
     # Dumping the info_dict dictionary into info_micro.p to be loaded in the program
     # that generates microstructures
-    main()
+    # main()
     # Executing the script for microstructure generation
