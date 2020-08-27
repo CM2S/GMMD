@@ -8,6 +8,8 @@ import os
 
 import printing as print_funcs
 
+
+
 class RVE():
     """
     This is the class for an RVE. Contains all the information related to the RVE for use
@@ -448,7 +450,6 @@ class Particle():
             return unit_vector_i_j
 
 # ==========================================================================================
-
 
 class Ellipse(Particle):
     """
@@ -1267,13 +1268,13 @@ class Ellipsoid(Particle):
     Attributes
     ----------
     axis_1: float
-        Principal axis along xx
+        Principal axis along xx before aplying the rotation.
 
     axis_2: float
-        Principal axis along xx
+        Principal axis along yy before aplying the rotation.
 
     axis_3: float
-        Principal axis along xx
+        Principal axis along zz before aplying the rotation.
 
     Class Attributes
     ----------------
@@ -1287,9 +1288,9 @@ class Ellipsoid(Particle):
 
     possible_parameters = {'axis_1': 'Major axis 1', 'axis_2': 'Major axis 2',
                            'axis_3': 'Major axis 3',
-                           'euler_angle_x': 'x-component rotation axis',
-                           'euler_angle_y': 'y-component rotation axis',
-                           'euler_angle_z': 'z-component rotation axis',
+                           'rot_axis_comp_x': 'x-component rotation axis',
+                           'rot_axis_comp_y': 'y-component rotation axis',
+                           'rot_axis_comp_z': 'z-component rotation axis',
                            'angle': 'Rotation angle',
                            'n': 'Number of particles',
                            'vf': 'Volume fraction',
@@ -1297,16 +1298,16 @@ class Ellipsoid(Particle):
                            'ratio_13': 'Ratio a1/a3'}
     # all possible_parameters
     acceptable_descriptions = [
-        {'axis_1', 'axis_2', 'axis_3', 'euler_angle_x', 'euler_angle_y', 'euler_angle_z',
+        {'axis_1', 'axis_2', 'axis_3', 'rot_axis_comp_x', 'rot_axis_comp_y', 'rot_axis_comp_z',
          'angle', 'n'},
-        {'axis_1', 'axis_2', 'axis_3', 'euler_angle_x', 'euler_angle_y', 'euler_angle_z',
+        {'axis_1', 'axis_2', 'axis_3', 'rot_axis_comp_x', 'rot_axis_comp_y', 'rot_axis_comp_z',
          'angle', 'vf'},
-        {'vf', 'n', 'ratio_12', 'ratio_13', 'euler_angle_x', 'euler_angle_y',
-         'euler_angle_z', 'angle'}]
+        {'vf', 'n', 'ratio_12', 'ratio_13', 'rot_axis_comp_x', 'rot_axis_comp_y',
+         'rot_axis_comp_z', 'angle'}]
     # List of acceptable collections of parameters
 
-    def __init__(self, phase, axis_1, axis_2, axis_3, euler_angle_x, euler_angle_y,
-                 euler_angle_z, angle):
+    def __init__(self, phase, axis_1, axis_2, axis_3, rot_axis_comp_x, rot_axis_comp_y,
+                 rot_axis_comp_z, angle):
         '''
         This is the generator for the classe Ellipse.
 
@@ -1324,13 +1325,13 @@ class Ellipsoid(Particle):
         axis_3: float
             Length of the ellipsoid axis along the local (pre-rotation) x3-axis.
 
-        euler_angle_x: float
+        rot_axis_comp_x: float
             Euler angle relative to the local x1 (pre-rotation) axis.
 
-        euler_angle_y: float
+        rot_axis_comp_y: float
             Euler angle relative to the local x2 (pre-rotation) axis.
 
-        euler_angle_z: float
+        rot_axis_comp_z: float
             Euler angle relative to the local x3 (pre-rotation) axis.
 
         angle: float
@@ -1342,11 +1343,11 @@ class Ellipsoid(Particle):
         self.semi_axis_2 = axis_2/2
         self.axis_3 = axis_3
         self.semi_axis_3 = axis_3/2
-        print(axis_1, axis_2, axis_3, euler_angle_x, euler_angle_y,
-                     euler_angle_z, angle)
-        self.rotation_axis = (np.array([euler_angle_x, euler_angle_y, euler_angle_z])
-                              / np.linalg.norm(np.array([euler_angle_x, euler_angle_y,
-                                                         euler_angle_z])))
+        print(axis_1, axis_2, axis_3, rot_axis_comp_x, rot_axis_comp_y,
+                     rot_axis_comp_z, angle)
+        self.rotation_axis = (np.array([rot_axis_comp_x, rot_axis_comp_y, rot_axis_comp_z])
+                              / np.linalg.norm(np.array([rot_axis_comp_x, rot_axis_comp_y,
+                                                         rot_axis_comp_z])))
 
         self.angle = angle
         self.rot_quat = np.array([np.cos(angle/2),
@@ -2197,7 +2198,14 @@ class Phase():
     def printRealDescriptors(self):
         pass
 
+class PhaseDescriptor():
+    pass
 
+class FixedValued(PhaseDescriptor):
+    parameters = {}
+
+class NormalDistribution(PhaseDescriptor):
+    parameters = {'mean', 'sigma'}
 
 def intersectionPointsEllipses(A1, B1, center_1, angle_1,
                                A2, B2, center_2, angle_2, tol=1e-10):

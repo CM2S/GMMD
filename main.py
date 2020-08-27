@@ -18,7 +18,7 @@ import time
 # To compute the time taken
 from integration_methods import Newmark, VerletSync
 # Importing an integration method for the equation of motion
-from particle_classes import Disk, Particle, Ellipse, Sphere, Ellipsoid, CylindricalFiber, RVE, Phase, GeometricalParameter
+from particle_classes import Disk, Particle, Ellipse, Sphere, Ellipsoid, CylindricalFiber, RVE, Phase, GeometricalParameter, PhaseDescriptor
 # Importing the particle class
 from meshing_interface import generateMesh, checkMeshSpecs
 # Importing meshing interfaces
@@ -2239,10 +2239,28 @@ def main(dp_dir, descriptors, phase_types, options, n_samples, rve_dims, problem
             Particle.resetRVE()
             # Clearing the properties of the simulation box
 
-class Keyword(object):
-    """This is the class for keywords used in the input file."""
 
-    def __init__(self, name, keyword_group, type=None, mandatory=True, **kwargs):
+class Keyword(object):
+    """This is the class for keywords used in the input file.
+
+    Class Attributes
+    ----------------
+    simulation: `.simulation`
+    Simulation object con
+
+    """
+
+    simulation = None
+    all_keywords = {}
+    all_keyword_groups = set()
+    i_line = 0
+    input_file = None
+    input = None
+    all_options = {}
+    mandatory_keywords_not_set = set()
+
+    def __init__(self, name, keyword_group=None, parent_keyword=None, type=None,
+                 mandatory=True, **kwargs):
         """
         Constructor for the Keyword class.
 
@@ -2267,31 +2285,67 @@ class Keyword(object):
             Default value for the keyword
         """
         self.name = name
-        self.keyword_group = keyword_group
         self.type = type
         self.mandatory = mandatory
         if 'default_value' in kwargs:
             self.default_value = kwargs['default_value']
         self.specified = False
+        self.top_level_keywords = set()
 
-    def isIn(self, line):
-        """Check if the first string in the *line* is the keyword *self*."""
+    def checkLowerLevelKeywords(self):
+        print([o.name for o in self.top_level_keywords])
+        # while True:
+        print('iline', Keyword.i_line, len(Keyword.input))
+        current_line_keyword = False
+        line = Keyword.input[Keyword.i_line]
+        print('line', line)
+        for possible_keyword in self.top_level_keywords:
+        # Checking what is the current keyword
+            print(possible_keyword.name)
+            print(line)
+            if possible_keyword.isIn(line):
+                print('here')
+                current_line_keyword = True
+                # General keyword has been found
+                print('here_2', self.name)
+                val = possible_keyword.readValue()
+                possible_keyword.storeValue(val)
+                possible_keyword.removeFromMandatory()
+                # read the values corresponding to the keyword detected
+                break
+        if not current_line_keyword:
+            if isinstance(self, TopLevelReader):
+                print(line, 'does not contain a keyword')
+                # FIXME: create an appropriate error
+                quit()
+            else:
+                raise ValueError()
 
-        if line.split()[0] == possible_keyword.name:
-            isIn = True
-        else:
-            isIn = False
 
-        return isIn
+    def ignoreComments(self):
+        while Keyword.i_line < len(Keyword.input):
+            line = Keyword.input[Keyword.i_line]
+            # Going through all the line in the input file
+            if line.strip() == '' or line.startswith("#") or line.strip() == '[insert here]':
+            # if the line is empty or a comment move on to the next
+                Keyword.i_line += 1
+                continue
+            else:
+                break
 
-    def readValue(self, line):
-        value_str = line.split()[1]
+    def readValue(self):
+        print('here_4', Keyword.i_line)
+        line = Keyword.input[Keyword.i_line]
+        print('here_3')
         try:
             if self.type == 'float':
+                value_str = line.split()[1]
                 final_val = float(value_str)
             elif self.type == 'int':
+                value_str = line.split()[1]
                 final_val = int(value_str)
             elif self.type == 'bool':
+                value_str = line.split()[1]
                 if value_str == 'True':
                     final_val = True
                 elif value_str == 'False':
@@ -2299,268 +2353,459 @@ class Keyword(object):
                 else:
                     raise ValueError
             elif self.type == 'str':
+                value_str = line.split()[1]
+                final_val = value_str
+            elif self.type == 'none':
+                final_val = self.name
+            else:
+                value_str = line.split()[1]
                 final_val = value_str
         except ValueError:
-            errors.IncompatibleValue.messsage()
+            errors.IncompatibleValue.messsage("Error")
             quit()
         self.specified = True
         # the current parameter has been specified by the used
+        Keyword.i_line += 1
         return final_val
 
-    def readKeywordMicGenParameters(self, mic_gen_parameters, i_line, input):
-        """Read information for a keyword belonging to the MIC_GEN_PARAMETERS group."""
+    def checkType(self, val):
+        if self.type == 'float':
+            correct_type = isinstance(val, float)
+        elif self.type == 'int':
+            correct_type = isinstance(val, int)
+        elif self.type == 'bool':
+            correct_type = isinstance(val, bool)
+        elif self.type == 'str':
+            correct_type = isinstance(val, str)
+        else:
+            correct_type = isinstance(val, str)
+        if correct_type is not True:
+            raise ValueError()
 
-        line = input[i_line]
-        value = self.readValue(line)
-        mic_gen_parameters[self.name.lower()] = value
-        i_line += 1
+    def isIn(self, line):
+        """Check if the first string in the *line* is the keyword *self*."""
 
-        return [mic_gen_parameters, i_line]
+        if line.split()[0] == self.name:
+            isIn = True
+        else:
+            isIn = False
 
-    def readKeywordMicGenDescriptors(self, mic_gen_descriptors, phase_types, i_line, input):
-        """Read information for a keyword belonging to the MIC_GEN_DESCRIPTORS group."""
+        return isIn
 
-        i_line += 1
+    def removeFromMandatory(self):
+        try:
+            Keyword.mandatory_keywords_not_set.remove(self)
+        except KeyError:
+            pass
+
+class KeywordTypeA(Keyword):
+
+    def __init__(self, name, store, **kwargs):
+        super().__init__(name, **kwargs)
+        self.keyword_group = store
+        if hasattr(self, 'default_value'):
+            self.storeValue(self.default_value)
+
+    def storeValue(self, val):
+        Keyword.all_options.setdefault(self.keyword_group, {})
+        Keyword.all_options[self.keyword_group][self.name] = val
+
+    def writeValue(self, input_file):
+        val = Keyword.all_options[self.keyword_group][self.name]
+        self.checkType(val)
+        input_file.write("{0} {1}".format(self.name, val))
+
+
+class KeywordTypeB(KeywordTypeA):
+
+    def __init__(self, name, store, **kwargs):
+        super().__init__(name, store, **kwargs)
+        self.keyword_group = store
+        if hasattr(self, 'default_value'):
+            self.storeValue(self.default_value)
+
+    def storeValue(self, value):
+        Keyword.all_options[self.name] = value
+
+    def writeValue(self, input_file):
+        val = Keyword.all_options[self.name]
+        self.checkType(val)
+        input_file.write("{0} {1}".format(self.name, val))
+
+class KeywordTypeC(Keyword):
+
+    def __init__(self, name, header_keys, sub_keys, **kwargs):
+        super().__init__(name, **kwargs)
+        self.header_keys = header_keys
+        self.sub_keys = sub_keys
+        print('keyword', [keyword.name for keyword in sub_keys])
+
+        if hasattr(self, 'default_value'):
+            self.storeValue(self.default_value)
+
+    def isIn(self, line):
+        """Check if the first string in the *line* is the keyword *self*."""
+
+        if line.split()[0] == self.name:
+            isIn = True
+        else:
+            isIn = False
+
+        return isIn
+
+    def readValue(self):
+
+        options = {}
+        print('here_6')
+        Keyword.i_line += 1
         # Moving over the line containing "Mic_Gen_Descriptors"
-        while i_line < len(input):
-            line = input[i_line]
+        while Keyword.i_line < len(Keyword.input):
+            self.ignoreComments()
+            line = Keyword.input[Keyword.i_line]
             # New line
-            if line.strip() == '' or line.startswith("#"):
-            # if the line is empty or a comment move on to the next
-                i_line += 1
-                continue
-            if any([line.split()[0] == possible_keyword.name
-                    for possible_keyword in Keyword.all_general_keywords]):
-            # If another keyword has been specified exit the MIC_GEN_DESCRIPTORS
+            if all([not keyword.isIn(line)
+                    for keyword in self.header_keys.union(self.sub_keys)]):
+            # If another top level keyword has been specified exit the MIC_GEN_DESCRIPTORS
             # block
                 break
-            if line.startswith('PHASE'):
-                name_current_phase = line.split()[1]
-                mic_gen_descriptors[name_current_phase] = {}
-                i_line += 1
-            elif line.startswith('phase_type'):
-                phase_types[name_current_phase] = int(line.split()[1])
-                i_line += 1
+            print('line', line)
+            for header_keyword in self.header_keys:
+                if header_keyword.isIn(line):
+                    current_header = header_keyword.readValue()
+                    options[current_header] = {}
+                    break
+            print('line', line)
+            for sub_keyword in self.sub_keys:
+                if sub_keyword.isIn(line):
+                    value = sub_keyword.readValue()
+                    options[current_header][sub_keyword.name] = value
+                    print('here')
+                    break
+
+        return options
+
+    def storeValue(self, val):
+        Keyword.all_options[self.name] = val
+
+    def writeValue(self, input_file):
+        input_file.write("{0}".format(self.name))
+        for header in Keyword.all_options[self.name]:
+            if all([header_key.type == 'none' for header_key in self.header_keys]):
+                input_file.write("{0}").format(header)
             else:
-                parameter = line.split()[0]
-                value = line.split()[1]
-                mic_gen_descriptors[name_current_phase][parameter] = str2type(value)
-                i_line += 1
+                input_file.write('{0} {1}'.format(self.header_keys.pop().name, header))
+            for option, option_val in Keyword.all_options[self.name][header].items():
+                for key in self.sub_keys:
+                    if key.name == option:
+                        key.checkType(option_val)
+                input_file.write("{0} {1}".format(option, option_val))
 
-        return [mic_gen_descriptors, phase_types, i_line]
 
-    def readKeywordProblemType(self, problem_type, i_line, input):
-        """Read information for a keyword belonging to the PROBLME_TYPE group."""
+class TopLevelReader(Keyword):
 
-        problem_type = self.readValue(line)
-        i_line += 1
+    def __init__(self):
+        super().__init__('TopLevelKeyword')
 
-        return [problem_type, i_line]
+    def moveAlong(self):
+        while Keyword.i_line < len(Keyword.input):
+            # Saving current line as line
+            self.ignoreComments()
+            self.checkLowerLevelKeywords()
 
-    def readKeywordNDPSamples(self, n_dp_samples, i_line, input):
-        """Read information for a keyword belonging to the N_DP_SAMPLES group."""
+    def readInputFile(self, input_file_path):
+        # Possible keywords appearing in the input file
+        with open(input_file_path, 'r') as input:
+            Keyword.input = input.readlines()
+            Keyword.i_line = 0
+            # Initializing the line counter
+            self.moveAlong()
+        if len(Keyword.mandatory_keywords_not_set) > 0:
+            print({keyword.name for keyword in Keyword.mandatory_keywords_not_set})
+            raise ValueError()
 
-        n_dp_samples = self.readValue(line)
-        i_line += 1
+    def readValue(self):
+        pass
 
-        return [n_dp_samples, i_line]
+    def storeValue(self, *args):
+        pass
 
-    def readKeywordMeshOptions(self, discret_file_ext, discret_spec_array, i_line, input):
-        """Read information for a keyword belonging to the N_DP_SAMPLES group."""
+    def addTopLevelKeyword(self, *args):
+        """Add a possible keyword to the input reader."""
 
-        i_line += 1
-        # Moving over the line containing "Mesh_Options"
-        while i_line < len(input):
-            line = input[i_line]
-            # New line
-            if line.strip() == '' or line.startswith("#"):
-            # if the line is empty or a comment move on to the next
-                i_line += 1
+        for keyword in args:
+            self.top_level_keywords.add(keyword)
+            Keyword.all_keywords[keyword.name] = keyword
+            if keyword.mandatory:
+                Keyword.mandatory_keywords_not_set.add(keyword)
+
+
+class Simulation():
+    """Class for the simulations that generate the microstructures."""
+
+    def __init__(self, working_directory):
+        """Initizalizer for the Simulation Class."""
+
+        self.dp_dir = working_directory
+        #     Directory where the microstructure spatial discretization file(s) associated
+        #     with the given design point are to be stored
+        self.mic_gen_parameters = {}
+        # Dictionayr with generation parameters
+        self.mic_gen_descriptors = {}
+        # Dictionaty containing the descriptors for the phases
+        self.phase_types = {}
+        # Dictionary containing the phase types
+        self.discret_file_ext = []
+        # list containing the extensions for the output mesh files
+        self.discret_spec_array = {}
+        # Parameters for the generation of the meshes
+        self.problem_type = 0
+        # Problem type
+        self.n_dp_samples = 0
+        # Number of samples to be generated
+
+
+# class InputReader():
+#     """Class used to read the input from a txt file.
+# 
+#         It checks only if all the mandatory parameters were supplied with the correct type.
+#         It does not check if the value of the parameters makes sense given the values of
+#         the other parameters."""
+# 
+#     def __init__(self, simulation):
+#         """Initializer for the InputReader class"""
+# 
+#         self.simulation = simulation
+#         self.top_level_keywords = {}
+#         self.all_keywords = {}
+#         self.mandatory_keywords_not_set = {}
+# 
+#     def addTopLevelKeyword(self, **args):
+#         """Add a possible keyword to the input reader."""
+# 
+#         for keyword in args:
+#             self.top_level_keywords.add(keyword)
+#             self.all_keywords[keyword.name] = keyword
+#             if keyword.mandatory:
+#                 self.mandatory_keywords_not_set.add(keyword)
+#             else:
+#                 # FIXME: set default value
+#                 pass
+# 
+#     def addLowLevelKeyword(self, top_keyword_name, **args):
+#         """"Add a possible lower level keyword for a higher level keyword-"""
+# 
+#         top_level_keyword = self.all_keywords[top_keyword_name]
+#         for keyword in args:
+#             top_level_keyword.top_level_keywords.add(keyword)
+#             self.all_keywords[keyword.name] = keyword
+#             if keyword.mandatory:
+#                 top_level_keyword.mandatory_keywords_not_set.add(keyword)
+#             else:
+#                 # FIXME: set default value
+#                 pass
+# 
+#     def readKeywordMicGenParameters(self, input_reader):
+#         """Read information for a keyword belonging to the MIC_GEN_PARAMETERS group."""
+# 
+#         current_sim = input_reader.simulation
+#         line = input[input_reader.i_line]
+#         value = self.readValue(line)
+#         current_sim.set_option(self) mic_gen_parameters[self.name.lower()] = value
+#         input_reader.i_line += 1
+# 
+#     def readKeywordMicGenDescriptors(self, keyword):
+#         """Read information for a keyword belonging to the MIC_GEN_DESCRIPTORS group."""
+# 
+#         current_sim = self.simulation
+#         self.i_line += 1
+#         # Moving over the line containing "Mic_Gen_Descriptors"
+#         while self.i_line < len(self.input):
+#             line = input[self.i_line]
+#             # New line
+#             if line.strip() == '' or line.startswith("#"):
+#             # if the line is empty or a comment move on to the next
+#                 self.i_line += 1
+#                 continue
+#             if any([keyword.isIn(line)
+#                     for keyword in self.top_level_keywords]):
+#             # If another top level keyword has been specified exit the MIC_GEN_DESCRIPTORS
+#             # block
+#                 break
+#             if keyword.line.startswith('Phase'):
+#                 name_current_phase = line.split()[1]
+#                 current_sim.mic_gen_descriptors[name_current_phase] = {}
+#                 self.i_line += 1
+#             elif line.startswith('phase_type'):
+#                 current_sim.phase_types[name_current_phase] = int(line.split()[1])
+#                 self.i_line += 1
+#             else:
+#                 parameter = line.split()[0]
+#                 value = line.split()[1]
+#                 current_sim.mic_gen_descriptors[name_current_phase][parameter] = \
+#                     str2type(value)
+#                 self.i_line += 1
+# 
+# 
+#     def readKeywordProblemType(self, problem_type, i_line, input):
+#         """Read information for a keyword belonging to the PROBLME_TYPE group."""
+# 
+#         problem_type = self.readValue(line)
+#         i_line += 1
+# 
+#         return [problem_type, i_line]
+# 
+#     def readKeywordNDPSamples(self, n_dp_samples, i_line, input):
+#         """Read information for a keyword belonging to the N_DP_SAMPLES group."""
+# 
+#         n_dp_samples = self.readValue(line)
+#         i_line += 1
+# 
+#         return [n_dp_samples, i_line]
+# 
+#     def readKeywordMeshOptions(self, discret_file_ext, discret_spec_array, i_line, input):
+#         """Read information for a keyword belonging to the N_DP_SAMPLES group."""
+# 
+#         i_line += 1
+#         # Moving over the line containing "Mesh_Options"
+#         while i_line < len(input):
+#             line = input[i_line]
+#             # New line
+#             if line.strip() == '' or line.startswith("#"):
+#             # if the line is empty or a comment move on to the next
+#                 i_line += 1
+#                 continue
+#             if any([line.split()[0] == possible_keyword.name
+#                     for possible_keyword in Keyword.all_general_keywords]):
+#             # If another keyword has been specified exit the MIC_GEN_DESCRIPTORS
+#             # block
+#                 break
+#             if line.strip().endswith('msh'):
+#                 name_current_msh = line.strip().lower()
+#                 discret_file_ext.append(name_current_msh)
+#                 discret_spec_array[name_current_msh] = {}
+#                 i_line += 1
+#             else:
+#                 parameter = line.split()[0].lower()
+#                 value = line.split()[1:]
+#                 if len(value) == 1:
+#                     discret_spec_array[name_current_msh][parameter] = str2type(
+#                         value[0])
+#                 else:
+#                     discret_spec_array[name_current_msh][parameter] = np.array(
+#                         [str2type(val) for val in value])
+#                 i_line += 1
+# 
+#         return [discret_file_ext, discret_spec_array, i_line]
+# 
+#     def currentLevelReader(self):
+# 
+#         current_line_keyword = False
+#         while True:
+#             for possible_keyword in current_keyword.top_level_keywords:
+#             # Checking what is the current keyword
+#                 if possible_keyword.isIn(line):
+#                     current_line_keyword = True
+#                     # General keyword has been found
+#                     possible_keyword.readValue()
+#                     self.current_keyword = possible_keyword
+#                     # read the values corresponding to the keyword detected
+#             if not current_line_keyword and False:
+#                 print(line, 'does not contain a keyword')
+#                 # FIXME: create an appropriate error
+#                 quit()
+# 
+#     def readKeywordValues(self):
+#         """
+#         Read all the information from the input file regarding keyword *self*"""
+# 
+#         self.currentLevelReader()
+#         if keyword.mandatory:
+#             self.mandatory_top_level_keywords_not_set.remove(keyword)
+#         # self.all_options
+# 
+# 
+#     def MicGenDescriptorsReader(self):
+# 
+#         if any([keyword.isIn(line)
+#                 for keyword in self.top_level_keywords]):
+#         # If another top level keyword has been specified exit the MIC_GEN_DESCRIPTORS
+#         # block
+#             break
+#         if keyword.line.startswith('Phase'):
+#             name_current_phase = line.split()[1]
+#             current_sim.mic_gen_descriptors[name_current_phase] = {}
+#             self.i_line += 1
+#         elif line.startswith('phase_type'):
+#             current_sim.phase_types[name_current_phase] = int(line.split()[1])
+#             self.i_line += 1
+#         else:
+#             parameter = line.split()[0]
+#             value = line.split()[1]
+#             current_sim.mic_gen_descriptors[name_current_phase][parameter] = \
+#                 str2type(value)
+#             self.i_line += 1
+# 
+# 
+# 
+#     def readInputFile(self, input_file_path):
+#         # Possible keywords appearing in the input file
+#         with open(input_file_path, 'r') as input:
+#             self.input = input.readlines()
+#             self.i_line = 0
+#             # Initializing the line counter
+#             while self.i_line < len(input):
+#                 # Going through all the line in the input file
+#                 line = input[self.i_line]
+#                 # Saving current line as line
+#                 if line.strip() == '' or line.startswith("#"):
+#                 # if the line is empty or a comment move on to the next
+#                     self.i_line += 1
+#                     continue
+#                 # self.readKeywordValues()
+    def parametersChecks(self):
+        pass
+
+    def setOptionsSimulation(self, options):
+
+        self.mic_gen_parameters = options.get('Mic_Gen_Parameters')
+        self.problem_type = options.get('Problem_Type')
+        self.n_dp_samples = options.get('N_DP_Samples')
+        self.mic_gen_descriptors = options.get('Mic_Gen_Descriptors')
+        self.mesh_options = options.get('Mesh_Options')
+
+        self.parametersChecks()
+
+
+def generateAllPossibleKeywords():
+
+    # from main import Keyword
+
+    def get_all_subclasses(cls):
+        all_subclasses = []
+
+        for subclass in cls.__subclasses__():
+            all_subclasses.append(subclass)
+            all_subclasses.extend(get_all_subclasses(subclass))
+
+        return all_subclasses
+
+    all_particle_sub_classes = get_all_subclasses(Particle)
+    all_phase_descriptor_sub_classes = get_all_subclasses(PhaseDescriptor)
+    keyword_set = set()
+    keyword_set.add(Keyword('vf', type='float'))
+    keyword_set.add(Keyword('n', type='float'))
+    for particle_type in all_particle_sub_classes:
+        for descriptor in particle_type.possible_parameters:
+            if descriptor == 'vf' or descriptor == 'n':
                 continue
-            if any([line.split()[0] == possible_keyword.name
-                    for possible_keyword in Keyword.all_general_keywords]):
-            # If another keyword has been specified exit the MIC_GEN_DESCRIPTORS
-            # block
-                break
-            if line.strip().endswith('msh'):
-                name_current_msh = line.strip().lower()
-                discret_file_ext.append(name_current_msh)
-                discret_spec_array[name_current_msh] = {}
-                i_line += 1
-            else:
-                parameter = line.split()[0].lower()
-                value = line.split()[1:]
-                if len(value) == 1:
-                    discret_spec_array[name_current_msh][parameter] = str2type(
-                        value[0])
-                else:
-                    discret_spec_array[name_current_msh][parameter] = np.array(
-                        [str2type(val) for val in value])
-                i_line += 1
+            keyword_set.add(Keyword(descriptor, type='float'))
+            keyword_set.add(Keyword(descriptor + '_distribution', type='str'))
+            for distribution in all_phase_descriptor_sub_classes:
+                for parameter in distribution.parameters:
+                    keyword_set.add(Keyword(
+                        descriptor + "_" + parameter, type='float'))
 
-        return [discret_file_ext, discret_spec_array, i_line]
-
-    def readKeywordValues(
-            self,
-            i_line,
-            input,
-            mic_gen_parameters,
-            problem_type,
-            n_dp_samples,
-            mic_gen_descriptors,
-            phase_types,
-            discret_file_ext,
-            discret_spec_array):
-        """
-        Read all the information from the input file regarding keyword *self*.
-
-        Parameters
-        ----------
-        i_line: integer
-            Current line of the input file.
-
-        input: list(str)
-            Lines of the input file.
-
-        mic_gen_parameters:
-
-        problem_type:
-
-        m_dp_samples:
-
-        mic_gen_descriptors:
-
-        phase_types:
-
-        discret_file_ext:
-
-        discrete_spec_array:
-
-        Returns
-        -------
-        i_line: integer
-            Current line of the input file.
-
-        mic_gen_parameters:
-
-        problem_type:
-
-        m_dp_samples:
-
-        mic_gen_descriptors:
-
-        phase_types:
-
-        discret_file_ext:
-
-        discrete_spec_array:
-        """
-
-        if self.keyword_group == "MIC_GEN_PARAMETERS":
-        # Collecting the microgeneration parameters
-            mic_gen_parameters, i_line = self.readKeywordMicGenParameters(
-                mic_gen_parameters, i_line, input)
-        elif self.keyword_group == 'MIC_GEN_DESCRIPTORS':
-        # Collecting the microstructure descriptors
-            mic_gen_descriptors, phase_types, i_line = self.readKeywordMicGenDescriptors(
-                mic_gen_descriptors, phase_types, i_line, input)
-        elif self.keyword_group == 'PROBLEM_TYPE':
-        # Saving the problem type
-            problem_type, i_line = self.readKeywordProblemType(
-                problem_type, i_line, input)
-        elif self.keyword_group == 'N_DP_SAMPLES':
-        # Saving the number of samples
-            n_dp_samples, i_line = self.readKeywordProblemType(
-                n_dp_samples, i_line, input)
-        elif self.keyword_group == 'MESH_OPTIONS':
-        # Collecting the meshing options
-            discret_file_ext, discret_spec_array, i_line = self.readKeywordMeshOptions(
-                discret_file_ext, discret_spec_array, i_line, input)
-
-        return [mic_gen_parameters, problem_type, n_dp_samples, mic_gen_descriptors,
-                phase_types, discret_file_ext, discret_spec_array, i_line]
-
-    def useDefaultValue(
-            self,
-            mic_gen_parameters,
-            problem_type,
-            n_dp_samples,
-            mic_gen_descriptors,
-            phase_types,
-            discret_file_ext,
-            discret_spec_array):
-        """
-        Read all the information from the input file regarding keyword *self*.
-
-        Parameters
-        ----------
-        mic_gen_parameters:
-
-        problem_type:
-
-        m_dp_samples:
-
-        mic_gen_descriptors:
-
-        phase_types:
-
-        discret_file_ext:
-
-        discrete_spec_array:
-
-        Returns
-        -------
-        mic_gen_parameters:
-
-        problem_type:
-
-        m_dp_samples:
-
-        mic_gen_descriptors:
-
-        phase_types:
-
-        discret_file_ext:
-
-        discrete_spec_array:
-        """
-
-        if self.keyword_group == "MIC_GEN_PARAMETERS":
-        # Collecting the microgeneration parameters
-            mic_gen_parameters[keyword.name.lower()] = keyword.default
-        elif self.keyword_group == 'MIC_GEN_DESCRIPTORS':
-        # Collecting the microstructure descriptors
-            pass
-        elif self.keyword_group == 'PROBLEM_TYPE':
-        # Saving the problem type
-            pass
-        elif self.keyword_group == 'N_DP_SAMPLES':
-        # Saving the number of samples
-            pass
-        elif self.keyword_group == 'MESH_OPTIONS':
-        # Collecting the meshing options
-            pass
-
-        return [mic_gen_parameters, problem_type, n_dp_samples, mic_gen_descriptors,
-                phase_types, discret_file_ext, discret_spec_array, i_line]
-
-
-def checkMandatoryGeneralKeywords(general_keywords):
-    '''Check if all the mandatory general keywords have been supplied.'''
-
-    for keyword in general_keywords:
-        if keyword.mandatory is True and keyword.specified is False:
-            try:
-                raise errors.MandatoryKeywordNotSupplied
-            except errors.MandatoryKeywordNotSupplied as error:
-                error.message()
-                quit()
-
-def setDefaultValues(general_keywords):
-
-    for keyword in general_keywords:
-        if keyword.mandatory is False and keyword.specified is False:
-            
+    return keyword_set
 
 if __name__ == '__main__':
 
@@ -2592,114 +2837,57 @@ if __name__ == '__main__':
     input_file_dir = os.path.dirname(sys.argv[1])
     input_file_name, _ = os.path.splitext(os.path.basename(sys.argv[1]))
     # Obtaining the directory and the name of the input file
-    dp_dir = input_file_dir
-    #     Directory where the microstructure spatial discretization file(s) associated
-    #     with the given design point are to be stored
-    mic_gen_parameters = {}
-    # Dictionayr with generation parameters
-    mic_gen_descriptors = {}
-    # Dictionaty containing the descriptors for the phases
-    phase_types = {}
-    # Dictionary containing the phase types
-    discret_file_ext = []
-    # list containing the extensions for the output mesh files
-    discret_spec_array = {}
-    # Parameters for the generation of the meshes
-    problem_type = 0
-    # Problem type
-    n_dp_samples = 0
-    # Number of samples to be generated
-    Keyword.all_general_keywords = [
-        Keyword('Max_Residue_Per_Particle', 'MIC_GEN_PARAMETERS', type='float'),
-        Keyword('Max_Step', 'MIC_GEN_PARAMETERS', type='int'),
-        Keyword('Max_Steps_To_Relax', 'MIC_GEN_PARAMETERS', mandatory=False,
-                default_value=0, type='int'),
-        Keyword('Speed_Up_Scheme', 'MIC_GEN_PARAMETERS', mandatory=False,
-                default_value='Cell', type='str'),
-        Keyword('Verlet_Factor', 'MIC_GEN_PARAMETERS', mandatory=False,
-                default_value=1.5, type='float'),
-        Keyword('dt', 'MIC_GEN_PARAMETERS', mandatory=False,
-                default_value=0.05, type='float'),
-        Keyword('Save_History', 'MIC_GEN_PARAMETERS', mandatory=False,
-                default_value=False, type='bool'),
-        Keyword('Type_Initial_Configuration', 'MIC_GEN_PARAMETERS', mandatory=False,
-                default_value='random', type='str'),
-        Keyword('Motion_Analysis', 'MIC_GEN_PARAMETERS', mandatory=False,
-                default_value=False, type='bool'),
-        Keyword('Thermostat', 'MIC_GEN_PARAMETERS', mandatory=False,
-                default_type='multi_temperature', type='str'),
-        Keyword('Min_Distance', 'MIC_GEN_PARAMETERS', mandatory=False,
-                default_value=0, type='float'),
-        Keyword('Initial_Temp', 'MIC_GEN_PARAMETERS', mandatory=False,
-                default_type=2.5e10, type='float'),
-        Keyword('Mic_Gen_Descriptors', 'MIC_GEN_DESCRIPTORS'),
-        Keyword('Mesh_Options', 'MESH_OPTIONS'),
-        Keyword('Problem_Type', 'PROBLEM_TYPE', type='int'),
-        Keyword('N_DP_Samples', 'N_DP_SAMPLES', type='int')
-    ]
-    Keyword.mesh_types = [
-        Keyword('Nomesh', 'MESH_OPTIONS', mandatory=False)
-]
-    # Possible keywords appearing in the input file
-    with open(input_file_path, 'r') as input:
-        input = input.readlines()
-        i_line = 0
-        # Initializing the line counter
-        while i_line < len(input):
-            # Going through all the line in the input file
-            line = input[i_line]
-            # Saving current line as line
-            if line.strip() == '' or line.startswith("#"):
-            # if the line is empty or a comment move on to the next
-                i_line += 1
-                continue
-            current_line_keyword = False
-            for possible_keyword in Keyword.all_general_keywords:
-            # Checking what is the current keyword
-                if possible_keyword.isIn(line):
-                    current_line_keyword = True
-                    # General keyword has been found
-                    (mic_gen_parameters,
-                        problem_type,
-                        n_dp_samples,
-                        mic_gen_descriptors,
-                        phase_types,
-                        discret_file_ext,
-                        discret_spec_array,
-                        i_line) = possible_keyword.readKeywordValues(
-                            i_line,
-                            input,
-                            mic_gen_parameters,
-                            problem_type,
-                            n_dp_samples,
-                            mic_gen_descriptors,
-                            phase_types,
-                            discret_file_ext,
-                            discret_spec_array)
-                    # read the values corresponding to the keyword detected
-            if not current_line_keyword:
-                print(line, 'does not contain a keyword')
-                # FIXME: create an appropriate error
-                quit()
 
-    checkMandatoryGeneralKeywords(Keyword.all_general_keywords)
-    # Check if all the mandatory general keywords have been specified
-    (mic_gen_parameters,
-        problem_type,
-        n_dp_samples,
-        mic_gen_descriptors,
-        phase_types,
-        discret_file_ext,
-        discret_spec_array) = setDefaultValues(
-            Keyword.all_general_keywords,
-            mic_gen_parameters,
-            problem_type,
-            n_dp_samples,
-            mic_gen_descriptors,
-            phase_types,
-            discret_file_ext,
-            discret_spec_array)
-    # Assigning the default value to the optional keywords that were not specified
+    top_level_reader = TopLevelReader()
+    top_level_reader.addTopLevelKeyword(
+        KeywordTypeA('Max_Residue_Per_Particle', 'MIC_GEN_PARAMETERS', type='float'),
+        KeywordTypeA('Max_Step', 'MIC_GEN_PARAMETERS', type='int'),
+        KeywordTypeA('Max_Steps_To_Relax', 'MIC_GEN_PARAMETERS', mandatory=False,
+                     default_value=0, type='int'),
+        KeywordTypeA('Speed_Up_Scheme', 'MIC_GEN_PARAMETERS', mandatory=False,
+                     default_value='Cell', type='str'),
+        KeywordTypeA('Verlet_Factor', 'MIC_GEN_PARAMETERS', mandatory=False,
+                     type='float', parent_keyword=('Speed_Up_Scheme', 'Verlet')),
+        KeywordTypeA('dt', 'MIC_GEN_PARAMETERS', mandatory=False,
+                     default_value=0.05, type='float'),
+        KeywordTypeA('Save_History', 'MIC_GEN_PARAMETERS', mandatory=False,
+                     default_value=False, type='bool'),
+        KeywordTypeA('Type_Initial_Configuration', 'MIC_GEN_PARAMETERS', mandatory=False,
+                     default_value='random', type='str'),
+        KeywordTypeA('Motion_Analysis', 'MIC_GEN_PARAMETERS', mandatory=False,
+                     default_value=False, type='bool'),
+        KeywordTypeA('Thermostat', 'MIC_GEN_PARAMETERS', mandatory=False,
+                     default_type='multi_temperature', type='str'),
+        KeywordTypeA('Min_Distance', 'MIC_GEN_PARAMETERS', mandatory=False,
+                     default_value=0, type='float'),
+        KeywordTypeA('Initial_Temp', 'MIC_GEN_PARAMETERS', mandatory=False,
+                     default_value=2.5e10, type='float'),
+        KeywordTypeB('Problem_Type', 'PROBLEM_TYPE', type='int'),
+        KeywordTypeB('N_DP_Samples', 'N_DP_SAMPLES', type='int'))
+
+    top_level_reader.addTopLevelKeyword(
+        KeywordTypeC('Mic_Gen_Descriptors',
+                     header_keys={Keyword('PHASE')},
+                     sub_keys={Keyword('phase_type', type='int'),
+                               *generateAllPossibleKeywords()}))
+
+    top_level_reader.addTopLevelKeyword(
+        KeywordTypeC('Mesh_Options',
+                     header_keys={
+                        Keyword('Nomsh', type='none'),
+                        Keyword('Femsh', type='none'),
+                        Keyword('Rgmsh', type='none')},
+                     sub_keys={Keyword('Element_Type', type='int')},
+                     mandatory=False))
+
+    top_level_reader.readInputFile(input_file_path)
+
+    current_sim = Simulation(input_file_dir)
+
+    # current_sim.setOptionsSimulation(Keyword.all_options)
+
+
+    print(Keyword.all_options)
 
     # main(dp_dir, mic_gen_descriptors, phase_types, mic_gen_parameters, n_dp_samples,
     #      problem_type, discret_spec_array, discret_file_ext)
