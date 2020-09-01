@@ -12,12 +12,16 @@
 # ==========================================================================================
 # Working with arrays
 import numpy as np
+
 # Dumping files in a binary format
 import pickle
+
 # Paht commands
 import os
+
 #
-import main
+import subprocess
+
 #                                                        Microstructure Generation Interface
 # ==========================================================================================
 # The following function is essentially an interface between the DATAGEM program and a
@@ -131,9 +135,17 @@ import main
 #
 
 
-def generateMicrostructures(dp_dir, mic_gen_program, mic_gen_parameters, problem_type,
-                            n_dp_samples, mic_gen_descriptors_array, phase_types,
-                            discret_file_ext, discret_spec_array):
+def generateMicrostructures(
+    dp_dir,
+    mic_gen_program,
+    mic_gen_parameters,
+    problem_type,
+    n_dp_samples,
+    mic_gen_descriptors_array,
+    phase_types,
+    discret_file_ext,
+    discret_spec_array,
+):
     """
     Send descriptors and options to a program in order to generate microstructures.
 
@@ -251,9 +263,9 @@ def generateMicrostructures(dp_dir, mic_gen_program, mic_gen_parameters, problem
                         [1, 0.4, 2, 0.6]], dtype=obj))
 
     - Uniform distribution: "*_distribution"
-        
+
             np.array([['distribution_param']['uniform'], dtype=obj)
-            
+
     - Gaussian distribution:
     """
     if mic_gen_program == 1:
@@ -262,10 +274,12 @@ def generateMicrostructures(dp_dir, mic_gen_program, mic_gen_parameters, problem
         # Initializing the dictionary containing the microstructure descriptors
         for i_phase in mic_gen_descriptors_array:
             # Running through all the phases
-            mic_gen_descriptors_dict[i_phase] = (
-                {mic_gen_descriptors_array[i_phase][0, i]:
-                    mic_gen_descriptors_array[i_phase][1, i]
-                    for i in range(len(mic_gen_descriptors_array[i_phase][0]))})
+            mic_gen_descriptors_dict[i_phase] = {
+                mic_gen_descriptors_array[i_phase][0, i]: mic_gen_descriptors_array[
+                    i_phase
+                ][1, i]
+                for i in range(len(mic_gen_descriptors_array[i_phase][0]))
+            }
         info_dict = {
             "dp_dir": dp_dir,
             "mic_gen_parameters": mic_gen_parameters,
@@ -274,18 +288,46 @@ def generateMicrostructures(dp_dir, mic_gen_program, mic_gen_parameters, problem
             "mic_gen_descriptors": mic_gen_descriptors_dict,
             "phase_types": phase_types,
             "discret_file_ext": discret_file_ext,
-            "discret_spec_array": discret_spec_array
-            }
+            "discret_spec_array": discret_spec_array,
+        }
         # Building a dictionary to be pickled with all the information coming from the
         # interfacing program
-        pickle.dump(info_dict, open("input_data\\info_micro.p", "wb"))
+        input_file_temp = os.path.join(dp_dir, "input_file_temp.dat")
+        with open(input_file_temp, "w") as input_file:
+            for key, value in mic_gen_parameters.items():
+                input_file.write("{0} {1}\n".format(key, value))
+                input_file.write("\n")
+
+            input_file.write("{0} {1}\n".format("Problem_Type", problem_type))
+            input_file.write("\n")
+
+            input_file.write("{0} {1}\n".format("N_DP_Samples", n_dp_samples))
+            input_file.write("\n")
+
+            input_file.write("Mic_Gen_Descriptors\n")
+            for key, value in mic_gen_descriptors_dict.items():
+                input_file.write("{0} {1}\n".format("Phase", key))
+                input_file.write("{0} {1}\n".format("Phase_Type", phase_types[key]))
+                for descriptor, descriptor_value in value.items():
+                    input_file.write("{0} {1}\n".format(descriptor, descriptor_value))
+            input_file.write("\n")
+
+            if len(discret_file_ext) > 0:
+                input_file.write("Mesh_Options\n")
+                for key, value in discret_spec_array.items():
+                    input_file.write("{0}\n".format(key))
+                    for option_name, option in value.items():
+                        input_file.write("{0} {1}\n".format(option_name, option))
+                input_file.write("\n")
+            input_file.write("\n")
         # Dumping the info_dict dictionary into info_micro.p to be loaded in the program
         # that generates microstructures
-        main.main()
+        command = ["python3", "main.py", input_file_temp]
+        subprocess.run(command)
         # Executing the script for microstructure generation
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     # ======================================================================================
     # dp_dir: string
@@ -308,21 +350,23 @@ if __name__ == '__main__':
     # Initializing the dictionary containing the options
     #                                                                    Stopping criteria
     # --------------------------------------------------------------------------------------
-    mic_gen_parameters['max_residue_per_particle'] = 1e-7
-    mic_gen_parameters['max_step'] = 0
-    mic_gen_parameters['max_steps_to_relax'] = 1
-    mic_gen_parameters['verlet_factor'] = 1.5
-    mic_gen_parameters['dt'] = 0.05
-    mic_gen_parameters['initial_global_force_factor'] = 1
-    mic_gen_parameters['save_history'] = True
-    mic_gen_parameters['type_initial_configuration'] = 'random'
-    mic_gen_parameters['initial_temp'] = 2.5e10
-    mic_gen_parameters['motion_analysis'] = True
+    mic_gen_parameters["max_residue_per_particle"] = 1e-7
+    mic_gen_parameters["max_step"] = 1000
+    mic_gen_parameters["max_steps_to_relax"] = 1
+    mic_gen_parameters["speed_up_scheme"] = "Verlet"
+    mic_gen_parameters["verlet_factor"] = 1.5
+    mic_gen_parameters["dt"] = 0.05
+    # mic_gen_parameters['initial_global_force_factor'] = 1
+    mic_gen_parameters["save_history"] = True
+    mic_gen_parameters["type_initial_configuration"] = "random"
+    mic_gen_parameters["initial_temp"] = 2.5e10
+    # mic_gen_parameters['motion_analysis'] = True
     # mic_gen_parameters['voronoi_analysis'] = True
-    mic_gen_parameters['thermostat'] = 'multi_temperature'
-    mic_gen_parameters['min_distance'] = 5e-3
+    mic_gen_parameters["thermostat"] = "multi_temperature"
+    mic_gen_parameters["min_distance"] = 5e-3
+    mic_gen_parameters["RVE_Dimensions"] = [1.0, 1.0, 1.0]
 
-    # mic_gen_parameters['remesh'] = True 
+    # mic_gen_parameters['remesh'] = True
     # mic_gen_parameters['dir_previous_mic'] = "/home/zeluis/Documents/Tese/programa/results/to_show_2/mic_15/mic.p"
     # File path of the output
     # mic_gen_parameters['dir_previous_mic'] = "/home/zeluis/Documents/Tese/programa/results/to_show_2/Disk_3_0.1_1/Disk_3_0.1.p"
@@ -331,7 +375,7 @@ if __name__ == '__main__':
     # n_dp_samples: integer
     #     Number of microstructures (samples) to be generated, associated to
     #     the given design point
-    n_dp_samples = 1
+    n_dp_samples = 2
     # mic_gen_descriptors_array: dictionary
     #     A dictionary which contains all the microstructure
     #     descriptor-related information required to generate the
@@ -344,22 +388,25 @@ if __name__ == '__main__':
     #
     mic_gen_descriptors_array = {}
 
-
-    mic_gen_descriptors_array['1'] = np.array([['rve_dims'], [[1.0, 1.0, 1.0]]], dtype=object)
+    mic_gen_descriptors_array["1"] = np.array([[], []], dtype=object)
     # mic_gen_descriptors_array['2'] = \
     #     np.array([['n', 'axis_1', 'axis_2', 'axis_3', 'euler_angle_x', 'euler_angle_y', 'euler_angle_z', 'angle'],
     #               [10, 0.2, 0.2, 0.1, 0, 0, 1, 0]], dtype=object)
     # n = 14
     # r = 50/500
-    mic_gen_descriptors_array['2'] = \
-                np.array([['vf', 'n'],
-                        [0.4, 50]], dtype=object)
+    # mic_gen_descriptors_array['2'] = \
+    #             np.array([['vf', 'n'],
+    #                     [0.4, 50]], dtype=object)
+    mic_gen_descriptors_array["2"] = np.array(
+        [["vf", "r_distribution", "r_mean", "r_sigma"], [0.4, "normal", 0.04, 0.002]],
+        dtype=object,
+    )
     # mic_gen_descriptors_array['3'] = \
     #             np.array([['vf', 'n'],
     #                     [0.025, 10]], dtype=object)
     # mic_gen_descriptors_array['2'] = \
-    #             np.array([['angle_distribution', 'angle_mean', 'angle_sigma', 'n', 'vf', 'ratio_distribution', 'ratio_low', 'ratio_high'],
-    #                       ['normal', np.pi/4, np.pi/10, 30, 0.2, 'uniform', 1, 2]], dtype=object)
+    #             np.array([['angle', 'n', 'vf', 'ratio_distribution', 'ratio_low', 'ratio_high'],
+    #                       [0, 30, 0.2, 'uniform', 1, 2]], dtype=object)
     # mic_gen_descriptors_array['3'] = \
     #         np.array([['vf', 'r_distribution', 'r_low', 'r_high'],
     #                 [0.05, 'uniform', 0.02, 0.08 ]], dtype=object)
@@ -429,8 +476,8 @@ if __name__ == '__main__':
     # 5 - Ellipsoidal particle
     # 6 - Cylindrical fibers
     phase_types = {}
-    phase_types['1'] = 1  # Matrix
-    phase_types['2'] = 2 # Elliptical particle
+    phase_types["1"] = 1  # Matrix
+    phase_types["2"] = 2  # Elliptical particle
     # phase_types['3'] = 5 # Elliptical particle
     # phase_types['4'] = 5 # Elliptical particle
     # phase_types['5'] = 4 # Elliptical particle
@@ -449,11 +496,11 @@ if __name__ == '__main__':
     #     each type of specified discretization file, stored as
     #                            dictionary['disc_ext']['parameter'] = [ ... ]
 
-    discret_file_ext = ['nomsh']
-
+    discret_file_ext = []
+    #
     discret_spec_array = {}
-    discret_spec_array['nomsh'] = {}
-    discret_spec_array['nomsh']['rve_dims'] = np.array([2.0, 1.0])
+    # discret_spec_array['nomsh'] = {}
+    # discret_spec_array['nomsh']['rve_dims'] = np.array([1.0, 1.0])
     # discret_spec_array['nomsh']['min_distance'] = 0.01
     # discret_spec_array['rgmsh'] = {}
     # discret_spec_array['rgmsh']['rve_dims'] = np.array([1.0, 1.0])
@@ -463,7 +510,14 @@ if __name__ == '__main__':
     # discret_spec_array['femsh']['mesh_size'] = min_distance*4
     # discret_spec_array['femsh']['min_distance'] = min_distance
 
-
-    generateMicrostructures(dp_dir, mic_gen_program, mic_gen_parameters, problem_type,
-                            n_dp_samples, mic_gen_descriptors_array, phase_types,
-                            discret_file_ext, discret_spec_array)
+    generateMicrostructures(
+        dp_dir,
+        mic_gen_program,
+        mic_gen_parameters,
+        problem_type,
+        n_dp_samples,
+        mic_gen_descriptors_array,
+        phase_types,
+        discret_file_ext,
+        discret_spec_array,
+    )

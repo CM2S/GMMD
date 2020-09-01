@@ -11,18 +11,36 @@ Zé Luís P. Vila-Chã | March 2020 | Initial coding.
 #                                                                             Import modules
 # ==========================================================================================
 import numpy as np
+
 # Working with arrays
 import pickle
+
 # Dumping files in a binary format
 import time
+
 # To compute the time taken
 from integration_methods import Newmark, VerletSync
+
 # Importing an integration method for the equation of motion
-from particle_classes import Disk, Particle, Ellipse, Sphere, Ellipsoid, CylindricalFiber, RVE, Phase, GeometricalParameter, PhaseDescriptor
+from particle_classes import (
+    Disk,
+    Particle,
+    Ellipse,
+    Sphere,
+    Ellipsoid,
+    CylindricalFiber,
+    RVE,
+    Phase,
+    GeometricalParameter,
+    PhaseDescriptor,
+)
+
 # Importing the particle class
 from meshing_interface import generateMesh, checkMeshSpecs
+
 # Importing meshing interfaces
 import error_classes as errors
+
 # Importing the error clases
 import printing as print_funcs
 
@@ -45,14 +63,14 @@ def RepresentsInt(s):
 
 
 def newVerletList(particles):
-    '''
+    """
     This function creates a new Verlet list for all the particles
-    '''
+    """
     dim = particles[0].dim
     # Saving the dimension of the problem
 
     for i_particle in range(len(particles)):
-    # Running though all the particles
+        # Running though all the particles
         particles[i_particle].verlet_list = []
         # Resetting the Verlet list of particle i
         particles[i_particle].displacement_last_verlet = np.zeros(dim)
@@ -62,48 +80,58 @@ def newVerletList(particles):
         # Initializing the list containing the position of the particle in the grid
         # assuming: 2D: the cells are numbered from left to right and from bottom to top
         for j_dim in range(dim):
-        # Running through all the dimensions
-            pos_cell_list_dim.append(np.int(np.floor(
-                particles[i_particle].position_center[j_dim]
-                / Particle.cell_side_length[j_dim])))
+            # Running through all the dimensions
+            pos_cell_list_dim.append(
+                np.int(
+                    np.floor(
+                        particles[i_particle].position_center[j_dim]
+                        / Particle.cell_side_length[j_dim]
+                    )
+                )
+            )
             # j_dim-position of the particle in the grid
         if dim == 2:
-        # 2D problem
-            pos_cell_list = pos_cell_list_dim[0] + \
-                pos_cell_list_dim[1]*Particle.n_cell_dim[0]
+            # 2D problem
+            pos_cell_list = (
+                pos_cell_list_dim[0] + pos_cell_list_dim[1] * Particle.n_cell_dim[0]
+            )
             # Saving the position in the cell list of particle i_particle
             for k_neighboor_cell in range(9):
-            # Running through the neighboor cells
-                pos_neighboor_cell = \
-                    neighboorCell(pos_cell_list, k_neighboor_cell, dim, Particle.n_cell_dim)
+                # Running through the neighboor cells
+                pos_neighboor_cell = neighboorCell(
+                    pos_cell_list, k_neighboor_cell, dim, Particle.n_cell_dim
+                )
                 # Computing the index of the neighboor cell
                 for j_particle in Particle.cell_list[pos_neighboor_cell]:
-                # Running through all the particles in the neighboring cell
+                    # Running through all the particles in the neighboring cell
                     if particles[i_particle].intersectionVerlet(particles[j_particle]):
-                    # If the neighboorhoods of the particles intersect
+                        # If the neighboorhoods of the particles intersect
                         particles[i_particle].verlet_list.append(j_particle)
                         # Add the particle j_particle to i_particle's Verlet list
         elif dim == 3:
-        # 3D problem
-            pos_cell_list = pos_cell_list_dim[0] + \
-                pos_cell_list_dim[1]*Particle.n_cell_dim[0] + \
-                pos_cell_list_dim[2]*Particle.n_cell_dim[0]*Particle.n_cell_dim[1]
+            # 3D problem
+            pos_cell_list = (
+                pos_cell_list_dim[0]
+                + pos_cell_list_dim[1] * Particle.n_cell_dim[0]
+                + pos_cell_list_dim[2] * Particle.n_cell_dim[0] * Particle.n_cell_dim[1]
+            )
             # Saving the position in the cell list of particle i_particle
-            for k_neighboor_cell in range(3**3):
-            # Running through the neighboor cells
-                pos_neighboor_cell = \
-                    neighboorCell(pos_cell_list, k_neighboor_cell, dim, Particle.n_cell_dim)
+            for k_neighboor_cell in range(3 ** 3):
+                # Running through the neighboor cells
+                pos_neighboor_cell = neighboorCell(
+                    pos_cell_list, k_neighboor_cell, dim, Particle.n_cell_dim
+                )
                 # Computing the index of the neighboor cell
                 for j_particle in Particle.cell_list[pos_neighboor_cell]:
-                # Running through all the particles in the neighboring cell
+                    # Running through all the particles in the neighboring cell
                     if particles[i_particle].intersectionVerlet(particles[j_particle]):
-                    # If the neighboorhoods of the particles intersect
+                        # If the neighboorhoods of the particles intersect
                         particles[i_particle].verlet_list.append(j_particle)
                         # Add the particle j_particle to i_particle's Verlet list
 
 
 def neighboorCell(pos_current_cell, local_pos_neighboor_cell, dim, n_cells):
-    '''
+    """
     Compute the global cell position of the neighboor cell.
 
     Parameters
@@ -124,115 +152,150 @@ def neighboorCell(pos_current_cell, local_pos_neighboor_cell, dim, n_cells):
     -------
     pos_neighboor_cell: integer
         Global position of the neighboor cell
-    '''
+    """
 
     if dim == 2:
-    # 2D problem
-        local_row_pos_neigh = np.int(np.mod(np.floor(local_pos_neighboor_cell/3), 3) - 1)
+        # 2D problem
+        local_row_pos_neigh = np.int(
+            np.mod(np.floor(local_pos_neighboor_cell / 3), 3) - 1
+        )
         # Local row position of the neighboor, going from -1 to 1 with the origin at the
         # current cell
         local_col_pos_neigh = np.int(np.mod(local_pos_neighboor_cell, 3) - 1)
         # Local column position of the neighboor, going from -1 to 1 with the origin at the
         # current cell
-        pos_neighboor_cell = \
-            np.int(pos_current_cell + local_col_pos_neigh + local_row_pos_neigh*n_cells[0])
+        pos_neighboor_cell = np.int(
+            pos_current_cell + local_col_pos_neigh + local_row_pos_neigh * n_cells[0]
+        )
         # Global position of the neighboor cell without enforcing periodic boundary
         # conditions
         if pos_current_cell < n_cells[0] and local_row_pos_neigh == -1:
-        # Lower row of the grid
-            pos_neighboor_cell = pos_neighboor_cell + n_cells[1]*n_cells[0]
+            # Lower row of the grid
+            pos_neighboor_cell = pos_neighboor_cell + n_cells[1] * n_cells[0]
             # Enforcing the periodic boundary conditions
-        elif pos_current_cell >= n_cells[0]*(n_cells[1]-1) and local_row_pos_neigh == 1:
-        # Upper row of the grid
-            pos_neighboor_cell = pos_neighboor_cell - n_cells[1]*n_cells[0]
+        elif (
+            pos_current_cell >= n_cells[0] * (n_cells[1] - 1)
+            and local_row_pos_neigh == 1
+        ):
+            # Upper row of the grid
+            pos_neighboor_cell = pos_neighboor_cell - n_cells[1] * n_cells[0]
             # Enforcing the periodic boundary conditions
         if np.mod(pos_current_cell + 1, n_cells[0]) == 0 and local_col_pos_neigh == 1:
-        # Right column of the grid
+            # Right column of the grid
             pos_neighboor_cell = pos_neighboor_cell - n_cells[0]
             # Enforcing the periodic boundary conditions
         elif np.mod(pos_current_cell, n_cells[0]) == 0 and local_col_pos_neigh == -1:
-        # Left column of the grid
+            # Left column of the grid
             pos_neighboor_cell = pos_neighboor_cell + n_cells[0]
             # Enforcing the periodic boundary conditions
     elif dim == 3:
-    # 3D problem
-        local_row_pos_neigh = np.int(np.mod(np.floor(local_pos_neighboor_cell/3), 3) - 1)
+        # 3D problem
+        local_row_pos_neigh = np.int(
+            np.mod(np.floor(local_pos_neighboor_cell / 3), 3) - 1
+        )
         # Local row position of the neighboor, going from -1 to 1 with the origin at the
         # current cell
         local_col_pos_neigh = np.int(np.mod(local_pos_neighboor_cell, 3) - 1)
         # Local column position of the neighboor, going from -1 to 1 with the origin at the
         # current cell
-        local_lay_pos_neigh = np.int(np.mod(np.floor(local_pos_neighboor_cell/9), 3) - 1)
+        local_lay_pos_neigh = np.int(
+            np.mod(np.floor(local_pos_neighboor_cell / 9), 3) - 1
+        )
         # Local layer position of the neighboor, going from -1 to 1 with the origin at the
         # current cell
-        pos_neighboor_cell = (
-            np.int(pos_current_cell
-                   + local_col_pos_neigh
-                   + local_row_pos_neigh*n_cells[0]
-                   + local_lay_pos_neigh*n_cells[0]*n_cells[1]))
+        pos_neighboor_cell = np.int(
+            pos_current_cell
+            + local_col_pos_neigh
+            + local_row_pos_neigh * n_cells[0]
+            + local_lay_pos_neigh * n_cells[0] * n_cells[1]
+        )
         # Global position of the neighboor cell without enforcing periodic boundary
         # conditions
-        if pos_current_cell - n_cells[1]*n_cells[0]*(pos_current_cell//(n_cells[1]*n_cells[0])) < n_cells[0] and local_row_pos_neigh == -1:
-        # Lower row of the grid
-            pos_neighboor_cell = pos_neighboor_cell + n_cells[1]*n_cells[0]
+        if (
+            pos_current_cell
+            - n_cells[1] * n_cells[0] * (pos_current_cell // (n_cells[1] * n_cells[0]))
+            < n_cells[0]
+            and local_row_pos_neigh == -1
+        ):
+            # Lower row of the grid
+            pos_neighboor_cell = pos_neighboor_cell + n_cells[1] * n_cells[0]
             # Enforcing the periodic boundary conditions
-        elif pos_current_cell - n_cells[1]*n_cells[0]*(pos_current_cell//(n_cells[1]*n_cells[0])) >= n_cells[0]*(n_cells[1] - 1) and local_row_pos_neigh == 1:
-        # Upper row of the grid
-            pos_neighboor_cell = pos_neighboor_cell - n_cells[1]*n_cells[0]
+        elif (
+            pos_current_cell
+            - n_cells[1] * n_cells[0] * (pos_current_cell // (n_cells[1] * n_cells[0]))
+            >= n_cells[0] * (n_cells[1] - 1)
+            and local_row_pos_neigh == 1
+        ):
+            # Upper row of the grid
+            pos_neighboor_cell = pos_neighboor_cell - n_cells[1] * n_cells[0]
             # Enforcing the periodic boundary conditions
         if np.mod(pos_current_cell + 1, n_cells[0]) == 0 and local_col_pos_neigh == 1:
-        # Right column of the grid
+            # Right column of the grid
             pos_neighboor_cell = pos_neighboor_cell - n_cells[0]
             # Enforcing the periodic boundary conditions
         elif np.mod(pos_current_cell, n_cells[0]) == 0 and local_col_pos_neigh == -1:
-        # Left column of the grid
+            # Left column of the grid
             pos_neighboor_cell = pos_neighboor_cell + n_cells[0]
             # Enforcing the periodic boundary conditions
-        if pos_current_cell < n_cells[1]*n_cells[0] and local_lay_pos_neigh == -1:
-        # Firsl layer of the grid
-            pos_neighboor_cell = pos_neighboor_cell + n_cells[1]*n_cells[0]*n_cells[2]
+        if pos_current_cell < n_cells[1] * n_cells[0] and local_lay_pos_neigh == -1:
+            # Firsl layer of the grid
+            pos_neighboor_cell = (
+                pos_neighboor_cell + n_cells[1] * n_cells[0] * n_cells[2]
+            )
             # Enforcing the periodic boundary conditions
-        elif (pos_current_cell > n_cells[1]*n_cells[0]*(n_cells[2] - 1) - 1
-              and local_lay_pos_neigh == 1):
-        # Last layer of the grid
-            pos_neighboor_cell = pos_neighboor_cell - n_cells[1]*n_cells[0]*n_cells[2]
+        elif (
+            pos_current_cell > n_cells[1] * n_cells[0] * (n_cells[2] - 1) - 1
+            and local_lay_pos_neigh == 1
+        ):
+            # Last layer of the grid
+            pos_neighboor_cell = (
+                pos_neighboor_cell - n_cells[1] * n_cells[0] * n_cells[2]
+            )
             # Enforcing the periodic boundary conditions
 
     return pos_neighboor_cell
 
 
 def newCellList(particles):
-    '''
+    """
     Compute a new cell list for particles.
-    '''
+    """
 
     dim = particles[0].dim
 
     n_cells = np.prod(np.array(Particle.n_cell_dim))
 
-    Particle.cell_list = [[] for i in range(n_cells) ]
+    Particle.cell_list = [[] for i in range(n_cells)]
 
     for i_particle in range(len(particles)):
-    # Running through all the particles
+        # Running through all the particles
         pos_cell_list_dim = []
         # Initializing the list containing the position of the cell in each direction
         # with the origin at the top left
         for j_dim in range(dim):
-        # Running through all the dimensions
-            pos_cell_list_dim.append(np.int(np.floor(
-                particles[i_particle].position_center[j_dim]
-                / Particle.cell_side_length[j_dim])))
+            # Running through all the dimensions
+            pos_cell_list_dim.append(
+                np.int(
+                    np.floor(
+                        particles[i_particle].position_center[j_dim]
+                        / Particle.cell_side_length[j_dim]
+                    )
+                )
+            )
             # j_dim-position of the particle in the grid
         if dim == 2:
-        # 2D problem
-            pos_cell_list = pos_cell_list_dim[0] + \
-                pos_cell_list_dim[1]*Particle.n_cell_dim[0]
+            # 2D problem
+            pos_cell_list = (
+                pos_cell_list_dim[0] + pos_cell_list_dim[1] * Particle.n_cell_dim[0]
+            )
             # Saving the position in the cell list of particle i_particle
         if dim == 3:
-        # 3D problem
-            pos_cell_list = pos_cell_list_dim[0] + \
-                pos_cell_list_dim[1]*Particle.n_cell_dim[0] + \
-                pos_cell_list_dim[2]*Particle.n_cell_dim[0]*Particle.n_cell_dim[1]
+            # 3D problem
+            pos_cell_list = (
+                pos_cell_list_dim[0]
+                + pos_cell_list_dim[1] * Particle.n_cell_dim[0]
+                + pos_cell_list_dim[2] * Particle.n_cell_dim[0] * Particle.n_cell_dim[1]
+            )
             # Saving the position in the cell list of particle i_particle
         Particle.cell_list[pos_cell_list].append(i_particle)
 
@@ -258,7 +321,7 @@ def computeForces(particles, speed_up_scheme):
     dim = particles[0].dim
     # Saving the dimension of the problem
     for i_particle in range(len(particles)):
-    # Running through all the particles
+        # Running through all the particles
         particles[i_particle].cleanForces()
         # Setting all forces to zero at the beginning of the iteration as they are added
         # sequentially as each pair is considered
@@ -267,12 +330,12 @@ def computeForces(particles, speed_up_scheme):
         # they are added sequentially as each pair is considered
     Particle.total_overlap = 0
     # Setting the total overlap to zero as it will computed again
-    if speed_up_scheme == 'Naive':
-    # Naive approach: O(N^2)
+    if speed_up_scheme == "Naive":
+        # Naive approach: O(N^2)
         for i_particle in range(len(particles)):
-        # Running though all the particles
-            for j_particle in range(i_particle+1, len(particles)):
-            # Running through the particle pairs that have not been considered yet
+            # Running though all the particles
+            for j_particle in range(i_particle + 1, len(particles)):
+                # Running through the particle pairs that have not been considered yet
                 force_i_j = computeForceij(particles[i_particle], particles[j_particle])
                 # Computing the force on particle i due to particle j
                 particles[i_particle].force = particles[i_particle].force + force_i_j
@@ -281,106 +344,130 @@ def computeForces(particles, speed_up_scheme):
                 particles[j_particle].force = particles[j_particle].force - force_i_j
                 # Adding the force due to the interaction between particle 1 and 2 to the
                 # total force acting on particle 2
-    elif speed_up_scheme == 'Cell':
-    # Cell list: O(N)
+    elif speed_up_scheme == "Cell":
+        # Cell list: O(N)
         newCellList(particles)
         # Computing a new Cell list
         for i_particle in range(len(particles)):
-        # Running though all the particles
+            # Running though all the particles
             pos_cell_list_dim = []
             # Initializing the list containing the position of the particle in the grid,
             # assuming:
             # 2D: the cells are numbered from left to right and from top to bottom
             for j_dim in range(dim):
-            # Running through all the dimensions
-                pos_cell_list_dim.append(np.int(np.floor(
-                    particles[i_particle].position_center[j_dim]
-                    / Particle.cell_side_length[j_dim])))
+                # Running through all the dimensions
+                pos_cell_list_dim.append(
+                    np.int(
+                        np.floor(
+                            particles[i_particle].position_center[j_dim]
+                            / Particle.cell_side_length[j_dim]
+                        )
+                    )
+                )
                 # j_dim-position of the particle in the grid
             if dim == 2:
-            # 2D problem
-                pos_cell_list = pos_cell_list_dim[0] + \
-                    pos_cell_list_dim[1]*Particle.n_cell_dim[0]
+                # 2D problem
+                pos_cell_list = (
+                    pos_cell_list_dim[0] + pos_cell_list_dim[1] * Particle.n_cell_dim[0]
+                )
                 # Saving the position in the cell list of particle i_particle
                 for k_neighboor_cell in range(9):
-                # Running through the neighboor cells
-                    pos_neighboor_cell = \
-                        neighboorCell(pos_cell_list,
-                                      k_neighboor_cell, dim, Particle.n_cell_dim)
+                    # Running through the neighboor cells
+                    pos_neighboor_cell = neighboorCell(
+                        pos_cell_list, k_neighboor_cell, dim, Particle.n_cell_dim
+                    )
                     # Computing the index of the neighboor cell
                     for j_particle in Particle.cell_list[pos_neighboor_cell]:
-                    # Running through all the particles in the neighboring cell
+                        # Running through all the particles in the neighboring cell
                         if j_particle > i_particle:
-                        # Ensuring that the forces are not computed twice
-                            force_i_j = computeForceij(particles[i_particle],
-                                                       particles[j_particle])
+                            # Ensuring that the forces are not computed twice
+                            force_i_j = computeForceij(
+                                particles[i_particle], particles[j_particle]
+                            )
                             # Computing the force on particle i due to particle j
-                            particles[i_particle].force = particles[i_particle].force \
-                                + force_i_j
+                            particles[i_particle].force = (
+                                particles[i_particle].force + force_i_j
+                            )
                             # Adding the force due to the interaction between particle 1
                             # and 2 to the total force acting on particle 1
-                            particles[j_particle].force = particles[j_particle].force \
-                                - force_i_j
+                            particles[j_particle].force = (
+                                particles[j_particle].force - force_i_j
+                            )
                             # Adding the force due to the interaction between particle 1
                             # and 2 to the total force acting on particle 2
             if dim == 3:
-            # 2D problem
-                pos_cell_list = pos_cell_list_dim[0] + \
-                    pos_cell_list_dim[1]*Particle.n_cell_dim[0] + \
-                    pos_cell_list_dim[2]*Particle.n_cell_dim[0]*Particle.n_cell_dim[1]
+                # 2D problem
+                pos_cell_list = (
+                    pos_cell_list_dim[0]
+                    + pos_cell_list_dim[1] * Particle.n_cell_dim[0]
+                    + pos_cell_list_dim[2]
+                    * Particle.n_cell_dim[0]
+                    * Particle.n_cell_dim[1]
+                )
                 # Saving the position in the cell list of particle i_particle
-                for k_neighboor_cell in range(3**3):
-                # Running through the neighboor cells
-                    pos_neighboor_cell = \
-                        neighboorCell(pos_cell_list, k_neighboor_cell, dim, Particle.n_cell_dim)
+                for k_neighboor_cell in range(3 ** 3):
+                    # Running through the neighboor cells
+                    pos_neighboor_cell = neighboorCell(
+                        pos_cell_list, k_neighboor_cell, dim, Particle.n_cell_dim
+                    )
                     # Computing the index of the neighboor cell
                     for j_particle in Particle.cell_list[pos_neighboor_cell]:
-                    # Running through all the particles in the neighboring cell
+                        # Running through all the particles in the neighboring cell
                         if j_particle > i_particle:
-                        # Ensuring that the forces are not computed twice
+                            # Ensuring that the forces are not computed twice
                             force_i_j = computeForceij(
-                                particles[i_particle], particles[j_particle])
+                                particles[i_particle], particles[j_particle]
+                            )
                             # Computing the force on particle i due to particle j
-                            particles[i_particle].force = particles[i_particle].force \
-                                + force_i_j
+                            particles[i_particle].force = (
+                                particles[i_particle].force + force_i_j
+                            )
                             # Adding the force due to the interaction between particle 1
                             # and 2 to the total force acting on particle 1
-                            particles[j_particle].force = particles[j_particle].force \
-                                - force_i_j
+                            particles[j_particle].force = (
+                                particles[j_particle].force - force_i_j
+                            )
                             # Adding the force due to the interaction between particle 1 and
                             # 2 to the total force acting on particle 2
-    elif speed_up_scheme == 'Verlet':
-    # Cell list + Verlet list: O(N)
+    elif speed_up_scheme == "Verlet":
+        # Cell list + Verlet list: O(N)
         newCellList(particles)
         # Computing a new cell list
         if Particle.new_verlet_list:
-        # There is a need to create a new Verlet list
+            # There is a need to create a new Verlet list
             newVerletList(particles)
             # Computing a new Verlet list
             Particle.new_verlet_list = False
             # Resetting the parameter that indicates the need to compute a new Verlet list
         for i_particle in range(len(particles)):
-        # Running though all the particles
+            # Running though all the particles
             # print('main',i_particle)
             for j_particle in particles[i_particle].verlet_list:
-            # Running through all the particles in the neighboring cell
+                # Running through all the particles in the neighboring cell
                 # print('other',j_particle)
                 if j_particle > i_particle:
-                # Ensuring that the forces are not computed twice
-                    force_i_j = computeForceij(particles[i_particle], particles[j_particle])
+                    # Ensuring that the forces are not computed twice
+                    force_i_j = computeForceij(
+                        particles[i_particle], particles[j_particle]
+                    )
                     # Computing the force on particle i due to particle j
-                    particles[i_particle].force = particles[i_particle].force + force_i_j
+                    particles[i_particle].force = (
+                        particles[i_particle].force + force_i_j
+                    )
                     # Adding the force due to the interaction between particle 1 and 2 to
                     # the total force acting on particle 1
-                    particles[j_particle].force = particles[j_particle].force - force_i_j
+                    particles[j_particle].force = (
+                        particles[j_particle].force - force_i_j
+                    )
                     # Adding the force due to the interaction between particle 1 and 2 to
                     # the total force acting on particle 2
 
+
 # ==========================================================================================
 def computeForceij(particle_i, particle_j):
-    '''
+    """
     Compute the force on particle_i due to particle_j
-    '''
+    """
     intersection_area = particle_i.intersectionArea(particle_j)
     # Intersection area between particle i and j
     particle_i.overlap_area += intersection_area
@@ -389,7 +476,7 @@ def computeForceij(particle_i, particle_j):
     # Updating the overlap area
     unit_vector_i_j = particle_i.intersectionVector(particle_j)
     # Unit vector from particle i to particle j
-    force_i_j = -intersection_area*unit_vector_i_j
+    force_i_j = -intersection_area * unit_vector_i_j
     # Computing the force on particle_i due to particle_j proportional to their
     # intersection area/volume
     return force_i_j
@@ -398,15 +485,16 @@ def computeForceij(particle_i, particle_j):
 def putSystemAtRest(particles):
     """Put the system as a whole at rest."""
     total_linear_momentum = np.sum(
-        [particle.volume()*particle.velocity_center for particle in particles], axis=0)
+        [particle.volume() * particle.velocity_center for particle in particles], axis=0
+    )
     # Computing total linear momemtum of the system
     for i_particle in particles:
-    # Running through all the particles
+        # Running through all the particles
         i_particle.setVelocityCenter(i_particle.velocity_center - total_linear_momentum)
         # Removing the linear momentum of the system as a whole putting at rest
 
 
-def integrate(particles, dt, speed_up_scheme, integration_scheme='Verlet', **kwargs):
+def integrate(particles, dt, speed_up_scheme, integration_scheme="Verlet", **kwargs):
     """Integrate the equations of motion."""
     dim = particles[0].dim
     # Dimension of the problem
@@ -415,50 +503,61 @@ def integrate(particles, dt, speed_up_scheme, integration_scheme='Verlet', **kwa
     box = Particle.box
     # Saving the size of the RVE
     for i_particle in range(N):
-    # Running through all the particles
-        if integration_scheme == 'Newmark':
-        # The integration scheme chosen was Newmark
-            c = kwargs.get('damping_constant', 0)
-            [new_position, new_velocity, new_accelaration] = \
-                Newmark(
-                    particles[i_particle].position_center,
-                    particles[i_particle].velocity_center,
-                    np.array([particles[i_particle].force], dtype='float').T,
-                    particles[i_particle].volume()*np.eye(particles[i_particle].dim, dtype='float'), #10e-6*np.eye(2,dtype='float'),#
-                    c*np.eye(particles[i_particle].dim, dtype='float'),
-                    np.zeros((particles[i_particle].dim,particles[i_particle].dim), dtype='float'),
-                    dt,
-                    1,
-                    dim)
+        # Running through all the particles
+        if integration_scheme == "Newmark":
+            # The integration scheme chosen was Newmark
+            c = kwargs.get("damping_constant", 0)
+            [new_position, new_velocity, new_accelaration] = Newmark(
+                particles[i_particle].position_center,
+                particles[i_particle].velocity_center,
+                np.array([particles[i_particle].force], dtype="float").T,
+                particles[i_particle].volume()
+                * np.eye(
+                    particles[i_particle].dim, dtype="float"
+                ),  # 10e-6*np.eye(2,dtype='float'),#
+                c * np.eye(particles[i_particle].dim, dtype="float"),
+                np.zeros(
+                    (particles[i_particle].dim, particles[i_particle].dim),
+                    dtype="float",
+                ),
+                dt,
+                1,
+                dim,
+            )
             # Obtaining the new position and velocity of particle i
-        elif integration_scheme == 'Verlet':
-        # The integration scheme chosen was Verlet
+        elif integration_scheme == "Verlet":
+            # The integration scheme chosen was Verlet
             [new_position, new_velocity] = VerletSync(
                 particles[i_particle].position_center,
                 particles[i_particle].velocity_center,
-                np.array([particles[i_particle].force], dtype='float').T,
+                np.array([particles[i_particle].force], dtype="float").T,
                 particles[i_particle].volume(),
                 dt,
                 1,
-                dim)
-        if speed_up_scheme == 'Verlet':
-            particles[i_particle].displacement_last_verlet += \
+                dim,
+            )
+        if speed_up_scheme == "Verlet":
+            particles[i_particle].displacement_last_verlet += (
                 particles[i_particle].position_center - new_position[:, 0]
+            )
             # Computing the displacement of the center of the particle
             if not particles[i_particle].insideVerlet():
-            # Checking if the displacement takes the particle out of its neighboorhood
+                # Checking if the displacement takes the particle out of its neighboorhood
                 Particle.new_verlet_list = True
                 # There is a need to compute a new verlet list
-        new_position[:, 0] = new_position[:, 0] - box*np.floor(new_position[:, 0]/box)
+        new_position[:, 0] = new_position[:, 0] - box * np.floor(
+            new_position[:, 0] / box
+        )
         # New position enforcing boundary conditions
         particles[i_particle].position_center = new_position[:, 0]
         particles[i_particle].velocity_center = new_velocity[:, 0]
         # Updating the position and velocity of particle i
-        if kwargs.get('save_history'):
-        # The history of the particle's motion is required
+        if kwargs.get("save_history"):
+            # The history of the particle's motion is required
             particles[i_particle].position_center_history.append(new_position.flatten())
     # putSystemAtRest(particles)
     # Putting the systemas a whole at rest
+
 
 # ==========================================================================================
 
@@ -480,26 +579,33 @@ def generateDisks(phase, rve_dims, descriptors):
     """
     disks = []
     # Initializing the list containing the disks
-    used_parameters = {parameter for parameter in Disk.possible_parameters if
-                       any([descriptor.startswith(parameter) for
-                            descriptor in descriptors.keys()])}
+    used_parameters = {
+        parameter
+        for parameter in Disk.possible_parameters
+        if any([descriptor.startswith(parameter) for descriptor in descriptors.keys()])
+    }
     # Collecting the parameters used
-    if any([used_parameters == acceptable_description for
-            acceptable_description in Disk.acceptable_descriptions]):
-    # Checking acceptable sets of parameters
+    if any(
+        [
+            used_parameters == acceptable_description
+            for acceptable_description in Disk.acceptable_descriptions
+        ]
+    ):
+        # Checking acceptable sets of parameters
         acceptable_description = True
     else:
         acceptable_description = False
     try:
         if not acceptable_description:
-            raise errors.UnacceptableParameters(used_parameters, phase.type,
-                                                Disk.acceptable_descriptions)
+            raise errors.UnacceptableParameters(
+                used_parameters, phase.type, Disk.acceptable_descriptions
+            )
     except errors.UnacceptableParameters as error:
         error.message()
         quit()
-    if 'n' in descriptors and 'vf' not in descriptors:
-    # The desired number of disks was specified
-        phase.specNumber(descriptors['n'])
+    if "n" in descriptors and "vf" not in descriptors:
+        # The desired number of disks was specified
+        phase.specNumber(descriptors["n"])
         # Collecting the specified number of particles
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
@@ -510,28 +616,34 @@ def generateDisks(phase, rve_dims, descriptors):
                 descriptors,
                 phase,
                 rve_dims,
-                n_samples=descriptors['n'])
+                n_samples=descriptors["n"],
+            )
         r = canonicalParametersDisk(samples, rve_dims)
-        for i in range(descriptors['n']):
+        for i in range(descriptors["n"]):
             disks.append(Disk(phase, r[i]))
-    elif 'vf' in descriptors and 'n' not in descriptors:
-    # The desired volume fraction was specfied
-        phase.spec_volume_fraction = descriptors['vf']
+    elif "vf" in descriptors and "n" not in descriptors:
+        # The desired volume fraction was specfied
+        phase.spec_volume_fraction = descriptors["vf"]
         # Collecting the specified volume fraction
         current_sample = {}
         # Initializing the dictionary containing the samples for each parameter used
         vf_real = 0
         # Initializing the real volume fraction
-        while vf_real < descriptors['vf']:
+        while vf_real < descriptors["vf"]:
             for i_parameter in used_parameters:
                 current_sample[i_parameter] = generateSampleParameter(
-                    i_parameter, Disk.possible_parameters[i_parameter], descriptors, phase, rve_dims)
+                    i_parameter,
+                    Disk.possible_parameters[i_parameter],
+                    descriptors,
+                    phase,
+                    rve_dims,
+                )
             r = canonicalParametersDisk(current_sample, rve_dims)
             disks.append(Disk(phase, r[0]))
-            vf_real += disks[-1].volume()/(rve_dims[0]*rve_dims[1])
-    elif 'vf' in descriptors and 'n' in descriptors:
-        phase.spec_volume_fraction = descriptors['vf']
-        phase.spec_number = descriptors['n']
+            vf_real += disks[-1].volume() / (rve_dims[0] * rve_dims[1])
+    elif "vf" in descriptors and "n" in descriptors:
+        phase.spec_volume_fraction = descriptors["vf"]
+        phase.spec_number = descriptors["n"]
         # Collecting the specified volume fraction and number of particles
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
@@ -542,11 +654,12 @@ def generateDisks(phase, rve_dims, descriptors):
                 descriptors,
                 phase,
                 rve_dims,
-                n_samples=descriptors['n'])
+                n_samples=descriptors["n"],
+            )
         r = canonicalParametersDisk(samples, rve_dims)
         # Obtaining the radius corresponding to the specified volume fraction and number of
         # particles
-        for i in range(descriptors['n']):
+        for i in range(descriptors["n"]):
             disks.append(Disk(phase, r))
 
     return disks
@@ -568,26 +681,33 @@ def generateSpheres(phase, rve_dims, descriptors):
     """
     spheres = []
     # Initializing the list containing the spheres
-    used_parameters = {parameter for parameter in Sphere.possible_parameters if
-                       any([descriptor.startswith(parameter) for
-                            descriptor in descriptors.keys()])}
+    used_parameters = {
+        parameter
+        for parameter in Sphere.possible_parameters
+        if any([descriptor.startswith(parameter) for descriptor in descriptors.keys()])
+    }
     # Collecting the parameters used
-    if any([used_parameters == acceptable_description for
-            acceptable_description in Sphere.acceptable_descriptions]):
+    if any(
+        [
+            used_parameters == acceptable_description
+            for acceptable_description in Sphere.acceptable_descriptions
+        ]
+    ):
         acceptable_description = True
     else:
         acceptable_description = False
     # Checking acceptable sets of parameters
     try:
         if not acceptable_description:
-            raise errors.UnacceptableParameters(used_parameters, phase,
-                                                Sphere.acceptable_descriptions)
+            raise errors.UnacceptableParameters(
+                used_parameters, phase, Sphere.acceptable_descriptions
+            )
     except errors.UnacceptableParameters as error:
         error.message()
         quit()
-    if 'n' in descriptors and 'vf' not in descriptors:
-    # The desired number of disks was specified
-        phase.specNumber(descriptors['n'])
+    if "n" in descriptors and "vf" not in descriptors:
+        # The desired number of disks was specified
+        phase.specNumber(descriptors["n"])
         # Collecting the specified number of particles
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
@@ -598,32 +718,34 @@ def generateSpheres(phase, rve_dims, descriptors):
                 descriptors,
                 phase,
                 rve_dims,
-                n_samples=descriptors['n'])
+                n_samples=descriptors["n"],
+            )
         r = canonicalParametersSphere(samples, rve_dims)
-        for i in range(descriptors['n']):
+        for i in range(descriptors["n"]):
             spheres.append(Sphere(phase, r[i]))
-    elif 'vf' in descriptors and 'n' not in descriptors:
-    # The desired volume fraction was specfied
-        phase.spec_volume_fraction = descriptors['vf']
+    elif "vf" in descriptors and "n" not in descriptors:
+        # The desired volume fraction was specfied
+        phase.spec_volume_fraction = descriptors["vf"]
         # Collecting the specified volume fraction
         current_sample = {}
         # Initializing the dictionary containing the samples for each parameter used
         vf_real = 0
         # Initializing the real volume fraction
-        while vf_real < descriptors['vf']:
+        while vf_real < descriptors["vf"]:
             for i_parameter in used_parameters:
                 current_sample[i_parameter] = generateSampleParameter(
                     i_parameter,
                     Sphere.possible_parameters[i_parameter],
                     descriptors,
                     phase,
-                    rve_dims)
+                    rve_dims,
+                )
             r = canonicalParametersSphere(current_sample, rve_dims)
             spheres.append(Sphere(phase, r))
-            vf_real += spheres[-1].volume()/(rve_dims[0]*rve_dims[1]*rve_dims[2])
-    elif 'vf' in descriptors and 'n' in descriptors:
-        phase.spec_volume_fraction = descriptors['vf']
-        phase.spec_number = descriptors['n']
+            vf_real += spheres[-1].volume() / (rve_dims[0] * rve_dims[1] * rve_dims[2])
+    elif "vf" in descriptors and "n" in descriptors:
+        phase.spec_volume_fraction = descriptors["vf"]
+        phase.spec_number = descriptors["n"]
         # Collecting the specified volume fraction and number of particles
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
@@ -634,9 +756,10 @@ def generateSpheres(phase, rve_dims, descriptors):
                 descriptors,
                 phase,
                 rve_dims,
-                n_samples=descriptors['n'])
+                n_samples=descriptors["n"],
+            )
         r = canonicalParametersSphere(samples, rve_dims)
-        for i in range(descriptors['n']):
+        for i in range(descriptors["n"]):
             spheres.append(Sphere(phase, r))
 
     return spheres
@@ -658,26 +781,33 @@ def generateEllipses(phase, rve_dims, descriptors):
     """
     ellipses = []
     # Initializing the list containing the disks
-    used_parameters = {parameter for parameter in Ellipse.possible_parameters if
-                       any([descriptor.startswith(parameter) for
-                            descriptor in descriptors.keys()])}
+    used_parameters = {
+        parameter
+        for parameter in Ellipse.possible_parameters
+        if any([descriptor.startswith(parameter) for descriptor in descriptors.keys()])
+    }
     # Collecting the parameters used
-    if any([used_parameters == acceptable_description for
-            acceptable_description in Ellipse.acceptable_descriptions]):
+    if any(
+        [
+            used_parameters == acceptable_description
+            for acceptable_description in Ellipse.acceptable_descriptions
+        ]
+    ):
         acceptable_description = True
     else:
         acceptable_description = False
     # Checking acceptable sets of parameters
     try:
         if not acceptable_description:
-            raise errors.UnacceptableParameters(used_parameters, phase,
-                                                Ellipse.acceptable_descriptions)
+            raise errors.UnacceptableParameters(
+                used_parameters, phase, Ellipse.acceptable_descriptions
+            )
     except errors.UnacceptableParameters as error:
         error.message()
         quit()
-    if 'n' in descriptors and 'vf' not in descriptors:
-    # The desired number of ellipses was specified
-        phase.specNumber(descriptors['n'])
+    if "n" in descriptors and "vf" not in descriptors:
+        # The desired number of ellipses was specified
+        phase.specNumber(descriptors["n"])
         # Collecting the specified number of particles
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
@@ -688,34 +818,36 @@ def generateEllipses(phase, rve_dims, descriptors):
                 descriptors,
                 phase,
                 rve_dims,
-                n_samples=descriptors['n'])
-        [major_axis, minor_axis, angle] = canonicalParametersEllipse(samples,
-                                                                     rve_dims)
-        for i in range(descriptors['n']):
+                n_samples=descriptors["n"],
+            )
+        [major_axis, minor_axis, angle] = canonicalParametersEllipse(samples, rve_dims)
+        for i in range(descriptors["n"]):
             ellipses.append(Ellipse(phase, major_axis[i], minor_axis[i], angle[i]))
-    elif 'vf' in descriptors and 'n' not in descriptors:
-    # The desired volume fraction was specfied
-        phase.spec_volume_fraction = descriptors['vf']
+    elif "vf" in descriptors and "n" not in descriptors:
+        # The desired volume fraction was specfied
+        phase.spec_volume_fraction = descriptors["vf"]
         # Collecting the specified volume fraction
         current_sample = {}
         # Initializing the dictionary containing the samples for each parameter used
         vf_real = 0
         # Initializing the real volume fraction
-        while vf_real < descriptors['vf']:
+        while vf_real < descriptors["vf"]:
             for i_parameter in used_parameters:
                 current_sample[i_parameter] = generateSampleParameter(
                     i_parameter,
                     Ellipse.possible_parameters[i_parameter],
                     descriptors,
                     phase,
-                    rve_dims)
-            [major_axis, minor_axis, angle] = canonicalParametersEllipse(current_sample,
-                                                                         rve_dims)
+                    rve_dims,
+                )
+            [major_axis, minor_axis, angle] = canonicalParametersEllipse(
+                current_sample, rve_dims
+            )
             ellipses.append(Ellipse(phase, major_axis, minor_axis, angle))
-            vf_real += ellipses[-1].volume()/(rve_dims[0]*rve_dims[1])
-    elif 'vf' in descriptors and 'n' in descriptors:
-        phase.spec_volume_fraction = descriptors['vf']
-        phase.spec_number = descriptors['n']
+            vf_real += ellipses[-1].volume() / (rve_dims[0] * rve_dims[1])
+    elif "vf" in descriptors and "n" in descriptors:
+        phase.spec_volume_fraction = descriptors["vf"]
+        phase.spec_number = descriptors["n"]
         # Collecting the specified volume fraction and number of particles
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
@@ -726,10 +858,10 @@ def generateEllipses(phase, rve_dims, descriptors):
                 descriptors,
                 phase,
                 rve_dims,
-                n_samples=descriptors['n'])
-        [major_axis, minor_axis, angle] = canonicalParametersEllipse(samples,
-                                                                     rve_dims)
-        for i in range(descriptors['n']):
+                n_samples=descriptors["n"],
+            )
+        [major_axis, minor_axis, angle] = canonicalParametersEllipse(samples, rve_dims)
+        for i in range(descriptors["n"]):
             ellipses.append(Ellipse(phase, major_axis[i], minor_axis[i], angle[i]))
 
     return ellipses
@@ -751,26 +883,33 @@ def generateEllipsoids(phase, rve_dims, descriptors):
     """
     ellipsoids = []
     # Initializing the list containing the disks
-    used_parameters = {parameter for parameter in Ellipsoid.possible_parameters if
-                       any([descriptor.startswith(parameter) for
-                            descriptor in descriptors.keys()])}
+    used_parameters = {
+        parameter
+        for parameter in Ellipsoid.possible_parameters
+        if any([descriptor.startswith(parameter) for descriptor in descriptors.keys()])
+    }
     # Collecting the parameters used
-    if any([used_parameters == acceptable_description for
-            acceptable_description in Ellipsoid.acceptable_descriptions]):
+    if any(
+        [
+            used_parameters == acceptable_description
+            for acceptable_description in Ellipsoid.acceptable_descriptions
+        ]
+    ):
         acceptable_description = True
     else:
         acceptable_description = False
     # Checking acceptable sets of parameters
     try:
         if not acceptable_description:
-            raise errors.UnacceptableParameters(used_parameters, phase,
-                                                Ellipsoid.acceptable_descriptions)
+            raise errors.UnacceptableParameters(
+                used_parameters, phase, Ellipsoid.acceptable_descriptions
+            )
     except errors.UnacceptableParameters as error:
         error.message()
         quit()
-    if 'n' in descriptors and 'vf' not in descriptors:
-    # The desired number of ellipsoids was specified
-        phase.specNumber(descriptors['n'])
+    if "n" in descriptors and "vf" not in descriptors:
+        # The desired number of ellipsoids was specified
+        phase.specNumber(descriptors["n"])
         # Collecting the specified number of particles
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
@@ -781,38 +920,72 @@ def generateEllipsoids(phase, rve_dims, descriptors):
                 descriptors,
                 phase,
                 rve_dims,
-                n_samples=descriptors['n'])
-        [axis_1, axis_2, axis_3, rot_axis_comp_x, rot_axis_comp_y, rot_axis_comp_z, angle] = \
-            canonicalParametersEllipsoid(samples, rve_dims)
-        for i in range(descriptors['n']):
-            ellipsoids.append(Ellipsoid(
-                phase, axis_1[i], axis_2[i], axis_3[i], rot_axis_comp_x[i], rot_axis_comp_y[i],
-                rot_axis_comp_z[i], angle[i]))
-    elif 'vf' in descriptors and 'n' not in descriptors:
-    # The desired volume fraction was specfied
-        phase.spec_volume_fraction = descriptors['vf']
+                n_samples=descriptors["n"],
+            )
+        [
+            axis_1,
+            axis_2,
+            axis_3,
+            rot_axis_comp_x,
+            rot_axis_comp_y,
+            rot_axis_comp_z,
+            angle,
+        ] = canonicalParametersEllipsoid(samples, rve_dims)
+        for i in range(descriptors["n"]):
+            ellipsoids.append(
+                Ellipsoid(
+                    phase,
+                    axis_1[i],
+                    axis_2[i],
+                    axis_3[i],
+                    rot_axis_comp_x[i],
+                    rot_axis_comp_y[i],
+                    rot_axis_comp_z[i],
+                    angle[i],
+                )
+            )
+    elif "vf" in descriptors and "n" not in descriptors:
+        # The desired volume fraction was specfied
+        phase.spec_volume_fraction = descriptors["vf"]
         # Collecting the specified volume fraction
         current_sample = {}
         # Initializing the dictionary containing the samples for each parameter used
         vf_real = 0
         # Initializing the real volume fraction
-        while vf_real < descriptors['vf']:
+        while vf_real < descriptors["vf"]:
             for i_parameter in used_parameters:
                 current_sample[i_parameter] = generateSampleParameter(
                     i_parameter,
                     Ellipsoid.possible_parameters[i_parameter],
                     descriptors,
                     phase,
-                    rve_dims)
-            [axis_1, axis_2, axis_3, rot_axis_comp_x, rot_axis_comp_y, rot_axis_comp_z, angle] = \
-                canonicalParametersEllipsoid(current_sample, rve_dims)
-            ellipsoids.append(Ellipsoid(phase, axis_1[0], axis_2[0], axis_3[0],
-                                        rot_axis_comp_x[0], rot_axis_comp_y[0],
-                                        rot_axis_comp_z[0], angle[0]))
-            vf_real += ellipsoids[-1].volume()/(rve_dims[0]*rve_dims[1])
-    elif 'vf' in descriptors and 'n' in descriptors:
-        phase.spec_volume_fraction = descriptors['vf']
-        phase.spec_number = descriptors['n']
+                    rve_dims,
+                )
+            [
+                axis_1,
+                axis_2,
+                axis_3,
+                rot_axis_comp_x,
+                rot_axis_comp_y,
+                rot_axis_comp_z,
+                angle,
+            ] = canonicalParametersEllipsoid(current_sample, rve_dims)
+            ellipsoids.append(
+                Ellipsoid(
+                    phase,
+                    axis_1[0],
+                    axis_2[0],
+                    axis_3[0],
+                    rot_axis_comp_x[0],
+                    rot_axis_comp_y[0],
+                    rot_axis_comp_z[0],
+                    angle[0],
+                )
+            )
+            vf_real += ellipsoids[-1].volume() / (rve_dims[0] * rve_dims[1])
+    elif "vf" in descriptors and "n" in descriptors:
+        phase.spec_volume_fraction = descriptors["vf"]
+        phase.spec_number = descriptors["n"]
         # Collecting the specified volume fraction and number of particles
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
@@ -823,13 +996,30 @@ def generateEllipsoids(phase, rve_dims, descriptors):
                 descriptors,
                 phase,
                 rve_dims,
-                n_samples=descriptors['n'])
-        [axis_1, axis_2, axis_3, rot_axis_comp_x, rot_axis_comp_y, rot_axis_comp_z, angle] = \
-            canonicalParametersEllipsoid(samples, rve_dims)
-        for i in range(descriptors['n']):
-            ellipsoids.append(Ellipsoid(phase, axis_1[i], axis_2[i], axis_3[i],
-                                        rot_axis_comp_x[i], rot_axis_comp_y[i], rot_axis_comp_z[i],
-                                        angle[i]))
+                n_samples=descriptors["n"],
+            )
+        [
+            axis_1,
+            axis_2,
+            axis_3,
+            rot_axis_comp_x,
+            rot_axis_comp_y,
+            rot_axis_comp_z,
+            angle,
+        ] = canonicalParametersEllipsoid(samples, rve_dims)
+        for i in range(descriptors["n"]):
+            ellipsoids.append(
+                Ellipsoid(
+                    phase,
+                    axis_1[i],
+                    axis_2[i],
+                    axis_3[i],
+                    rot_axis_comp_x[i],
+                    rot_axis_comp_y[i],
+                    rot_axis_comp_z[i],
+                    angle[i],
+                )
+            )
 
     return ellipsoids
 
@@ -851,26 +1041,33 @@ def generateCylindricalFibers(phase, rve_dims, descriptors):
     """
     fibers = []
     # Initializing the list containing the fibers
-    used_parameters = {parameter for parameter in CylindricalFiber.possible_parameters if
-                       any([descriptor.startswith(parameter) for
-                            descriptor in descriptors.keys()])}
+    used_parameters = {
+        parameter
+        for parameter in CylindricalFiber.possible_parameters
+        if any([descriptor.startswith(parameter) for descriptor in descriptors.keys()])
+    }
     # Collecting the parameters used
-    if any([used_parameters == acceptable_description for
-            acceptable_description in CylindricalFiber.acceptable_descriptions]):
+    if any(
+        [
+            used_parameters == acceptable_description
+            for acceptable_description in CylindricalFiber.acceptable_descriptions
+        ]
+    ):
         acceptable_description = True
     else:
         acceptable_description = False
     # Checking acceptable sets of parameters
     try:
         if not acceptable_description:
-            raise errors.UnacceptableParameters(used_parameters, phase,
-                                                CylindricalFiber.acceptable_descriptions)
+            raise errors.UnacceptableParameters(
+                used_parameters, phase, CylindricalFiber.acceptable_descriptions
+            )
     except errors.UnacceptableParameters as error:
         error.message()
         quit()
-    if 'n' in descriptors and 'vf' not in descriptors:
-    # The desired number of fibers was specified
-        phase.specNumber(descriptors['n'])
+    if "n" in descriptors and "vf" not in descriptors:
+        # The desired number of fibers was specified
+        phase.specNumber(descriptors["n"])
         # Collecting the specified number of particles
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
@@ -881,32 +1078,38 @@ def generateCylindricalFibers(phase, rve_dims, descriptors):
                 descriptors,
                 phase,
                 rve_dims,
-                n_samples=descriptors['n'])
+                n_samples=descriptors["n"],
+            )
         r = canonicalParametersDisk(samples, rve_dims)
-        for i in range(descriptors['n']):
-            fibers.append(CylindricalFiber(phase, r[i], descriptors['direction'], rve_dims))
-    elif 'vf' in descriptors and 'n' not in descriptors:
-    # The desired volume fraction was specfied
-        phase.spec_volume_fraction = descriptors['vf']
+        for i in range(descriptors["n"]):
+            fibers.append(
+                CylindricalFiber(phase, r[i], descriptors["direction"], rve_dims)
+            )
+    elif "vf" in descriptors and "n" not in descriptors:
+        # The desired volume fraction was specfied
+        phase.spec_volume_fraction = descriptors["vf"]
         # Collecting the specified volume fraction
         current_sample = {}
         # Initializing the dictionary containing the samples for each parameter used
         vf_real = 0
         # Initializing the real volume fraction
-        while vf_real < descriptors['vf']:
+        while vf_real < descriptors["vf"]:
             for i_parameter in used_parameters:
                 current_sample[i_parameter] = generateSampleParameter(
                     i_parameter,
                     CylindricalFiber.possible_parameter[i_parameter],
                     descriptors,
                     phase,
-                    rve_dims)
+                    rve_dims,
+                )
             r = canonicalParametersDisk(current_sample, rve_dims)
-            fibers.append(CylindricalFiber(phase, r, descriptors['direction'], rve_dims))
-            vf_real += fibers[-1].volume()/(rve_dims[0]*rve_dims[1])
-    elif 'vf' in descriptors and 'n' in descriptors:
-        phase.spec_volume_fraction = descriptors['vf']
-        phase.spec_number = descriptors['n']
+            fibers.append(
+                CylindricalFiber(phase, r, descriptors["direction"], rve_dims)
+            )
+            vf_real += fibers[-1].volume() / (rve_dims[0] * rve_dims[1])
+    elif "vf" in descriptors and "n" in descriptors:
+        phase.spec_volume_fraction = descriptors["vf"]
+        phase.spec_number = descriptors["n"]
         # Collecting the specified volume fraction and number of particles
         samples = {}
         # Initializing the dictionary containing the samples for each parameter used
@@ -917,10 +1120,13 @@ def generateCylindricalFibers(phase, rve_dims, descriptors):
                 descriptors,
                 phase,
                 rve_dims,
-                n_samples=descriptors['n'])
+                n_samples=descriptors["n"],
+            )
         r = canonicalParametersDisk(samples, rve_dims)
-        for i in range(descriptors['n']):
-            fibers.append(CylindricalFiber(phase, r, descriptors['direction'], rve_dims))
+        for i in range(descriptors["n"]):
+            fibers.append(
+                CylindricalFiber(phase, r, descriptors["direction"], rve_dims)
+            )
 
     return fibers
 
@@ -942,33 +1148,33 @@ def generateInitialConfiguration(particles, type_init_conf, **kwargs):
         number of particles.
 
     """
-    if type_init_conf == 'random':
-    # Random configuration for the particle centers and the zero velocity
+    if type_init_conf == "random":
+        # Random configuration for the particle centers and the zero velocity
         # np.random.seed(42)
         k = 0
         for i_particle in particles:
             k += 1
-        # Running through all the particles
+            # Running through all the particles
             i_particle.setPositionCenter(
-                Particle.box*np.random.uniform(size=i_particle.dim))
+                Particle.box * np.random.uniform(size=i_particle.dim)
+            )
             # Generating the positions from a random uniform distribution between 0 and 1
-            i_particle.setVelocityCenter(
-                np.zeros((i_particle.dim)))
+            i_particle.setVelocityCenter(np.zeros((i_particle.dim)))
             # Generating the velocities from a random uniform distribution between -1 and 1
             i_particle.position_center_history = [i_particle.position_center.flatten()]
             # Saving initial configuration
-    elif type_init_conf == 'grid':
-    # Particles randomly assigned to a place in a grid constructed to have an equal number
-    # of cells in each direction and a total number of cells larger than the number of
-    # particles
+    elif type_init_conf == "grid":
+        # Particles randomly assigned to a place in a grid constructed to have an equal number
+        # of cells in each direction and a total number of cells larger than the number of
+        # particles
         if particles[0].dim == 3:
             n_cells_side = np.int(np.ceil(np.cbrt(len(particles))))
             # Number of cells in each direction
-            cell_length = Particle.box/n_cells_side
+            cell_length = Particle.box / n_cells_side
             # Length of the cells in each direction
             k_counter = 0
             # Initializing the counter
-            grid_places = np.arange(n_cells_side**3)
+            grid_places = np.arange(n_cells_side ** 3)
             # Label of each grid place
             np.random.shuffle(grid_places)
             # Distributing the particles randomly to different cells of the grid
@@ -976,119 +1182,161 @@ def generateInitialConfiguration(particles, type_init_conf, **kwargs):
                 for k in range(n_cells_side):
                     for l in range(n_cells_side):
                         if grid_places[k_counter] < len(particles):
-                            particles[grid_places[k_counter]].setPositionCenter(np.array(
-                                [j*cell_length[0]+cell_length[0]/2,
-                                 k*cell_length[1]+cell_length[1]/2,
-                                 l*cell_length[2]+cell_length[2]/2]))
+                            particles[grid_places[k_counter]].setPositionCenter(
+                                np.array(
+                                    [
+                                        j * cell_length[0] + cell_length[0] / 2,
+                                        k * cell_length[1] + cell_length[1] / 2,
+                                        l * cell_length[2] + cell_length[2] / 2,
+                                    ]
+                                )
+                            )
                             # Gene<><rating the positions from a random uniform distribution
                             # between 0 and 1
                             particles[grid_places[k_counter]].setVelocityCenter(
-                                np.random.uniform(low=0.01, high=0.6, size=3))
+                                np.random.uniform(low=0.01, high=0.6, size=3)
+                            )
                             # Generating the velocities from a random uniform distribution
                             # between -1 and 1
-                            particles[grid_places[k_counter]].position_center_history = [
-                                particles[grid_places[k_counter]].position_center.flatten()]
+                            particles[
+                                grid_places[k_counter]
+                            ].position_center_history = [
+                                particles[
+                                    grid_places[k_counter]
+                                ].position_center.flatten()
+                            ]
                             # Saving particle history
                         k_counter += 1
         elif particles[0].dim == 2:
             n_cells_side = np.int(np.ceil(np.sqrt(len(particles))))
             # Number of cells in each direction
-            cell_length = Particle.box/n_cells_side
+            cell_length = Particle.box / n_cells_side
             # Length of the cells in each direction
             k_counter = 0
             # Initializing the counter
-            grid_places = np.arange(n_cells_side**2)
+            grid_places = np.arange(n_cells_side ** 2)
             # Label of each grid place
             np.random.shuffle(grid_places)
             # Distributing the particles randomly to different cells of the grid
             for j in range(n_cells_side):
                 for k in range(n_cells_side):
                     if grid_places[k_counter] < len(particles):
-                        particles[grid_places[k_counter]].setPositionCenter(np.array(
-                            [j*cell_length[0]+cell_length[0]/2,
-                             k*cell_length[1]+cell_length[1]/2]))
+                        particles[grid_places[k_counter]].setPositionCenter(
+                            np.array(
+                                [
+                                    j * cell_length[0] + cell_length[0] / 2,
+                                    k * cell_length[1] + cell_length[1] / 2,
+                                ]
+                            )
+                        )
                         # Gene<><rating the positions from a random uniform distribution between 0 and 1
                         particles[grid_places[k_counter]].setVelocityCenter(
-                            np.random.uniform(low=0.01, high=0.6, size=2))  # np.array([0,0],dtype='float')
+                            np.random.uniform(low=0.01, high=0.6, size=2)
+                        )  # np.array([0,0],dtype='float')
                         # Generating the velocities from a random uniform distribution between -1 and 1
                         particles[grid_places[k_counter]].position_center_history = [
-                            particles[grid_places[k_counter]].position_center.flatten()]
+                            particles[grid_places[k_counter]].position_center.flatten()
+                        ]
                         # Saving particle history
                     k_counter += 1
     elif type_init_conf == "fcc":
         center_points = np.array(
-            [[0, 0, 0],
-             [1, 0, 0],
-             [0, 1, 0],
-             [1, 1, 0],
-             [0.5, 0.5, 0],
-             [0.5, 0, 0.5],
-            [0.5, 1, 0.5],
-            [0, 0.5, 0.5],
-            [1, 0.5, 0.5],
-            [0, 0, 1],
-             [1, 0, 1],
-             [0, 1, 1],
-             [1, 1, 1],
-             [0.5, 0.5, 1],
-             [0, 2, 0],
-             [1, 2, 0],
-             [0.5, 1.5, 0],
-            [0.5, 2, 0.5],
-            [0, 1.5, 0.5],
-            [1, 1.5, 0.5],
-             [0, 2, 1],
-             [1, 2, 1],
-             [0.5, 1.5, 1]
-            ])
+            [
+                [0, 0, 0],
+                [1, 0, 0],
+                [0, 1, 0],
+                [1, 1, 0],
+                [0.5, 0.5, 0],
+                [0.5, 0, 0.5],
+                [0.5, 1, 0.5],
+                [0, 0.5, 0.5],
+                [1, 0.5, 0.5],
+                [0, 0, 1],
+                [1, 0, 1],
+                [0, 1, 1],
+                [1, 1, 1],
+                [0.5, 0.5, 1],
+                [0, 2, 0],
+                [1, 2, 0],
+                [0.5, 1.5, 0],
+                [0.5, 2, 0.5],
+                [0, 1.5, 0.5],
+                [1, 1.5, 0.5],
+                [0, 2, 1],
+                [1, 2, 1],
+                [0.5, 1.5, 1],
+            ]
+        )
         k = 0
         for i_particle in particles:
-        # Running through all the particles
-            i_particle.setPositionCenter(center_points[k]/2) #np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
+            # Running through all the particles
+            i_particle.setPositionCenter(
+                center_points[k] / 2
+            )  # np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
             # Generating the positions from a random uniform distribution between 0 and 1
-            i_particle.setVelocityCenter(np.zeros((i_particle.dim))) #np.array([0,0],dtype='float')
+            i_particle.setVelocityCenter(
+                np.zeros((i_particle.dim))
+            )  # np.array([0,0],dtype='float')
             # Generating the velocities from a random uniform distribution between -1 and 1
-            if kwargs.get('save_history'):
-            # Saving particle history
-                i_particle.position_center_history = [i_particle.position_center.flatten()]
+            if kwargs.get("save_history"):
+                # Saving particle history
+                i_particle.position_center_history = [
+                    i_particle.position_center.flatten()
+                ]
             k += 1
-    elif type_init_conf == 'overlap':
+    elif type_init_conf == "overlap":
         k = 0
         for i_particle in particles:
-        # Running through all the particles
+            # Running through all the particles
             # i_particle.setPositionCenter(np.array([0.5 + 2*k*0.01, 0.5])) # Particle.box*np.random.uniform(size=i_particle.dim)) #np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
             # # Generating the positions from a random uniform distribution between 0 and 1
             # i_particle.setVelocityCenter(np.array([1e-4 - 2*k*1e-4, 0])) #np.array([0,0],dtype='float')
-            i_particle.setPositionCenter(np.array([0.5, 0.5])) # Particle.box*np.random.uniform(size=i_particle.dim)) #np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
+            i_particle.setPositionCenter(
+                np.array([0.5, 0.5])
+            )  # Particle.box*np.random.uniform(size=i_particle.dim)) #np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
             # Generating the positions from a random uniform distribution between 0 and 1
-            i_particle.setVelocityCenter(np.array([0, 0])) #np.array([0,0],dtype='float')
+            i_particle.setVelocityCenter(
+                np.array([0, 0])
+            )  # np.array([0,0],dtype='float')
             # Generating the velocities from a random uniform distribution between -1 and 1
-            if kwargs.get('save_history'):
-            # Saving particle history
-                i_particle.position_center_history = [i_particle.position_center.flatten()]
+            if kwargs.get("save_history"):
+                # Saving particle history
+                i_particle.position_center_history = [
+                    i_particle.position_center.flatten()
+                ]
             k += 1
-    elif type_init_conf == 'custom':
+    elif type_init_conf == "custom":
         path = "/home/zeluis/Documents/Tese/programa/studies/thermostats/minkowski/artificial_2D/ord.txt"
         positions = np.loadtxt(path)
         for ind, i_particle in enumerate(particles):
             # Particle.box*np.random.uniform(size=i_particle.dim)) #np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
-            i_particle.setPositionCenter(positions[ind, 0:2]/500)
+            i_particle.setPositionCenter(positions[ind, 0:2] / 500)
             # Generating the positions from a random uniform distribution between 0 and 1
-            i_particle.setVelocityCenter(np.array([0, 0])) #np.array([0,0],dtype='float')
+            i_particle.setVelocityCenter(
+                np.array([0, 0])
+            )  # np.array([0,0],dtype='float')
             # Generating the velocities from a random uniform distribution between -1 and 1
-            if kwargs.get('save_history'):
-            # Saving particle history
-                i_particle.position_center_history = [i_particle.position_center.flatten()]
-    elif type_init_conf == 'adjacent':
+            if kwargs.get("save_history"):
+                # Saving particle history
+                i_particle.position_center_history = [
+                    i_particle.position_center.flatten()
+                ]
+    elif type_init_conf == "adjacent":
         k = 0
         for i_particle in particles:
-        # Running through all the particles
-            i_particle.setPositionCenter(np.array([0.1, 0.1, 0.01 + k*0.98])) # Particle.box*np.random.uniform(size=i_particle.dim)) #np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
+            # Running through all the particles
+            i_particle.setPositionCenter(
+                np.array([0.1, 0.1, 0.01 + k * 0.98])
+            )  # Particle.box*np.random.uniform(size=i_particle.dim)) #np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
             # Generating the positions from a random uniform distribution between 0 and 1
-            i_particle.setVelocityCenter(np.array([0, 0, 0])) #np.array([0,0],dtype='float')
-            if kwargs.get('save_history'):
-            # Saving particle history
-                i_particle.position_center_history = [i_particle.position_center.flatten()]
+            i_particle.setVelocityCenter(
+                np.array([0, 0, 0])
+            )  # np.array([0,0],dtype='float')
+            if kwargs.get("save_history"):
+                # Saving particle history
+                i_particle.position_center_history = [
+                    i_particle.position_center.flatten()
+                ]
             k += 1
     else:
         try:
@@ -1098,187 +1346,228 @@ def generateInitialConfiguration(particles, type_init_conf, **kwargs):
             quit()
 
 
-def generateSampleParameter(parameter, parameter_name, descriptors, phase, rve_dims,
-                            n_samples=1, max_sample=100):
+def generateSampleParameter(
+    parameter, parameter_name, descriptors, phase, rve_dims, n_samples=1, max_sample=100
+):
     """Generate a sample of values for *parameter* according to descriptors"""
-    size_geom_param = {'r', 'major_axis', 'minor_axis', 'axis_1', 'axis_2', 'axis_3'}
+    size_geom_param = {"r", "major_axis", "minor_axis", "axis_1", "axis_2", "axis_3"}
     # Geometrical parameters related to the size of the particle that must larger than
     # ans smaller than half the size of the smallest dimension of the RVE
-    if descriptors.get(parameter + '_distribution') == 'uniform':
-    # the radius follows a uniform distribution
+    if descriptors.get(parameter + "_distribution") == "uniform":
+        # the radius follows a uniform distribution
         try:
-            if parameter + '_low' not in descriptors:
-            # Checking if the  lower bound was supplied
-                raise errors.ParameterMissing(parameter + '_low', phase.type)
-            elif parameter + '_high' not in descriptors:
-            # Checking if the upper bound was supplied
-                raise errors.ParameterMissing(parameter + '_high', phase.type)
-            elif descriptors[parameter + '_low'] >= descriptors[parameter + '_high']:
-            # Checking if the lower bound is smaller than the upper bound
+            if parameter + "_low" not in descriptors:
+                # Checking if the  lower bound was supplied
+                raise errors.ParameterMissing(parameter + "_low", phase.type)
+            elif parameter + "_high" not in descriptors:
+                # Checking if the upper bound was supplied
+                raise errors.ParameterMissing(parameter + "_high", phase.type)
+            elif descriptors[parameter + "_low"] >= descriptors[parameter + "_high"]:
+                # Checking if the lower bound is smaller than the upper bound
                 raise errors.UnexpectedValue(
-                    descriptors[parameter + '_low'], '{0}_low of phase {1}'.format(
-                     parameter, phase.type),
-                    'smaller than ' + parameter + '_high: {0}'.format(
-                     descriptors[parameter + '_high']))
+                    descriptors[parameter + "_low"],
+                    "{0}_low of phase {1}".format(parameter, phase.type),
+                    "smaller than "
+                    + parameter
+                    + "_high: {0}".format(descriptors[parameter + "_high"]),
+                )
         except (errors.ParameterMissing, errors.UnexpectedValue) as error:
-        # One of the parameters is missing
+            # One of the parameters is missing
             error.message()
             quit()
             # Printing message and aborting
         try:
             if parameter in size_geom_param:
-            # Checking if the parameter is a size parameter
+                # Checking if the parameter is a size parameter
                 if descriptors[parameter + "_low"] < 0:
-                # Ensuring that it will not produce values smaller than 0
+                    # Ensuring that it will not produce values smaller than 0
                     raise errors.UnexpectedValue(
-                        descriptors[parameter + '_low'], '{0}_low of phase {1}'.format(
-                         parameter, phase),
-                        'larger than 0')
-                elif descriptors[parameter + "_high"] > np.min(rve_dims)/2:
-                # Ensuring that it will not produce values larger than half the size of the
-                # smallest dimension of the RVE
+                        descriptors[parameter + "_low"],
+                        "{0}_low of phase {1}".format(parameter, phase),
+                        "larger than 0",
+                    )
+                elif descriptors[parameter + "_high"] > np.min(rve_dims) / 2:
+                    # Ensuring that it will not produce values larger than half the size of the
+                    # smallest dimension of the RVE
                     raise errors.UnexpectedValue(
-                        descriptors[parameter + '_high'], '{0}_high of phase {1}'.format(
-                         parameter, phase),
-                        'smaller than half the smallest dimension of the RVE: {0}'.format(
-                         np.min(rve_dims)/2))
+                        descriptors[parameter + "_high"],
+                        "{0}_high of phase {1}".format(parameter, phase),
+                        "smaller than half the smallest dimension of the RVE: {0}".format(
+                            np.min(rve_dims) / 2
+                        ),
+                    )
         except errors.UnexpectedValue as error:
             error.message()
             quit()
-        phase.addGeomParameter(parameter_name, 'Uniform',
-                               [('Lower bound', descriptors[parameter + '_low']),
-                               ('Upper bound', descriptors[parameter + '_high'])])
-        sample = np.random.uniform(low=descriptors[parameter + '_low'],
-                                   high=descriptors[parameter + '_high'],
-                                   size=n_samples)
-    elif descriptors.get(parameter + '_distribution') == 'normal':
-    # the radius follows a normal distribution: the paramaters 'r_sigma', the standard
-    # deviation of the distribution and 'r_mean', the mean of the distribution, are needed
+        phase.addGeomParameter(
+            parameter_name,
+            "Uniform",
+            [
+                ("Lower bound", descriptors[parameter + "_low"]),
+                ("Upper bound", descriptors[parameter + "_high"]),
+            ],
+        )
+        sample = np.random.uniform(
+            low=descriptors[parameter + "_low"],
+            high=descriptors[parameter + "_high"],
+            size=n_samples,
+        )
+    elif descriptors.get(parameter + "_distribution") == "normal":
+        # the radius follows a normal distribution: the paramaters 'r_sigma', the standard
+        # deviation of the distribution and 'r_mean', the mean of the distribution, are needed
         try:
-            if parameter + '_sigma' not in descriptors:
-                raise errors.ParameterMissing(parameter + '_sigma', phase)
-            elif parameter + '_mean' not in descriptors:
-                raise errors.ParameterMissing(parameter + '_mean', phase)
+            if parameter + "_sigma" not in descriptors:
+                raise errors.ParameterMissing(parameter + "_sigma", phase)
+            elif parameter + "_mean" not in descriptors:
+                raise errors.ParameterMissing(parameter + "_mean", phase)
         except errors.ParameterMissing as error:
-        # One of the parameters is missing
+            # One of the parameters is missing
             error.message()
             quit()
             # Printing message and aborting
         try:
             if parameter in size_geom_param:
-            # Geometric size parameters
-                low_25_prob = descriptors[parameter + '_mean'] - \
-                    2*descriptors[parameter + '_sigma']
+                # Geometric size parameters
+                low_25_prob = (
+                    descriptors[parameter + "_mean"]
+                    - 2 * descriptors[parameter + "_sigma"]
+                )
                 # Upper bound of tail with 2.5% probability
-                high_25_prob = descriptors[parameter + '_mean'] + \
-                    2*descriptors[parameter + '_sigma']
+                high_25_prob = (
+                    descriptors[parameter + "_mean"]
+                    + 2 * descriptors[parameter + "_sigma"]
+                )
                 # Lower bound of tail with 2.5% probability
                 if low_25_prob < 0:
-                # Ensuring that the probability of generating a value smaller than 0 is
-                # not greater than 2.5%
-                    raise errors.DangerousValueNormal(parameter, phase, 'low')
-                elif high_25_prob > np.min(rve_dims)/2:
-                # Ensuring that the probability of generating a value larger than half the
-                # size of the smallest dimension of the RVE is not greater than 2.5%
-                    raise errors.DangerousValueNormal(parameter, phase, 'high')
+                    # Ensuring that the probability of generating a value smaller than 0 is
+                    # not greater than 2.5%
+                    raise errors.DangerousValueNormal(parameter, phase, "low")
+                elif high_25_prob > np.min(rve_dims) / 2:
+                    # Ensuring that the probability of generating a value larger than half the
+                    # size of the smallest dimension of the RVE is not greater than 2.5%
+                    raise errors.DangerousValueNormal(parameter, phase, "high")
         except errors.DangerousValueNormal as error:
             error.message()
             quit()
         k_sample = 0
         acceptable_values = False
         while k_sample < max_sample and not acceptable_values:
-            phase.addGeomParameter(parameter_name, 'Normal',
-                               [('Mean', descriptors[parameter + '_mean']),
-                               ('Std Var', descriptors[parameter + '_sigma'])])
-            sample = np.random.normal(loc=descriptors[parameter + '_mean'],
-                                      scale=descriptors[parameter + '_sigma'],
-                                      size=n_samples)
+            phase.addGeomParameter(
+                parameter_name,
+                "Normal",
+                [
+                    ("Mean", descriptors[parameter + "_mean"]),
+                    ("Std Var", descriptors[parameter + "_sigma"]),
+                ],
+            )
+            sample = np.random.normal(
+                loc=descriptors[parameter + "_mean"],
+                scale=descriptors[parameter + "_sigma"],
+                size=n_samples,
+            )
             # Generate a sample
             if parameter in size_geom_param:
-            # Geometric size parameters
-                if all([(i_sample > 0 and i_sample <= np.min(rve_dims)/2)
-                       for i_sample in sample]):
-                # All the values for the geometric size parameters are acceptable
+                # Geometric size parameters
+                if all(
+                    [
+                        (i_sample > 0 and i_sample <= np.min(rve_dims) / 2)
+                        for i_sample in sample
+                    ]
+                ):
+                    # All the values for the geometric size parameters are acceptable
                     acceptable_values = True
             else:
-            # Other parameters
+                # Other parameters
                 acceptable_values = True
                 # Any sample is acceptable
             k_sample += 1
         try:
             if not acceptable_values:
-            # No acceptable sample was generated
+                # No acceptable sample was generated
                 raise errors.UnableToGenerateSample(parameter, phase, max_sample)
         except errors.UnableToGenerateSample as error:
             error.message()
             quit()
-    elif descriptors.get(parameter + '_distribution') == 'discrete':
-    # the radius follows a discrete distribution
+    elif descriptors.get(parameter + "_distribution") == "discrete":
+        # the radius follows a discrete distribution
         values = []
         probabilities = []
         # Initializing the lists containing the values and corresponding probabilities that
         # characterize the discrete distribution required
         for i_descriptor in descriptors:
-            if i_descriptor.startswith(parameter + '_value'):
+            if i_descriptor.startswith(parameter + "_value"):
                 try:
                     if parameter in size_geom_param:
-                    # Checking if the parameter is a size parameter
+                        # Checking if the parameter is a size parameter
                         if descriptors[i_descriptor] < 0:
-                        # Ensuring that it will not produce values smaller than 0
+                            # Ensuring that it will not produce values smaller than 0
                             raise errors.UnexpectedValue(
-                                descriptors[i_descriptor], '{0} of phase {1}'.format(
-                                 i_descriptor, phase),
-                                'larger than 0')
-                        elif descriptors[i_descriptor] > np.min(rve_dims)/2:
-                        # Ensuring that it will not produce values larger than half the size
-                        # of the smallest dimension of the RVE
+                                descriptors[i_descriptor],
+                                "{0} of phase {1}".format(i_descriptor, phase),
+                                "larger than 0",
+                            )
+                        elif descriptors[i_descriptor] > np.min(rve_dims) / 2:
+                            # Ensuring that it will not produce values larger than half the size
+                            # of the smallest dimension of the RVE
                             raise errors.UnexpectedValue(
-                                descriptors[i_descriptor], '{0} of phase {1}'.format(
-                                 i_descriptor, phase),
-                                'smaller than half the smallest dimension'
-                                + 'of the RVE: {0}'.format(np.min(rve_dims)/2))
+                                descriptors[i_descriptor],
+                                "{0} of phase {1}".format(i_descriptor, phase),
+                                "smaller than half the smallest dimension"
+                                + "of the RVE: {0}".format(np.min(rve_dims) / 2),
+                            )
                 except errors.UnexpectedValue as error:
                     error.message()
                     quit()
                 values.append(descriptors[i_descriptor])
                 # Save the value
                 try:
-                    if parameter + '_prob_' + i_descriptor[-1] not in descriptors:
-                        raise errors.ParameterMissing(parameter + '_prob_'
-                                                      + i_descriptor[-1], phase)
-                    probabilities.append(descriptors[parameter + '_prob_'
-                                         + i_descriptor[-1]])
+                    if parameter + "_prob_" + i_descriptor[-1] not in descriptors:
+                        raise errors.ParameterMissing(
+                            parameter + "_prob_" + i_descriptor[-1], phase
+                        )
+                    probabilities.append(
+                        descriptors[parameter + "_prob_" + i_descriptor[-1]]
+                    )
                 except errors.ParameterMissing as error:
                     error.message()
                     quit()
         if len(values) == 0:
-        # There are no values for the radius parameter
+            # There are no values for the radius parameter
             try:
-                raise errors.ParameterMissing(parameter + 'value_1', phase)
+                raise errors.ParameterMissing(parameter + "value_1", phase)
             except errors.ParameterMissing as error:
                 error.message()
                 quit()
         elif np.abs(np.sum(probabilities) - 1) > 0.01:
-        # The probabilities do not add up to 100%
+            # The probabilities do not add up to 100%
             try:
-                raise errors.ParameterErrorDiscreteProb('r_1', phase)
+                raise errors.ParameterErrorDiscreteProb("r_1", phase)
             except errors.ParameterMissing as error:
                 error.message()
                 quit()
-        value_prob_pairs = [[('Value {0}'.format(ind+1), val), ('Proability {0}'.format(ind+1), prob)] for (ind, val), prob in zip(enumerate(values),probabilities)]
-        value_prob_pairs_flat = [item for sublist in value_prob_pairs for item in sublist]
-        phase.addGeomParameter(parameter_name, 'Discrete', value_prob_pairs_flat)
+        value_prob_pairs = [
+            [
+                ("Value {0}".format(ind + 1), val),
+                ("Proability {0}".format(ind + 1), prob),
+            ]
+            for (ind, val), prob in zip(enumerate(values), probabilities)
+        ]
+        value_prob_pairs_flat = [
+            item for sublist in value_prob_pairs for item in sublist
+        ]
+        phase.addGeomParameter(parameter_name, "Discrete", value_prob_pairs_flat)
         sample = np.random.choice(values, n_samples, p=probabilities)
-    elif parameter + '_distribution' in descriptors:
-    # A distribution was specified but it is not supported
+    elif parameter + "_distribution" in descriptors:
+        # A distribution was specified but it is not supported
         try:
             raise errors.UnsupportedDistribution(
-                descriptors[parameter + '_distribution'], parameter, phase)
+                descriptors[parameter + "_distribution"], parameter, phase
+            )
         except errors.UnsupportedDistribution as error:
             error.message()
             quit()
     else:
-    # A single value was specified
+        # A single value was specified
         try:
             if parameter not in descriptors:
                 raise errors.ParameterMissing(parameter, phase)
@@ -1287,27 +1576,31 @@ def generateSampleParameter(parameter, parameter_name, descriptors, phase, rve_d
             quit()
         try:
             if parameter in size_geom_param:
-            # Checking if the parameter is a size parameter
+                # Checking if the parameter is a size parameter
                 if descriptors[parameter] < 0:
-                # Ensuring that it will not produce values smaller than 0
+                    # Ensuring that it will not produce values smaller than 0
                     raise errors.UnexpectedValue(
-                        descriptors[parameter], '{0} of phase {1}'.format(
-                         parameter, phase),
-                        'larger than 0')
-                elif descriptors[parameter] > np.min(rve_dims)/2:
-                # Ensuring that it will not produce values larger than half the size of the
-                # smallest dimension of the RVE
+                        descriptors[parameter],
+                        "{0} of phase {1}".format(parameter, phase),
+                        "larger than 0",
+                    )
+                elif descriptors[parameter] > np.min(rve_dims) / 2:
+                    # Ensuring that it will not produce values larger than half the size of the
+                    # smallest dimension of the RVE
                     raise errors.UnexpectedValue(
-                        descriptors[parameter], '{0} of phase {1}'.format(
-                         parameter, phase),
-                        'smaller than half the smallest dimension of the RVE: {0}'.format(
-                         np.min(rve_dims)/2))
+                        descriptors[parameter],
+                        "{0} of phase {1}".format(parameter, phase),
+                        "smaller than half the smallest dimension of the RVE: {0}".format(
+                            np.min(rve_dims) / 2
+                        ),
+                    )
         except errors.UnexpectedValue as error:
             error.message()
             quit()
-        if parameter != 'n' and parameter != 'vf':
-            phase.addGeomParameter(parameter_name, 'Fixed',
-                                   ('Value', descriptors[parameter]))
+        if parameter != "n" and parameter != "vf":
+            phase.addGeomParameter(
+                parameter_name, "Fixed", ("Value", descriptors[parameter])
+            )
         sample = np.full((n_samples), descriptors[parameter])
 
     return sample
@@ -1315,93 +1608,122 @@ def generateSampleParameter(parameter, parameter_name, descriptors, phase, rve_d
 
 def canonicalParametersEllipse(sample, rve_dims):
     """Convert the paramters in *sample* to *major_axis*, *minor_axis* and *angle*."""
-    if 'major_axis' in sample and 'minor_axis' in sample:
-    # Both major and minor axis were supplied
-        major_axis = np.max([sample['major_axis'], sample['minor_axis']], axis=0)
-        minor_axis = np.min([sample['major_axis'], sample['minor_axis']], axis=0)
+    if "major_axis" in sample and "minor_axis" in sample:
+        # Both major and minor axis were supplied
+        major_axis = np.max([sample["major_axis"], sample["minor_axis"]], axis=0)
+        minor_axis = np.min([sample["major_axis"], sample["minor_axis"]], axis=0)
         # Ensuring that the major axis is greater than the minor axis
-    elif 'major_axis' in sample and 'vf' in sample and 'n' in sample:
-    # The major_axis, the volume faction and the number of particles were supplied
-        volume_part = sample['vf'][0]*rve_dims[0]*rve_dims[1]/sample['n'][0]
-        aux_minor_axis = volume_part/(np.pi*sample['major_axis']*1/4)
+    elif "major_axis" in sample and "vf" in sample and "n" in sample:
+        # The major_axis, the volume faction and the number of particles were supplied
+        volume_part = sample["vf"][0] * rve_dims[0] * rve_dims[1] / sample["n"][0]
+        aux_minor_axis = volume_part / (np.pi * sample["major_axis"] * 1 / 4)
         # Minor axis computed assuming that all particles have the same area
-        major_axis = np.max([sample['major_axis'], aux_minor_axis], axis=0)
-        minor_axis = np.min([sample['major_axis'], aux_minor_axis], axis=0)
+        major_axis = np.max([sample["major_axis"], aux_minor_axis], axis=0)
+        minor_axis = np.min([sample["major_axis"], aux_minor_axis], axis=0)
         # Ensuring that the major axis is greater than the minor axis
     # FIXME: Warnign that all particles will have the same volume
-    elif 'minor_axis' in sample and 'vf' in sample and 'n' in sample:
-    # The minor axis, the volume faction and the number of particles were supplied
-        volume_part = sample['vf'][0]*rve_dims[0]*rve_dims[1]/sample['n'][0]
-        aux_major_axis = volume_part/(np.pi*sample['minor_axis']*1/4)
+    elif "minor_axis" in sample and "vf" in sample and "n" in sample:
+        # The minor axis, the volume faction and the number of particles were supplied
+        volume_part = sample["vf"][0] * rve_dims[0] * rve_dims[1] / sample["n"][0]
+        aux_major_axis = volume_part / (np.pi * sample["minor_axis"] * 1 / 4)
         # Minor axis computed assuming that all particles have the same area
-        major_axis = np.max([aux_major_axis, sample['minor_axis']], axis=0)
-        minor_axis = np.min([aux_major_axis, sample['minor_axis']], axis=0)
+        major_axis = np.max([aux_major_axis, sample["minor_axis"]], axis=0)
+        minor_axis = np.min([aux_major_axis, sample["minor_axis"]], axis=0)
         # Ensuring that the major axis is greater than the minor axis
-    elif 'ratio' in sample and 'vf' in sample and 'n' in sample:
-        volume_part = sample['vf'][0]*rve_dims[0]*rve_dims[1]/sample['n'][0]
-        minor_axis = np.sqrt(volume_part/(np.pi*sample['ratio']*1/4))
-        major_axis = sample['ratio']*minor_axis
-    if 'angle' in sample:
-        angle = sample['angle']
+    elif "ratio" in sample and "vf" in sample and "n" in sample:
+        volume_part = sample["vf"][0] * rve_dims[0] * rve_dims[1] / sample["n"][0]
+        minor_axis = np.sqrt(volume_part / (np.pi * sample["ratio"] * 1 / 4))
+        major_axis = sample["ratio"] * minor_axis
+    if "angle" in sample:
+        angle = sample["angle"]
 
     return [major_axis, minor_axis, angle]
 
 
 def canonicalParametersDisk(sample, rve_dims):
     """Convert the paramters in *sample* to *r*."""
-    if 'r' in sample:
-    # The radius was supplied
-        r = sample['r']
-    elif 'area' in sample:
-    # The area of each particle was supplied
-        r = np.sqrt(sample['area']/np.pi)
-    elif 'vf' in sample and 'n' in sample:
-    # Both the volume fraction and the number of particles was supplied
-        area = sample['vf'][0]*rve_dims[0]*rve_dims[1]/sample['n'][0]
+    if "r" in sample:
+        # The radius was supplied
+        r = sample["r"]
+    elif "area" in sample:
+        # The area of each particle was supplied
+        r = np.sqrt(sample["area"] / np.pi)
+    elif "vf" in sample and "n" in sample:
+        # Both the volume fraction and the number of particles was supplied
+        area = sample["vf"][0] * rve_dims[0] * rve_dims[1] / sample["n"][0]
         # Area of each particle (all the same)
-        r = np.sqrt(area/np.pi)
+        r = np.sqrt(area / np.pi)
     return r
 
 
 def canonicalParametersSphere(sample, rve_dims):
     """Convert the parameters in *sample* to *r* characterizing a sphere."""
-    if 'r' in sample:
-    # The radius was supplied
-        r = sample['r']
-    elif 'volume' in sample:
-    # The area of each particle was supplied
-        r = np.cbrt(sample['volume']/(4/3*np.pi))
-    elif 'vf' in sample and 'n' in sample:
-    # Both the volume fraction and the number of particles was supplied
-        volume = sample['vf'][0]*rve_dims[0]*rve_dims[1]*rve_dims[2]/sample['n'][0]
+    if "r" in sample:
+        # The radius was supplied
+        r = sample["r"]
+    elif "volume" in sample:
+        # The area of each particle was supplied
+        r = np.cbrt(sample["volume"] / (4 / 3 * np.pi))
+    elif "vf" in sample and "n" in sample:
+        # Both the volume fraction and the number of particles was supplied
+        volume = (
+            sample["vf"][0] * rve_dims[0] * rve_dims[1] * rve_dims[2] / sample["n"][0]
+        )
         # Area of each particle (all the same)
-        r = np.cbrt(volume/(4/3*np.pi))
+        r = np.cbrt(volume / (4 / 3 * np.pi))
     return r
 
 
 def canonicalParametersEllipsoid(sample, rve_dims):
     """Convert parameters in *sample* to canonical params characterizing an Ellipsoid."""
-    if 'axis_1' in sample and 'axis_2' in sample and 'axis_3':
-    # All axis were supplied
-        axis_1 = sample['axis_1']
-        axis_2 = sample['axis_2']
-        axis_3 = sample['axis_3']
-    if 'ratio_12' in sample and 'ratio_13' in sample and 'vf' in sample and 'n' in sample:
-        volume = sample['vf']*rve_dims[0]*rve_dims[1]*rve_dims[2]/sample['n']
-        axis_1 = np.cbrt(volume*sample['ratio_12']*sample['ratio_13']*8/(np.pi*4/3))
-        axis_2 = axis_1/sample['ratio_12']
-        axis_3 = axis_1/sample['ratio_13']
-        print('axis', axis_1, axis_2, axis_3, 'volume', sample['n']*4/3*axis_1*axis_2*axis_3/8*np.pi, sample['vf'], sample['n'])
-    if 'angle' in sample:
-        angle = sample['angle']
-    if 'rot_axis_comp_x' in sample and 'rot_axis_comp_y' in sample \
-        and 'rot_axis_comp_z' in sample:
-    # Euler angles
-        rot_axis_comp_x = sample['rot_axis_comp_x']
-        rot_axis_comp_y = sample['rot_axis_comp_y']
-        rot_axis_comp_z = sample['rot_axis_comp_z']
+    if "axis_1" in sample and "axis_2" in sample and "axis_3":
+        # All axis were supplied
+        axis_1 = sample["axis_1"]
+        axis_2 = sample["axis_2"]
+        axis_3 = sample["axis_3"]
+    if (
+        "ratio_12" in sample
+        and "ratio_13" in sample
+        and "vf" in sample
+        and "n" in sample
+    ):
+        volume = sample["vf"] * rve_dims[0] * rve_dims[1] * rve_dims[2] / sample["n"]
+        axis_1 = np.cbrt(
+            volume * sample["ratio_12"] * sample["ratio_13"] * 8 / (np.pi * 4 / 3)
+        )
+        axis_2 = axis_1 / sample["ratio_12"]
+        axis_3 = axis_1 / sample["ratio_13"]
+        print(
+            "axis",
+            axis_1,
+            axis_2,
+            axis_3,
+            "volume",
+            sample["n"] * 4 / 3 * axis_1 * axis_2 * axis_3 / 8 * np.pi,
+            sample["vf"],
+            sample["n"],
+        )
+    if "angle" in sample:
+        angle = sample["angle"]
+    if (
+        "rot_axis_comp_x" in sample
+        and "rot_axis_comp_y" in sample
+        and "rot_axis_comp_z" in sample
+    ):
+        # Euler angles
+        rot_axis_comp_x = sample["rot_axis_comp_x"]
+        rot_axis_comp_y = sample["rot_axis_comp_y"]
+        rot_axis_comp_z = sample["rot_axis_comp_z"]
 
-    return [axis_1, axis_2, axis_3, rot_axis_comp_x, rot_axis_comp_y, rot_axis_comp_z, angle]
+    return [
+        axis_1,
+        axis_2,
+        axis_3,
+        rot_axis_comp_x,
+        rot_axis_comp_y,
+        rot_axis_comp_z,
+        angle,
+    ]
 
 
 def createResultsDirectory(particles, dp_dir, remesh=False):
@@ -1422,7 +1744,7 @@ def createResultsDirectory(particles, dp_dir, remesh=False):
     Particle.file_name = "mic"
     # Defining the file name associated with this sampling. The filenames of the particles
     # are always prefixed by mic
-    results_folder = os.path.join(dp_dir,  Particle.file_name)
+    results_folder = os.path.join(dp_dir, Particle.file_name)
     # Creating a tentative path for the results folder
     results_folder_old = results_folder
     # Saving the original name of the results folder
@@ -1435,20 +1757,28 @@ def createResultsDirectory(particles, dp_dir, remesh=False):
         i += 1
         # Increasing the filenam suffix
         if not os.path.exists(results_folder):
-        # Repeat while the folder names already exists
+            # Repeat while the folder names already exists
             break
     os.makedirs(results_folder)
     # Creating the directory
     if os.path.exists("input_data\\info_micro.p") and not remesh:
-        shutil.copy("input_data\\info_micro.p", os.path.join(
-            results_folder, "info_micro.p"))
+        shutil.copy(
+            "input_data\\info_micro.p", os.path.join(results_folder, "info_micro.p")
+        )
         # copying input file
     Particle.file_path = os.path.join(results_folder, Particle.file_name)
     # Saving the file path in the Particle class
 
 
-def particleGeneration(descriptors, phase_types, rve_dims, problem_type, dp_dir,
-                       type_init_conf, save_history=True):
+def particleGeneration(
+    descriptors,
+    phase_types,
+    rve_dims,
+    problem_type,
+    dp_dir,
+    type_init_conf,
+    save_history=True,
+):
     """
     Generate all the particles from the geometrical descriptors.
 
@@ -1490,16 +1820,17 @@ def particleGeneration(descriptors, phase_types, rve_dims, problem_type, dp_dir,
     # made from cylindrical fibers, as their simulated in a plane despite being 3D
     Particle.volume_RVE = np.prod(rve_dims)
     # Volume of the RVE
-    Particle.phases = {i_phase: Phase(
-        i_phase, phase_types[i_phase]) for i_phase in descriptors}
+    Particle.phases = {
+        i_phase: Phase(i_phase, phase_types[i_phase]) for i_phase in descriptors
+    }
     Particle.list_phases = [i_phase for i_phase in descriptors]
     # Dictionary containing the phases
     try:
         if list(phase_types.values()).count(1) == 0:
-        # No matrix phase was specified
+            # No matrix phase was specified
             raise errors.NoMatrixPhase()
         elif list(phase_types.values()).count(1) > 1:
-        # Too many phases were specified as the matrix phase
+            # Too many phases were specified as the matrix phase
             raise errors.TooManyMatrixPhases()
     except (errors.NoMatrixPhase, errors.TooManyMatrixPhases) as error:
         error.message()
@@ -1512,74 +1843,94 @@ def particleGeneration(descriptors, phase_types, rve_dims, problem_type, dp_dir,
     #     # (FIX)
     #     # Setting the dimension
     for i_phase in Particle.phases.values():
-    # Running through all the phases listed in the dictionary
+        # Running through all the phases listed in the dictionary
         try:
             if i_phase.type == 1:
-            # This phase is the matrix
+                # This phase is the matrix
                 Particle.matrix_phase = i_phase.name
                 # No particles are generated
             elif i_phase.type == 2:
-            # This phase is made up by disks
+                # This phase is made up by disks
                 if len(rve_dims) != 2:
-                # The RVE must be 2D
-                    raise errors.IncompatibleDimensionsRVEphase('Disks', 2, 3, i_phase.name)
-                particles = particles + \
-                    generateDisks(i_phase, rve_dims, descriptors[i_phase.name])
+                    # The RVE must be 2D
+                    raise errors.IncompatibleDimensionsRVEphase(
+                        "Disks", 2, 3, i_phase.name
+                    )
+                particles = particles + generateDisks(
+                    i_phase, rve_dims, descriptors[i_phase.name]
+                )
                 # Generating the number of disks requested and appending them to the list of
                 # particles
             elif i_phase.type == 3:
-            # This phase is made up by ellipses
+                # This phase is made up by ellipses
                 if len(rve_dims) != 2:
-                # The RVE must be 2D
-                    raise errors.IncompatibleDimensionsRVEphase('Ellipses', 2, 3, i_phase.name)
-                particles = particles + \
-                    generateEllipses(i_phase, rve_dims, descriptors[i_phase.name])
+                    # The RVE must be 2D
+                    raise errors.IncompatibleDimensionsRVEphase(
+                        "Ellipses", 2, 3, i_phase.name
+                    )
+                particles = particles + generateEllipses(
+                    i_phase, rve_dims, descriptors[i_phase.name]
+                )
                 # Generating the number of ellipses requested and appending them to the list
                 # of particles
             elif i_phase.type == 4:
-            # This phase is made up by spheres
+                # This phase is made up by spheres
                 if len(rve_dims) != 3:
-                # The RVE must be 3D
-                    raise errors.IncompatibleDimensionsRVEphase('Spheres', 3, 2, i_phase.name)
-                particles = particles + \
-                    generateSpheres(i_phase, rve_dims, descriptors[i_phase.name])
+                    # The RVE must be 3D
+                    raise errors.IncompatibleDimensionsRVEphase(
+                        "Spheres", 3, 2, i_phase.name
+                    )
+                particles = particles + generateSpheres(
+                    i_phase, rve_dims, descriptors[i_phase.name]
+                )
                 # Generating the number of spheres requested and appending them to the list
                 # of  particles
             elif i_phase.type == 5:
-            # This phase is made up by ellipsoids
+                # This phase is made up by ellipsoids
                 if len(rve_dims) != 3:
-                # The RVE must be 3D
-                    raise errors.IncompatibleDimensionsRVEphase('Ellipsoids', 3, 2, i_phase.name)
-                particles = particles + \
-                    generateEllipsoids(i_phase, rve_dims, descriptors[i_phase.name])
+                    # The RVE must be 3D
+                    raise errors.IncompatibleDimensionsRVEphase(
+                        "Ellipsoids", 3, 2, i_phase.name
+                    )
+                particles = particles + generateEllipsoids(
+                    i_phase, rve_dims, descriptors[i_phase.name]
+                )
                 # Generating the number of ellipsoids requested and appending them to the
                 # list of particles
             elif i_phase.type == 6:
-            # This phase is made up by cylindrical fibers
+                # This phase is made up by cylindrical fibers
                 if len(rve_dims) != 3:
-                # The RVE must be 3D
+                    # The RVE must be 3D
                     raise errors.IncompatibleDimensionsRVEphase(
-                        'Cylindrical Fibers', 3, 2, i_phase)
-                if any([i_phase.type != 1 and i_phase.type != 6 for i_phase.type in
-                        list(phase_types.values())]):
+                        "Cylindrical Fibers", 3, 2, i_phase
+                    )
+                if any(
+                    [
+                        i_phase.type != 1 and i_phase.type != 6
+                        for i_phase.type in list(phase_types.values())
+                    ]
+                ):
                     raise errors.OnlyCylindricalFibers()
-                particles = particles + \
-                    generateCylindricalFibers(i_phase, rve_dims, descriptors[i_phase.name])
+                particles = particles + generateCylindricalFibers(
+                    i_phase, rve_dims, descriptors[i_phase.name]
+                )
                 # Generating the number of cylindrical fibers requested and appending them
                 # to the list of particles
             else:
                 raise errors.UnsupportedPhaseType(i_phase.type, i_phase.name)
-        except (errors.IncompatibleDimensionsRVEphase,
-                errors.OnlyCylindricalFibers) as error:
+        except (
+            errors.IncompatibleDimensionsRVEphase,
+            errors.OnlyCylindricalFibers,
+        ) as error:
             error.message()
             quit()
 
     print_funcs.printToFile("**PHASE DESCRIPTORS**\n")
     for i_phase in Particle.phases.values():
-    # Running through all the phases to print their info
+        # Running through all the phases to print their info
         i_phase.printSpecDescriptors()
         i_phase.printRealDescriptors()
-    print_funcs.printToFile('='*80)
+    print_funcs.printToFile("=" * 80)
 
     generateInitialConfiguration(particles, type_init_conf, save_history=True)
     # FIXME: save history as option
@@ -1587,6 +1938,7 @@ def particleGeneration(descriptors, phase_types, rve_dims, problem_type, dp_dir,
     createResultsDirectory(particles, dp_dir)
 
     return particles
+
 
 # ==========================================================================================
 
@@ -1707,39 +2059,39 @@ def readDescriptors():
 
     - Gaussian distribution:
     """
-    info_dict = pickle.load(open('input_data\\info_micro.p', 'rb'))
+    info_dict = pickle.load(open("input_data\\info_micro.p", "rb"))
     # Loading the dictionary containing the information about the microstructure and its
     # generation
-    dp_dir = info_dict.get('dp_dir')
+    dp_dir = info_dict.get("dp_dir")
     # Directory where the microstructure spatial discretization file(s) associated
     # with the given design point are to be stored
-    options = info_dict.get('mic_gen_parameters')
+    options = info_dict.get("mic_gen_parameters")
     # An array which contains all the required parameters (or options)
     # for the selected program to generate the microstructure(s) and
     # and associated discretization file(s) of a given design point
-    problem_type = info_dict.get('problem_type')
+    problem_type = info_dict.get("problem_type")
     # Getting the problem type
-    n_dp_samples = info_dict.get('n_dp_samples', 1)
+    n_dp_samples = info_dict.get("n_dp_samples", 1)
     # Number of samples to be generated using the descriptors supplied
     try:
         if not isinstance(n_dp_samples, int) or n_dp_samples < 1:
-        # The number of samples must be an integer larger or equal to 1
+            # The number of samples must be an integer larger or equal to 1
             raise errors.NumberSamples(n_dp_samples)
     except errors.NumberSamples() as error:
         error.message()
         quit()
 
-    descriptors = info_dict.get('mic_gen_descriptors', {})
+    descriptors = info_dict.get("mic_gen_descriptors", {})
     # mic_gen_descriptors_array: dictionary
 
-    phase_types = info_dict.get('phase_types', {})
+    phase_types = info_dict.get("phase_types", {})
     # phase_types: dictionary
     try:
         if set(phase_types.keys()) != set(descriptors.keys()):
-        # There are phases which not have descriptors or a phase type
+            # There are phases which not have descriptors or a phase type
             for phase in descriptors:
                 if phase not in phase_types:
-                # If there is a phase that has descriptors but no phase type
+                    # If there is a phase that has descriptors but no phase type
                     raise errors.PhaseDescriptorsMatch(phase)
     except errors.PhaseDescriptorsMatch as error:
         error.message()
@@ -1747,34 +2099,35 @@ def readDescriptors():
     try:
         for phase in phase_types:
             if not RepresentsInt(phase) or not isinstance(phase, str):
-                raise errors.UnexpectedValue(phase, 'key of phase_types',
-                                             'string containing an integer')
+                raise errors.UnexpectedValue(
+                    phase, "key of phase_types", "string containing an integer"
+                )
     except errors.UnexpectedValue as error:
         error.message()
         quit()
 
-    discret_file_ext = info_dict.get('discret_file_ext', {})
+    discret_file_ext = info_dict.get("discret_file_ext", {})
     # Saving the list containing the meshes required
-    discret_spec_array = info_dict.get('discret_spec_array', {})
+    discret_spec_array = info_dict.get("discret_spec_array", {})
     # Dictionary containing arrays with the specifications for each meash
     for ext in discret_spec_array:
-    # Completing the list of extensions from the specification
+        # Completing the list of extensions from the specification
         if ext not in discret_file_ext:
             discret_file_ext.append(ext)
     try:
         if len(discret_file_ext) == 0:
-        # No mesh was specified
+            # No mesh was specified
             raise errors.NoMesh()
     except errors.NoMesh as error:
         error.message()
         quit()
     try:
         for ext in discret_file_ext:
-        # Check if all the required outputs have a description
+            # Check if all the required outputs have a description
             if ext not in discret_spec_array:
                 raise errors.MissingInfoExtension(ext)
             for spec in discret_spec_array[ext]:
-            # Check if the required extensions specify the bare minimum
+                # Check if the required extensions specify the bare minimum
                 checkMeshSpecs(ext, discret_spec_array[ext])
     except errors.MissingInfoExtension as error:
         error.message()
@@ -1782,27 +2135,39 @@ def readDescriptors():
 
     rve_dims_spec = []
     for ext in discret_file_ext:
-    # Running through the specified meshes
-        rve_dims_spec.append(tuple(discret_spec_array[ext]['rve_dims']))
+        # Running through the specified meshes
+        rve_dims_spec.append(tuple(discret_spec_array[ext]["rve_dims"]))
         # Collecting the RVE dimensions specified
     rve_dims_spec = set(rve_dims_spec)
     # Obtaining the unique RVE size specifications
     if len(rve_dims_spec) > 1:
-    # There are multiple RVE size specifications
-        print_funcs.printToFile('Warning: Different RVE sizes in the mesh specifications.')
+        # There are multiple RVE size specifications
+        print_funcs.printToFile(
+            "Warning: Different RVE sizes in the mesh specifications."
+        )
         rve_dims = np.array(list(rve_dims_spec)[0])
         # Keeping the first
     else:
         rve_dims = np.array(list(rve_dims_spec)[0])
 
-    return [dp_dir, descriptors, phase_types, options, n_dp_samples, rve_dims, problem_type,
-            discret_spec_array, discret_file_ext]
+    return [
+        dp_dir,
+        descriptors,
+        phase_types,
+        options,
+        n_dp_samples,
+        rve_dims,
+        problem_type,
+        discret_spec_array,
+        discret_file_ext,
+    ]
 
 
 def computeRelativeEnergy(particles):
     N = Particle.number
-    norm_force_vec = np.array([np.linalg.norm(particles[i].force)
-                              for i in range(N)], dtype='float')
+    norm_force_vec = np.array(
+        [np.linalg.norm(particles[i].force) for i in range(N)], dtype="float"
+    )
     # Obtaining a list with the norms of the vector forces
     relative_energy = norm_force_vec.dot(norm_force_vec)
     # Computing the relative energy
@@ -1814,8 +2179,12 @@ def computeRelativeEnergy(particles):
 
 def computeKineticEnergy(particles):
     # Obtaining a list with the norms of the vector forces
-    kin_energy = np.sum([i_particle.volume()*np.sum(i_particle.velocity_center**2)
-                        for i_particle in particles])
+    kin_energy = np.sum(
+        [
+            i_particle.volume() * np.sum(i_particle.velocity_center ** 2)
+            for i_particle in particles
+        ]
+    )
     Particle.kinetic_energy_history.append(kin_energy)
     # Saving the kinetic energy
 
@@ -1823,57 +2192,82 @@ def computeKineticEnergy(particles):
 
 
 def forceOutTangentWall(particles, min_distance):
-    tol = 0.5*min_distance
+    tol = 0.5 * min_distance
     if particles[0].dim == 2:
         for i_particle in particles:
             pos = i_particle.position_center
-            if np.abs(i_particle.radius - min_distance - pos[0]) <  tol:
+            if np.abs(i_particle.radius - min_distance - pos[0]) < tol:
                 i_particle.position_center += np.array([1e-2, 0])
-            elif np.abs(pos[0] - Particle.box[0] + i_particle.radius - min_distance) < tol:
+            elif (
+                np.abs(pos[0] - Particle.box[0] + i_particle.radius - min_distance)
+                < tol
+            ):
                 i_particle.position_center += np.array([-1e-2, 0])
-            elif np.abs(i_particle.radius - min_distance - pos[1]) <  tol:
+            elif np.abs(i_particle.radius - min_distance - pos[1]) < tol:
                 i_particle.position_center += np.array([0, 1e-2])
-            elif np.abs(pos[1] - Particle.box[1] + i_particle.radius - min_distance) < tol:
+            elif (
+                np.abs(pos[1] - Particle.box[1] + i_particle.radius - min_distance)
+                < tol
+            ):
                 i_particle.position_center += np.array([0, -1e-2])
     elif particles[0].dim == 3:
         for i_particle in particles:
             pos = i_particle.position_center
-            if np.abs(i_particle.radius - min_distance - pos[0]) <  tol:
+            if np.abs(i_particle.radius - min_distance - pos[0]) < tol:
                 i_particle.position_center += np.array([1e-2, 0, 0])
-            elif np.abs(pos[0] - Particle.box[0] + i_particle.radius - min_distance) < tol:
+            elif (
+                np.abs(pos[0] - Particle.box[0] + i_particle.radius - min_distance)
+                < tol
+            ):
                 i_particle.position_center += np.array([-1e-2, 0, 0])
-            elif np.abs(i_particle.radius - min_distance - pos[1]) <  tol:
+            elif np.abs(i_particle.radius - min_distance - pos[1]) < tol:
                 i_particle.position_center += np.array([0, 1e-2, 0])
-            elif np.abs(pos[1] - Particle.box[1] + i_particle.radius - min_distance) < tol:
+            elif (
+                np.abs(pos[1] - Particle.box[1] + i_particle.radius - min_distance)
+                < tol
+            ):
                 i_particle.position_center += np.array([0, -1e-2, 0])
-            elif np.abs(i_particle.radius - min_distance - pos[2]) <  tol:
+            elif np.abs(i_particle.radius - min_distance - pos[2]) < tol:
                 i_particle.position_center += np.array([0, 0, 1e-2])
-            elif np.abs(pos[2] - Particle.box[2] + i_particle.radius - min_distance) < tol:
+            elif (
+                np.abs(pos[2] - Particle.box[2] + i_particle.radius - min_distance)
+                < tol
+            ):
                 i_particle.position_center += np.array([0, 0, -1e-2])
 
+
 def checkTangentToWall(particles, min_distance):
-    tol = 0.5*min_distance
+    tol = 0.5 * min_distance
     not_tangent_to_wall = True
-    print('tol', tol)
+    print("tol", tol)
     if particles[0].dim == 2:
         for i_particle in particles:
             pos = i_particle.position_center
             # print('tol', tol, 'radius', i_particle.radius)
-            if (np.abs(i_particle.radius - min_distance - pos[0]) <  tol or
-               np.abs(pos[0] - Particle.box[0] + i_particle.radius - min_distance) < tol or
-               np.abs(i_particle.radius - min_distance - pos[1]) <  tol or
-               np.abs(pos[1] - Particle.box[1] + i_particle.radius - min_distance) < tol ):
+            if (
+                np.abs(i_particle.radius - min_distance - pos[0]) < tol
+                or np.abs(pos[0] - Particle.box[0] + i_particle.radius - min_distance)
+                < tol
+                or np.abs(i_particle.radius - min_distance - pos[1]) < tol
+                or np.abs(pos[1] - Particle.box[1] + i_particle.radius - min_distance)
+                < tol
+            ):
                 not_tangent_to_wall = False
     elif particles[0].dim == 3:
         for i_particle in particles:
             pos = i_particle.position_center
             # print('tol', tol, 'radius', i_particle.radius)
-            if (np.abs(i_particle.radius - min_distance - pos[0]) <  tol or
-               np.abs(pos[0] - Particle.box[0] + i_particle.radius - min_distance) < tol or
-               np.abs(i_particle.radius - min_distance - pos[1]) <  tol or
-               np.abs(pos[1] - Particle.box[1] + i_particle.radius - min_distance) < tol or
-               np.abs(i_particle.radius - min_distance - pos[2]) <  tol or
-               np.abs(pos[2] - Particle.box[2] + i_particle.radius - min_distance) < tol ):
+            if (
+                np.abs(i_particle.radius - min_distance - pos[0]) < tol
+                or np.abs(pos[0] - Particle.box[0] + i_particle.radius - min_distance)
+                < tol
+                or np.abs(i_particle.radius - min_distance - pos[1]) < tol
+                or np.abs(pos[1] - Particle.box[1] + i_particle.radius - min_distance)
+                < tol
+                or np.abs(i_particle.radius - min_distance - pos[2]) < tol
+                or np.abs(pos[2] - Particle.box[2] + i_particle.radius - min_distance)
+                < tol
+            ):
                 not_tangent_to_wall = False
     # for i_particle in particles:
     #     for j_image in range(-1, 2):
@@ -1941,17 +2335,17 @@ def run(particles, max_residue_per_particle, max_step, options):
             "Verlet": the forces are computed using a Verlet list for each particle, that in
                 turn in computed using a cell list method
     """
-    min_distance = options.get('min_distance', 0)
+    min_distance = options.get("min_distance", 0)
     # Saving the minimum distance
-    speed_up_scheme = options.get('speed_up_scheme', 'Cell')
+    speed_up_scheme = options.get("speed_up_scheme", "Cell")
     # What is the speed up scheme to be used
-    max_steps_to_relax = options.get('max_steps_to_relax', 100)
+    max_steps_to_relax = options.get("max_steps_to_relax", 100)
     # Maximum number of iterations
-    dt = options.get('dt', 0.05)
+    dt = options.get("dt", 0.05)
     # Time integration step
-    thermostat = options.get('thermostat', 'multi_temperature')
+    thermostat = options.get("thermostat", "multi_temperature")
     # Thermostat to be used
-    save_history = options.get('save_history', True)
+    save_history = options.get("save_history", True)
     # Save the complete motion
     # --------------------------------------------------------------------------------------
     N = Particle.number
@@ -1961,46 +2355,49 @@ def run(particles, max_residue_per_particle, max_step, options):
     dim = particles[0].dim
     # Saving the array containing the dimension of the problem
     if min_distance > 0:
-    # There is a minimum distance
+        # There is a minimum distance
         dilateParticles(particles, min_distance)
         # Dilate all particles
-    if speed_up_scheme == 'Cell':
+    if speed_up_scheme == "Cell":
         # Only a cell list scheme will be used
         max_radius = np.max(np.array([particles[i].radius for i in range(N)]))
         # Saving the maximum radius of the circunscribing disk/sphere
-        Particle.n_cell_dim = (
-            [np.int(np.round(box[i_dim]/(2*max_radius))) for i_dim in range(dim)])
+        Particle.n_cell_dim = [
+            np.int(np.round(box[i_dim] / (2 * max_radius))) for i_dim in range(dim)
+        ]
         # Obtaining a list containing the number of cells in each direction
         n_cells = np.prod(Particle.n_cell_dim)
         # Obtaining the total number of cells
         Particle.cell_list = [[] for i in range(n_cells)]
         # Initializing the cell list
-        Particle.cell_side_length = (
-            [box[i_dim]/Particle.n_cell_dim[i_dim] for i_dim in range(dim)])
+        Particle.cell_side_length = [
+            box[i_dim] / Particle.n_cell_dim[i_dim] for i_dim in range(dim)
+        ]
         # Obtaining a list containing the dimensions of the cell in each direction
-    elif speed_up_scheme == 'Verlet':
+    elif speed_up_scheme == "Verlet":
         # A Verlet list combined with a cell list scheme will be used
-        Particle.verlet_factor = options['verlet_factor']
+        Particle.verlet_factor = options["verlet_factor"]
         # Saving the Verlet radius to compute the Verlet list
         Particle.new_verlet_list = True
         # Signaling that for the first computation of the forces there is a need to compute
         # a new Verlet list
         max_radius = (
-                     np.max(np.array(
-                        [particles[i].radius for i in range(Particle.number)]))
-                     * Particle.verlet_factor
-                     )
+            np.max(np.array([particles[i].radius for i in range(Particle.number)]))
+            * Particle.verlet_factor
+        )
         # Saving the maximum radius of the circunscribing disk/sphere accounting for the
         # Verlet factor
-        Particle.n_cell_dim = (
-            [np.int(np.round(box[i_dim]/(2*max_radius))) for i_dim in range(dim)])
+        Particle.n_cell_dim = [
+            np.int(np.round(box[i_dim] / (2 * max_radius))) for i_dim in range(dim)
+        ]
         # Obtaining a list containing the number of cells in each direction
         n_cells = np.prod(Particle.n_cell_dim)
         # Obtaining the total number of cells
         Particle.cell_list = [[] for i in range(n_cells)]
         # Initializing the cell list
-        Particle.cell_side_length = (
-            [box[i_dim]/Particle.n_cell_dim[i_dim] for i_dim in range(dim)])
+        Particle.cell_side_length = [
+            box[i_dim] / Particle.n_cell_dim[i_dim] for i_dim in range(dim)
+        ]
         # Obtaining a list containing the dimensions of the cell in each direction
     else:
         # A naive approach will be used
@@ -2008,7 +2405,7 @@ def run(particles, max_residue_per_particle, max_step, options):
     n_steps_relax = 0
     # Initializing the number of steps that a microstructure was complying with the
     # maximum overlap residue
-    max_residue = max_residue_per_particle*N
+    max_residue = max_residue_per_particle * N
     Particle.max_residue = max_residue
     # Maximum residual overlap
     step = 0
@@ -2020,56 +2417,64 @@ def run(particles, max_residue_per_particle, max_step, options):
     # Computing the relative energy
     kin_energy = computeKineticEnergy(particles)
     # Computing the kinetic energy
-    if thermostat == 'multi_temperature':
-    # The thermostat used is the isokinetic scheme
-    # Setting the options
+    if thermostat == "multi_temperature":
+        # The thermostat used is the isokinetic scheme
+        # Setting the options
         if particles[0].dim == 2:
-            jump = options.get('equilibration_steps', 25)
+            jump = options.get("equilibration_steps", 25)
             # Number of steps allowed for the system to equilibrate and explore and given
             # temperature before the criterion for temperature lowering is checked
         elif particles[0].dim == 3:
-            jump = options.get('equilibration_steps', 25)
+            jump = options.get("equilibration_steps", 25)
         jump_list = []
-        last_alt = options.get('inital_temp_steps', 40)
+        last_alt = options.get("inital_temp_steps", 40)
         # Number of steps allowed for the system to equilibrate and explore the initial
         # temperature
-        T_ref = options.get('initial_temp', 2.5e10) #*(particles[0].radius/0.045)**2)
+        T_ref = options.get("initial_temp", 2.5e10)  # *(particles[0].radius/0.045)**2)
         # Intial temperature
         k_b = 1e-15
         # Analog to the Boltzmann constant
         if kin_energy > 1e-10:
-        # Compute the rescaling factor only if the kinetic energy is nonzero
-            lambda_vel = np.sqrt(2*particles[0].dim*N*k_b*T_ref/kin_energy)
+            # Compute the rescaling factor only if the kinetic energy is nonzero
+            lambda_vel = np.sqrt(2 * particles[0].dim * N * k_b * T_ref / kin_energy)
             # Rescalling factor (why? 250 -  equipartition theorem)
         else:
-        # If the kinetic energy is zero
+            # If the kinetic energy is zero
             lambda_vel = 0
         for i_particle in range(N):
             # Running through all the particles
             particles[i_particle].velocity_center *= lambda_vel
             # Rescalling the velocities
-    elif thermostat == 'isokinetic':
-        T_ref = options.get('initial_temp',  2.5e10) #*(particles[0].radius/0.045)**2)
+    elif thermostat == "isokinetic":
+        T_ref = options.get("initial_temp", 2.5e10)  # *(particles[0].radius/0.045)**2)
         # Intial temperature
         k_b = 1e-15
         # Analog to the Boltzmann constant
-        jump = options.get('equilibration_steps', 25) # + 5*100*0.65/(Particle.number*Particle.volume/Particle.volume_RVE))
+        jump = options.get(
+            "equilibration_steps", 25
+        )  # + 5*100*0.65/(Particle.number*Particle.volume/Particle.volume_RVE))
         # Number of steps allowed for the system to equilibrate and explore and given
         # temperature before the criterion for temperature lowering is checked
         if kin_energy > 1e-10:
-        # Compute the rescaling factor only if the kinetic energy is nonzero
-            lambda_vel = np.sqrt(2*particles[0].dim*N*k_b*T_ref/kin_energy)
+            # Compute the rescaling factor only if the kinetic energy is nonzero
+            lambda_vel = np.sqrt(2 * particles[0].dim * N * k_b * T_ref / kin_energy)
             # Rescalling factor (why? 250 -  equipartition theorem)
-            print('T_ref', T_ref)
+            print("T_ref", T_ref)
         else:
-        # If the kinetic energy is zero
+            # If the kinetic energy is zero
             lambda_vel = 0
         for i_particle in range(N):
             # Running through all the particles
             particles[i_particle].velocity_center *= lambda_vel
             # Rescalling the velocities
     print_funcs.printToTerminalRefresh(
-        step, Particle.total_overlap, relative_energy, kin_energy, temp=T_ref, first=True)
+        step,
+        Particle.total_overlap,
+        relative_energy,
+        kin_energy,
+        temp=T_ref,
+        first=True,
+    )
     # Print info about the iteration
     while (step < max_step) and n_steps_relax < max_steps_to_relax:
         # Run the simulation while the number of steps the overlap has been smaller than the
@@ -2089,15 +2494,19 @@ def run(particles, max_residue_per_particle, max_step, options):
         Particle.total_overlap_history.append(Particle.total_overlap)
         kin_energy = computeKineticEnergy(particles)
         # Computing the kinetic energy
-        if thermostat == 'multi_temperature':
-        # The thermostat used is the multi_temperature scheme
+        if thermostat == "multi_temperature":
+            # The thermostat used is the multi_temperature scheme
             if step > last_alt:
-            # If the end of the equilibration time has been reached
+                # If the end of the equilibration time has been reached
                 if Particle.total_overlap > max_residue:
-                # If a legal configuration has not been achieved
-                    if any(np.array(Particle.total_overlap_history[-jump//2 :]) - np.array(Particle.total_overlap_history[-jump//2 -1: -1]) > 0):
+                    # If a legal configuration has not been achieved
+                    if any(
+                        np.array(Particle.total_overlap_history[-jump // 2 :])
+                        - np.array(Particle.total_overlap_history[-jump // 2 - 1 : -1])
+                        > 0
+                    ):
                         # If the total overlap has increase in the previous iterations
-                        T_ref *= 1/4
+                        T_ref *= 1 / 4
                         # Lowering the temperature
                         jump += step - last_alt - 1
                         # Updating the equilibration time
@@ -2108,19 +2517,22 @@ def run(particles, max_residue_per_particle, max_step, options):
                         # Saving minimum equilibration times and times at which the
                         # temperature has been lowered
             # Compute the rescaling factor only if the kinetic energy is nonzero
-            lambda_vel = np.sqrt(2*particles[0].dim*N*k_b*T_ref/kin_energy)
+            lambda_vel = np.sqrt(2 * particles[0].dim * N * k_b * T_ref / kin_energy)
             # Rescalling factor
             for i_particle in range(N):
                 # Running through all the particles
                 particles[i_particle].velocity_center *= lambda_vel
                 # Rescalling the velocities
-            if relative_energy/Particle.total_overlap < 1e-8 and Particle.total_overlap > max_residue:
-            # FIXME: this criterion is giving false positives, relative energy falls
-            # much faster than total overlap
+            if (
+                relative_energy / Particle.total_overlap < 1e-8
+                and Particle.total_overlap > max_residue
+            ):
+                # FIXME: this criterion is giving false positives, relative energy falls
+                # much faster than total overlap
                 pass
         if thermostat == "isokinetic":
-        # The thermostate used is the isokinetic with constant temperature
-            lambda_vel = np.sqrt(2*particles[0].dim*N*k_b*T_ref/kin_energy)
+            # The thermostate used is the isokinetic with constant temperature
+            lambda_vel = np.sqrt(2 * particles[0].dim * N * k_b * T_ref / kin_energy)
             for i_particle in range(N):
                 # Running through all the particles
                 particles[i_particle].velocity_center *= lambda_vel
@@ -2139,27 +2551,40 @@ def run(particles, max_residue_per_particle, max_step, options):
                 # Restarting the count
                 forceOutTangentWall(particles, min_distance)
         print_funcs.printToTerminalRefresh(
-            step, Particle.total_overlap, relative_energy, kin_energy)
-        if step > 5*jump and all((np.abs(np.array(Particle.total_overlap_history[-5*jump:]) - np.array(Particle.total_overlap_history[-5*jump-1:-1])))/np.array(Particle.total_overlap_history[-5*jump-1:-1])*100 < 1e-5):
-            print_funcs.printToFile('Failed sample')
+            step, Particle.total_overlap, relative_energy, kin_energy
+        )
+        if step > 5 * jump and all(
+            (
+                np.abs(
+                    np.array(Particle.total_overlap_history[-5 * jump :])
+                    - np.array(Particle.total_overlap_history[-5 * jump - 1 : -1])
+                )
+            )
+            / np.array(Particle.total_overlap_history[-5 * jump - 1 : -1])
+            * 100
+            < 1e-5
+        ):
+            print_funcs.printToFile("Failed sample")
             break
     if min_distance > 0:
-    # There is a minimum distance
+        # There is a minimum distance
         contractParticles(particles, min_distance)
         # Contract all particles
     if thermostat == "multi_temperature":
         Particle.equilibration_steps.append(jump_list)
     if not save_history:
-    # If the complete motion was not saved
+        # If the complete motion was not saved
         for i_particle in particles:
-            i_particle.position_center_history.append(i_particle.position_center.flatten())
+            i_particle.position_center_history.append(
+                i_particle.position_center.flatten()
+            )
             # Saving the final configuration
 
 
 def dilateParticles(particles, min_distance):
     """ Dilate all the particles so that a minimum distance is ensured after contraction."""
     for i_particle in particles:
-    # Running through all the particles
+        # Running through all the particles
         i_particle.dilate(min_distance)
         # Dilate i_particle
 
@@ -2167,72 +2592,92 @@ def dilateParticles(particles, min_distance):
 def contractParticles(particles, min_distance):
     """Contract all the particles so that a minimum distance is ensured."""
     for i_particle in particles:
-    # Running through all the particles
+        # Running through all the particles
         i_particle.contract(min_distance)
         # contract i_particle
 
 
-def main(dp_dir, descriptors, phase_types, options, n_samples, rve_dims, problem_type,
-         discret_spec_array, discret_file_ext):
+def main(
+    dp_dir,
+    descriptors,
+    phase_types,
+    options,
+    n_samples,
+    problem_type,
+    discret_spec_array,
+    discret_file_ext,
+):
     """Run the microstructure generation program."""
-    if options.get('remesh'):
-    # It is a remesh action
-        current_RVE = pickle.load(open(options['dir_previous_mic'], 'rb'))
+    if options.get("remesh"):
+        # It is a remesh action
+        current_RVE = pickle.load(open(options["dir_previous_mic"], "rb"))
         # No need to generate a new microstructure. Using a previous microstructure.
         particles, rve_dims = current_RVE.useThisRVE(dp_dir)
         # Reconstructing the relevant Particle attributes that could not be pickled
         createResultsDirectory(particles, dp_dir, remesh=True)
         # Create results directory
         for disc_ext in discret_file_ext:
-        # For each file extension asked
+            # For each file extension asked
             generateMesh(particles, disc_ext, discret_spec_array[disc_ext])
             # Generate corresponding mesh
-        motion_analysis = options.get('motion_analysis', False)
+        motion_analysis = options.get("motion_analysis", False)
         if motion_analysis:
             doMotionAnalysis(particles, rve_dims, Particle.file_path)
             # Do analysis of the motion of the particles
     else:
-    # Generating samples of microstructures and meshing
+        # Generating samples of microstructures and meshing
         for i_sample in range(n_samples):
             # Producing the number of samples required
             print_funcs.printInitialMessage()
             # Printing initial message
-            rve_dims = options.get('rve_dims')
-            save_history = options.get('save_history', True)
-            voronoi_analysis = options.get('voronoi_analysis', False)
-            motion_analysis = options.get('motion_analysis', False)
-            type_init_conf = options.get('type_initial_configuration', 'random')
-            max_residue_per_particle = options.get('max_residue_per_particle', 0)
-            max_step = options.get('max_step', 1)
+            rve_dims = options.get("rve_dims")
+            save_history = options.get("save_history", True)
+            voronoi_analysis = options.get("voronoi_analysis", False)
+            motion_analysis = options.get("motion_analysis", False)
+            type_init_conf = options.get("type_initial_configuration", "random")
+            max_residue_per_particle = options.get("max_residue_per_particle", 0)
+            max_step = options.get("max_step", 1)
             # Collecting options
             start = time.time()
             # Keeping track of the simulation time
-            particles = particleGeneration(descriptors, phase_types, rve_dims, problem_type,
-                                           dp_dir, type_init_conf=type_init_conf,
-                                           save_history=save_history)
+            particles = particleGeneration(
+                descriptors,
+                phase_types,
+                rve_dims,
+                problem_type,
+                dp_dir,
+                type_init_conf=type_init_conf,
+                save_history=save_history,
+            )
             # Generating the list of particles from the geometrical descriptors
             run(particles, max_residue_per_particle, max_step, options)
             # Running the molecular dynamics simulation
             end = time.time()
             Particle.time = end - start
-            print_funcs.printFinalMessage(Particle.time, Particle.total_overlap, len(
-                Particle.total_overlap_history), i_sample+1, Particle.max_residue)
+            print_funcs.printFinalMessage(
+                Particle.time,
+                Particle.total_overlap,
+                len(Particle.total_overlap_history),
+                i_sample + 1,
+                Particle.max_residue,
+            )
             # Time spent on microstructure generation
             current_RVE = RVE(particles, rve_dims)
             # Saving the RVE properties in an RVE object
             pickle.dump(current_RVE, open(Particle.file_path + ".p", "wb"))
             # Saving the configuration for later use
             for disc_ext in discret_file_ext:
-            # For each file extension asked
+                # For each file extension asked
                 generateMesh(particles, disc_ext, discret_spec_array[disc_ext])
                 # Generate corresponding mesh
             if motion_analysis:
                 doMotionAnalysis(particles, rve_dims, Particle.file_path)
                 # Do analysis of the motion of the particles
             if voronoi_analysis:
-                voronoi_type = options.get('voronoi_type', 'standard')
+                voronoi_type = options.get("voronoi_type", "standard")
                 doVoronoiAnalysis(
-                    particles, rve_dims, Particle.file_path, voronoi_type=voronoi_type)
+                    particles, rve_dims, Particle.file_path, voronoi_type=voronoi_type
+                )
                 # Do a voronoi analysis
             os.replace("temp.screen", Particle.file_path + ".screen")
             # Moving the screnn of this sample to the respective directory
@@ -2243,24 +2688,23 @@ def main(dp_dir, descriptors, phase_types, options, n_samples, rve_dims, problem
 class Keyword(object):
     """This is the class for keywords used in the input file.
 
+    Attributes
+    ----------
+    name: str
+        Name of the keyword.
+
+    type: optional, {'float', 'int', 'bool', 'str', 'none'}
+        Type of the value corresponding to the keyword. 'none' will set the value of the
+        keyword as its name.
+
     Class Attributes
     ----------------
-    simulation: `.simulation`
-    Simulation object con
-
+    input_reader: `.TopLevelReader`
+        Object that keeps track of where in input file we are and looks for top level
+        keywords.
     """
 
-    simulation = None
-    all_keywords = {}
-    all_keyword_groups = set()
-    i_line = 0
-    input_file = None
-    input = None
-    all_options = {}
-    mandatory_keywords_not_set = set()
-
-    def __init__(self, name, keyword_group=None, parent_keyword=None, type=None,
-                 mandatory=True, **kwargs):
+    def __init__(self, name, type=None, **kwargs):
         """
         Constructor for the Keyword class.
 
@@ -2273,7 +2717,7 @@ class Keyword(object):
             'MIC_GEN_DESCRIPTORS', 'MESH_OPTIONS'}
             Group to wich the keyword belongs. Used for storage in the right variable.
 
-        type: str, optinal
+        type: str, optional
             Type of the variable
 
         mandatory: boolean, optional
@@ -2286,76 +2730,38 @@ class Keyword(object):
         """
         self.name = name
         self.type = type
-        self.mandatory = mandatory
-        if 'default_value' in kwargs:
-            self.default_value = kwargs['default_value']
-        self.specified = False
-        self.top_level_keywords = set()
-
-    def checkLowerLevelKeywords(self):
-        print([o.name for o in self.top_level_keywords])
-        # while True:
-        print('iline', Keyword.i_line, len(Keyword.input))
-        current_line_keyword = False
-        line = Keyword.input[Keyword.i_line]
-        print('line', line)
-        for possible_keyword in self.top_level_keywords:
-        # Checking what is the current keyword
-            print(possible_keyword.name)
-            print(line)
-            if possible_keyword.isIn(line):
-                print('here')
-                current_line_keyword = True
-                # General keyword has been found
-                print('here_2', self.name)
-                val = possible_keyword.readValue()
-                possible_keyword.storeValue(val)
-                possible_keyword.removeFromMandatory()
-                # read the values corresponding to the keyword detected
-                break
-        if not current_line_keyword:
-            if isinstance(self, TopLevelReader):
-                print(line, 'does not contain a keyword')
-                # FIXME: create an appropriate error
-                quit()
-            else:
-                raise ValueError()
-
-
-    def ignoreComments(self):
-        while Keyword.i_line < len(Keyword.input):
-            line = Keyword.input[Keyword.i_line]
-            # Going through all the line in the input file
-            if line.strip() == '' or line.startswith("#") or line.strip() == '[insert here]':
-            # if the line is empty or a comment move on to the next
-                Keyword.i_line += 1
-                continue
-            else:
-                break
 
     def readValue(self):
-        print('here_4', Keyword.i_line)
-        line = Keyword.input[Keyword.i_line]
-        print('here_3')
+        """Read the value of the keyword."""
+        line = Keyword.input_reader.input[Keyword.input_reader.i_line]
         try:
-            if self.type == 'float':
-                value_str = line.split()[1]
-                final_val = float(value_str)
-            elif self.type == 'int':
+            if self.type == "float":
+                value_str = line.split()[1:]
+                if len(value_str) == 1:
+                    final_val = float(value_str[0])
+                else:
+                    value_str = " ".join(value_str)
+                    value_str = value_str.split(", ")
+                    print("here", value_str)
+                    value_str[0] = value_str[0][1:]
+                    value_str[-1] = value_str[-1][:-1]
+                    # Remove squre brackets from vector
+                    final_val = np.array([float(val) for val in value_str])
+            elif self.type == "int":
                 value_str = line.split()[1]
                 final_val = int(value_str)
-            elif self.type == 'bool':
+            elif self.type == "bool":
                 value_str = line.split()[1]
-                if value_str == 'True':
+                if value_str == "True":
                     final_val = True
-                elif value_str == 'False':
+                elif value_str == "False":
                     final_val = False
                 else:
                     raise ValueError
-            elif self.type == 'str':
+            elif self.type == "str":
                 value_str = line.split()[1]
                 final_val = value_str
-            elif self.type == 'none':
+            elif self.type == "none":
                 final_val = self.name
             else:
                 value_str = line.split()[1]
@@ -2363,29 +2769,13 @@ class Keyword(object):
         except ValueError:
             errors.IncompatibleValue.messsage("Error")
             quit()
-        self.specified = True
-        # the current parameter has been specified by the used
-        Keyword.i_line += 1
+        Keyword.input_reader.i_line += 1
         return final_val
-
-    def checkType(self, val):
-        if self.type == 'float':
-            correct_type = isinstance(val, float)
-        elif self.type == 'int':
-            correct_type = isinstance(val, int)
-        elif self.type == 'bool':
-            correct_type = isinstance(val, bool)
-        elif self.type == 'str':
-            correct_type = isinstance(val, str)
-        else:
-            correct_type = isinstance(val, str)
-        if correct_type is not True:
-            raise ValueError()
 
     def isIn(self, line):
         """Check if the first string in the *line* is the keyword *self*."""
 
-        if line.split()[0] == self.name:
+        if line.split()[0].lower() == self.name.lower():
             isIn = True
         else:
             isIn = False
@@ -2393,153 +2783,301 @@ class Keyword(object):
         return isIn
 
     def removeFromMandatory(self):
+        """Remove from the list of mandatory keywords not set."""
         try:
-            Keyword.mandatory_keywords_not_set.remove(self)
+            self.input_reader.mandatory_keywords_not_set.remove(self)
         except KeyError:
             pass
 
-class KeywordTypeA(Keyword):
 
-    def __init__(self, name, store, **kwargs):
+class KeywordTypeA(Keyword):
+    """This the class for keywords formatted in the input file as::
+
+        keyword.name val
+
+    store as
+
+    ``{'keyword.keyword_group':{keyword.name: val, other_keyword: val}``
+
+    Attributes
+    ----------
+    mandatory: optional, {True, False}
+        Defaults to True.
+
+    keyword_group: str
+        Used for storage.
+    """
+
+    def __init__(self, name, keyword_group, mandatory=True, **kwargs):
+        """
+        Instanciate a `.KeywordTypeB` object.
+
+        Parameters
+        ----------
+        name: str
+            Name of the keyword.
+
+        mandatory: optional, {True, False}
+            Defaults to True.
+
+        Keyword Arguments
+        -----------------
+        default_value: object
+            Default value
+        """
         super().__init__(name, **kwargs)
-        self.keyword_group = store
-        if hasattr(self, 'default_value'):
+        self.keyword_group = keyword_group
+        self.mandatory = mandatory
+
+        if "default_value" in kwargs:
             self.storeValue(self.default_value)
 
     def storeValue(self, val):
-        Keyword.all_options.setdefault(self.keyword_group, {})
-        Keyword.all_options[self.keyword_group][self.name] = val
-
-    def writeValue(self, input_file):
-        val = Keyword.all_options[self.keyword_group][self.name]
-        self.checkType(val)
-        input_file.write("{0} {1}".format(self.name, val))
+        """Store the value of the keyword."""
+        Keyword.input_reader.all_options.setdefault(self.keyword_group, {})
+        Keyword.input_reader.all_options[self.keyword_group][self.name] = val
 
 
-class KeywordTypeB(KeywordTypeA):
+class KeywordTypeB(Keyword):
+    """This the class for keywords formatted in the input file as::
 
-    def __init__(self, name, store, **kwargs):
-        super().__init__(name, store, **kwargs)
-        self.keyword_group = store
-        if hasattr(self, 'default_value'):
+        keyword.name val
+
+    store as
+
+    ``{'keyword.name': val}``
+
+    Attributes
+    ----------
+    mandatory: optional, {True, False}
+        Defaults to True.
+    """
+
+    def __init__(self, name, mandatory=True, **kwargs):
+        """
+        Instanciate a `.KeywordTypeB` object.
+
+        Parameters
+        ----------
+        name: str
+            Name of the keyword.
+
+        mandatory: optional, {True, False}
+            Defaults to True.
+        """
+        super().__init__(name, **kwargs)
+
+        if "default_value" in kwargs:
             self.storeValue(self.default_value)
 
-    def storeValue(self, value):
-        Keyword.all_options[self.name] = value
+        self.mandatory = mandatory
 
-    def writeValue(self, input_file):
-        val = Keyword.all_options[self.name]
-        self.checkType(val)
-        input_file.write("{0} {1}".format(self.name, val))
+    def storeValue(self, value):
+        """Store the value of the keyword."""
+        Keyword.input_reader.all_options[self.name] = value
+
 
 class KeywordTypeC(Keyword):
+    """This the class for keywords formatted in the input file as::
 
-    def __init__(self, name, header_keys, sub_keys, **kwargs):
+        keyword.name
+        header_key_1 val
+        sub_key_1 val
+        sub_key_2 val
+        header_key_2 val
+        sub_key_3 val
+        sub_key_4 val
+
+    store as
+
+
+    ``{'keyword.name':
+        {head_key_val_1: {sub_key_1: val, sub_key_2: val}}
+        {head_key_val_2: {sub_key_3: val, sub_key_4: val}}}``
+
+    Attributes
+    ----------
+    header_keys: set(`.Keyword`)
+        Set containing the acceptable header keywords.
+
+    sub_keys: set(`.Keyword`)
+        Set containing the acceptable sub keywords.
+
+    mandatory: optional, {True, False}
+        Defaults to True.
+    """
+
+    def __init__(self, name, header_keys, sub_keys, mandatory=True, **kwargs):
+        """
+        Instanciate a `.KeywordTypeC` object.
+
+        Parameters
+        ----------
+        name: str
+            Name of the keyword.
+
+        header_keys: set(`.Keyword`)
+            Set containing the acceptable header keywords.
+
+        sub_keys: set(`.Keyword`)
+            Set containing the acceptable sub keywords.
+
+        mandatory: optional, {True, False}
+            Defaults to True.
+        """
         super().__init__(name, **kwargs)
         self.header_keys = header_keys
         self.sub_keys = sub_keys
-        print('keyword', [keyword.name for keyword in sub_keys])
-
-        if hasattr(self, 'default_value'):
-            self.storeValue(self.default_value)
-
-    def isIn(self, line):
-        """Check if the first string in the *line* is the keyword *self*."""
-
-        if line.split()[0] == self.name:
-            isIn = True
-        else:
-            isIn = False
-
-        return isIn
+        self.mandatory = mandatory
 
     def readValue(self):
-
+        """Read the values of the *self* keyword. """
         options = {}
-        print('here_6')
-        Keyword.i_line += 1
-        # Moving over the line containing "Mic_Gen_Descriptors"
-        while Keyword.i_line < len(Keyword.input):
-            self.ignoreComments()
-            line = Keyword.input[Keyword.i_line]
-            # New line
-            if all([not keyword.isIn(line)
-                    for keyword in self.header_keys.union(self.sub_keys)]):
-            # If another top level keyword has been specified exit the MIC_GEN_DESCRIPTORS
-            # block
+        Keyword.input_reader.i_line += 1
+        # Moving over the line containing top level keyword
+        Keyword.input_reader.ignoreComments()
+        # Ignore comments
+        while Keyword.input_reader.i_line < len(Keyword.input_reader.input):
+            line = Keyword.input_reader.input[Keyword.input_reader.i_line]
+            # Current line
+            if all(
+                [
+                    not keyword.isIn(line)
+                    for keyword in self.header_keys.union(self.sub_keys)
+                ]
+            ):
+                # If the current line doesn't contain a known keyword, exit the block
                 break
-            print('line', line)
             for header_keyword in self.header_keys:
                 if header_keyword.isIn(line):
                     current_header = header_keyword.readValue()
                     options[current_header] = {}
                     break
-            print('line', line)
             for sub_keyword in self.sub_keys:
                 if sub_keyword.isIn(line):
                     value = sub_keyword.readValue()
                     options[current_header][sub_keyword.name] = value
-                    print('here')
                     break
+            Keyword.input_reader.ignoreComments()
+            # Ignore comments
 
         return options
 
     def storeValue(self, val):
-        Keyword.all_options[self.name] = val
-
-    def writeValue(self, input_file):
-        input_file.write("{0}".format(self.name))
-        for header in Keyword.all_options[self.name]:
-            if all([header_key.type == 'none' for header_key in self.header_keys]):
-                input_file.write("{0}").format(header)
-            else:
-                input_file.write('{0} {1}'.format(self.header_keys.pop().name, header))
-            for option, option_val in Keyword.all_options[self.name][header].items():
-                for key in self.sub_keys:
-                    if key.name == option:
-                        key.checkType(option_val)
-                input_file.write("{0} {1}".format(option, option_val))
+        """Store the value of the keyword."""
+        Keyword.input_reader.all_options[self.name] = val
 
 
-class TopLevelReader(Keyword):
+class TopLevelReader:
+    """This is the class for the reader that keeps of where we are in the input file and
+        looks for top level keywords.
+
+    Attributes
+    ----------
+    all_keywords: dict
+        Dictionary whose keys are the keyword names and the corresponding values the
+        keyword objects.
+
+    i_line: int
+        Current line of the input file.
+
+    input: list(str)
+        List of strings containing the input file.
+
+    all_options: dict
+        Dictionary where all the options are stored as they are read.
+
+    mandatory_keywords_not_set: set
+        Set of top level keywords not set yet.
+
+    top_level_keywords: set(`.Keyword`)
+        Set containing the top level keywords.
+    """
 
     def __init__(self):
-        super().__init__('TopLevelKeyword')
+        """Instanciate a `.TopLevelReader` object."""
+        self.all_keywords = {}
+        self.i_line = 0
+        self.input = None
+        self.all_options = {}
+        self.mandatory_keywords_not_set = set()
+        self.top_level_keywords = set()
+        Keyword.input_reader = self
+
+    def ignoreComments(self):
+        """Ignore comments, moving to the next line that doesn't contain a commment."""
+        while self.i_line < len(self.input):
+            # Remaain inside the file
+            line = self.input[self.i_line]
+            # Save current line
+            if (
+                line.strip() == ""
+                or line.startswith("#")
+                or line.strip() == "[insert here]"
+            ):
+                # if the line is empty or a comment move on to the next
+                self.i_line += 1
+                # Move to the next line
+                continue
+            else:
+                break
+
+    def checkTopLevelKeywords(self):
+        """Check if the current line contains a keyword, and read it is the case."""
+        current_line_keyword = False
+        # Flag for the presence of a keyword in the current line
+        line = self.input[self.i_line]
+        # Current line
+        for possible_keyword in self.top_level_keywords:
+            # Checking what is the current keyword
+            if possible_keyword.isIn(line):
+                current_line_keyword = True
+                # General keyword has been found
+                val = possible_keyword.readValue()
+                # Read the value
+                possible_keyword.storeValue(val)
+                # Store the value
+                possible_keyword.removeFromMandatory()
+                # Remove the keyword from the set of mandatory keywords yiet to be set
+                # if it is mandatory
+                break
+        if not current_line_keyword:
+            # No keyword was found in the current line
+            print(line, "does not contain a keyword")
+            # FIXME: create an appropriate error
+            quit()
 
     def moveAlong(self):
-        while Keyword.i_line < len(Keyword.input):
-            # Saving current line as line
+        """Move alogn the input file."""
+        while self.i_line < len(self.input):
+            # Remaain inside the file
             self.ignoreComments()
-            self.checkLowerLevelKeywords()
+            self.checkTopLevelKeywords()
 
     def readInputFile(self, input_file_path):
-        # Possible keywords appearing in the input file
-        with open(input_file_path, 'r') as input:
-            Keyword.input = input.readlines()
-            Keyword.i_line = 0
+        """Read the input file at *input_file_path*."""
+        with open(input_file_path, "r") as input:
+            self.input = input.readlines()
+            # Saving the contents of the input file
+            self.i_line = 0
             # Initializing the line counter
             self.moveAlong()
-        if len(Keyword.mandatory_keywords_not_set) > 0:
-            print({keyword.name for keyword in Keyword.mandatory_keywords_not_set})
+            # Move along the file
+        if len(self.mandatory_keywords_not_set) > 0:
+            # There are mandatory keywords that were not set
+            print({keyword.name for keyword in self.mandatory_keywords_not_set})
             raise ValueError()
 
-    def readValue(self):
-        pass
-
-    def storeValue(self, *args):
-        pass
-
     def addTopLevelKeyword(self, *args):
-        """Add a possible keyword to the input reader."""
-
+        """Add a top level keyword to the input reader."""
         for keyword in args:
             self.top_level_keywords.add(keyword)
-            Keyword.all_keywords[keyword.name] = keyword
+            self.all_keywords[keyword.name] = keyword
             if keyword.mandatory:
-                Keyword.mandatory_keywords_not_set.add(keyword)
+                self.mandatory_keywords_not_set.add(keyword)
 
 
-class Simulation():
+class Simulation:
     """Class for the simulations that generate the microstructures."""
 
     def __init__(self, working_directory):
@@ -2563,215 +3101,47 @@ class Simulation():
         self.n_dp_samples = 0
         # Number of samples to be generated
 
-
-# class InputReader():
-#     """Class used to read the input from a txt file.
-# 
-#         It checks only if all the mandatory parameters were supplied with the correct type.
-#         It does not check if the value of the parameters makes sense given the values of
-#         the other parameters."""
-# 
-#     def __init__(self, simulation):
-#         """Initializer for the InputReader class"""
-# 
-#         self.simulation = simulation
-#         self.top_level_keywords = {}
-#         self.all_keywords = {}
-#         self.mandatory_keywords_not_set = {}
-# 
-#     def addTopLevelKeyword(self, **args):
-#         """Add a possible keyword to the input reader."""
-# 
-#         for keyword in args:
-#             self.top_level_keywords.add(keyword)
-#             self.all_keywords[keyword.name] = keyword
-#             if keyword.mandatory:
-#                 self.mandatory_keywords_not_set.add(keyword)
-#             else:
-#                 # FIXME: set default value
-#                 pass
-# 
-#     def addLowLevelKeyword(self, top_keyword_name, **args):
-#         """"Add a possible lower level keyword for a higher level keyword-"""
-# 
-#         top_level_keyword = self.all_keywords[top_keyword_name]
-#         for keyword in args:
-#             top_level_keyword.top_level_keywords.add(keyword)
-#             self.all_keywords[keyword.name] = keyword
-#             if keyword.mandatory:
-#                 top_level_keyword.mandatory_keywords_not_set.add(keyword)
-#             else:
-#                 # FIXME: set default value
-#                 pass
-# 
-#     def readKeywordMicGenParameters(self, input_reader):
-#         """Read information for a keyword belonging to the MIC_GEN_PARAMETERS group."""
-# 
-#         current_sim = input_reader.simulation
-#         line = input[input_reader.i_line]
-#         value = self.readValue(line)
-#         current_sim.set_option(self) mic_gen_parameters[self.name.lower()] = value
-#         input_reader.i_line += 1
-# 
-#     def readKeywordMicGenDescriptors(self, keyword):
-#         """Read information for a keyword belonging to the MIC_GEN_DESCRIPTORS group."""
-# 
-#         current_sim = self.simulation
-#         self.i_line += 1
-#         # Moving over the line containing "Mic_Gen_Descriptors"
-#         while self.i_line < len(self.input):
-#             line = input[self.i_line]
-#             # New line
-#             if line.strip() == '' or line.startswith("#"):
-#             # if the line is empty or a comment move on to the next
-#                 self.i_line += 1
-#                 continue
-#             if any([keyword.isIn(line)
-#                     for keyword in self.top_level_keywords]):
-#             # If another top level keyword has been specified exit the MIC_GEN_DESCRIPTORS
-#             # block
-#                 break
-#             if keyword.line.startswith('Phase'):
-#                 name_current_phase = line.split()[1]
-#                 current_sim.mic_gen_descriptors[name_current_phase] = {}
-#                 self.i_line += 1
-#             elif line.startswith('phase_type'):
-#                 current_sim.phase_types[name_current_phase] = int(line.split()[1])
-#                 self.i_line += 1
-#             else:
-#                 parameter = line.split()[0]
-#                 value = line.split()[1]
-#                 current_sim.mic_gen_descriptors[name_current_phase][parameter] = \
-#                     str2type(value)
-#                 self.i_line += 1
-# 
-# 
-#     def readKeywordProblemType(self, problem_type, i_line, input):
-#         """Read information for a keyword belonging to the PROBLME_TYPE group."""
-# 
-#         problem_type = self.readValue(line)
-#         i_line += 1
-# 
-#         return [problem_type, i_line]
-# 
-#     def readKeywordNDPSamples(self, n_dp_samples, i_line, input):
-#         """Read information for a keyword belonging to the N_DP_SAMPLES group."""
-# 
-#         n_dp_samples = self.readValue(line)
-#         i_line += 1
-# 
-#         return [n_dp_samples, i_line]
-# 
-#     def readKeywordMeshOptions(self, discret_file_ext, discret_spec_array, i_line, input):
-#         """Read information for a keyword belonging to the N_DP_SAMPLES group."""
-# 
-#         i_line += 1
-#         # Moving over the line containing "Mesh_Options"
-#         while i_line < len(input):
-#             line = input[i_line]
-#             # New line
-#             if line.strip() == '' or line.startswith("#"):
-#             # if the line is empty or a comment move on to the next
-#                 i_line += 1
-#                 continue
-#             if any([line.split()[0] == possible_keyword.name
-#                     for possible_keyword in Keyword.all_general_keywords]):
-#             # If another keyword has been specified exit the MIC_GEN_DESCRIPTORS
-#             # block
-#                 break
-#             if line.strip().endswith('msh'):
-#                 name_current_msh = line.strip().lower()
-#                 discret_file_ext.append(name_current_msh)
-#                 discret_spec_array[name_current_msh] = {}
-#                 i_line += 1
-#             else:
-#                 parameter = line.split()[0].lower()
-#                 value = line.split()[1:]
-#                 if len(value) == 1:
-#                     discret_spec_array[name_current_msh][parameter] = str2type(
-#                         value[0])
-#                 else:
-#                     discret_spec_array[name_current_msh][parameter] = np.array(
-#                         [str2type(val) for val in value])
-#                 i_line += 1
-# 
-#         return [discret_file_ext, discret_spec_array, i_line]
-# 
-#     def currentLevelReader(self):
-# 
-#         current_line_keyword = False
-#         while True:
-#             for possible_keyword in current_keyword.top_level_keywords:
-#             # Checking what is the current keyword
-#                 if possible_keyword.isIn(line):
-#                     current_line_keyword = True
-#                     # General keyword has been found
-#                     possible_keyword.readValue()
-#                     self.current_keyword = possible_keyword
-#                     # read the values corresponding to the keyword detected
-#             if not current_line_keyword and False:
-#                 print(line, 'does not contain a keyword')
-#                 # FIXME: create an appropriate error
-#                 quit()
-# 
-#     def readKeywordValues(self):
-#         """
-#         Read all the information from the input file regarding keyword *self*"""
-# 
-#         self.currentLevelReader()
-#         if keyword.mandatory:
-#             self.mandatory_top_level_keywords_not_set.remove(keyword)
-#         # self.all_options
-# 
-# 
-#     def MicGenDescriptorsReader(self):
-# 
-#         if any([keyword.isIn(line)
-#                 for keyword in self.top_level_keywords]):
-#         # If another top level keyword has been specified exit the MIC_GEN_DESCRIPTORS
-#         # block
-#             break
-#         if keyword.line.startswith('Phase'):
-#             name_current_phase = line.split()[1]
-#             current_sim.mic_gen_descriptors[name_current_phase] = {}
-#             self.i_line += 1
-#         elif line.startswith('phase_type'):
-#             current_sim.phase_types[name_current_phase] = int(line.split()[1])
-#             self.i_line += 1
-#         else:
-#             parameter = line.split()[0]
-#             value = line.split()[1]
-#             current_sim.mic_gen_descriptors[name_current_phase][parameter] = \
-#                 str2type(value)
-#             self.i_line += 1
-# 
-# 
-# 
-#     def readInputFile(self, input_file_path):
-#         # Possible keywords appearing in the input file
-#         with open(input_file_path, 'r') as input:
-#             self.input = input.readlines()
-#             self.i_line = 0
-#             # Initializing the line counter
-#             while self.i_line < len(input):
-#                 # Going through all the line in the input file
-#                 line = input[self.i_line]
-#                 # Saving current line as line
-#                 if line.strip() == '' or line.startswith("#"):
-#                 # if the line is empty or a comment move on to the next
-#                     self.i_line += 1
-#                     continue
-#                 # self.readKeywordValues()
     def parametersChecks(self):
-        pass
+
+        try:
+            if self.n_dp_samples < 1:
+                # The number of samples must be an integer larger or equal to 1
+                raise errors.NumberSamples(self.n_dp_samples)
+        except errors.NumberSamples() as error:
+            error.message()
+            quit()
+
+        try:
+            if set(self.phase_types.keys()) != set(self.mic_gen_descriptors.keys()):
+                # There are phases which not have descriptors or a phase type
+                for phase in self.mic_gen_descriptors:
+                    if phase not in self.phase_types:
+                        # If there is a phase that has descriptors but no phase type
+                        raise errors.PhaseDescriptorsMatch(phase)
+        except errors.PhaseDescriptorsMatch as error:
+            error.message()
+            quit()
+        # try:
+        #     for phase in phase_types:
+        #         if not RepresentsInt(phase) or not isinstance(phase, str):
+        #             raise errors.UnexpectedValue(phase, 'key of phase_types',
+        #                                          'string containing an integer')
+        # except errors.UnexpectedValue as error:
+        #     error.message()
+        #     quit()
 
     def setOptionsSimulation(self, options):
 
-        self.mic_gen_parameters = options.get('Mic_Gen_Parameters')
-        self.problem_type = options.get('Problem_Type')
-        self.n_dp_samples = options.get('N_DP_Samples')
-        self.mic_gen_descriptors = options.get('Mic_Gen_Descriptors')
-        self.mesh_options = options.get('Mesh_Options')
+        self.mic_gen_parameters = options["Mic_Gen_Parameters"]
+        self.problem_type = options["Problem_Type"]
+        self.n_dp_samples = options["N_DP_Samples"]
+        self.mic_gen_descriptors = options["Mic_Gen_Descriptors"]
+        self.phase_types = {
+            phase_name: descriptors["Phase_Type"]
+            for phase_name, descriptors in options["Mic_Gen_Descriptors"].items()
+        }
+        self.mesh_options = options.get("Mesh_Options", [])
+        self.mesh_ext = [ext for ext in options.get("Mesh_Options", [])]
 
         self.parametersChecks()
 
@@ -2792,28 +3162,28 @@ def generateAllPossibleKeywords():
     all_particle_sub_classes = get_all_subclasses(Particle)
     all_phase_descriptor_sub_classes = get_all_subclasses(PhaseDescriptor)
     keyword_set = set()
-    keyword_set.add(Keyword('vf', type='float'))
-    keyword_set.add(Keyword('n', type='float'))
+    keyword_set.add(Keyword("vf", type="float"))
+    keyword_set.add(Keyword("n", type="float"))
     for particle_type in all_particle_sub_classes:
         for descriptor in particle_type.possible_parameters:
-            if descriptor == 'vf' or descriptor == 'n':
+            if descriptor == "vf" or descriptor == "n":
                 continue
-            keyword_set.add(Keyword(descriptor, type='float'))
-            keyword_set.add(Keyword(descriptor + '_distribution', type='str'))
+            keyword_set.add(Keyword(descriptor, type="float"))
+            keyword_set.add(Keyword(descriptor + "_distribution", type="str"))
             for distribution in all_phase_descriptor_sub_classes:
                 for parameter in distribution.parameters:
-                    keyword_set.add(Keyword(
-                        descriptor + "_" + parameter, type='float'))
+                    keyword_set.add(Keyword(descriptor + "_" + parameter, type="float"))
 
     return keyword_set
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
 
     def str2type(value_option):
-        '''Convert string containing a parameter value to the correct type.'''
-        if value_option == 'True':
+        """Convert string containing a parameter value to the correct type."""
+        if value_option == "True":
             return True
-        elif value_option == 'False':
+        elif value_option == "False":
             return False
         else:
             try:
@@ -2830,7 +3200,7 @@ if __name__ == '__main__':
 
     if len(sys.argv) == 0:
         # No input file has been supplied
-        print('No input file was supplied.')
+        print("No input file was supplied.")
         quit()
         # Exiting the script
     input_file_path = sys.argv[1]
@@ -2840,54 +3210,138 @@ if __name__ == '__main__':
 
     top_level_reader = TopLevelReader()
     top_level_reader.addTopLevelKeyword(
-        KeywordTypeA('Max_Residue_Per_Particle', 'MIC_GEN_PARAMETERS', type='float'),
-        KeywordTypeA('Max_Step', 'MIC_GEN_PARAMETERS', type='int'),
-        KeywordTypeA('Max_Steps_To_Relax', 'MIC_GEN_PARAMETERS', mandatory=False,
-                     default_value=0, type='int'),
-        KeywordTypeA('Speed_Up_Scheme', 'MIC_GEN_PARAMETERS', mandatory=False,
-                     default_value='Cell', type='str'),
-        KeywordTypeA('Verlet_Factor', 'MIC_GEN_PARAMETERS', mandatory=False,
-                     type='float', parent_keyword=('Speed_Up_Scheme', 'Verlet')),
-        KeywordTypeA('dt', 'MIC_GEN_PARAMETERS', mandatory=False,
-                     default_value=0.05, type='float'),
-        KeywordTypeA('Save_History', 'MIC_GEN_PARAMETERS', mandatory=False,
-                     default_value=False, type='bool'),
-        KeywordTypeA('Type_Initial_Configuration', 'MIC_GEN_PARAMETERS', mandatory=False,
-                     default_value='random', type='str'),
-        KeywordTypeA('Motion_Analysis', 'MIC_GEN_PARAMETERS', mandatory=False,
-                     default_value=False, type='bool'),
-        KeywordTypeA('Thermostat', 'MIC_GEN_PARAMETERS', mandatory=False,
-                     default_type='multi_temperature', type='str'),
-        KeywordTypeA('Min_Distance', 'MIC_GEN_PARAMETERS', mandatory=False,
-                     default_value=0, type='float'),
-        KeywordTypeA('Initial_Temp', 'MIC_GEN_PARAMETERS', mandatory=False,
-                     default_value=2.5e10, type='float'),
-        KeywordTypeB('Problem_Type', 'PROBLEM_TYPE', type='int'),
-        KeywordTypeB('N_DP_Samples', 'N_DP_SAMPLES', type='int'))
+        KeywordTypeA("Max_Residue_Per_Particle", "Mic_Gen_Parameters", type="float"),
+        KeywordTypeA("Max_Step", "Mic_Gen_Parameters", type="int"),
+        KeywordTypeA(
+            "Max_Steps_To_Relax",
+            "Mic_Gen_Parameters",
+            mandatory=False,
+            default_value=0,
+            type="int",
+        ),
+        KeywordTypeA(
+            "Speed_Up_Scheme",
+            "Mic_Gen_Parameters",
+            mandatory=False,
+            default_value="Cell",
+            type="str",
+        ),
+        KeywordTypeA(
+            "Verlet_Factor",
+            "Mic_Gen_Parameters",
+            mandatory=False,
+            type="float",
+            parent_keyword=("Speed_Up_Scheme", "Verlet"),
+        ),
+        KeywordTypeA(
+            "dt",
+            "Mic_Gen_Parameters",
+            mandatory=False,
+            default_value=0.05,
+            type="float",
+        ),
+        KeywordTypeA(
+            "Save_History",
+            "Mic_Gen_Parameters",
+            mandatory=False,
+            default_value=False,
+            type="bool",
+        ),
+        KeywordTypeA(
+            "Type_Initial_Configuration",
+            "Mic_Gen_Parameters",
+            mandatory=False,
+            default_value="random",
+            type="str",
+        ),
+        KeywordTypeA(
+            "Motion_Analysis",
+            "Mic_Gen_Parameters",
+            mandatory=False,
+            default_value=False,
+            type="bool",
+        ),
+        KeywordTypeA(
+            "Thermostat",
+            "Mic_Gen_Parameters",
+            mandatory=False,
+            default_type="multi_temperature",
+            type="str",
+        ),
+        KeywordTypeA(
+            "Min_Distance",
+            "Mic_Gen_Parameters",
+            mandatory=False,
+            default_value=0,
+            type="float",
+        ),
+        KeywordTypeA(
+            "Initial_Temp",
+            "Mic_Gen_Parameters",
+            mandatory=False,
+            default_value=2.5e10,
+            type="float",
+        ),
+        KeywordTypeA(
+            "Remesh",
+            "Mic_Gen_Parameters",
+            mandatory=False,
+            default_value=False,
+            type="bool",
+        ),
+        KeywordTypeA(
+            "Dir_Previous_Mic", "Mic_Gen_Parameters", mandatory=False, type="str"
+        ),
+        KeywordTypeA("RVE_Dimensions", "Mic_Gen_Parameters", type="float"),
+    )
 
     top_level_reader.addTopLevelKeyword(
-        KeywordTypeC('Mic_Gen_Descriptors',
-                     header_keys={Keyword('PHASE')},
-                     sub_keys={Keyword('phase_type', type='int'),
-                               *generateAllPossibleKeywords()}))
+        KeywordTypeB("Problem_Type", "Problem_Type", type="int"),
+        KeywordTypeB("N_DP_Samples", "N_DP_Samples", type="int"),
+    )
 
     top_level_reader.addTopLevelKeyword(
-        KeywordTypeC('Mesh_Options',
-                     header_keys={
-                        Keyword('Nomsh', type='none'),
-                        Keyword('Femsh', type='none'),
-                        Keyword('Rgmsh', type='none')},
-                     sub_keys={Keyword('Element_Type', type='int')},
-                     mandatory=False))
+        KeywordTypeC(
+            "Mic_Gen_Descriptors",
+            header_keys={Keyword("Phase")},
+            sub_keys={
+                Keyword("Phase_Type", type="int"),
+                *generateAllPossibleKeywords(),
+            },
+        )
+    )
+
+    top_level_reader.addTopLevelKeyword(
+        KeywordTypeC(
+            "Mesh_Options",
+            header_keys={Keyword("Femsh", type="none"), Keyword("Rgmsh", type="none")},
+            sub_keys={
+                Keyword("Element_Type", type="str"),
+                Keyword("Mesh_Size", type="float"),
+                Keyword("N_Voxels_Dims", type="float"),
+            },
+            mandatory=False,
+        )
+    )
 
     top_level_reader.readInputFile(input_file_path)
 
+    print(Keyword.input_reader.all_options)
+    #
     current_sim = Simulation(input_file_dir)
 
-    # current_sim.setOptionsSimulation(Keyword.all_options)
+    current_sim.setOptionsSimulation(Keyword.input_reader.all_options)
 
-
-    print(Keyword.all_options)
+    main(
+        current_sim.dp_dir,
+        current_sim.mic_gen_descriptors,
+        current_sim.phase_types,
+        current_sim.mic_gen_descriptors,
+        current_sim.n_dp_samples,
+        current_sim.problem_type,
+        current_sim.mesh_options,
+        current_sim.mesh_ext,
+    )
 
     # main(dp_dir, mic_gen_descriptors, phase_types, mic_gen_parameters, n_dp_samples,
     #      problem_type, discret_spec_array, discret_file_ext)

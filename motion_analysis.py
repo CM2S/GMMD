@@ -1,8 +1,14 @@
-from plotting_functions import plotParticles, plotPaths, plotOverlapHistory, plotKineticEnergyHistory
+from plotting_functions import (
+    plotParticles,
+    plotPaths,
+    plotOverlapHistory,
+    plotKineticEnergyHistory,
+)
 
 from particle_classes import Particle
 
 import numpy as np
+
 
 def doMotionAnalysis(particles, rve_dims, dp_dir):
 
@@ -20,55 +26,72 @@ def doMotionAnalysis(particles, rve_dims, dp_dir):
                     msh_vtk.write("\n3D triangulation data")
                     msh_vtk.write("\nASCII")
                     msh_vtk.write("\n\nDATASET POLYDATA")
-                    msh_vtk.write("\nPOINTS {0} {1}".format(9*len(particles), 'float'))
+                    msh_vtk.write(
+                        "\nPOINTS {0} {1}".format(9 * len(particles), "float")
+                    )
                     for i_particle in particles:
                         for j in range(-1, 2):
                             for k in range(-1, 2):
-                                position = i_particle.position_center_history[iter] + [j, k]*Particle.box
-                                msh_vtk.write("\n{0} {1} 0".format(position[0], position[1]))
-                    msh_vtk.write("\n\nPOINT_DATA {0}".format(9*len(particles)))
-                    msh_vtk.write("\nSCALARS {0} {1} {2}".format('radius', 'float', '1'))
+                                position = (
+                                    i_particle.position_center_history[iter]
+                                    + [j, k] * Particle.box
+                                )
+                                msh_vtk.write(
+                                    "\n{0} {1} 0".format(position[0], position[1])
+                                )
+                    msh_vtk.write("\n\nPOINT_DATA {0}".format(9 * len(particles)))
+                    msh_vtk.write(
+                        "\nSCALARS {0} {1} {2}".format("radius", "float", "1")
+                    )
                     msh_vtk.write("\nLOOKUP_TABLE default")
                     for i_particle in particles:
                         for j in range(-1, 2):
                             for k in range(-1, 2):
                                 msh_vtk.write("\n{0}".format(i_particle.radius))
-                    msh_vtk.write("\nSCALARS {0} {1} {2}".format('phase', 'float', '1'))
+                    msh_vtk.write("\nSCALARS {0} {1} {2}".format("phase", "float", "1"))
                     msh_vtk.write("\nLOOKUP_TABLE default")
                     for i_particle in particles:
                         for j in range(-1, 2):
                             for k in range(-1, 2):
                                 msh_vtk.write("\n{0}".format(i_particle.phase))
-            
 
     elif particles[0].dim == 3:
-        
+
         # for iter in range(0, np.min([len(particles[0].position_center_history), 1000]), 5):
         #     print(iter)
         #     plotParticles(particles, iter, dp_dir + "_config_{0}".format(iter), save=True, show=False)
 
-        plotParticles(particles, -1, dp_dir + "_config_{0}".format(len(particles[0].position_center_history)), save=True, show=False)
-            
+        plotParticles(
+            particles,
+            -1,
+            dp_dir + "_config_{0}".format(len(particles[0].position_center_history)),
+            save=True,
+            show=False,
+        )
 
-            # with open(dp_dir + str(iter) + ".vtk", "a") as msh_vtk:            
-            #     msh_vtk.write("# vtk DataFile Version 2.0")
-            #     msh_vtk.write("\n3D triangulation data")
-            #     msh_vtk.write("\nASCII")
-            #     msh_vtk.write("\n\nDATASET POLYDATA")
-            #     msh_vtk.write("\nPOINTS {0} {1}".format(len(particles), 'float'))
-            #     for i_particle in particles:
-            #         position = i_particle.position_center_history[iter]
-            #         msh_vtk.write("\n{0} {1} {2}".format(position[0], position[1], position[2]))
-            #     msh_vtk.write("\n\nPOINT_DATA {0}".format(len(particles)))
-            #     msh_vtk.write("\nSCALARS {0} {1} {2}".format('radius', 'float', '1'))
-            #     msh_vtk.write("\nLOOKUP_TABLE default")
-            #     for i_particle in particles:
-            #         msh_vtk.write("\n{0}".format(i_particle.radius))
-            #     msh_vtk.write("\nSCALARS {0} {1} {2}".format('phase', 'float', '1'))
-            #     msh_vtk.write("\nLOOKUP_TABLE default")
-            #     for i_particle in particles:
-            #         msh_vtk.write("\n{0}".format(i_particle.phase))
+        # with open(dp_dir + str(iter) + ".vtk", "a") as msh_vtk:
+        #     msh_vtk.write("# vtk DataFile Version 2.0")
+        #     msh_vtk.write("\n3D triangulation data")
+        #     msh_vtk.write("\nASCII")
+        #     msh_vtk.write("\n\nDATASET POLYDATA")
+        #     msh_vtk.write("\nPOINTS {0} {1}".format(len(particles), 'float'))
+        #     for i_particle in particles:
+        #         position = i_particle.position_center_history[iter]
+        #         msh_vtk.write("\n{0} {1} {2}".format(position[0], position[1], position[2]))
+        #     msh_vtk.write("\n\nPOINT_DATA {0}".format(len(particles)))
+        #     msh_vtk.write("\nSCALARS {0} {1} {2}".format('radius', 'float', '1'))
+        #     msh_vtk.write("\nLOOKUP_TABLE default")
+        #     for i_particle in particles:
+        #         msh_vtk.write("\n{0}".format(i_particle.radius))
+        #     msh_vtk.write("\nSCALARS {0} {1} {2}".format('phase', 'float', '1'))
+        #     msh_vtk.write("\nLOOKUP_TABLE default")
+        #     for i_particle in particles:
+        #         msh_vtk.write("\n{0}".format(i_particle.phase))
 
-
-    plotOverlapHistory(Particle.total_overlap_history, Particle.temp_change_steps, Particle.max_residue,  dir=dp_dir)
+    plotOverlapHistory(
+        Particle.total_overlap_history,
+        Particle.temp_change_steps,
+        Particle.max_residue,
+        dir=dp_dir,
+    )
     plotKineticEnergyHistory(Particle.kinetic_energy_history, dir=dp_dir)

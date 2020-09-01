@@ -1,7 +1,8 @@
 import numpy as np
 
+
 def Newmark(x_0, x_dot_0, f_vec, m_mat, c_mat, k_mat, dt, n_steps, dim):
-    '''
+    """
     This function integrates the equations of motion using Newmark's method.
 
     Parameters:
@@ -31,53 +32,70 @@ def Newmark(x_0, x_dot_0, f_vec, m_mat, c_mat, k_mat, dt, n_steps, dim):
             Velocities
         x_ddot_vec: vector array
             Acceleration
-    '''
-    x_vec = np.zeros((dim, n_steps+1),dtype='float')
-    x_vec[:,0] = x_0
-    x_dot_vec = np.zeros((dim, n_steps+1),dtype='float')
-    x_dot_vec[:,0] = x_dot_0
-    x_ddot_vec = np.zeros((dim, n_steps+1),dtype='float')
+    """
+    x_vec = np.zeros((dim, n_steps + 1), dtype="float")
+    x_vec[:, 0] = x_0
+    x_dot_vec = np.zeros((dim, n_steps + 1), dtype="float")
+    x_dot_vec[:, 0] = x_dot_0
+    x_ddot_vec = np.zeros((dim, n_steps + 1), dtype="float")
     # Initializing the array vectors containing the positions, velocities and accelerations
-    x_ddot_vec[:,0] = \
-        np.linalg.solve(m_mat, f_vec[:,0] - c_mat.dot(x_dot_0) - k_mat.dot(x_0))
+    x_ddot_vec[:, 0] = np.linalg.solve(
+        m_mat, f_vec[:, 0] - c_mat.dot(x_dot_0) - k_mat.dot(x_0)
+    )
     # Computing the accelaration at time instant 0
     delta = 0.5
     alpha = 0.25
-    a_0 = 1/(alpha*dt**2)
-    a_1 = delta/(alpha*dt)
-    a_2 = 1/(alpha*dt)
-    a_3 = 1/(2*alpha) - 1
-    a_4 = delta/alpha - 1
-    a_5 = dt/2*(delta/alpha - 2)
-    a_6 = dt*(1 - delta)
-    a_7 = delta*dt
+    a_0 = 1 / (alpha * dt ** 2)
+    a_1 = delta / (alpha * dt)
+    a_2 = 1 / (alpha * dt)
+    a_3 = 1 / (2 * alpha) - 1
+    a_4 = delta / alpha - 1
+    a_5 = dt / 2 * (delta / alpha - 2)
+    a_6 = dt * (1 - delta)
+    a_7 = delta * dt
     # Computing the constants used in the integration algorithm
-    k_mat_eff = k_mat + a_0*m_mat + a_1*c_mat
+    k_mat_eff = k_mat + a_0 * m_mat + a_1 * c_mat
     # Computing the effective stiffness matrix
     step = 0
     # Initializing the step counter
-    while step<n_steps:
+    while step < n_steps:
         # Repeat n_steps times
-        f_vec_eff = f_vec[:,step] + m_mat.dot(a_0*x_vec[:,step] + a_2*x_dot_vec[:,step] + \
-            a_3*x_ddot_vec[:,step]) + c_mat.dot(a_1*x_vec[:,step] + a_4*x_dot_vec[:,step] +\
-            a_5*x_ddot_vec[:,step])
+        f_vec_eff = (
+            f_vec[:, step]
+            + m_mat.dot(
+                a_0 * x_vec[:, step]
+                + a_2 * x_dot_vec[:, step]
+                + a_3 * x_ddot_vec[:, step]
+            )
+            + c_mat.dot(
+                a_1 * x_vec[:, step]
+                + a_4 * x_dot_vec[:, step]
+                + a_5 * x_ddot_vec[:, step]
+            )
+        )
         # Computing the effective force at time step*dt
-        x_vec[:,step+1] = np.linalg.solve(k_mat_eff, f_vec_eff)
+        x_vec[:, step + 1] = np.linalg.solve(k_mat_eff, f_vec_eff)
         # Computing the position vector at time (step+1)*dt
-        x_ddot_vec[:,step+1] = a_0*(x_vec[:,step+1] - x_vec[:,step]) - \
-            a_2*x_dot_vec[:,step] - a_3*x_ddot_vec[:,step]
+        x_ddot_vec[:, step + 1] = (
+            a_0 * (x_vec[:, step + 1] - x_vec[:, step])
+            - a_2 * x_dot_vec[:, step]
+            - a_3 * x_ddot_vec[:, step]
+        )
         # Computing the acceleration vector at time (step+1)*dt
-        x_dot_vec[:,step+1] = x_dot_vec[:,step] + a_6*x_ddot_vec[:,step] + \
-            a_7*x_ddot_vec[:,step+1]
+        x_dot_vec[:, step + 1] = (
+            x_dot_vec[:, step]
+            + a_6 * x_ddot_vec[:, step]
+            + a_7 * x_ddot_vec[:, step + 1]
+        )
         # Computing the velocity vector at time (step+1)*dt
         step += 1
         # Moving to the next time step
 
+    return [x_vec[:, 1:], x_dot_vec[:, 1:], x_ddot_vec[:, 1:]]
 
-    return [x_vec[:,1:], x_dot_vec[:,1:], x_ddot_vec[:,1:]]
 
 def VerletSync(x_0, x_dot_0, f_vec, m_part, dt, n_steps, dim):
-    '''
+    """
     Integrate the equation of motion using the Verlet integration scheme.
 
     An estimate of the velocity is also computed for the next time step, along with the
@@ -106,61 +124,61 @@ def VerletSync(x_0, x_dot_0, f_vec, m_part, dt, n_steps, dim):
             Positions
         x_dot_vec: vector array
             Velocities
-    '''
-    x_vec = np.zeros((dim, n_steps+1), dtype='float')
+    """
+    x_vec = np.zeros((dim, n_steps + 1), dtype="float")
     x_vec[:, 0] = x_0
-    x_dot_vec = np.zeros((dim, n_steps+1), dtype='float')
+    x_dot_vec = np.zeros((dim, n_steps + 1), dtype="float")
     x_dot_vec[:, 0] = x_dot_0
     # Initializing the array vectors containing the positions, velocities and accelerations
-    x_vec[:, 1] = x_vec[:, 0] + dt*x_dot_vec[:, 0] + f_vec[:, 0]/m_part*dt**2
+    x_vec[:, 1] = x_vec[:, 0] + dt * x_dot_vec[:, 0] + f_vec[:, 0] / m_part * dt ** 2
     # Computing the next position
-    x_dot_vec[:, 1] = (x_vec[:, 1] - x_vec[:, 0])/dt
+    x_dot_vec[:, 1] = (x_vec[:, 1] - x_vec[:, 0]) / dt
     # Computing the velocitiy
     step = 0
     # Initializing the step counter
     while step < n_steps - 1:
         # Repeat n_steps times
-        x_vec[:, step + 2] = 2*x_vec[:, step + 1] - \
-            x_vec[:, step] + f_vec[:, step]/m_part*dt**2
+        x_vec[:, step + 2] = (
+            2 * x_vec[:, step + 1] - x_vec[:, step] + f_vec[:, step] / m_part * dt ** 2
+        )
         # Computing the next position
-        x_dot_vec[:, step + 2] = (x_vec[:, step + 2] - x_vec[:, step + 1])/dt
+        x_dot_vec[:, step + 2] = (x_vec[:, step + 2] - x_vec[:, step + 1]) / dt
         # Computing the velocitiy
         step += 1
         # Moving to the next time step
 
+    return [x_vec[:, 1:], x_dot_vec[:, 1:]]
 
-    return [x_vec[:,1:], x_dot_vec[:,1:]]
 
-if __name__ == '__main__':
-# Test drive
+if __name__ == "__main__":
+    # Test drive
     import numpy as np
     import matplotlib.pyplot as plt
 
-    m_mat = 0.62*np.eye(2)
-    c_mat = 0*np.eye(2)
-    k_mat = np.zeros((2,2))
+    m_mat = 0.62 * np.eye(2)
+    c_mat = 0 * np.eye(2)
+    k_mat = np.zeros((2, 2))
 
     n_steps = 2
 
-    f_vec = np.array([[0, 0],[1.92e-1, 1.85e-1]])
+    f_vec = np.array([[0, 0], [1.92e-1, 1.85e-1]])
     x_0 = np.array([0.5, 0.5])
-    x_dot_0 = np.array([0,0])
+    x_dot_0 = np.array([0, 0])
     dt = 0.005
     dim = 2
 
+    x_vec = np.zeros((2, n_steps))
+    x_dot_vec = np.zeros((2, n_steps))
+    x_ddot_vec = np.zeros((2, n_steps))
 
-    x_vec = np.zeros((2,n_steps))
-    x_dot_vec  = np.zeros((2,n_steps))
-    x_ddot_vec = np.zeros((2,n_steps))
-
-
-    [x_vec, x_dot_vec, x_ddot_vec] = \
-        Newmark(x_0, x_dot_0, f_vec, m_mat, c_mat, k_mat, dt, n_steps, dim)
+    [x_vec, x_dot_vec, x_ddot_vec] = Newmark(
+        x_0, x_dot_0, f_vec, m_mat, c_mat, k_mat, dt, n_steps, dim
+    )
 
     print(x_dot_vec)
 
-    t = np.arange(0,dt*n_steps,dt)
-    plt.plot(t, x_vec[0,:])
-    plt.plot(t, x_vec[1,:])
+    t = np.arange(0, dt * n_steps, dt)
+    plt.plot(t, x_vec[0, :])
+    plt.plot(t, x_vec[1, :])
 
     plt.show()

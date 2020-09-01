@@ -5,6 +5,7 @@ This module contains the class of errors.
 
 class Error(Exception):
     """Base class for exceptions in this module."""
+
     pass
 
 
@@ -36,8 +37,11 @@ class ParameterMissing(Error):
         self.phase = phase
 
     def message(self):
-        print("The parameter {0} of phase {1} is missing.".format(self.missing_parameter,
-              self.phase))
+        print(
+            "The parameter {0} of phase {1} is missing.".format(
+                self.missing_parameter, self.phase
+            )
+        )
 
 
 class UnacceptableParameters(Error):
@@ -49,8 +53,11 @@ class UnacceptableParameters(Error):
         self.acceptable_descriptions = acceptable_descriptions
 
     def message(self):
-        print("The set of parameters {0} for phase {1} are not acceptable.".format(
-            self.used_parameters, self.phase))
+        print(
+            "The set of parameters {0} for phase {1} are not acceptable.".format(
+                self.used_parameters, self.phase
+            )
+        )
         print("Acceptable configurations are {0}.".format(self.acceptable_descriptions))
 
 
@@ -64,8 +71,11 @@ class UnexpectedValue(Error):
 
     def message(self):
         print("The value given for {0} is not valid.".format(self.name_var))
-        print("It must be {0}, but {1} was the value given.".format(self.acceptable_values,
-              self.value))
+        print(
+            "It must be {0}, but {1} was the value given.".format(
+                self.acceptable_values, self.value
+            )
+        )
 
 
 class PhaseDescriptorsMatch(Error):
@@ -75,8 +85,7 @@ class PhaseDescriptorsMatch(Error):
         self.phase = phase
 
     def message(self):
-        print("Phase {0} has descriptors but no phase type.".format(
-            self.phase))
+        print("Phase {0} has descriptors but no phase type.".format(self.phase))
 
 
 class InsufficientInfoMesh(Error):
@@ -88,8 +97,11 @@ class InsufficientInfoMesh(Error):
         self.disc_ext = disc_ext
 
     def message(self):
-        print("The specifications for the mesh {0} given were insufficient: {1}".format(
-                self.disc_ext, self.info))
+        print(
+            "The specifications for the mesh {0} given were insufficient: {1}".format(
+                self.disc_ext, self.info
+            )
+        )
         print("The necessary specifications are: {0}".format(self.necessary_info))
 
 
@@ -110,8 +122,11 @@ class UnsupportedInitialConfigurationType(Error):
         self.init_conf = init_conf
 
     def message(self):
-        print("The initial configuration type {0} is not supported.".format(self.init_conf))
-
+        print(
+            "The initial configuration type {0} is not supported.".format(
+                self.init_conf
+            )
+        )
 
 
 class UnsupportedDistribution(Error):
@@ -123,8 +138,11 @@ class UnsupportedDistribution(Error):
         self.distibution = distibution
 
     def message(self):
-        print("The distribution {0} for {1} in phase {2} is not supported.".format(
-            self.disribution, self.parameter, self.phase))
+        print(
+            "The distribution {0} for {1} in phase {2} is not supported.".format(
+                self.disribution, self.parameter, self.phase
+            )
+        )
 
 
 class IncompatibleDimension(Error):
@@ -139,7 +157,7 @@ class IncompatibleDimension(Error):
 
 class DangerousValueNormal(Error):
     """Raised when a chosen normal distribution for a geometrical size paramter generates
-        unacceptable parameters with a probability that is too high"""
+    unacceptable parameters with a probability that is too high"""
 
     def __init__(self, parameter, phase, tail):
         self.parameter = parameter
@@ -147,20 +165,28 @@ class DangerousValueNormal(Error):
         self.tail = tail
 
     def message(self):
-        if self.tail == 'low':
-            print("""The chosen parameters for the normal distribution of the {1} parameter
+        if self.tail == "low":
+            print(
+                """The chosen parameters for the normal distribution of the {1} parameter
 in phase {0} produce smaller values than 0 with probability greater
-than 2.5%.""".format(self.phase, self.parameter))
-        elif self.tail == 'high':
-            print("""The chosen parameters for the normal distribution of the {1} parameter
+than 2.5%.""".format(
+                    self.phase, self.parameter
+                )
+            )
+        elif self.tail == "high":
+            print(
+                """The chosen parameters for the normal distribution of the {1} parameter
 in phase {0} produce larger values than the smallest dimension of the
 RVE with probability greater
-than 2.5%.""".format(self.phase, self.parameter))
+than 2.5%.""".format(
+                    self.phase, self.parameter
+                )
+            )
 
 
 class UnableToGenerateSample(Error):
     """Raised when a sample of geometrical size parameters could not be generate with the
-        supplied statistical parameters."""
+    supplied statistical parameters."""
 
     def __init__(self, parameter, phase, max_sample):
         self.parameter = parameter
@@ -168,9 +194,13 @@ class UnableToGenerateSample(Error):
         self.max_sample = max_sample
 
     def message(self):
-        print("""From the {0} samples generated for {1} in phase {2} none was acceptable.
+        print(
+            """From the {0} samples generated for {1} in phase {2} none was acceptable.
  Try changing the statistical parameters defining its statistical
- distribution.""".format(self.max_samples, self.parameter, self.phase))
+ distribution.""".format(
+                self.max_samples, self.parameter, self.phase
+            )
+        )
 
 
 class VolumeFractionLargerOne(Error):
@@ -180,8 +210,12 @@ class VolumeFractionLargerOne(Error):
         self.phase = phase
 
     def message(self):
-        print("""While adding particles to phase {0} the global volume fraction went
-over 1.""".format(self.phase))
+        print(
+            """While adding particles to phase {0} the global volume fraction went
+over 1.""".format(
+                self.phase
+            )
+        )
 
 
 class NoMesh(Error):
@@ -214,8 +248,12 @@ class IncompatibleDimensionsRVEphase(Error):
         self.phase = phase
 
     def message(self):
-        print("""The phase type '{0}'' of phase {3} requires a {1}D RVE, but the RVE given
-is {2}D.""".format(self.phase_type_name, self.dim_phase, self.rve_dim, self.phase))
+        print(
+            """The phase type '{0}'' of phase {3} requires a {1}D RVE, but the RVE given
+is {2}D.""".format(
+                self.phase_type_name, self.dim_phase, self.rve_dim, self.phase
+            )
+        )
 
 
 class OnlyCylindricalFibers(Error):
@@ -223,7 +261,9 @@ class OnlyCylindricalFibers(Error):
 
     def message(self):
         print(
-            "Cylindrical fibers are not supported with other phase types in the same RVE.")
+            "Cylindrical fibers are not supported with other phase types in the same RVE."
+        )
+
 
 class UnsupportedPhaseType(Error):
     """Raised when a required phase type is not supported."""
@@ -233,5 +273,9 @@ class UnsupportedPhaseType(Error):
         self.phase = phase
 
     def message(self):
-        print("""The phase type {0} specified for phase {1}
-                 is not supproted""".fomrat(self.phase_type, self.phase))
+        print(
+            """The phase type {0} specified for phase {1}
+                 is not supproted""".fomrat(
+                self.phase_type, self.phase
+            )
+        )
