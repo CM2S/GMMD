@@ -1,0 +1,473 @@
+#
+# (???) - Input data file
+# ==========================================================================================
+# Description:
+# This file provides a complete input data file of the (???) program, where each parameter
+# specification (either mandatory or optional) is fully documented (meaning, syntax,
+# available options). Note that it can be readily used by replacing the '[insert here]'
+# boxes with the suitable specification!
+#
+# Note: Mandatory and optional specifications are denoted by [M] and [O], respectively,
+#       being the former presented first for practical use.
+# ==========================================================================================
+# Development history:
+# José Luís P. Vila-Chã | June 2020 | Initial version
+# ==========================================================================================
+#
+#                                                                           Problem Type [M]
+# ==========================================================================================
+# Meaning:   Problem type (2D: plain strain, plain stress or axisymmetric and 3D).
+#
+# Syntax:    Problem_Type x
+#
+#            1 - 2D problem (plain strain)
+#            2 - 2D problem (plain stress)
+#            3 - 2D problem (axisymmetric)
+#            4 - 3D problem
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+
+#                                         Number of samples for the current design point [M]
+# ==========================================================================================
+# Meaning:   Number of samples to be generated with the specified microstructural
+	     descriptors corresponding to the current design point.
+#
+# Syntax:    N_DP_Samples n
+#
+# n:         integer
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+#                                                                         RVE dimensions [M]
+# ==========================================================================================
+# Meaning:   Dimensions of the quadrilateral (2D) or parallelepipedic (3D) RVE.
+#
+# Syntax:    RVE_Dimensions
+#            [x1 x2] (2D) / [x1 x2 x3]
+#
+# xi:        float
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+#                                                  Microstructure Generation Descriptors [M]
+# ==========================================================================================
+# Meaning:   Description of the microstructure in terms of the shape of the phases and the
+#            statistical description of their geometrical parameters.
+#
+# Syntax:    Mic_Gen_Descriptors
+#	     Phase phase_id
+#	     Phase_Type x
+#	     phase_descriptor_1 y
+#	     phase_descriptor_2 y
+#	     Phase phase_id
+#	     Phase_Type x
+#	     phase_descriptor_1 y
+#	     phase_descriptor_2 y		
+#	     phase_descriptor_3 y
+#
+# phase_id: string
+# 	The name of the phase
+# x: int
+# 	Shape of the particles contained in the phase being specified.
+#	Coded as:		
+#		1 - Matrix (2D/3D)
+#		2 - Disks (2D)
+#		3 - Ellipses (2D)
+#		4 - Spheres (3D)
+#		5 - Ellipsoids (3D)
+#		6 - Long cilyndrical fibers (3D)
+#
+# 	Note: 2D and 3D shapes are incompatible and long cylindrical fibers (6) are
+#	incompatible with all other particle shapes except matrix (1).
+#
+# y: type depend on the corresponding phase_descriptor_Y.	
+#	
+# phase_descriptor_Y: str
+# 	Name of a descriptor for the phase being specified.
+#       The parameters for microstructure generation depend on the shape of the particle.
+#	They are detailed in the following tables. 
+#
+#        ==================== ============ ======================================
+#        Disk (2): Choose 2 of the parameters
+#        -----------------------------------------------------------------------
+#        r                    float        Radius of the disk
+#	 area                 float        Area of the disk
+#        n                    integer      Number of particles
+#        vf                   float        Volume fraction (decimal)
+#        ==================== ============ ======================================
+#
+#        ==================== ============ ======================================
+#        Ellipse (3): Choose 4 of the parameters, always including 'angle'
+#        -----------------------------------------------------------------------
+#        major_axis           float        Major principal axis
+#        minor_axis           float        Minor principal axis
+#	 ratio 		      float	   Ratio between the major and minor axis
+#        angle                float        Angle between the major semi-axis and
+#					   the positive x semi-axis.
+#        n                    integer      Number of particles
+#        vf                   float        Volume fraction (decimal)
+#        ==================== ============ ======================================
+#
+#        ==================== ============ ======================================
+#        Sphere (4): Choose 2 of the parameters
+#        -----------------------------------------------------------------------
+#        r                    float        Radius of the sphere
+#	 volume               float        Volume of the sphere
+#        n                    integer      Number of particles
+#        vf                   float        Volume fraction (decimal)
+#        ==================== ============ ======================================
+#
+#        ==================== ============ ======================================
+#        Ellipse (5): Choose 8 of the parameters, always including 
+#        'rot_axis_comp_x', 'rot_axis_comp_y', 'rot_axis_comp_z' and 'angle'.
+#        -----------------------------------------------------------------------
+#        axis_1               float        Principal axis along xx before
+# 					   applying the rotation
+#        axis_2               float        Principal axis along yy before
+# 					   applying the rotation
+#        axis_3               float        Principal axis along zz before
+# 					   applying the rotation
+#	 ratio_12             float        Ratio between the pricipal axis along
+#                                          xx (axis_1) and along yy (axis_2)
+#                                          before rotation and minor axis
+#	 ratio_13	      float        Ratio between the pricipal axis along
+#                                          xx (axis_1) and along zz (axis_3)
+#                                          before rotation and minor axis
+#	 rot_axis_comp_x      float	   Component x of the vector parallel to
+#                                          the rotation axis
+#	 rot_axis_comp_y      float	   Component y of the vector parallel to
+#                                          the rotation axis
+#	 rot_axis_comp_z      float	   Component z of the vector parallel to
+#                                          the rotation axis
+#        angle                float        Rotation angle around the rotation
+#                                          axis
+#        n                    integer      Number of particles
+#        vf                   float        Volume fraction (decimal)
+#        =================== ============= ======================================
+#
+#        =================== ============= ======================================
+#        Long Cylindrical Fiber (6): Choose 3 of the parameters, always including
+#        'direction'.
+#        -----------------------------------------------------------------------
+#        r                   float         Radius of the disk
+#	 area                float         Area of the disk
+#        n                   integer       Number of particles
+#        vf                  float         Volume fraction (decimal)
+#        direction           {'xx', 'yy',  Direction of the fibers
+#                            'zz'}.                                               
+#        =================== ============= ======================================
+#
+#      Any descriptor, except for n and vf, may be specified as a fixed value or made
+#      to vary according to a specific statistical distribution.
+#      For a given parameter 'parameter':
+#
+#   	 - Fixed distribution:
+#	 	The parameters are fixed. Simply specify the parameter.
+#
+#		parameter 1e-5
+#
+#	 - Discrete distribution:
+#        	The parameter follows a discrete distribution, where the it may only
+#               take the specified values (parameter_value_1, parameter_value_2,
+#		parameter_value_3) with the corresponding probability (parameter_prob_1,
+#		parameter_prob_2, parameter_prob_3).
+#
+#		parameter_distribution discrete
+#		parameter_value_1 0.5
+#		parameter_prob_1 0.2
+#		parameter_value_2 0.3
+#		parameter_prob_2 0.5
+#		parameter_value_3 0.8
+#		parameter_prob_3 0.3
+#		
+#		Note: The sum of the probabilities of all values must equal 1.
+#
+#       - Uniform distribution:
+#		The parameter follows an uniform distribution, where the probability
+#		density is constant for a given interval of values, 
+#  		[parameter_low, parameter_high].
+#
+#		parameter_distribution uniform
+#		parameter_low 0.1
+#		parameter_high 0.2
+#
+#      - Normal distribution:
+#		The parameter follows a normal distribution with mean parameter_mean and
+#		standard deviation parameter_sigma.
+#
+#		parameter_distribution normal
+#		parameter_mean 0.5
+#		parameter_sigma 0.02
+#
+# 	Note: Particular choices of descriptors' values for a given phase may lead to
+#	impossible, e.g. volume fraction above 100%, or very costly to obtain, e.g. ellipses
+#	with very high ratios, microstructures.
+#
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+#                                     Maximum allowable overlap area/volume per particle [M]
+# ==========================================================================================
+# Meaning:   It is the maximum allowable overlap area/volume per particle, i.e. the total
+#	     overlap area/volume divided by the number of particles, such that a given
+#            configuration is considered legal.
+#
+# Syntax:    Max_Residue_Per_Particle x
+#
+# x:         float
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+#                                                           Maximum number of iterations [M]
+# ==========================================================================================
+# Meaning:   The maximum number of iterations for a given molecular dynamics simulation.
+#
+# Syntax:    Max_Step x
+#
+# x:         integer
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                                    Number of iterations for relaxation [O]
+# ==========================================================================================
+# Meaning:   The number of iterations allowed for the system to still move after reaching a
+#	     legal configuration.
+#
+# Syntax:    Max_Steps_To_Relax x
+#
+# x:         integer (default to 0)
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+#                                                  Speed-up scheme for force computation [O]
+# ==========================================================================================
+# Meaning:   Speed-up scheme for force computation, avoiding computing interactions between
+#	     between particles that can be shown a priori not to interact.
+#
+# Syntax:    Speed_Up_Scheme x
+#            parameter_scheme_1 y
+#            parameter_scheme_2 y
+#
+# x:         {'Naive', 'Cell', 'Verlet} (default to 'Cell')
+#	     'Naive' - no scheme is used. Interaction checks are computed for every pair of
+#	     	particles. O(N**2), where N is the number of particles.
+#	        It doesn't need any extra parameters.
+#
+#			Speed_Up_Scheme Naive
+#
+#	     'Cell'  - the cell list scheme is used. O(N), where N is the number of 
+#               particles.
+#	        It doesn't need any extra parameters.
+#
+#			Speed_Up_Scheme Cell
+#
+#	     'Verlet'- the verlet list method is used, computing each Verlet list from a
+#		cell list.
+#		An extra parameter must be specified:
+#		
+# parameter_scheme_Y: str
+#	     The mandatory and optional parameters to be specified depend on the speed-up
+#	     specified.
+#	     'Naive' - It doesn't need any extra parameters.
+#
+#			Speed_Up_Scheme Naive
+#
+#	     'Cell'  - It doesn't need any extra parameters.
+#
+#			Speed_Up_Scheme Cell
+#
+#	     'Verlet'- An extra parameter must be specified:
+#		- Verlet_Factor:
+#               The Verlet neighborhood has the shape of the particle increase by the
+#               specified factor.
+#               Larger factors imply fewer computations of the Verlet list, but larger
+#	     	Verlet lists for each particle. A smaller factor has the opposite effect.
+#	     	To achieve an imporvement in the CPU time of the molecular dynamics
+#               simulation a compromise must be struck between these two tendencies.
+#
+#			Speed_Up_Scheme Verlet
+#			Verlet_Factor y (default to 1.5)
+#
+# y: depends on the corresponding parameter_scheme_Y
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+#                                                        	   Integration time step [O]
+# ==========================================================================================
+# Meaning:   Integration time step for the numerical integration of the equations of motion
+#	     in the molecular dynamics simulation.
+#
+# Syntax:    dt x (default to 0.05)
+#
+# x:         float	 
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+#                                                        	Save the complete motion [O]
+# ==========================================================================================
+# Meaning:   If True all the positions of all the particles through the complete motion are
+#	     saved, else only the initial and final configurations are saved.
+#
+# Syntax:    Save_History x (default to 'False')
+#
+# x:         {'True', 'False'}
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+#                                                          Type of initial configuration [O]
+# ==========================================================================================
+# Meaning:   Type of initial configuration for the center of mass of the particles in the
+#	     simulation box.
+#
+# Syntax:    Type_Initial_Configuration x (default to 'random')
+#
+# x:         {'random', 'grid'}
+#	     'random' -  the initial configuration is obtained through a Poisson point
+#	     	process, i.e. each component of the center of mass's position vector is
+#	     	randomly uniformly distributed along the corresponding simulation box
+#	        side.
+#	     'grid' - the centers of mass of the particles are placed in a grid, with side
+#	     	ceil(sqrt(N)), with the eventual gaps distributed randomly across the grid.
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                         Initial temperature of the system of particles [O]
+# ==========================================================================================
+# Meaning:   Initial temperature of the system of particles, as understood from the
+#	     equipartion theorem from statistical mechanics. It is not in kelvin.
+#
+# Syntax:    Initial_Temp x (default to 2.5e10)
+#
+# x:         float
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+#                                                  Thermostat used during the simulation [O]
+# ==========================================================================================
+# Meaning:   Thermostat used during the simulation
+#
+# Syntax:    Thermostat x (default to 'multi_temperature')
+#
+# x:         {'isokinetic', 'multi_temperature'}
+#	     'isokinetic' - the system of particles is simulated at a constant temperature
+#	     	enforced through the isokinetic scheme.
+#	     'multi_temperatue' - the system of particles is simulated at a decreasing
+#	        temperature stages enforced through the isokinetic scheme.
+#		The temperature is lowered when equilibrium has been reached.
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+#                                                  Thermostat used during the simulation [O]
+# ==========================================================================================
+# Meaning:   Initial temperature of the system of particles, as understood from the
+#	     equipartion theorem from statistical mechanics. It is not in kelvin.
+#
+# Syntax:    Initial_Temp x (default to 2.5e10)
+#
+# x:         float
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+#                                                     Minimum distance between particles [O]
+# ==========================================================================================
+# Meaning:   Minimum distance between particles.
+#
+# Syntax:    Min_Distance x (default to 0)
+#
+# x:         float
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+#                                                     			    Mesh options [M]
+# ==========================================================================================
+# Meaning:   Mesh options.
+#
+# Syntax:    Mesh_Options
+#	     Mesh_Type mesh_type_1
+#	     mesh_option_1 y
+#	     mesh_option_2 y
+#	     Mesh_Type mesh_type_2
+#	     mesh_option_1 y
+#	     mesh_option_2 y
+#
+# mesh_type_X:	{'rgmsh','femsh'}
+#	     	'rgmh'  - Regular grid mesh. A given voxel is set to the phase to which its
+#	     		center point belongs.
+#            	'femsh' - Finite element mesh. Generated using gmsh.
+#
+# mesh_option_Y: str
+#		 The mandatory and optional mesh options depend on the mesh type specified.
+#		 
+#		 ========================================================================
+#		 'rgmsh' - 1 mandatory parameter
+#		 ------------------------------------------------------------------------	
+#		 Number of voxels in each direction                                   [M]
+#		 		
+#		 Meaning: number of voxels discretizing each side of the microstructure.
+#
+#	         Syntax: n_voxels_dims x1 x2 (2D)/x1 x2 x3 (3D)
+#
+#		 x1: float
+#		 x2: float
+#		 x3: float
+#		 ========================================================================
+#
+#		 ========================================================================
+#		 'femsh' - 2 mandatory parameters
+#		 ------------------------------------------------------------------------	
+#		 Mesh size                                                            [M]
+#		 		
+#		 Meaning: Largest mesh size allowed. The mesh size is computed from the
+#		 	  curvature of the geometry.
+#
+#	         Syntax: mesh_size x
+#
+#		 x: float
+#                ........................................................................
+#		 Element type                                                         [M]
+#		 		
+#		 Meaning: Type of element used to mesh the microstructure.
+#
+#	         Syntax: element_type x
+#
+#		 x: {'tri3', 'tri6', tetra4', 'tetra10'}
+#		 ========================================================================		
+#			
+# y: depends on the corresponding mesh_option_Y		
+#
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+#                                                  	                Remeshing action [O]
+# ==========================================================================================
+# Meaning:   Remeshing action information.
+#
+# Syntax:    Remesh x (default to False)
+#            Dir_Previous_Mic y
+#            
+#
+# x:         {'True', 'False'}
+# y:         str. Path to the output file .p of the microstructure to be remeshed.
+#
+# Note: If a remesh action is performed all other information supplied except for the
+# 	Mesh_Options will be ignored.
+#	     
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
