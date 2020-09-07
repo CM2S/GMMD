@@ -156,6 +156,7 @@ class KeywordTypeA(Keyword):
         self.mandatory = mandatory
 
         if "default_value" in kwargs:
+            self.default_value = kwargs["default_value"]
             self.storeValue(self.default_value)
 
     def storeValue(self, val):
@@ -194,6 +195,7 @@ class KeywordTypeB(Keyword):
         super().__init__(name, **kwargs)
 
         if "default_value" in kwargs:
+            self.default_value = kwargs["default_value"]
             self.storeValue(self.default_value)
 
         self.mandatory = mandatory
