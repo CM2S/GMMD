@@ -8,7 +8,9 @@ TO ADD A POSSIBLE KEYWORD, ADD IT TO THE INSTANCE OF THE TopLevelReader.
 
 import numpy as np
 
-import particles.particle_classes as part_cls
+import microstructure.particle_classes as part_cls
+import microstructure.phase as phase
+import errors.error_classes as error_cls
 
 
 class Keyword(object):
@@ -93,7 +95,7 @@ class Keyword(object):
                 value_str = line.split()[1]
                 final_val = value_str
         except ValueError:
-            errors.IncompatibleValue.messsage("Error")
+            error_cls.IncompatibleValue.messsage("Error")
             quit()
         Keyword.input_reader.i_line += 1
         return final_val
@@ -421,7 +423,7 @@ def generateAllPossibleKeywordsFromParticleAttributes():
         return all_subclasses
 
     all_particle_sub_classes = get_all_subclasses(part_cls.Particle)
-    all_phase_descriptor_sub_classes = get_all_subclasses(PhaseDescriptor)
+    all_phase_descriptor_sub_classes = get_all_subclasses(phase.PhaseDescriptor)
     keyword_set = set()
     keyword_set.add(Keyword("vf", type="float"))
     keyword_set.add(Keyword("n", type="float"))
@@ -522,11 +524,14 @@ top_level_reader.addTopLevelKeyword(
     KeywordTypeA("Dir_Previous_Mic", "Mic_Gen_Parameters", mandatory=False, type="str"),
     KeywordTypeA("RVE_Dimensions", "Mic_Gen_Parameters", type="float"),
 )
+# Generation parameters
+
 
 top_level_reader.addTopLevelKeyword(
     KeywordTypeB("Problem_Type", "Problem_Type", type="int"),
     KeywordTypeB("N_DP_Samples", "N_DP_Samples", type="int"),
 )
+# General keywords
 
 top_level_reader.addTopLevelKeyword(
     KeywordTypeC(
@@ -534,10 +539,11 @@ top_level_reader.addTopLevelKeyword(
         header_keys={Keyword("Phase")},
         sub_keys={
             Keyword("Phase_Type", type="int"),
-            *generateAllPossibleKeywords(),
+            *generateAllPossibleKeywordsFromParticleAttributes(),
         },
     )
 )
+# Phase descriptors
 
 top_level_reader.addTopLevelKeyword(
     KeywordTypeC(
@@ -551,3 +557,4 @@ top_level_reader.addTopLevelKeyword(
         mandatory=False,
     )
 )
+# Mesh generation parameters
