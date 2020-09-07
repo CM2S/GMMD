@@ -1,8 +1,15 @@
-class Simulation:
-    """Class for the simulations that generate the microstructures."""
+"""
+This module contains the Microstructure class.
+"""
 
-    def __init__(self, working_directory):
-        """Initizalizer for the Simulation Class."""
+# import phase
+
+
+class Microstructure:
+    """Class for the Microstructure."""
+
+    def __init__(self, working_directory, mic_gen_descriptors):
+        """Initizalizer for the Microstructure Class."""
 
         self.dp_dir = working_directory
         #     Directory where the microstructure spatial discretization file(s) associated
