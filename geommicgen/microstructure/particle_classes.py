@@ -318,6 +318,11 @@ class Particle:
     equilibration_steps = []
     # Equilibration steps spent at each temperature stage
 
+    possible_parameters = {
+        "n": "Number of particles",
+        "vf": "Volume fraction",
+    }
+
     def __init__(self, dim, phase):
         """
         The constructor for the Particle class.
@@ -510,9 +515,7 @@ class Ellipse(Particle):
         "angle": "Angle",
         "eccentricity": "Eccentricity",
         "ratio": "Ratio a/b",
-        "n": "Number of particles",
-        "vf": "Volume fraction",
-    }
+    }.union(super().possible_parameters)
     # all possible_parameters
     acceptable_descriptions = [
         {"major_axis", "minor_axis", "angle", "n"},
@@ -1111,12 +1114,9 @@ class Disk(Ellipse):
         Acceptable sets of parameters that fully describe a phase containing disks.
     """
 
-    possible_parameters = {
-        "r": "Radius",
-        "area": "Area per particle",
-        "n": "Number of particles",
-        "vf": "Volume fraction",
-    }
+    possible_parameters = {"r": "Radius", "area": "Area per particle"}.union(
+        super().possible_parameters
+    )
     # all possible_parameters
     geom_possible_parameters = {"r": "Radius", "area": "Area per particle"}
     # all possible geometrical parameters
@@ -1351,9 +1351,7 @@ class CylindricalFiber(Disk):
         "r": "Radius",
         "area": "Area per particle",
         "n": "Number of particles",
-        "vf": "Volume fraction",
-        "direction": "Fiber direction",
-    }
+    }.union(super().possible_parameters)
     # all possible_parameters
     acceptable_descriptions = [
         {"r", "n", "direction"},
@@ -1427,11 +1425,9 @@ class Ellipsoid(Particle):
         "rot_axis_comp_y": "y-component rotation axis",
         "rot_axis_comp_z": "z-component rotation axis",
         "angle": "Rotation angle",
-        "n": "Number of particles",
-        "vf": "Volume fraction",
         "ratio_12": "Ratio a1/a2",
         "ratio_13": "Ratio a1/a3",
-    }
+    }.union(super().possible_parameters)
     # all possible_parameters
     acceptable_descriptions = [
         {
@@ -2170,12 +2166,9 @@ class Sphere(Ellipsoid):
         Acceptable sets of parameters that fully describe a phase containing spheres.
     """
 
-    possible_parameters = {
-        "r": "Radius",
-        "volume": "Volume per particle",
-        "n": "Number of particles",
-        "vf": "Volume fraction",
-    }
+    possible_parameters = {"r": "Radius", "volume": "Volume per particle"}.union(
+        super().possible_parameters
+    )
     # all possible_parameters
     geom_possible_parameters = {"r": "Radius", "volume": "Volume per particle"}
     # all possible geometrical parameters

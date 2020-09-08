@@ -425,11 +425,12 @@ def generateAllPossibleKeywordsFromParticleAttributes():
     all_particle_sub_classes = get_all_subclasses(part_cls.Particle)
     all_phase_descriptor_sub_classes = get_all_subclasses(phase.PhaseDescriptor)
     keyword_set = set()
-    keyword_set.add(Keyword("vf", type="float"))
-    keyword_set.add(Keyword("n", type="float"))
+    for descriptor in part_cls.Particle.possible_parameters:
+        # Volume fraction and number of particles
+        keyword_set.add(Keyword(descriptor, type="float"))
     for particle_type in all_particle_sub_classes:
         for descriptor in particle_type.possible_parameters:
-            if descriptor == "vf" or descriptor == "n":
+            if descriptor in part_cls.Particle.possible_parameters:
                 continue
             keyword_set.add(Keyword(descriptor, type="float"))
             keyword_set.add(Keyword(descriptor + "_distribution", type="str"))
