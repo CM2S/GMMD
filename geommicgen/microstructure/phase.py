@@ -6,6 +6,8 @@ a phase descriptors. Different subclasses are able to generate samples from diff
 statistical distributions.
 """
 
+import numpy as np
+
 from .particle_classes import Disk, Ellipse, Sphere, Ellipsoid
 
 
@@ -101,11 +103,13 @@ class Phase:
                 if descriptor_distribution == "uniform":
                     # the radius follows a uniform distribution
                     self.descriptors[descriptor] = UniformDistribution(
+                        descriptor,
                         phase_descriptors[descriptor + "_low"],
                         phase_descriptors[descriptor + "_high"],
                     )
                 elif descriptor_distribution == "normal":
                     self.descriptors[descriptor] = NormalDistribution(
+                        descriptor,
                         phase_descriptors[descriptor + "_mean"],
                         phase_descriptors[descriptor + "_sigma"],
                     )
@@ -121,15 +125,20 @@ class Phase:
                                 phase_descriptors[i_descriptor.replace("value", "prob")]
                             )
                             # Save the value
-                    self.phase[descriptor] = DiscreteDistribution(values, probabilities)
-                elif descriptor_distribution == "fixed":
-                    self.phase[descriptor] = FixedValue(phase_descriptors[descriptor])
-                else:
-                    self.phase[phase_name][parameter] = UniformDistribution(
-                        descriptors[parameter + "_low"],
-                        descriptors[parameter + "_high"],
+
+                    self.phase[descriptor] = DiscreteDistribution(
+                        descriptor, values, probabilities
                     )
+                elif descriptor_distribution == "fixed":
+                    self.phase[descriptor] = FixedValue(
+                        descriptor, phase_descriptors[descriptor]
+                    )
+                else:
+                    raise ValueError
             except KeyError as e:
+                print("Error")
+                quit()
+            except ValueError as e:
                 print("Error")
                 quit()
         self.real_volume_fraction = 0
@@ -231,22 +240,198 @@ class Phase:
 
 
 class PhaseDescriptor:
-    pass
+    """
+    This is the class for phase descriptors.
+
+    Attributes
+    ----------
+    name: str
+        Name of the descriptor
+
+    """
+
+    def __init__(self, name):
+        """
+        Initializer for the PhaseDescriptor class.
+
+        Parameters
+        ----------
+        name: str
+            Name of the descriptor.
+        """
+        self.name = name
 
 
 class FixedValue(PhaseDescriptor):
+    """
+    This is the class for phase descriptors with a fixed value.
+
+    Attributes
+    ----------
+    value: object
+        Specified value of the descriptor.
+
+    real_value: object
+        Real value of the descriptor. Used when a given descriptor cannot be exactly
+        satisfied.
+
+    Class Attributes
+    ----------------
+    parameters: set
+        Parameters of the statistical distribution.
+    """
+
     parameters = {}
+
+    def __init__(self, value):
+        """
+        Initializer for the FixedValue class.
+
+        Parameters
+        ----------
+        value: object
+            Specified value of the descriptor.
+        """
+        self.value = value
+
+    def generateSample(self):
+        return self.value
 
 
 class NormalDistribution(PhaseDescriptor):
+    """
+    This is the class for phase descriptors with a normal distribution.
+
+    Attributes
+    ----------
+    mean: float
+        Mean of the normal distribution.
+
+    sigma: float
+        Standard deviation of the normal distribution.
+
+    Class Attributes
+    ----------------
+    parameters: set
+        Parameters of the statistical distribution.
+    """
+
     parameters = {"mean", "sigma"}
+
+    def __init__(self, mean, sigma):
+        """
+        Initializer for the NormalDistribution class.
+
+        Parameters
+        ----------
+        mean: float
+            Mean of the normal distribution.
+
+        sigma: float
+            Standard deviation of the normal distribution.
+        """
+        self.mean = mean
+        self.sigma = sigma
+
+    def generateSample(self, n_samples=1):
+        """
+        Generate sample from a normal distribution.
+        """
+        sample = np.random.normal(loc=self.mean, scale=self.sigma, size=n_samples)
+        return sample
 
 
 class UniformDistribution(PhaseDescriptor):
+    """
+    This is the class for phase descriptors with a uniform distribution.
+
+    Attributes
+    ----------
+    value: object
+        Specified value of the descriptor.
+
+    real_value: object
+        Real value of the descriptor. Used when a given descriptor cannot be exactly
+        satisfied.
+
+    Class Attributes
+    ----------------
+    parameters: set
+        Parameters of the statistical distribution.
+    """
+
     parameters = {"low", "high"}
+
+    def __init__(self, low, high):
+        """
+        Initializer for the NormalDistribution class.
+
+        Parameters
+        ----------
+        mean: float
+            Mean of the normal distribution.
+
+        sigma: float
+            Standard deviation of the normal distribution.
+        """
+        if low > high:
+            raise ValueError
+
+        self.low = low
+        self.high = high
+
+    def generateSample(self, n_samples=1):
+        """
+        Generate sample from a normal distribution.
+        """
+        sample = np.random.uniform(low=self.low, scale=self.high, size=n_samples)
+        return sample
 
 
 class DiscreteDistribution(PhaseDescriptor):
+    """
+    This is the class for phase descriptors with a discrete distribution.
+
+    Attributes
+    ----------
+    value: object
+        Specified value of the descriptor.
+
+    real_value: object
+        Real value of the descriptor. Used when a given descriptor cannot be exactly
+        satisfied.
+
+    Class Attributes
+    ----------------
+    parameters: set
+        Parameters of the statistical distribution.
+    """
+
     parameters = {"value_" + str(i) for i in range(1, 11)}.union(
         {"prob_" + str(i) for i in range(1, 11)}
     )
+
+    def __init__(self, low, high):
+        """
+        Initializer for the NormalDistribution class.
+
+        Parameters
+        ----------
+        mean: float
+            Mean of the normal distribution.
+
+        sigma: float
+            Standard deviation of the normal distribution.
+        """
+        if low > high:
+            raise ValueError
+
+        self.low = low
+        self.high = high
+
+    def generateSample(self, n_samples=1):
+        """
+        Generate sample from a normal distribution.
+        """
+        sample = np.random.uniform(low=self.low, scale=self.high, size=n_samples)
+        return sample
