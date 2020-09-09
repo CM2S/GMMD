@@ -5,6 +5,10 @@ Each instance of Phase its a phase of the microstructure and each instance of De
 a phase descriptors. Different subclasses are able to generate samples from different
 statistical distributions.
 """
+
+from .particle_classes import Disk, Ellipse, Sphere, Ellipsoid
+
+
 class GeometricalParameter:
     """
     This is the class for GeometricalParameters, characterized by a name, statistical
