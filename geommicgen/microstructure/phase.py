@@ -72,16 +72,66 @@ class Phase:
         name: string
             Name of the phase.
 
-        type: int
-            Type of phase
+        phase_descriptors: dict
+            Phase descriptors such as the phase type, the volume fraction, number of
+            particles and so on.
         """
 
         self.name = name
         # Name of the phase
-        self.type = type
+        self.type = Phase.phase_types[phase_descriptors.pop("Phase_Type")]
         # Type of the phase
-        self.type_name = Phase.phase_type_name[type]
-        # Type name
+        self.descriptors = {
+            possible_descriptor: None
+            for possible_descriptor in self.type.possible_parameters
+            if any(
+                [
+                    descriptor.startswith(possible_descriptor)
+                    for descriptor in phase_descriptors.keys()
+                ]
+            )
+        }
+
+        self.type.checkAcceptableDescription(self.descriptors)
+        for descriptor in self.descriptors:
+            descriptor_distribution = phase_descriptors.get(
+                descriptor + "_distribution", "fixed"
+            )
+            try:
+                if descriptor_distribution == "uniform":
+                    # the radius follows a uniform distribution
+                    self.descriptors[descriptor] = UniformDistribution(
+                        phase_descriptors[descriptor + "_low"],
+                        phase_descriptors[descriptor + "_high"],
+                    )
+                elif descriptor_distribution == "normal":
+                    self.descriptors[descriptor] = NormalDistribution(
+                        phase_descriptors[descriptor + "_mean"],
+                        phase_descriptors[descriptor + "_sigma"],
+                    )
+                elif descriptor_distribution == "discrete":
+                    # Recovering the pairs value/probability, specified as
+                    # descriptor_value_* and descriptor_prob_*
+                    values = []
+                    probabilities = []
+                    for i_descriptor in phase_descriptors:
+                        if i_descriptor.startswith(descriptor + "_value"):
+                            values.append(phase_descriptors[i_descriptor])
+                            probabilities.append(
+                                phase_descriptors[i_descriptor.replace("value", "prob")]
+                            )
+                            # Save the value
+                    self.phase[descriptor] = DiscreteDistribution(values, probabilities)
+                elif descriptor_distribution == "fixed":
+                    self.phase[descriptor] = FixedValue(phase_descriptors[descriptor])
+                else:
+                    self.phase[phase_name][parameter] = UniformDistribution(
+                        descriptors[parameter + "_low"],
+                        descriptors[parameter + "_high"],
+                    )
+            except KeyError as e:
+                print("Error")
+                quit()
         self.real_volume_fraction = 0
         self.spec_volume_fraction = 0
         self.virtual_volume_fraction = 0
