@@ -234,7 +234,7 @@ class PhaseDescriptor:
     pass
 
 
-class FixedValued(PhaseDescriptor):
+class FixedValue(PhaseDescriptor):
     parameters = {}
 
 
