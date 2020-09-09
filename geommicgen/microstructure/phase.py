@@ -1,3 +1,10 @@
+"""
+This module contains the Phase class and the Descriptor class and its subclasses.
+
+Each instance of Phase its a phase of the microstructure and each instance of Descriptor is
+a phase descriptors. Different subclasses are able to generate samples from different
+statistical distributions.
+"""
 class GeometricalParameter:
     """
     This is the class for GeometricalParameters, characterized by a name, statistical
