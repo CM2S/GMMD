@@ -60,16 +60,10 @@ class Phase:
         Dictinary containing the correspondence between a phase type and its name.
     """
 
-    phase_type_name = {
-        1: "Matrix",
-        2: "Disks",
-        3: "Ellipses",
-        4: "Spheres",
-        5: "Ellipsoids",
-    }
-    # Correspondence between phase type and phase type names
+    phase_types = {1: "Matrix", 2: Disk, 3: Ellipse, 4: Sphere, 5: Ellipsoid}
+    # Correspondence between phase type and phase type class
 
-    def __init__(self, name, type):
+    def __init__(self, name, phase_descriptors):
         """
         Constructor for the Phase class.
 
