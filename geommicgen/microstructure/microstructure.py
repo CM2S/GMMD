@@ -1,74 +1,55 @@
 """
 This module contains the Microstructure class.
+Each instance of the Microstructure class is a microstructure sample, composed of instances
+ of the Phase class, in turn described by the adequate phase descriptors.
 """
 
-# import phase
+import numpy as np
+
+from .phase import Phase
 
 
 class Microstructure:
-    """Class for the Microstructure."""
+    """
+    Class for the Microstructure.
 
-    def __init__(self, working_directory, mic_gen_descriptors):
-        """Initizalizer for the Microstructure Class."""
+    Attributes
+    ----------
+    rve_dims: array
+        Array containing the dimensions of the microstructure in each spatial direction.
 
-        self.dp_dir = working_directory
-        #     Directory where the microstructure spatial discretization file(s) associated
-        #     with the given design point are to be stored
-        self.mic_gen_parameters = {}
-        # Dictionayr with generation parameters
-        self.mic_gen_descriptors = {}
-        # Dictionaty containing the descriptors for the phases
-        self.phase_types = {}
-        # Dictionary containing the phase types
-        self.discret_file_ext = []
-        # list containing the extensions for the output mesh files
-        self.discret_spec_array = {}
-        # Parameters for the generation of the meshes
-        self.problem_type = 0
-        # Problem type
-        self.n_dp_samples = 0
-        # Number of samples to be generated
+    matrix_phase: str
+        Name of the matrix phase.
 
-    def parametersChecks(self):
+    volume: float
+        Volume/area of the microstructure.
 
-        try:
-            if self.n_dp_samples < 1:
-                # The number of samples must be an integer larger or equal to 1
-                raise errors.NumberSamples(self.n_dp_samples)
-        except errors.NumberSamples() as error:
-            error.message()
-            quit()
+    phases: dict
+        Dictionary whose keys are the name of the phases and whose values are the
+        corresponding instance of `.Phase`.
+    """
 
-        try:
-            if set(self.phase_types.keys()) != set(self.mic_gen_descriptors.keys()):
-                # There are phases which not have descriptors or a phase type
-                for phase in self.mic_gen_descriptors:
-                    if phase not in self.phase_types:
-                        # If there is a phase that has descriptors but no phase type
-                        raise errors.PhaseDescriptorsMatch(phase)
-        except errors.PhaseDescriptorsMatch as error:
-            error.message()
-            quit()
-        # try:
-        #     for phase in phase_types:
-        #         if not RepresentsInt(phase) or not isinstance(phase, str):
-        #             raise errors.UnexpectedValue(phase, 'key of phase_types',
-        #                                          'string containing an integer')
-        # except errors.UnexpectedValue as error:
-        #     error.message()
-        #     quit()
+    def __init__(self, mic_gen_descriptors, rve_dims):
+        """Initizalizer for the Microstructure Class.
 
-    def setOptionsSimulation(self, options):
+        Parameters
+        ----------
+        mic_gen_descriptors: dict
+            Dictinary whose keys are the phase names and whose values are dictionaries
+            specifiyng the phase descriptors.
 
-        self.mic_gen_parameters = options["Mic_Gen_Parameters"]
-        self.problem_type = options["Problem_Type"]
-        self.n_dp_samples = options["N_DP_Samples"]
-        self.mic_gen_descriptors = options["Mic_Gen_Descriptors"]
-        self.phase_types = {
-            phase_name: descriptors["Phase_Type"]
-            for phase_name, descriptors in options["Mic_Gen_Descriptors"].items()
-        }
-        self.mesh_options = options.get("Mesh_Options", [])
-        self.mesh_ext = [ext for ext in options.get("Mesh_Options", [])]
+        rve_dims: array
+            Array containing the dimnesions of the microstructure in each spatial direction.
 
-        self.parametersChecks()
+        """
+
+        self.matrix_phase = None
+        self.rve_dims = rve_dims
+        self.volume = np.prod(rve_dims)
+        self.phases = {}
+        for phase_name, phase_descriptors in mic_gen_descriptors.items():
+            self.phases[phase_name] = Phase(phase_name, phase_descriptors)
+            if self.phases[phase_name].type == "Matrix":
+                if self.matrix_phase is not None:
+                    raise ValueError
+                self.matrix_phase = phase_name
