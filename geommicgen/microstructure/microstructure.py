@@ -62,6 +62,7 @@ class Microstructure:
         phase: `.Phase`
         """
         self.phases[phase.name] = phase
+        phase.microstructure = self
         if self.phases[phase.name].type.__name__ == "Matrix":
             if self.matrix_phase is not None:
                 raise ValueError
