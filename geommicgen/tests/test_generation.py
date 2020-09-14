@@ -9,6 +9,7 @@ import numpy as np
 
 from geommicgen.micgenmethod.microstructure_gen_method import GenerationMethod
 from geommicgen.micgenmethod.molecular_dynamics_sim import MolecularDynamicsSimulation
+from geommicgen.microstructure.particle_classes import CylindricalFiber
 
 
 class MicGenTest(GenerationMethod):
@@ -69,6 +70,9 @@ class TestGenerationMethod(unittest.TestCase):
         for particle in particles:
             self.assertTrue(particle.name, "Disk()")
 
+    def test_generate_particles_matrix(self):
+        self.assertTrue(False)
+
 
 class TestMolecularDynamicSimulation(unittest.TestCase):
     """Test class for the MolecularDynamicsSimulation class"""
@@ -120,5 +124,47 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
             ],
         )
 
-    def test_generate_microstructure_set_box(self):
-        """Set the simulation box correctly."""
+    # @patch(
+    #     "geommicgen.micgenmethod.microstructure_gen_method.GenerationMethod.generate_particles"
+    # )
+    # def test_generate_microstructure_set_box(self, mock_generate_particles):
+    #     """Set the simulation box correctly."""
+    #
+    #     mock_generate_particles.return_value = Mock()
+    #     mock_generate_particles.return_value
+    #     mock_microstructure_sample = Mock()
+    #     phase_1 = Mock()
+    #     phase_2 = Mock()
+    #     mock_microstructure_sample.phases = {
+    #         "1": phase_1,
+    #         "2": phase_2,
+    #     }
+    #     phase_2.type == Mock()
+    #
+    #     self.current_generation_method.generate_microstructure(
+    #         mock_microstructure_sample
+    #     )
+    #     self.assertEqual(self.current_generation_method.box, [1.0, 1.0])
+
+    def test_generate_microstructure_cylindrical_fiber_set_box(self):
+        """Check if the simulation box is correctly set if there a cylindrical fibers."""
+
+        rve_dims = [1.0, 2.0, 3.0]
+        mock_cylindrical_fiber_1 = Mock()
+        mock_cylindrical_fiber_2 = Mock()
+        mock_cylindrical_fiber_1.__class__ = CylindricalFiber
+        mock_cylindrical_fiber_1.direction_fibers = "x"
+        mock_cylindrical_fiber_2.direction_fibers = "x"
+        particles = [mock_cylindrical_fiber_1, mock_cylindrical_fiber_2]
+        self.current_generation_method.set_box(particles, rve_dims)
+        self.assertEqual(self.current_generation_method.box, [2.0, 3.0])
+
+    def test_generate_microstructure_other_particles_set_box(self):
+        """Check if the simulation box is correctly set if there no a cylindrical fibers."""
+
+        rve_dims = [2.0, 3.0]
+        mock_disk = Mock()
+        mock_ellipse = Mock()
+        particles = [mock_disk, mock_ellipse]
+        self.current_generation_method.set_box(particles, rve_dims)
+        self.assertEqual(self.current_generation_method.box, [2.0, 3.0])

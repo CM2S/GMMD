@@ -3,6 +3,7 @@ from .microstructure_gen_method import GenerationMethod
 
 class MolecularDynamicsSimulation(GenerationMethod):
     """Class for the molecular dynamics simulation class.
+
     It stores all the options specifying how the simlulation will be run, it contains the
     methods needed to run the simulation and it also stores the relevant details of the
     simulation.
@@ -15,10 +16,21 @@ class MolecularDynamicsSimulation(GenerationMethod):
     """
 
     def __init__(self):
+        self.box = None
         pass
 
     def generate_microstructure(self, microstructure_sample):
+        """
+        Generate the microstructure for the sample supplied.
 
+        Generate the microstructure for microstructure_sample using the microstucutre
+        generation method *self*.
+
+        Parameters
+        ----------
+        microstructure_sample: `.Microstructure`
+            Microstructure sample to be generated
+        """
         particles = []
         for phase in microstructure_sample.phases.values():
             particles.append(
@@ -29,8 +41,39 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     phase.descriptors,
                 )
             )
+        # Generating the particles
+        self.set_box(particles, microstructure_sample)
         # self.generateInitialConfiguration(particles, self.box)
         # self.runMolecularDynamicsSimulation(particles)
+
+    def set_box(self, particles, rve_dims):
+        """
+        Set the dimensions of the simulation box.
+
+        Set the dimensions of the box according to the particles present and the
+        dimensions of the microstructure.
+
+        It is assumed that there are no incompatible particles.
+
+        Parameters
+        ----------
+        particles: list(`.Particle`)
+            List of particles in the simulation.
+
+        rve_dims: list(floats)
+            Dimensions of the microstucutre in each spatial direction.
+        """
+        if any(
+            [
+                particle.__class__.__name__ == "CylindricalFiber"
+                for particle in particles
+            ]
+        ):
+            ax_ind = {"x": 0, "y": 1, "z": 2}
+            self.box = rve_dims
+            del self.box[ax_ind[particles[0].direction_fibers]]
+        else:
+            self.box = rve_dims
 
 
 def newVerletList(particles):
