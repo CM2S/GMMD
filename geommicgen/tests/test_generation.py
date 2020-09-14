@@ -7,10 +7,8 @@ from unittest.mock import sentinel, Mock, patch, call
 
 import numpy as np
 
-# from microstructure.phase import Phase
-
-
 from geommicgen.micgenmethod.microstructure_gen_method import GenerationMethod
+from geommicgen.micgenmethod.molecular_dynamics_sim import MolecularDynamicsSimulation
 
 
 class MicGenTest(GenerationMethod):
@@ -25,6 +23,9 @@ class TestGenerationMethod(unittest.TestCase):
         """Test if generateMicrostructure is an abstract method."""
 
         # with self.assertRaises(ValueError):
+
+        class MicGenTest(GenerationMethod):
+            pass
 
         with self.assertRaises(TypeError):
 
@@ -67,3 +68,57 @@ class TestGenerationMethod(unittest.TestCase):
         self.assertEqual(len(particles), 4)
         for particle in particles:
             self.assertTrue(particle.name, "Disk()")
+
+
+class TestMolecularDynamicSimulation(unittest.TestCase):
+    """Test class for the MolecularDynamicsSimulation class"""
+
+    def setUp(self):
+        self.current_generation_method = MolecularDynamicsSimulation()
+
+    @patch(
+        "geommicgen.micgenmethod.microstructure_gen_method.GenerationMethod.generate_particles"
+    )
+    def test_generate_microstructure_particles_are_generated(
+        self, mock_generate_particles
+    ):
+        """Test if the particles are generated for each phase"""
+
+        mock_microstructure_sample = Mock()
+        phase_1 = Mock()
+        phase_2 = Mock()
+        phase_3 = Mock()
+        mock_microstructure_sample.phases = {
+            "1": phase_1,
+            "2": phase_2,
+            "3": phase_3,
+        }
+        self.current_generation_method.generate_microstructure(
+            mock_microstructure_sample
+        )
+        self.assertEqual(
+            mock_generate_particles.mock_calls,
+            [
+                call(
+                    mock_microstructure_sample.rve_dims,
+                    mock_microstructure_sample.phases["1"].type,
+                    mock_microstructure_sample.phases["1"].phase_name,
+                    mock_microstructure_sample.phases["1"].descriptors,
+                ),
+                call(
+                    mock_microstructure_sample.rve_dims,
+                    mock_microstructure_sample.phases["2"].type,
+                    mock_microstructure_sample.phases["2"].phase_name,
+                    mock_microstructure_sample.phases["2"].descriptors,
+                ),
+                call(
+                    mock_microstructure_sample.rve_dims,
+                    mock_microstructure_sample.phases["3"].type,
+                    mock_microstructure_sample.phases["3"].phase_name,
+                    mock_microstructure_sample.phases["3"].descriptors,
+                ),
+            ],
+        )
+
+    def test_generate_microstructure_set_box(self):
+        """Set the simulation box correctly."""

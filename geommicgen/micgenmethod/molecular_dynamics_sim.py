@@ -1,3 +1,38 @@
+from .microstructure_gen_method import GenerationMethod
+
+
+class MolecularDynamicsSimulation(GenerationMethod):
+    """Class for the molecular dynamics simulation class.
+    It stores all the options specifying how the simlulation will be run, it contains the
+    methods needed to run the simulation and it also stores the relevant details of the
+    simulation.
+
+    Attributes
+    ----------
+    box: list
+        List of the dimensions of the simulation box. Almost always equal to the the
+        dimensions of the micrrostructure, except for CylindricalFibers.
+    """
+
+    def __init__(self):
+        pass
+
+    def generate_microstructure(self, microstructure_sample):
+
+        particles = []
+        for phase in microstructure_sample.phases.values():
+            particles.append(
+                self.generate_particles(
+                    microstructure_sample.rve_dims,
+                    phase.type,
+                    phase.phase_name,
+                    phase.descriptors,
+                )
+            )
+        # self.generateInitialConfiguration(particles, self.box)
+        # self.runMolecularDynamicsSimulation(particles)
+
+
 def newVerletList(particles):
     """
     This function creates a new Verlet list for all the particles
