@@ -20,6 +20,9 @@ class GenerationMethod(abc.ABC):
         particle_class: class `.Particle`
             Reference to the class of the particles to be generated.
 
+        phase: str
+            Phase name.
+
         Keyword Parameters
         ------------------
         descriptor_name*: `.PhaseDescriptor`

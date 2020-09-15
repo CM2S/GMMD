@@ -1,3 +1,5 @@
+import numpy as np
+
 from .microstructure_gen_method import GenerationMethod
 
 
@@ -13,11 +15,19 @@ class MolecularDynamicsSimulation(GenerationMethod):
     box: list
         List of the dimensions of the simulation box. Almost always equal to the the
         dimensions of the micrrostructure, except for CylindricalFibers.
+
+    particle_velocities: list(array)
+        List containing the velocities of the particles in the simulation box.
+
+    position_center_history: list(list(array))
+        It is a list containing the list of the positions of all particles in the simulation
+        for each time step.
     """
 
     def __init__(self):
         self.box = None
-        pass
+        self.particle_velocities = None
+        self.position_center_history = None
 
     def generate_microstructure(self, microstructure_sample):
         """
@@ -74,6 +84,108 @@ class MolecularDynamicsSimulation(GenerationMethod):
             del self.box[ax_ind[particles[0].direction_fibers]]
         else:
             self.box = rve_dims
+
+    def generate_initial_configuration(self, particles):
+        """
+        Generate the initial configuration for particles.
+
+        It sets the position of the center of all the particles in the simulation box, as
+        well the velocity of the particles. The initial configuration is stored.
+
+        Parameters
+        ----------
+        particles: list(particles)
+            Particles in the simulation box.
+        """
+        self.position_center_history = [np.zeros(len(particles), dtype=object)]
+        if self.type_init_conf == "random":
+            # Random configuration for the particle centers and the zero velocity
+            # np.random.seed(42)
+            for i_ind, i_particle in enumerate(particles):
+                # Running through all the particles
+                i_particle.position_center = self.box * np.random.uniform(
+                    size=i_particle.dim
+                )
+                # Generating the positions from a random uniform distribution
+                self.particle_velocities = np.zeros((i_particle.dim))
+                self.position_center_history[0][i_ind] = i_particle.position_center
+                # Saving initial configuration
+        elif self.type_init_conf == "grid":
+            # Particles randomly assigned to a place in a grid constructed to have an equal
+            # number of cells in each direction and a total number of cells larger than the
+            # number of particles
+            if particles[0].dim == 3:
+                n_cells_side = np.int(np.ceil(np.cbrt(len(particles))))
+                # Number of cells in each direction
+                cell_length = self.box / n_cells_side
+                # Length of the cells in each direction
+                k_counter = 0
+                # Initializing the counter
+                grid_places = np.arange(n_cells_side ** 3)
+                # Label of each grid place
+                np.random.shuffle(grid_places)
+                # Distributing the particles randomly to different cells of the grid
+                for x_cell in range(n_cells_side):
+                    for y_cell in range(n_cells_side):
+                        for z_cell in range(n_cells_side):
+                            if grid_places[k_counter] < len(particles):
+                                particles[
+                                    grid_places[k_counter]
+                                ].position_center = np.array(
+                                    [
+                                        x_cell * cell_length[0] + cell_length[0] / 2,
+                                        y_cell * cell_length[1] + cell_length[1] / 2,
+                                        z_cell * cell_length[2] + cell_length[2] / 2,
+                                    ]
+                                )
+
+                                # Generating the positions from a random uniform
+                                # distribution between
+                                self.particle_velocities = np.random.uniform(
+                                    low=-0.1, high=0.1, size=3
+                                )
+                                self.position_center_history[0][
+                                    grid_places[k_counter]
+                                ] = particles[grid_places[k_counter]].position_center
+                                # Saving particle history
+                            k_counter += 1
+            elif particles[0].dim == 2:
+                n_cells_side = np.int(np.ceil(np.sqrt(len(particles))))
+                # Number of cells in each direction
+                cell_length = self.box / n_cells_side
+                # Length of the cells in each direction
+                k_counter = 0
+                # Initializing the counter
+                grid_places = np.arange(n_cells_side ** 2)
+                # Label of each grid place
+                np.random.shuffle(grid_places)
+                # Distributing the particles randomly to different cells of the grid
+                for x_cell in range(n_cells_side):
+                    for y_cell in range(n_cells_side):
+                        if grid_places[k_counter] < len(particles):
+                            particles[
+                                grid_places[k_counter]
+                            ].position_center = np.array(
+                                [
+                                    x_cell * cell_length[0] + cell_length[0] / 2,
+                                    y_cell * cell_length[1] + cell_length[1] / 2,
+                                ]
+                            )
+                            # Generating the positions from a random uniform distribution
+                            self.particle_velocities = np.random.uniform(
+                                low=-0.1, high=0.1, size=2
+                            )
+                            self.position_center_history[0][
+                                grid_places[k_counter]
+                            ] = particles[grid_places[k_counter]].position_center
+                            # # Saving particle history
+                        k_counter += 1
+        else:
+            try:
+                raise errors.UnsupportedInitialConfigurationType(type_init_conf)
+            except errors.UnsupportedInitialConfigurationType as error:
+                error.message()
+                quit()
 
 
 def newVerletList(particles):
@@ -1006,218 +1118,3 @@ def contractParticles(particles, min_distance):
         # Running through all the particles
         i_particle.contract(min_distance)
         # contract i_particle
-
-
-def generateInitialConfiguration(particles, type_init_conf, **kwargs):
-    """
-    Generate the initial configuration (positions and velocities) for the particles.
-
-    Parameters
-    ----------
-    particles: `.Particle`
-        Particles in the RVE.
-
-    type_inti_conf: {'random', 'grid'}
-        Type of initial configuration.
-        'random': Random configuration for the particle centers and the zero velocity.
-        'grid': Particles randomly assigned to a place in a grid constructed to have an
-        equal number of cells in each direction and a total number of cells larger than the
-        number of particles.
-
-    """
-    if type_init_conf == "random":
-        # Random configuration for the particle centers and the zero velocity
-        # np.random.seed(42)
-        k = 0
-        for i_particle in particles:
-            k += 1
-            # Running through all the particles
-            i_particle.setPositionCenter(
-                Particle.box * np.random.uniform(size=i_particle.dim)
-            )
-            # Generating the positions from a random uniform distribution between 0 and 1
-            i_particle.setVelocityCenter(np.zeros((i_particle.dim)))
-            # Generating the velocities from a random uniform distribution between -1 and 1
-            i_particle.position_center_history = [i_particle.position_center.flatten()]
-            # Saving initial configuration
-    elif type_init_conf == "grid":
-        # Particles randomly assigned to a place in a grid constructed to have an equal number
-        # of cells in each direction and a total number of cells larger than the number of
-        # particles
-        if particles[0].dim == 3:
-            n_cells_side = np.int(np.ceil(np.cbrt(len(particles))))
-            # Number of cells in each direction
-            cell_length = Particle.box / n_cells_side
-            # Length of the cells in each direction
-            k_counter = 0
-            # Initializing the counter
-            grid_places = np.arange(n_cells_side ** 3)
-            # Label of each grid place
-            np.random.shuffle(grid_places)
-            # Distributing the particles randomly to different cells of the grid
-            for j in range(n_cells_side):
-                for k in range(n_cells_side):
-                    for l in range(n_cells_side):
-                        if grid_places[k_counter] < len(particles):
-                            particles[grid_places[k_counter]].setPositionCenter(
-                                np.array(
-                                    [
-                                        j * cell_length[0] + cell_length[0] / 2,
-                                        k * cell_length[1] + cell_length[1] / 2,
-                                        l * cell_length[2] + cell_length[2] / 2,
-                                    ]
-                                )
-                            )
-                            # Gene<><rating the positions from a random uniform distribution
-                            # between 0 and 1
-                            particles[grid_places[k_counter]].setVelocityCenter(
-                                np.random.uniform(low=0.01, high=0.6, size=3)
-                            )
-                            # Generating the velocities from a random uniform distribution
-                            # between -1 and 1
-                            particles[
-                                grid_places[k_counter]
-                            ].position_center_history = [
-                                particles[
-                                    grid_places[k_counter]
-                                ].position_center.flatten()
-                            ]
-                            # Saving particle history
-                        k_counter += 1
-        elif particles[0].dim == 2:
-            n_cells_side = np.int(np.ceil(np.sqrt(len(particles))))
-            # Number of cells in each direction
-            cell_length = Particle.box / n_cells_side
-            # Length of the cells in each direction
-            k_counter = 0
-            # Initializing the counter
-            grid_places = np.arange(n_cells_side ** 2)
-            # Label of each grid place
-            np.random.shuffle(grid_places)
-            # Distributing the particles randomly to different cells of the grid
-            for j in range(n_cells_side):
-                for k in range(n_cells_side):
-                    if grid_places[k_counter] < len(particles):
-                        particles[grid_places[k_counter]].setPositionCenter(
-                            np.array(
-                                [
-                                    j * cell_length[0] + cell_length[0] / 2,
-                                    k * cell_length[1] + cell_length[1] / 2,
-                                ]
-                            )
-                        )
-                        # Gene<><rating the positions from a random uniform distribution between 0 and 1
-                        particles[grid_places[k_counter]].setVelocityCenter(
-                            np.random.uniform(low=0.01, high=0.6, size=2)
-                        )  # np.array([0,0],dtype='float')
-                        # Generating the velocities from a random uniform distribution between -1 and 1
-                        particles[grid_places[k_counter]].position_center_history = [
-                            particles[grid_places[k_counter]].position_center.flatten()
-                        ]
-                        # Saving particle history
-                    k_counter += 1
-    elif type_init_conf == "fcc":
-        center_points = np.array(
-            [
-                [0, 0, 0],
-                [1, 0, 0],
-                [0, 1, 0],
-                [1, 1, 0],
-                [0.5, 0.5, 0],
-                [0.5, 0, 0.5],
-                [0.5, 1, 0.5],
-                [0, 0.5, 0.5],
-                [1, 0.5, 0.5],
-                [0, 0, 1],
-                [1, 0, 1],
-                [0, 1, 1],
-                [1, 1, 1],
-                [0.5, 0.5, 1],
-                [0, 2, 0],
-                [1, 2, 0],
-                [0.5, 1.5, 0],
-                [0.5, 2, 0.5],
-                [0, 1.5, 0.5],
-                [1, 1.5, 0.5],
-                [0, 2, 1],
-                [1, 2, 1],
-                [0.5, 1.5, 1],
-            ]
-        )
-        k = 0
-        for i_particle in particles:
-            # Running through all the particles
-            i_particle.setPositionCenter(
-                center_points[k] / 2
-            )  # np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
-            # Generating the positions from a random uniform distribution between 0 and 1
-            i_particle.setVelocityCenter(
-                np.zeros((i_particle.dim))
-            )  # np.array([0,0],dtype='float')
-            # Generating the velocities from a random uniform distribution between -1 and 1
-            if kwargs.get("save_history"):
-                # Saving particle history
-                i_particle.position_center_history = [
-                    i_particle.position_center.flatten()
-                ]
-            k += 1
-    elif type_init_conf == "overlap":
-        k = 0
-        for i_particle in particles:
-            # Running through all the particles
-            # i_particle.setPositionCenter(np.array([0.5 + 2*k*0.01, 0.5])) # Particle.box*np.random.uniform(size=i_particle.dim)) #np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
-            # # Generating the positions from a random uniform distribution between 0 and 1
-            # i_particle.setVelocityCenter(np.array([1e-4 - 2*k*1e-4, 0])) #np.array([0,0],dtype='float')
-            i_particle.setPositionCenter(
-                np.array([0.5, 0.5])
-            )  # Particle.box*np.random.uniform(size=i_particle.dim)) #np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
-            # Generating the positions from a random uniform distribution between 0 and 1
-            i_particle.setVelocityCenter(
-                np.array([0, 0])
-            )  # np.array([0,0],dtype='float')
-            # Generating the velocities from a random uniform distribution between -1 and 1
-            if kwargs.get("save_history"):
-                # Saving particle history
-                i_particle.position_center_history = [
-                    i_particle.position_center.flatten()
-                ]
-            k += 1
-    elif type_init_conf == "custom":
-        path = "/home/zeluis/Documents/Tese/programa/studies/thermostats/minkowski/artificial_2D/ord.txt"
-        positions = np.loadtxt(path)
-        for ind, i_particle in enumerate(particles):
-            # Particle.box*np.random.uniform(size=i_particle.dim)) #np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
-            i_particle.setPositionCenter(positions[ind, 0:2] / 500)
-            # Generating the positions from a random uniform distribution between 0 and 1
-            i_particle.setVelocityCenter(
-                np.array([0, 0])
-            )  # np.array([0,0],dtype='float')
-            # Generating the velocities from a random uniform distribution between -1 and 1
-            if kwargs.get("save_history"):
-                # Saving particle history
-                i_particle.position_center_history = [
-                    i_particle.position_center.flatten()
-                ]
-    elif type_init_conf == "adjacent":
-        k = 0
-        for i_particle in particles:
-            # Running through all the particles
-            i_particle.setPositionCenter(
-                np.array([0.1, 0.1, 0.01 + k * 0.98])
-            )  # Particle.box*np.random.uniform(size=i_particle.dim)) #np.array([0.5, 0.87, 0.5])) # , (1+np.floor(i/24))*1/24 ]) # np.array([0+i**2/200, 0.5]) # # #
-            # Generating the positions from a random uniform distribution between 0 and 1
-            i_particle.setVelocityCenter(
-                np.array([0, 0, 0])
-            )  # np.array([0,0],dtype='float')
-            if kwargs.get("save_history"):
-                # Saving particle history
-                i_particle.position_center_history = [
-                    i_particle.position_center.flatten()
-                ]
-            k += 1
-    else:
-        try:
-            raise errors.UnsupportedInitialConfigurationType(type_init_conf)
-        except errors.UnsupportedInitialConfigurationType as error:
-            error.message()
-            quit()

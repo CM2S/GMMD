@@ -69,6 +69,9 @@ class TestMicrostructure(unittest.TestCase):
             self.microstructure_2D.add_phase(matrix_mock)
             self.microstructure_2D.add_phase(disks_mock)
 
+    def test_add_phase_incompatible_phases(self):
+        self.assertTrue(False)
+
     # with self.assertRaises(ValueError):
     #     # Number of RVE dimensions is not compatible with particle type
     #     rve_dims = [1.0, 1.0]
