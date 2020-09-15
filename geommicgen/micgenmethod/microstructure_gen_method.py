@@ -40,7 +40,7 @@ class GenerationMethod(abc.ABC):
             while vf_real < descriptors["vf"].value:
                 for i_descriptor_name, i_descriptor in descriptors.items():
                     current_sample[i_descriptor_name] = i_descriptor.generateSample()
-                    particles.append(particle_class(phase, current_sample))
+                    particles.append(particle_class(phase, **current_sample))
                     vf_real += particles[-1].volume / np.prod(rve_dims)
         else:
             # The desired number of disks was specified
@@ -55,7 +55,7 @@ class GenerationMethod(abc.ABC):
                     descriptor_name: descriptor_values[i_particle]
                     for descriptor_name, descriptor_values in samples.items()
                 }
-                particles.append(particle_class(phase, i_particle_descriptors))
+                particles.append(particle_class(phase, **i_particle_descriptors))
 
         return particles
 
