@@ -47,9 +47,7 @@ class TestSpeedUpScheme(unittest.TestCase):
         particles = [Mock(radius=radius) for radius in radii]
         mock_molecular_dynamics_sim = Mock(box=[1.0, 2.0])
         current_cell_list = CellList(mock_molecular_dynamics_sim, particles)
-        self.assertTrue(
-            all(current_cell_list.cell_side_length == np.array([1 / 3, 1 / 6]))
-        )
+        self.assertTrue(all(current_cell_list.cell_side_length == np.array([1, 2 / 3])))
 
     def test_cell_list_new_list_2d(self):
         """Test if the cell is properly constructed for 2 dimensions."""
@@ -69,11 +67,11 @@ class TestSpeedUpScheme(unittest.TestCase):
         current_cell_list = CellList(mock_molecular_dynamics_sim, particles)
         current_cell_list.new_list(particles)
         correct_cell_list = 12 * [set()]
-        correct_cell_list[0] = {particles[0]}
-        correct_cell_list[2] = {particles[1]}
-        correct_cell_list[5] = {particles[4], particles[2]}
-        correct_cell_list[6] = {particles[3]}
-        self.assertTrue(current_cell_list.cell_list == correct_cell_list)
+        correct_cell_list[0] = {0}
+        correct_cell_list[2] = {1}
+        correct_cell_list[5] = {4, 2}
+        correct_cell_list[6] = {3}
+        self.assertTrue(current_cell_list.particle_list == correct_cell_list)
 
     def test_cell_list_new_list_3d(self):
         """Test if the cell is properly constructed 3 dimensions."""
@@ -93,8 +91,8 @@ class TestSpeedUpScheme(unittest.TestCase):
         current_cell_list = CellList(mock_molecular_dynamics_sim, particles)
         current_cell_list.new_list(particles)
         correct_cell_list = 2 * 3 * 4 * [set()]
-        correct_cell_list[4] = {particles[0]}
-        correct_cell_list[17] = {particles[1]}
-        correct_cell_list[5] = {particles[2], particles[3]}
-        correct_cell_list[1] = {particles[4]}
-        self.assertTrue(current_cell_list.cell_list == correct_cell_list)
+        correct_cell_list[4] = {0}
+        correct_cell_list[17] = {1}
+        correct_cell_list[5] = {2, 3}
+        correct_cell_list[1] = {4}
+        self.assertTrue(current_cell_list.particle_list == correct_cell_list)

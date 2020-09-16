@@ -1,16 +1,21 @@
+"""
+Module containing the classes used in the speed up schemes for force computation.
+
+It includes a naive scheme, a cell list class, and a Verlet list class, where the Verlet
+list is computed from the cell list.
+"""
+
 import abc
 from functools import cached_property
 import numpy as np
 
 
 class SpeedUpScheme(abc.ABC):
-    """
-    Abstract class for the speed up schemes.
-    """
+    """Abstract class for the speed up schemes."""
 
     @abc.abstractmethod
     def new_list(self, particles):
-        pass
+        """Compute a new list for force computation."""
 
 
 class CellList(SpeedUpScheme):
@@ -37,11 +42,14 @@ class CellList(SpeedUpScheme):
 
         particles: list(`.Particle`)
             List containing the particles in the simulation box.
+
+        particle_list: list(int)
+            List containing the indices of the particles in
         """
         self.molecular_dynamics_sim = molecular_dynamics_sim
         self.max_radius = np.max(np.array([particle.radius for particle in particles]))
         # Saving the maximum radius of the circunscribing disk/sphere
-        self.cell_list = None
+        self.particle_list = None
 
     @cached_property
     def n_cell_dim(self):
@@ -68,15 +76,16 @@ class CellList(SpeedUpScheme):
 
         Parameters
         ----------
-        Particles in the simulatin box, whose cell list is to be computed.
+        particles: list(`.Particle`)
+            Particles in the simulatin box, whose cell list is to be computed.
         """
         dim = particles[0].dim
 
         n_cells = np.prod(np.array(self.n_cell_dim))
 
-        self.cell_list = [set() for i in range(n_cells)]
+        self.particle_list = [set() for i in range(n_cells)]
 
-        for i_particle in particles:
+        for i_index, i_particle in enumerate(particles):
             # Running through all the particles
             pos_cell_list_dim = []
             # Initializing the list containing the position of the cell in each direction
@@ -104,84 +113,10 @@ class CellList(SpeedUpScheme):
                     + pos_cell_list_dim[2] * self.n_cell_dim[0] * self.n_cell_dim[1]
                 )
                 # Saving the position in the cell list of particle i_particle
-            self.cell_list[pos_cell_list].add(i_particle)
+            self.particle_list[pos_cell_list].add(i_index)
+            i_particle.cell_list_position = pos_cell_list
 
-
-class VerletList(SpeedUpScheme):
-    def new_list(self, particles):
-        """
-        This function creates a new Verlet list for all the particles
-        """
-        dim = particles[0].dim
-        # Saving the dimension of the problem
-
-        for i_particle in range(len(particles)):
-            # Running though all the particles
-            particles[i_particle].verlet_list = []
-            # Resetting the Verlet list of particle i
-            particles[i_particle].displacement_last_verlet = np.zeros(dim)
-            # Resetting the displacement of the center of mass of the particle relative to its
-            # neighboorhood
-            pos_cell_list_dim = []
-            # Initializing the list containing the position of the particle in the grid
-            # assuming: 2D: the cells are numbered from left to right and from bottom to top
-            for j_dim in range(dim):
-                # Running through all the dimensions
-                pos_cell_list_dim.append(
-                    np.int(
-                        np.floor(
-                            particles[i_particle].position_center[j_dim]
-                            / Particle.cell_side_length[j_dim]
-                        )
-                    )
-                )
-                # j_dim-position of the particle in the grid
-            if dim == 2:
-                # 2D problem
-                pos_cell_list = (
-                    pos_cell_list_dim[0] + pos_cell_list_dim[1] * Particle.n_cell_dim[0]
-                )
-                # Saving the position in the cell list of particle i_particle
-                for k_neighboor_cell in range(9):
-                    # Running through the neighboor cells
-                    pos_neighboor_cell = neighboorCell(
-                        pos_cell_list, k_neighboor_cell, dim, Particle.n_cell_dim
-                    )
-                    # Computing the index of the neighboor cell
-                    for j_particle in Particle.cell_list[pos_neighboor_cell]:
-                        # Running through all the particles in the neighboring cell
-                        if particles[i_particle].intersectionVerlet(
-                            particles[j_particle]
-                        ):
-                            # If the neighboorhoods of the particles intersect
-                            particles[i_particle].verlet_list.append(j_particle)
-                            # Add the particle j_particle to i_particle's Verlet list
-            elif dim == 3:
-                # 3D problem
-                pos_cell_list = (
-                    pos_cell_list_dim[0]
-                    + pos_cell_list_dim[1] * Particle.n_cell_dim[0]
-                    + pos_cell_list_dim[2]
-                    * Particle.n_cell_dim[0]
-                    * Particle.n_cell_dim[1]
-                )
-                # Saving the position in the cell list of particle i_particle
-                for k_neighboor_cell in range(3 ** 3):
-                    # Running through the neighboor cells
-                    pos_neighboor_cell = neighboorCell(
-                        pos_cell_list, k_neighboor_cell, dim, Particle.n_cell_dim
-                    )
-                    # Computing the index of the neighboor cell
-                    for j_particle in Particle.cell_list[pos_neighboor_cell]:
-                        # Running through all the particles in the neighboring cell
-                        if particles[i_particle].intersectionVerlet(
-                            particles[j_particle]
-                        ):
-                            # If the neighboorhoods of the particles intersect
-                            particles[i_particle].verlet_list.append(j_particle)
-                            # Add the particle j_particle to i_particle's Verlet list
-
-    def neighboorCell(pos_current_cell, local_pos_neighboor_cell, dim, n_cells):
+    def neighboor_cell(self, pos_current_cell, local_pos_neighboor_cell, dim, n_cells):
         """
         Compute the global cell position of the neighboor cell.
 
@@ -204,7 +139,6 @@ class VerletList(SpeedUpScheme):
         pos_neighboor_cell: integer
             Global position of the neighboor cell
         """
-
         if dim == 2:
             # 2D problem
             local_row_pos_neigh = np.int(
@@ -323,51 +257,109 @@ class VerletList(SpeedUpScheme):
         return pos_neighboor_cell
 
 
-class Naive(SpeedUpScheme):
-    def new_list(self, particles):
-        pass
+class VerletList(CellList):
+    """
+    Class for the verlet list used to speed up force computation.
 
-    # if speed_up_scheme == "Cell":
-    #     # Only a cell list scheme will be used
-    #     max_radius = np.max(np.array([particles[i].radius for i in range(N)]))
-    #     # Saving the maximum radius of the circunscribing disk/sphere
-    #     Particle.n_cell_dim = [
-    #         np.int(np.round(box[i_dim] / (2 * max_radius))) for i_dim in range(dim)
-    #     ]
-    #     # Obtaining a list containing the number of cells in each direction
-    #     n_cells = np.prod(Particle.n_cell_dim)
-    #     # Obtaining the total number of cells
-    #     Particle.cell_list = [[] for i in range(n_cells)]
-    #     # Initializing the cell list
-    #     Particle.cell_side_length = [
-    #         box[i_dim] / Particle.n_cell_dim[i_dim] for i_dim in range(dim)
-    #     ]
-    #     # Obtaining a list containing the dimensions of the cell in each direction
-    # elif speed_up_scheme == "Verlet":
-    #     # A Verlet list combined with a cell list scheme will be used
-    #     Particle.verlet_factor = options["verlet_factor"]
-    #     # Saving the Verlet radius to compute the Verlet list
-    #     Particle.new_verlet_list = True
-    #     # Signaling that for the first computation of the forces there is a need to compute
-    #     # a new Verlet list
-    #     max_radius = (
-    #         np.max(np.array([particles[i].radius for i in range(Particle.number)]))
-    #         * Particle.verlet_factor
-    #     )
-    #     # Saving the maximum radius of the circunscribing disk/sphere accounting for the
-    #     # Verlet factor
-    #     Particle.n_cell_dim = [
-    #         np.int(np.round(box[i_dim] / (2 * max_radius))) for i_dim in range(dim)
-    #     ]
-    #     # Obtaining a list containing the number of cells in each direction
-    #     n_cells = np.prod(Particle.n_cell_dim)
-    #     # Obtaining the total number of cells
-    #     Particle.cell_list = [[] for i in range(n_cells)]
-    #     # Initializing the cell list
-    #     Particle.cell_side_length = [
-    #         box[i_dim] / Particle.n_cell_dim[i_dim] for i_dim in range(dim)
-    #     ]
-    #     # Obtaining a list containing the dimensions of the cell in each direction
-    # else:
-    #     # A naive approach will be used
-    #     pass
+    This Verlet list is computed from a cell list to achieve for computation of order
+    O(n), where n is the number of particles in the simulation box.
+
+    Attributes
+    ----------
+    verlet_factor: float
+        Multiplicative factor used to compute the neighboorhood of the particle.
+
+    new_verlet_list: bool
+        Flag to signal the computation of a new Verlet list.
+
+    cell_list: list(int)
+        Cell list used to compute the Verlet list.
+    """
+
+    def __init__(self, verlet_factor, **kwargs):
+        """
+        Initialize a Verlet list.
+
+        Parameters
+        ----------
+        verlet_factor: float
+            Multiplicative factor used to compute the neighboorhood of the particle.
+
+        Keyword Parameters
+        ------------------
+        Parameters for the initializer of the CellList
+        """
+        self.verlet_factor = verlet_factor
+        # Saving the Verlet radius to compute the Verlet list
+        self.new_verlet_list = True
+        # Signaling that for the first computation of the forces there is a need to compute
+        # a new Verlet list
+        self.cell_list = None
+        super().__init__(**kwargs)
+
+    def new_list(self, particles):
+        """
+        Compute a new verlet list for particles.
+
+        Parameters
+        ----------
+        particles: list(`.Particle`)
+            Particles in the simulatin box, whose cell list is to be computed.
+        """
+        dim = particles[0].dim
+        # Saving the dimension of the problem
+
+        if self.new_verlet_list:
+            super().new_list(particles)
+            # Creating the cell list used to compute the Verlet list
+            self.cell_list = self.particle_list
+            # Saving the cell list
+            for i_particle in particles:
+                # Running though all the particles
+                i_particle.particle_list = []
+                # Resetting the Verlet list of particle i
+                i_particle.displacement_last_verlet = np.zeros(dim)
+                # Resetting the displacement of the center of mass of the particle relative
+                # to its neighboorhood
+                for k_neighboor_cell in range(3 ** dim):
+                    # Running through the neighboor cells
+                    pos_neighboor_cell = self.neighboor_cell(
+                        i_particle.pos_cell_list,
+                        k_neighboor_cell,
+                        dim,
+                        self.n_cell_dim,
+                    )
+                    # Computing the index of the neighboor cell
+                    for j_index_particle in self.cell_list[pos_neighboor_cell]:
+                        # Running through all the particles in the neighboring cell
+                        if i_particle.intersectionVerlet(particles[j_index_particle]):
+                            # If the neighboorhoods of the particles intersect
+                            particles[i_particle].particle_list.append(j_index_particle)
+                            # Add the particle j_particle to i_particle's Verlet list
+
+
+class Naive(SpeedUpScheme):
+    """
+    Class for the verlet list used to speed up force computation.
+
+    This Verlet list is computed from a cell list to achieve for computation of order
+    O(n), where n is the number of particles in the simulation box.
+
+    Attributes
+    ----------
+    verlet_factor: float
+        Multiplicative factor used to compute the neighboorhood of the particle.
+
+    new_verlet_list: bool
+        Flag to signal the computation of a new Verlet list.
+    """
+
+    def new_list(self, particles):
+        """
+        Use all the particles.
+
+        Parameters
+        ----------
+        Particles in the simulatin box, whose cell list is to be computed.
+        """
+        self.particle_list = list(range(len(particles)))
