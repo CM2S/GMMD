@@ -147,8 +147,8 @@ class CellList(SpeedUpScheme):
             # Local row position of the neighboor, going from -1 to 1 with the origin at the
             # current cell
             local_col_pos_neigh = np.int(np.mod(local_pos_neighboor_cell, 3) - 1)
-            # Local column position of the neighboor, going from -1 to 1 with the origin at the
-            # current cell
+            # Local column position of the neighboor, going from -1 to 1 with the origin at
+            # the current cell
             pos_neighboor_cell = np.int(
                 pos_current_cell
                 + local_col_pos_neigh
@@ -188,13 +188,13 @@ class CellList(SpeedUpScheme):
             # Local row position of the neighboor, going from -1 to 1 with the origin at the
             # current cell
             local_col_pos_neigh = np.int(np.mod(local_pos_neighboor_cell, 3) - 1)
-            # Local column position of the neighboor, going from -1 to 1 with the origin at the
-            # current cell
+            # Local column position of the neighboor, going from -1 to 1 with the origin at
+            # the current cell
             local_lay_pos_neigh = np.int(
                 np.mod(np.floor(local_pos_neighboor_cell / 9), 3) - 1
             )
-            # Local layer position of the neighboor, going from -1 to 1 with the origin at the
-            # current cell
+            # Local layer position of the neighboor, going from -1 to 1 with the origin at
+            # the current cell
             pos_neighboor_cell = np.int(
                 pos_current_cell
                 + local_col_pos_neigh
@@ -295,6 +295,8 @@ class VerletList(CellList):
         # Signaling that for the first computation of the forces there is a need to compute
         # a new Verlet list
         self.cell_list = None
+        self.molecular_dynamics_sim = None
+        self.verlet_neighboorhoods = None
         super().__init__(**kwargs)
 
     def new_list(self, particles):
