@@ -306,36 +306,43 @@ class VerletList(CellList):
         particles: list(`.Particle`)
             Particles in the simulatin box, whose cell list is to be computed.
         """
-        dim = particles[0].dim
-        # Saving the dimension of the problem
-
+        if self.verlet_neighboorhoods is None:
+            self.verlet_neighboorhoods = particles
+            for i_particle in particles:
+                i_particle.dilate((self.verlet_factor - 1) * i_particle.radius)
+            # Initializing the displacement_last_verlet
+        for i_particle_index, i_particle in enumerate(particles):
+            # Computing the displacement of the center of the particle
+            if not i_particle.intersection(
+                self.verlet_neighboorhoods[i_particle_index]
+            ):
+                # Checking if the displacement takes the particle out of its neighboorhood
+                self.new_verlet_list = True
+                break
+                # There is a need to compute a new verlet list
         if self.new_verlet_list:
+            self.new_verlet_list = False
             super().new_list(particles)
             # Creating the cell list used to compute the Verlet list
             self.cell_list = self.particle_list
             # Saving the cell list
-            for i_particle in particles:
+            for i_particle_index, i_particle in enumerate(particles):
                 # Running though all the particles
-                i_particle.particle_list = []
+                self.verlet_neighboorhoods[
+                    i_particle_index
+                ] = i_particle.position_center
+                # Updating the position of all the Verlet neighboorhoods to coincide with
+                # the particles current position
+                self.particle_list = []
                 # Resetting the Verlet list of particle i
-                i_particle.displacement_last_verlet = np.zeros(dim)
-                # Resetting the displacement of the center of mass of the particle relative
-                # to its neighboorhood
-                for k_neighboor_cell in range(3 ** dim):
-                    # Running through the neighboor cells
-                    pos_neighboor_cell = self.neighboor_cell(
-                        i_particle.pos_cell_list,
-                        k_neighboor_cell,
-                        dim,
-                        self.n_cell_dim,
-                    )
-                    # Computing the index of the neighboor cell
-                    for j_index_particle in self.cell_list[pos_neighboor_cell]:
-                        # Running through all the particles in the neighboring cell
-                        if i_particle.intersectionVerlet(particles[j_index_particle]):
-                            # If the neighboorhoods of the particles intersect
-                            particles[i_particle].particle_list.append(j_index_particle)
-                            # Add the particle j_particle to i_particle's Verlet list
+                for j_particle_index in self.cell_list:
+                    # Running through all the particles in the neighboring cell
+                    if self.verlet_neighboorhoods[i_particle_index].intersection(
+                        self.verlet_neighboorhoods[j_particle_index]
+                    ):
+                        # If the neighboorhoods of the particles intersect
+                        particles[i_particle].particle_list.append(j_particle_index)
+                        # Add the particle j_particle to i_particle's Verlet list
 
 
 class Naive(SpeedUpScheme):
