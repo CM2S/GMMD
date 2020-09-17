@@ -7,58 +7,6 @@ class GenerationMethod(abc.ABC):
     def generate_microstructure(self, microstructure_sample):
         pass
 
-    def generate_particles(self, rve_dims, particle_class, phase, **kwargs):
-        """
-        Generate particles for a microstructure with dimensions rve_dims, instanced of
-        particle_class described by the descriptors in **kwargs.
-
-        Parameters
-        ----------
-        rve_dims: list
-            List containing the size of the microstructure in each dimension.
-
-        particle_class: class `.Particle`
-            Reference to the class of the particles to be generated.
-
-        phase: str
-            Phase name.
-
-        Keyword Parameters
-        ------------------
-        descriptor_name*: `.PhaseDescriptor`
-            Phase descriptor
-        """
-
-        particles = []
-        descriptors = kwargs
-        if "vf" in descriptors and "n" not in descriptors:
-            # The desired volume fraction was specfied
-            current_sample = {}
-            # Initializing the dictionary containing the samples for each parameter used
-            vf_real = 0
-            # Initializing the real volume fraction
-            while vf_real < descriptors["vf"].value:
-                for i_descriptor_name, i_descriptor in descriptors.items():
-                    current_sample[i_descriptor_name] = i_descriptor.generateSample()
-                    particles.append(particle_class(phase, **current_sample))
-                    vf_real += particles[-1].volume / np.prod(rve_dims)
-        else:
-            # The desired number of disks was specified
-            samples = {}
-            # Initializing the dictionary containing the samples for each parameter used
-            for i_descriptor_name, i_descriptor in descriptors.items():
-                samples[i_descriptor_name] = i_descriptor.generateSample(
-                    n_samples=descriptors["n"].value
-                )
-            for i_particle in range(descriptors["n"]):
-                i_particle_descriptors = {
-                    descriptor_name: descriptor_values[i_particle]
-                    for descriptor_name, descriptor_values in samples.items()
-                }
-                particles.append(particle_class(phase, **i_particle_descriptors))
-
-        return particles
-
 
 def generateDisks(phase, rve_dims, descriptors):
     """
