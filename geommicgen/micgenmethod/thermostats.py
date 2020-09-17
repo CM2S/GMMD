@@ -1,134 +1,205 @@
+"""
+Module containing the Thermostat abstract class and its subclasses.
+
+This module contains the Thermostat abstract class, the MicroCanonicalEnsemble subclass,
+that has no effect on the DM simulation, the IsokineticThermostat subclass, that enforces an
+isokinetic temperature scheme, and the MultiTemperatureIsokineticThermostat subclass, that
+enforces a self-calibrating multitemperature isokinetic scheme.
+"""
+
 import abc
+
+import numpy as np
 
 
 class Thermostat(abc.ABC):
+    """This is the abstract class for thermostats."""
 
-    if thermostat == "multi_temperature":
-        # The thermostat used is the isokinetic scheme
-        # Setting the options
-        if particles[0].dim == 2:
-            jump = options.get("equilibration_steps", 25)
-            # Number of steps allowed for the system to equilibrate and explore and given
-            # temperature before the criterion for temperature lowering is checked
-        elif particles[0].dim == 3:
-            jump = options.get("equilibration_steps", 25)
-        jump_list = []
-        last_alt = options.get("inital_temp_steps", 40)
-        # Number of steps allowed for the system to equilibrate and explore the initial
-        # temperature
-        T_ref = options.get("initial_temp", 2.5e10)  # *(particles[0].radius/0.045)**2)
-        # Intial temperature
-        k_b = 1e-15
-        # Analog to the Boltzmann constant
-        if kin_energy > 1e-10:
-            # Compute the rescaling factor only if the kinetic energy is nonzero
-            lambda_vel = np.sqrt(2 * particles[0].dim * N * k_b * T_ref / kin_energy)
-            # Rescalling factor (why? 250 -  equipartition theorem)
-        else:
-            # If the kinetic energy is zero
-            lambda_vel = 0
-        for i_particle in range(N):
-            # Running through all the particles
-            particles[i_particle].velocity_center *= lambda_vel
-            # Rescalling the velocities
-    elif thermostat == "isokinetic":
-        T_ref = options.get("initial_temp", 2.5e10)  # *(particles[0].radius/0.045)**2)
-        # Intial temperature
-        k_b = 1e-15
-        # Analog to the Boltzmann constant
-        jump = options.get(
-            "equilibration_steps", 25
-        )  # + 5*100*0.65/(Particle.number*Particle.volume/Particle.volume_RVE))
-        # Number of steps allowed for the system to equilibrate and explore and given
-        # temperature before the criterion for temperature lowering is checked
-        if kin_energy > 1e-10:
-            # Compute the rescaling factor only if the kinetic energy is nonzero
-            lambda_vel = np.sqrt(2 * particles[0].dim * N * k_b * T_ref / kin_energy)
-            # Rescalling factor (why? 250 -  equipartition theorem)
-            print("T_ref", T_ref)
-        else:
-            # If the kinetic energy is zero
-            lambda_vel = 0
-        for i_particle in range(N):
-            # Running through all the particles
-            particles[i_particle].velocity_center *= lambda_vel
-            # Rescalling the velocities
+    def apply_thermostat(self, particle_velocities, kin_energy):
+        """Apply the thermostat."""
 
-            if thermostat == "multi_temperature":
-                # The thermostat used is the multi_temperature scheme
-                if step > last_alt:
-                    # If the end of the equilibration time has been reached
-                    if Particle.total_overlap > max_residue:
-                        # If a legal configuration has not been achieved
-                        if any(
-                            np.array(Particle.total_overlap_history[-jump // 2 :])
-                            - np.array(
-                                Particle.total_overlap_history[-jump // 2 - 1 : -1]
-                            )
-                            > 0
-                        ):
-                            # If the total overlap has increase in the previous iterations
-                            T_ref *= 1 / 4
-                            # Lowering the temperature
-                            jump += step - last_alt - 1
-                            # Updating the equilibration time
-                            last_alt = step + jump
-                            # Updating the iteration of the last temperature change
-                            Particle.temp_change_steps.append(step)
-                            jump_list.append(jump)
-                            # Saving minimum equilibration times and times at which the
-                            # temperature has been lowered
-                # Compute the rescaling factor only if the kinetic energy is nonzero
-                lambda_vel = np.sqrt(
-                    2 * particles[0].dim * N * k_b * T_ref / kin_energy
-                )
-                # Rescalling factor
-                for i_particle in range(N):
-                    # Running through all the particles
-                    particles[i_particle].velocity_center *= lambda_vel
-                    # Rescalling the velocities
-                if (
-                    relative_energy / Particle.total_overlap < 1e-8
-                    and Particle.total_overlap > max_residue
-                ):
-                    # FIXME: this criterion is giving false positives, relative energy falls
-                    # much faster than total overlap
-                    pass
-            if thermostat == "isokinetic":
-                # The thermostate used is the isokinetic with constant temperature
-                lambda_vel = np.sqrt(
-                    2 * particles[0].dim * N * k_b * T_ref / kin_energy
-                )
-                for i_particle in range(N):
-                    # Running through all the particles
-                    particles[i_particle].velocity_center *= lambda_vel
-                    # Rescalling the velocities
-            else:
-                # There is no thermostat
-                pass
-            if Particle.total_overlap <= max_residue:
-                check_tangent = checkTangentToWall(particles, min_distance)
-                if check_tangent:
-                    # If the configuration has an overlap area smaller than the tolerance
-                    n_steps_relax += 1
-                    # print('yes',n_steps_relax)
-                else:
-                    n_steps_relax = 0
-                    # Restarting the count
-                    forceOutTangentWall(particles, min_distance)
-            print_funcs.printToTerminalRefresh(
-                step, Particle.total_overlap, relative_energy, kin_energy
-            )
-            if step > 5 * jump and all(
-                (
-                    np.abs(
-                        np.array(Particle.total_overlap_history[-5 * jump :])
-                        - np.array(Particle.total_overlap_history[-5 * jump - 1 : -1])
-                    )
-                )
-                / np.array(Particle.total_overlap_history[-5 * jump - 1 : -1])
-                * 100
-                < 1e-5
+
+class MicroCanonicalEnsemble(Thermostat):
+    """This is the class for no thermostat, producing a micro canonical ensemble."""
+
+    def apply_thermostat(self, particle_velocities, kin_energy):
+        """Do nothing."""
+
+
+class IsokineticThermostat(Thermostat):
+    """
+    This is the class for the isokinetic thermostat.
+
+    It enforces a strictly constant temperature, diving the velocities of the particles by a
+    constant found from the equipartion theorem.
+
+    Attributes
+    ----------
+    reference_temp: float
+        Reference temperature to be maintained by the thermostat.
+
+    k_b: float
+        Analog of the Boltzmann constant.
+    """
+
+    def __init__(self, reference_temp):
+        """
+        Initialize an IsokineticThermostat.
+
+        Parameters
+        ----------
+        reference_temp: float
+            Reference temperature to be maintained by the thermostat.
+        """
+        self.reference_temp = reference_temp
+        # Intial temperature
+        self.k_b = 1e-15
+        # Analog to the Boltzmann constant
+
+    def apply_thermostat(self, particle_velocities, kin_energy):
+        """
+        Apply the thermostat.
+
+        It enforces a strictly constant temperature, diving the velocities of the particles
+        by a constant found from the equipartion theorem.
+
+        Parameters
+        ----------
+        particle_velocities: list(array)
+            List of the particle velocities.
+
+        kin_energy: float
+            Kinetic energy of the system of particles.
+
+        Returns
+        -------
+        particle_velocities: list(array)
+            List of the particle velocities after applying the thermostat.
+        """
+        dim = len(particle_velocities[0])
+        number_particles = len(particle_velocities)
+        # The thermostate used is the isokinetic with constant temperature
+        lambda_vel = np.sqrt(
+            2 * dim * number_particles * self.k_b * self.reference_temp / kin_energy
+        )
+        for i_particle_index in range(number_particles):
+            # Running through all the particles
+            particle_velocities[i_particle_index] *= lambda_vel
+            # Rescalling the velocities
+        return particle_velocities
+
+
+class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
+    """
+    This is the class for the self-calibrating multi temperature isokinetic thermostat.
+
+    It enforces a strictly constant temperature for a minimum number of steps, dividing the
+    velocities of the particles by a constant found from the equipartion theorem.
+    After keeping the system at a given temperature for some number of steps, it uses a
+    heuristic approach to decide when the temperature is to be decreased again.
+    It uses the increase in total overlap as a proxy for the system having reached
+    equilibrium.
+
+    Attributes
+    ----------
+    reference_temp: float
+        Reference temperature to be maintained by the thermostat.
+
+    k_b: float
+        Analog of the Boltzmann constant.
+
+    molecular_dynamics_sim: `.MolecularDynamicsSimulation`
+        MD simulatin to which the thermostat is being applied.
+
+    temp_change_steps: list(int)
+        Steps at which the temperature was lowered.
+    """
+
+    def __init__(self, initial_temp, min_eq_steps_at_temp):
+        """
+        Initialize an MultiTemperatureIsokineticThermostat.
+
+        Parameters
+        ----------
+        initial_temp: float
+            Initial temperature of the system.
+
+        min_eq_steps_at_temp: int
+            Minimum number of steps spent at a given temperature, after which the heuristic
+            rule to decide if the temperature is to be decreased is applied.
+        """
+        self.min_eq_steps_at_temp = min_eq_steps_at_temp
+        self.eq_steps_list = []
+        self._next_temp_change = min_eq_steps_at_temp
+        self.molecular_dynamics_sim = None
+        self.temp_change_steps = []
+        super().__init__(initial_temp)
+
+    def apply_thermostat(self, particle_velocities, kin_energy):
+        """
+        Apply the thermostat.
+
+        It enforces a strictly constant temperature for a minimum number of steps, dividing
+        the velocities of the particles by a constant found from the equipartion theorem.
+        After keeping the system at a given temperature for some number of steps, the
+        minimum number of equilibration steps, it uses a heuristic approach to decide when
+        the temperature is to be decreased again.
+        It uses the increase in total overlap as a proxy for the system having reached
+        equilibrium.
+        The minimum number of equilibration steps is updated to the real number of
+        equilibration steps used, i.e. the number of steps between the two last temperature
+        changes.
+
+        Parameters
+        ----------
+        particle_velocities: list(array)
+            List of the particle velocities.
+
+        kin_energy: float
+            Kinetic energy of the system of particles.
+
+        Returns
+        -------
+        particle_velocities: list(array)
+            List of the particle velocities after applying the thermostat.
+        """
+        # The thermostat used is the multi_temperature scheme
+        if self.molecular_dynamics_sim.step > self._next_temp_change:
+            # If the end of the equilibration time has been reached
+            if (
+                self.molecular_dynamics_sim.total_overlap
+                > self.molecular_dynamics_sim.step.max_residue
             ):
-                print_funcs.printToFile("Failed sample")
-                break
+                # If a legal configuration has not been achieved
+                if any(
+                    np.array(
+                        self.molecular_dynamics_sim.total_overlap_history[
+                            -self.min_eq_steps_at_temp // 2 :
+                        ]
+                    )
+                    - np.array(
+                        self.molecular_dynamics_sim.total_overlap_history[
+                            -self.min_eq_steps_at_temp // 2 - 1 : -1
+                        ]
+                    )
+                    > 0
+                ):
+                    # If the total overlap has increased in the previous iterations
+                    self.reference_temp *= 1 / 4
+                    # Lowering the temperature
+                    self.min_eq_steps_at_temp += (
+                        self.molecular_dynamics_sim.step - self._next_temp_change - 1
+                    )
+                    # Updating the minimum equilibration time
+                    self._next_temp_change = (
+                        self.molecular_dynamics_sim.step + self.min_eq_steps_at_temp
+                    )
+                    # Updating the iteration of the last temperature change
+                    self.temp_change_steps.append(self.molecular_dynamics_sim.step)
+                    self.eq_steps_list.append(self.min_eq_steps_at_temp)
+                    # Saving minimum equilibration times and times at which the
+                    # temperature has been lowered
+        # Compute the rescaling factor only if the kinetic energy is nonzero
+        particle_velocities = super().apply_thermostat(particle_velocities, kin_energy)
+
+        return particle_velocities
