@@ -33,7 +33,7 @@ class TestMicrostructure(unittest.TestCase):
     def test_add_phase_saved_correctly(self):
         """Check if the phase is saved correctly in the microstructure Dictionary"""
         matrix_mock = sentinel.matrix
-        matrix_mock.type = "Matrix"
+        matrix_mock.type = Mock(__name__="Matrix")
         self.microstructure_2D.add_phase(matrix_mock)
         self.assertEqual(
             self.microstructure_2D.phases[sentinel.matrix.name], sentinel.matrix
@@ -42,9 +42,9 @@ class TestMicrostructure(unittest.TestCase):
     def test_add_phase_detect_multiple_matrix_phase(self):
         """Check if multiple matrix phases raise an exception"""
         matrix_mock_1 = sentinel.matrix_1
-        matrix_mock_1.type = "Matrix"
+        matrix_mock_1.type = Mock(__name__="Matrix")
         matrix_mock_2 = sentinel.matrix_2
-        matrix_mock_2.type = "Matrix"
+        matrix_mock_2.type = Mock(__name__="Matrix")
         with self.assertRaises(ValueError):
             # Number of RVE dimensions is not compatible with particle type
             self.microstructure_2D.add_phase(matrix_mock_1)
@@ -53,16 +53,16 @@ class TestMicrostructure(unittest.TestCase):
     def test_add_phase_save_matrix_phase(self):
         """Check if the name of the matrix phase is properly stored"""
         matrix_mock = sentinel.matrix
-        matrix_mock.type = "Matrix"
+        matrix_mock.type = Mock(__name__="Matrix")
         self.microstructure_2D.add_phase(matrix_mock)
         self.assertEqual(self.microstructure_2D.matrix_phase, matrix_mock.name)
 
     def test_add_phase_mic_dim_incompatible_w_particle(self):
         """Check if multiple matrix phases raise an exception"""
         matrix_mock = sentinel.matrix
-        matrix_mock.type = "Matrix"
+        matrix_mock.type = Mock(__name__="Matrix")
         disks_mock = sentinel.disks
-        disks_mock.type = Mock()
+        disks_mock.type = Mock(__name__="Disk")
         disks_mock.type.dim = 3
         with self.assertRaises(ValueError):
             # Number of RVE dimensions is not compatible with particle type
