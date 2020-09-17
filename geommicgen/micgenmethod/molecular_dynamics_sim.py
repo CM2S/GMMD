@@ -8,9 +8,15 @@ area/volume is smaller than specified, It is accepted when the system remains in
 configuration for a specified number of steps as low as one. It requires subclasses of the
 Thermostat and SpeedUpScheme abstract classes to work.
 """
+
+from contextlib import contextmanager
+import time
 import numpy as np
 
+import geommicgen.errors.error_classes as errors
+import geommicgen.iofuncs.printing as print_funcs
 from .microstructure_gen_method import GenerationMethod
+from .integration_methods import VerletSync, Newmark
 
 
 class MolecularDynamicsSimulation(GenerationMethod):
