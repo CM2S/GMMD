@@ -1,3 +1,13 @@
+"""
+Module containing the MolecularDynamicsSimulation class.
+
+It provides a class whose methods allow the performance of a molecular dynamics simulation
+where the forces between the particles are repulsive and propertional to the overlap
+area/volume. A given configuration of particles is considered legal when the total overlap
+area/volume is smaller than specified, It is accepted when the system remains in a legal
+configuration for a specified number of steps as low as one. It requires subclasses of the
+Thermostat and SpeedUpScheme abstract classes to work.
+"""
 import numpy as np
 
 from .microstructure_gen_method import GenerationMethod
