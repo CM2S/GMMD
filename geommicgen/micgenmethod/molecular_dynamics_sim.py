@@ -24,10 +24,62 @@ class MolecularDynamicsSimulation(GenerationMethod):
         for each time step.
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        max_residue_per_particle,
+        max_step,
+        max_steps_to_relax,
+        dt,
+        min_distance,
+        type_init_conf,
+        save_history,
+    ):
+        """
+        Initialize the MolecularDynamicsSimulation class.
+
+        Setting the options governing how the molecular dynamics simulation will be run.
+
+        Parameters
+        ----------
+        max_residue_per_particle: float
+            Maximum allowable overlap residue between particles
+
+        max_step: int
+            Maxium number of time steps
+
+        max_steps_to_relax: int
+            Number of time steps a configuration has to remain legal to be accepted.
+
+        dt: float
+            Time step for the intergration of the equations of motion.
+
+        min_distance: float
+            Minimum distance between particles.
+
+        type_init_conf: {'random', 'grid'}
+            Type of initial configuration used.
+
+        save_history: bool
+            Save all the trajectories of the particles, the history of the relative and
+            kinetic energy.
+        """
         self.box = None
         self.particle_velocities = None
+        self.particle_forces = None
+        self.particle_overlap_areas = None
+        self.total_overlap = None
+        self.total_overlap_history = []
         self.position_center_history = None
+        self.speed_up_scheme = None
+        self.thermostat = None
+        self.min_distance = min_distance
+        self.type_init_conf = type_init_conf
+        self.max_residue_per_particle = max_residue_per_particle
+        self.max_residue = None
+        self.max_step = max_step
+        self.max_steps_to_relax = max_steps_to_relax
+        self.dt = dt
+        self.save_history = save_history
 
     def generate_microstructure(self, microstructure_sample):
         """
