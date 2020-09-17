@@ -35,9 +35,52 @@ class MolecularDynamicsSimulation(GenerationMethod):
     particle_velocities: list(array)
         List containing the velocities of the particles in the simulation box.
 
+    particle_forces: list(array)
+        List containing the forces applied on the particles in the simulation box.
+
+    particle_overlap_areas: list(float)
+        List containing the overlap for each particle in the simulation box.
+
+    particle_total_overlap: float
+        Total overlap for all the particles in the simulation box.
+
+    particle_total_overlap_history: list(float)
+        History of the total overlap.
+
     position_center_history: list(list(array))
         It is a list containing the list of the positions of all particles in the simulation
         for each time step.
+
+    thermostat: `.Thermostat`
+        Thermostat to be used
+
+    speed_up_scheme: `.SpeedUpScheme`
+        Speed up scheme for force computation to be used.
+
+    max_residue_per_particle: float
+        Maximum allowable overlap residue between per particle
+
+    max_residue: float
+        Maximum allowable total overlap
+
+    max_step: int
+        Maxium number of time steps
+
+    max_steps_to_relax: int
+        Number of time steps a configuration has to remain legal to be accepted.
+
+    dt: float
+        Time step for the intergration of the equations of motion.
+
+    min_distance: float
+        Minimum distance between particles.
+
+    type_init_conf: {'random', 'grid'}
+        Type of initial configuration used.
+
+    save_history: bool
+        Save all the trajectories of the particles, the history of the relative and
+        kinetic energy.
     """
 
     def __init__(
