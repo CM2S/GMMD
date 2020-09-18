@@ -136,15 +136,21 @@ class Ellipse(Particle):
 
     acceptable_descriptions: list(set(strings))
         Acceptable sets of parameters that fully describe a phase containing ellipses.
+
+    dim: int
+        Dimension that the particle inhabits.
     """
 
     possible_parameters = {
-        "major_axis": "Major axis",
-        "minor_axis": "Minor axis",
-        "angle": "Angle",
-        "eccentricity": "Eccentricity",
-        "ratio": "Ratio a/b",
-    }.union(super().possible_parameters)
+        **{
+            "major_axis": "Major axis",
+            "minor_axis": "Minor axis",
+            "angle": "Angle",
+            "eccentricity": "Eccentricity",
+            "ratio": "Ratio a/b",
+        },
+        **Particle.possible_parameters,
+    }
     # all possible_parameters
     acceptable_descriptions = [
         {"major_axis", "minor_axis", "angle", "n"},
@@ -153,26 +159,66 @@ class Ellipse(Particle):
         {"minor_axis", "angle", "n", "vf"},
         {"ratio", "angle", "n", "vf"},
     ]
+    dim = 2
     # List of acceptable collections of parameters
 
-    def __init__(self, phase, major_axis, minor_axis, angle):
+    def __init__(self, phase, descriptors, rve_dims):
         """
-        This is the generator for the classe Ellipse.
+        Initialize a classe Ellipse obejct.
 
         Parameters
         ----------
         phase: string
             Phase to which the ellipse belongs
 
-        major_axis: float
-            Major axis of the ellipse.
+        descriptors: dict
+            Dictionary of the form *{descriptor_name: value}*
 
-        minor_axis: float
-            Minor axis of the ellipse.
-
-        angle: float
-            Angle in radians that the major axis forms with the x-axis
+        rve_dims: list
+            List containing the dimensions of the microstructure in each direction
         """
+        if "major_axis" in descriptors and "minor_axis" in descriptors:
+            # Both major and minor axis were supplied
+            major_axis = np.max(
+                [descriptors["major_axis"], descriptors["minor_axis"]], axis=0
+            )
+            minor_axis = np.min(
+                [descriptors["major_axis"], descriptors["minor_axis"]], axis=0
+            )
+            # Ensuring that the major axis is greater than the minor axis
+        elif "major_axis" in descriptors and "vf" in descriptors and "n" in descriptors:
+            # The major_axis, the volume faction and the number of particles were supplied
+            volume_part = (
+                descriptors["vf"][0] * rve_dims[0] * rve_dims[1] / descriptors["n"][0]
+            )
+            # All particles will have the same volume
+            aux_minor_axis = volume_part / (np.pi * descriptors["major_axis"] * 1 / 4)
+            # Minor axis computed assuming that all particles have the same area
+            major_axis = np.max([descriptors["major_axis"], aux_minor_axis], axis=0)
+            minor_axis = np.min([descriptors["major_axis"], aux_minor_axis], axis=0)
+            # Ensuring that the major axis is greater than the minor axis
+        elif "minor_axis" in descriptors and "vf" in descriptors and "n" in descriptors:
+            # The minor axis, the volume faction and the number of particles were supplied
+            volume_part = (
+                descriptors["vf"][0] * rve_dims[0] * rve_dims[1] / descriptors["n"][0]
+            )
+            aux_major_axis = volume_part / (np.pi * descriptors["minor_axis"] * 1 / 4)
+            # Minor axis computed assuming that all particles have the same area
+            major_axis = np.max([aux_major_axis, descriptors["minor_axis"]], axis=0)
+            minor_axis = np.min([aux_major_axis, descriptors["minor_axis"]], axis=0)
+            # Ensuring that the major axis is greater than the minor axis
+        elif "ratio" in descriptors and "vf" in descriptors and "n" in descriptors:
+            volume_part = (
+                descriptors["vf"][0] * rve_dims[0] * rve_dims[1] / descriptors["n"][0]
+            )
+            minor_axis = np.sqrt(volume_part / (np.pi * descriptors["ratio"] * 1 / 4))
+            major_axis = descriptors["ratio"] * minor_axis
+        if "angle" in descriptors:
+            angle = descriptors["angle"]
+
+        if major_axis <= 0 or minor_axis <= 0:
+            raise ValueError
+
         self.major_axis = major_axis
         self.semi_major_axis = major_axis / 2
         self.minor_axis = minor_axis
