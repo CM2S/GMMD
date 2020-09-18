@@ -13,141 +13,33 @@ import printing as print_funcs
 
 class Particle:
     """
-    This is the class for particles. Each particle in the RVE is an instance of this class. dsfsdfsdf
-    During the simulation its class attributes characterize the current RVE.
+    This is the class for particles.
+
+    Each particle in the microstucutre is an instance of this class.
 
     Attributes
     ----------
-    center: list
+    position_center: array
         The position vector of the center of mass of the particle
 
     dim: int
         Number of the dimensions of the space where the particle "lives"
-
-    force: array of floats
-        Array containing the force acting on the particle.
-
-    verlet_list: list(int)
-        List containing the Verlet neighboors of the particle.
 
     phase: str
         Phase to which the particle belongs.
 
     Class Atributes
     ---------------
-    box: list(float)
-        Dimensions of the simulation box. Note: not necessarily equal to the RVE (e.g.
-        cylindrical fibers).
-
-    volume: float
-        Total volume of the particles in the RVE.
-
-    number: integer
-        Number of particles in the RVE.
-
-    volume_phase: list(float)
-        List containing the volume of the particles in each phase.
-
-    volume_RVE: float
-        Volume of the RVE.
-
-    relative_energy_history: list(float)
-        List containing the relative energy at each iteration.
-
-    kinetic_energy_history: list(float)
-        List containing the kinetic energy at each iteration.
-
-    list_phase: list(str)
-        List containing the phases in the RVE.
-
-    n_cell_dim: list(int)
-        List containing the number of cells (for force computation) of cells in each
-        direction.
-
-    cell_side_length: list(float)
-        List containing the side lengths of the cells for force computation in each
-        direction.
-
-    cell_list: list(`.Particle`)
-        List containing the particles in each cell.
-
-    matrix_phase: str
-        Name of the matrix phase.
-
-    file_paht: str
-     File path that all outputs use.
-
-    new_verlet_list: boolean
-        Boolean signaling if there is a need to compute a new Verlet list
-
-    temp_change_steps: list(int)
-        List containing the time steps at wich the temperature was lowered
-
-    max_residue: float
-        Max residue allowed for the particles in the RVE
-
-    total_overlap: float
-        Overlap area/volme between the particles.
-
-    total_overlap_history: list(float)
-        History of the particle overlap
-
-    time: list(float)
-        Time taken to generate the microstructure
-
-    equilibration_steps: list(list(float))
-        Number of steps taken at each temperature stage
+    possible_parameters: dict
+        Possible parameters characterizing a phase containing this of particle.
     """
 
-    box = []
-    # Size of the simulation box
-    volume = 0
-    # Initializing the total volume of all particles
-    number = 0
-    # Initializing the total number of particles
-    volume_phase = {}
-    # Dictionary containing the volume occupied by each phase
-    volume_RVE = 0
-    # Volume of the RVE
-    relative_energy_history = []
-    # List containing the relative energy for each iteration
-    kinetic_energy_history = []
-    # List containing the kinetic energy for each iteration
-    list_phases = []
-    # List containing the phases in the RVE
-    n_cell_dim = []
-    # List containing the number of cells in each direction
-    cell_side_length = []
-    # List containing the side lengths of the cells for force computation in each direction
-    cell_list = []
-    # List containing the particles in each cell
-    matrix_phase = ""
-    # Matrix phase of the RVE
-    file_path = ""
-    # File path that all outputs use
-    new_verlet_list = False
-    # Boolean signaling if there is a need to compute a new Verlet list
-    temp_change_steps = []
-    # List containing the time steps at wich the temperature was lowered
-    max_residue = 0
-    # Max residue allowed for the particles in the RVE
-    total_overlap = 0
-    # Overlap area/volme between the particles
-    total_overlap_history = []
-    # History of the particle overlap
-    time = []
-    # Time taken to generate the microstructure
-    equilibration_steps = []
-    # Equilibration steps spent at each temperature stage
-
-    possible_parameters = {
-        "n": "Number of particles",
-        "vf": "Volume fraction",
-    }
+    possible_parameters = {"n": "Number of particles", "vf": "Volume fraction"}
+    acceptable_descriptions = {[]}
 
     def __init__(self, dim, phase):
         """
-        The constructor for the Particle class.
+        Initialize a Particle class object.
 
         Parameters
         ----------
@@ -161,130 +53,45 @@ class Particle:
         # Setting the the dimension where the particle "lives"
         self.phase = phase.name
         # Phase to which the particle belongs
-        self.force = np.zeros((dim))
-        # Setting the initial force on the particle as zero
-        self.verlet_list = []
-        # Initializing the particles Verlet list
-        Particle.volume += self.volume()
-        # Updating the total volume
-        try:
-            if Particle.volume / Particle.volume_RVE > 1:
-                # Checking if the volume fraction is below 1
-                raise errors.VolumeFractionLargerOne(phase)
-        except errors.VolumeFractionLargerOne as error:
-            error.message()
-            quit()
-        Particle.number += 1
-        # Updating the number of particles in the RVE
-        phase.real_volume_fraction += self.volume() / Particle.volume_RVE
-        # Updating the volume corresponding to the particle's phase
-        phase.real_number += 1
-        # Updating the number of particles corresponding to the particle's phase
-        if Particle.matrix_phase != "":
-            # The matrix phase has already been identified
-            Particle.phases[Particle.matrix_phase].real_volume_fraction = (
-                Particle.volume_RVE
-                - np.sum(
-                    [
-                        i_phase.real_volume_fraction
-                        for i_phase in Particle.phases.values()
-                    ]
-                )
-                + Particle.phases[Particle.matrix_phase].real_volume_fraction
-            ) / Particle.volume_RVE
-            # Updating the volume occupied by the matrix
+        self.position_center = None
 
-    def resetRVE():
-        """Reset the class attributes for a new RVE simulation."""
-        Particle.volume = 0
-        # Initializing the total volume of all particles
-        Particle.number = 0
-        # Initializing the total number of particles
-        Particle.relative_energy_history = []
-        # List containing the relative energy for each iteration
-        Particle.kinetic_energy_history = []
-        # List containing the kinetic energy for each iteration
-        Particle.total_overlap_history = []
-        # List containing the total overlap for each iteration
-        Particle.n_cell_dim = []
-        # List containing the number of cells in each direction
-        Particle.cell_side_length = []
-        # List containing the side lengths of the cells for force computation in each direction
-        Particle.cell_list = []
-        # List containing the particles in each cell
-        Particle.file_path = ""
-        # File path that all outputs use
-        Particle.file_path = ""
-        # File path that all outputs use
-        Particle.new_verlet_list = False
-        # Boolean signaling if there is a need to compute a new Verlet list
-        Particle.temp_change_steps = []
-        # List containing the time steps at wich the temperature was lowered
+    @classmethod
+    def check_acceptable_description(cls, descriptors):
+        """Check if descriptors are an acceptable description.
 
-    def setPositionCenter(self, position):
+        Depending on the type of particle different sets of descriptors are sufficient to
+        describe the particles in a phase.
+
+        Parameters
+        ----------
+        descriptors: set(str)
+            Set of descriptors.
         """
-        This function sets the position of the center of mass of the particle
-        """
+        if any(
+            [
+                descriptors == acceptable_description
+                for acceptable_description in cls.acceptable_descriptions
+            ]
+        ):
+            # Checking acceptable sets of parameters
+            pass
+        else:
+            raise ValueError
 
-        self.position_center = position
-        # Setting the position of the center of mass of the particle
-
-    def setVelocityCenter(self, velocity):
-        """
-        This function sets the velocity of the center of mass of the particle.
-        """
-
-        self.velocity_center = velocity
-        # Setting the velocity of the center of mass of the particle
-
-    def cleanForces(self):
-        """
-        This function sets the forces acting on the particle to 0.
-        """
-
-        self.force = np.zeros((self.dim))
-
-    def cleanOverlapArea(self):
-        """
-        This function sets the overlap area of the particle to 0.
-        """
-
-        self.overlap_area = 0
-
-    def intersectionVector(self, other_particle):
+    def intersection_vector(self, other_particle, box):
         """Compute the unit vector from the center of masss of particle i to particle j."""
-        box = Particle.box
-        # Saving the RVE dimensions
         vector_centers = other_particle.position_center - self.position_center
         vector_centers = vector_centers - box * np.round(vector_centers / box)
         # Vector connecting the centers of the current particle and the nearest image of
         # the other particle
-        if self.dim == 2:
-            angle_opposite = np.arctan2(vector_centers[1], vector_centers[0])
-            if np.random.uniform() > 1:
-                angle_new = angle_opposite + np.random.uniform(
-                    low=-np.pi / 4, high=np.pi / 4
-                )
-            else:
-                angle_new = angle_opposite
-            if np.linalg.norm(vector_centers) != 0:
-                unit_vector_i_j = np.array([np.cos(angle_new), np.sin(angle_new)])
-                # unit_vector_i_j = vector_centers/np.linalg.norm(vector_centers)
-            else:
-                random_vector = np.random.uniform(size=self.dim)
-                unit_vector_i_j = random_vector / np.linalg.norm(random_vector)
-            return unit_vector_i_j
-        elif self.dim == 3:
-            if np.linalg.norm(vector_centers) != 0:
-                unit_vector_i_j = vector_centers / np.linalg.norm(vector_centers)
-                # unit_vector_i_j = vector_centers/np.linalg.norm(vector_centers)
-            else:
-                random_vector = np.random.uniform(size=self.dim)
-                unit_vector_i_j = random_vector / np.linalg.norm(random_vector)
-            return unit_vector_i_j
+        if np.linalg.norm(vector_centers) != 0:
+            unit_vector_i_j = vector_centers / np.linalg.norm(vector_centers)
+            # unit_vector_i_j = vector_centers/np.linalg.norm(vector_centers)
+        else:
+            random_vector = np.random.uniform(size=self.dim)
+            unit_vector_i_j = random_vector / np.linalg.norm(random_vector)
 
-
-# ==========================================================================================
+        return unit_vector_i_j
 
 
 class Ellipse(Particle):
