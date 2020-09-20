@@ -17,7 +17,14 @@ import gmsh
 
 # Finite element mesh conversor to LINKS
 from gmsh2links.main import readMesh
-from microstructure.particle_classes import Disk, Particle, Ellipse
+from microstructure.particle_classes import (
+    Disk,
+    Particle,
+    Ellipse,
+    Ellipsoid,
+    Sphere,
+    CylindricalFiber,
+)
 
 # Importing the particle class
 import numpy as np
@@ -96,6 +103,7 @@ class FEMMeshGenerator(MeshGenerator):
         ]
         kwargs.update(self.descriptors_element_type)
         self.output_term = kwargs.get("output_term", False)
+        self.particle_tags = []
 
     def generate_mesh(self, microstructure_sample, file_path):
         """
@@ -107,32 +115,166 @@ class FEMMeshGenerator(MeshGenerator):
             Microstructure to be meshed.
         """
 
-        rve_dims = microstructure_sample.rve_dims
-        # Option for the output in the terminal
-        if self.element_type in ("tri3", "tri6", "quad4", "quad8"):
-            # (Defaul option) Linear Triangular element
-            self.generate_mesh_fem_2d(
-                microstructure_sample,
-                self.mesh_size,
-                file_path,
-                output_term=self.output_term,
-                **self.descriptors_element_type
-            )
-        elif self.element_type in ("tetra4", "tetra10"):
-            # It is a 3D problem
-            self.generate_mesh_fem_3d(microstructure_sample, mesh_size, rve_dims)
+        gmsh.initialize()
+        self.set_gmsh_model(
+            **self.descriptors_element_type,
+            output_term=self.output_term,
+        )
+        self.generate_mesh_gmsh(
+            microstructure_sample,
+            self.mesh_size,
+            file_path,
+        )
+        self.write_mesh_gmsh(microstructure_sample, file_path)
 
-    def generate_mesh_fem_2d(
+    def set_gmsh_model(
         self,
-        microstructure_sample,
-        mesh_size,
-        file_path,
         mesh_alg=5,
+        mesh_alg_3d=1,
         force_recomb_all=0,
         element_order=1,
         recomb_alg=1,
         element_order_incomp=0,
         output_term=0,
+    ):
+        model = gmsh.model
+        factory = model.occ
+        gmsh.option.setNumber("General.Terminal", 1)  # output_term)
+
+        # 2D Meshing algorithm
+        # --------------------
+        # 1 - Mesh Adapt
+        # 2 - Automatic
+        # 5 - Delaunay (default)
+        # 6 - Frontal-Delaunay
+        # 7 - BAMG
+        # 8 - Frontal-Delaunay for Quads
+        # 9 - Packing of Parallelograms
+        gmsh.option.setNumber("Mesh.Algorithm", mesh_alg)
+
+        # 3D Meshing algorithm
+        # --------------------
+        # 1 - Delaunay (default)
+        # 2 - Frontal
+        # 7 - MMG3D
+        # 9 - R-tree
+        # 10 - HXT
+        gmsh.option.setNumber("Mesh.Algorithm3D", mesh_alg_3d)
+
+        # Characteristic mesh length factor (applied acroos all mesh)
+        gmsh.option.setNumber("Mesh.CharacteristicLengthFactor", 1)
+
+        # Multi-threading
+        gmsh.option.setNumber("Mesh.MaxNumThreads1D", 4)
+        gmsh.option.setNumber("Mesh.MaxNumThreads2D", 4)
+        gmsh.option.setNumber("Mesh.MaxNumThreads3D", 4)
+
+        # MSH file version
+        gmsh.option.setNumber("Mesh.MshFileVersion", 4.1)
+
+        # Quad/Hex recombination algorithms
+        # ---------------------------------
+        # 0 - simple
+        # 1 - blossom (default)
+        # 2 - simple full-quad
+        # 3 - blosson full-quad
+        gmsh.option.setNumber("Mesh.RecombinationAlgorithm", recomb_alg)
+
+        # Force recombination in all surfaces
+        gmsh.option.setNumber("Mesh.RecombineAll", force_recomb_all)
+
+        # Number of topological optimization passes of recombined surface meshes (5 by default)
+        gmsh.option.setNumber("Mesh.RecombineOptimizeTopology", 5)
+
+        # Force recombination in all volumes
+        gmsh.option.setNumber("Mesh.Recombine3DAll", force_recomb_all)
+
+        # Recombination level in 3D
+        # -------------------------
+        # 0 - hex (default)
+        # 1 - hex + prisms
+        # 2 - hex + prisms + pyramids
+        gmsh.option.setNumber("Mesh.Recombine3DLevel", recomb_alg)
+
+        # Recombination conformity type in 3D meshes
+        # ------------------------------------------
+        # 0 - nonconforming (default)
+        # 1 - trihedra
+        # 2 - pyramids + trihedra
+        # 2 - pyramids + hexSplit + trihedra
+        # 4 - hexSplit + trihedra
+        gmsh.option.setNumber("Mesh.Recombine3DConformity", 0)
+
+        # Renumber nodes and elements after mesh generation
+        gmsh.option.setNumber("Mesh.Renumber", 1)
+
+        # Save all elements even if they do not belong to physical groups
+        gmsh.option.setNumber("Mesh.SaveAll", 0)
+
+        # Number of smoothing step applied to the final mesh
+        gmsh.option.setNumber("Mesh.Smoothing", 1)
+
+        # Element order
+        gmsh.option.setNumber("Mesh.ElementOrder", element_order)
+
+        # Crete second-order nodes by linear interpolation
+        gmsh.option.setNumber("Mesh.SecondOrderLinear", 0)
+
+        # Second-order incomplete elements
+        gmsh.option.setNumber("Mesh.SecondOrderIncomplete", element_order_incomp)
+        # ==========================================================================================
+        # Generate the finite element mesh
+        # ==========================================================================================
+        # Define model name
+
+    def write_mesh_gmsh(self, microstructure_sample, file_path):
+        # Write the mesh to the .msh file
+        meshfile_temp = file_path + "_temp.msh"
+        meshfile = file_path + ".msh"
+        vtk_temp = file_path + "_temp.vtk"
+        vtk = file_path + ".vtk"
+        gmsh.write(meshfile_temp)
+        gmsh.write(vtk_temp)
+
+        # Close GMSH
+        gmsh.finalize()
+
+        fin = open(meshfile_temp, "rt")
+        fout = open(meshfile, "wt")
+
+        for line in fin:
+            fout.write(line.replace(",", "."))
+
+        fin.close()
+        fout.close()
+        os.remove(meshfile_temp)
+        # Sometimes gmsh swaps periods for commas
+
+        self.gmsh_to_links(
+            meshfile,
+            file_path,
+            2,
+            list(microstructure_sample.phases.keys()),
+            microstructure_sample.matrix_phase,
+        )
+        #
+
+        fin = open(vtk_temp, "rt")
+        fout = open(vtk, "wt")
+
+        for line in fin:
+            fout.write(line.replace(",", "."))
+
+        fin.close()
+        fout.close()
+        os.remove(vtk_temp)
+        # Sometimes gmsh swaps periods for commas
+
+    def generate_mesh_gmsh(
+        self,
+        microstructure_sample,
+        mesh_size,
+        file_path,
     ):
         """
         Generate the mesh for the Finite Element Method in 2D.
@@ -183,136 +325,34 @@ class FEMMeshGenerator(MeshGenerator):
         model = gmsh.model
         factory = model.occ
 
-        # Initialise GMSH
-        gmsh.initialize()
-
-        # Output to terminal
-        gmsh.option.setNumber("General.Terminal", output_term)
-
-        # 2D Meshing algorithm
-        # --------------------
-        # 1 - Mesh Adapt
-        # 2 - Automatic
-        # 5 - Delaunay (default)
-        # 6 - Frontal-Delaunay
-        # 7 - BAMG
-        # 8 - Frontal-Delaunay for Quads
-        # 9 - Packing of Parallelograms
-        gmsh.option.setNumber("Mesh.Algorithm", mesh_alg)
-
-        # Characteristic mesh length factor (applied acroos all mesh)
-        gmsh.option.setNumber("Mesh.CharacteristicLengthFactor", 1)
-
-        # Multi-threading
-        gmsh.option.setNumber("Mesh.MaxNumThreads1D", 4)
-        gmsh.option.setNumber("Mesh.MaxNumThreads2D", 4)
-        gmsh.option.setNumber("Mesh.MaxNumThreads3D", 4)
-
-        # MSH file version
-        gmsh.option.setNumber("Mesh.MshFileVersion", 4.1)
-
-        # Quad/Hex recombination algorithms
-        # ---------------------------------
-        # 0 - simple
-        # 1 - blossom (default)
-        # 2 - simple full-quad
-        # 3 - blosson full-quad
-        gmsh.option.setNumber("Mesh.RecombinationAlgorithm", recomb_alg)
-
-        # Force recombination in all surfaces
-        gmsh.option.setNumber("Mesh.RecombineAll", force_recomb_all)
-
-        # Number of topological optimization passes of recombined surface meshes (5 by default)
-        gmsh.option.setNumber("Mesh.RecombineOptimizeTopology", 5)
-
-        # Renumber nodes and elements after mesh generation
-        gmsh.option.setNumber("Mesh.Renumber", 1)
-
-        # Save all elements even if they do not belong to physical groups
-        gmsh.option.setNumber("Mesh.SaveAll", 0)
-
-        # Number of smoothing step applied to the final mesh
-        gmsh.option.setNumber("Mesh.Smoothing", 1)
-
-        # Element order
-        gmsh.option.setNumber("Mesh.ElementOrder", element_order)
-
-        # Crete second-order nodes by linear interpolation
-        gmsh.option.setNumber("Mesh.SecondOrderLinear", 0)
-
-        # Second-order incomplete elements
-        gmsh.option.setNumber("Mesh.SecondOrderIncomplete", element_order_incomp)
-        # ==========================================================================================
-        # Generate the finite element mesh
-        # ==========================================================================================
-        # Define model name
         title = file_path
         model.add(title)
 
+        mesh_size = self.mesh_size
         rve_dims = microstructure_sample.rve_dims
         particles = microstructure_sample.particles
         dim = len(rve_dims)
-        eps = 0
 
         if dim == 2:
-            rect_tag = factory.addRectangle(0, 0, 0, rve_dims[0], rve_dims[1])
+            self.box_tag = factory.addRectangle(0, 0, 0, rve_dims[0], rve_dims[1])
         elif dim == 3:
-            rect_tag = factory.addBox(0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2])
+            self.box_tag = factory.addBox(
+                0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2]
+            )
 
         # RVE
 
-        particle_tags = []
-        rotate_tags = []
-        k_particle_image = 0
-        phase_dim_tag = {phase_name: [] for phase_name in microstructure_sample.phases}
+        self.phase_dim_tag = {
+            phase_name: [] for phase_name in microstructure_sample.phases
+        }
         for i_particle in particles:
             # Running through all the particles
-            for (j_pbc, p_pbc) in [
-                (j_pbc, p_pbc) for j_pbc in range(-1, 2) for p_pbc in range(-1, 2)
-            ]:
-                # Periodic images in the vertical direction
-                xc = i_particle.position_center[0] + rve_dims[0] * j_pbc
-                yc = i_particle.position_center[1] + rve_dims[1] * p_pbc
-                zc = 0
-                rx = i_particle.radius
-                ry = i_particle.radius
-                if (
-                    xc > rve_dims[0] + rx - eps
-                    or xc < -rx + eps
-                    or yc > rve_dims[1] + ry - eps
-                    or yc < -ry + eps
-                ):
-                    continue
-                # Saving the properties of the particles
-                particle_tags.append(factory.addDisk(xc, yc, zc, rx, ry))
-
-                phase_dim_tag[i_particle.phase].append(
-                    (2, particle_tags[k_particle_image])
-                )
-
-                factory.synchronize()
-                if isinstance(i_particle, Disk):
-                    # Particle is a Disk
-                    k_particle_image += 1
-                elif isinstance(i_particle, Ellipse):
-                    alpha = i_particle.angle
-                    factory.synchronize()
-                    rotate_tags.append([(2, particle_tags[k_particle_image])])
-                    rotate_tags[-1].extend(
-                        model.getBoundary([2, particle_tags[k_particle_image]])
-                    )
-                    factory.rotate(rotate_tags[-1], xc, yc, zc, 0, 0, 1, alpha)
-
-                    phase_dim_tag[i_particle.phase].append(
-                        (2, particle_tags[k_particle_image])
-                    )
-
-                    factory.synchronize()
-                    k_particle_image += 1
+            self.add_particle_pbc_to_model(i_particle, rve_dims)
+        print(self.particle_tags)
 
         out_dim_tag, _ = factory.intersect(
-            [(2, rect_tag)],
-            [(2, particle_tags[k]) for k in range(k_particle_image)],
+            [(dim, self.box_tag)],
+            [(dim, particle_tag) for particle_tag in self.particle_tags],
             removeObject=False,
             removeTool=True,
         )
@@ -320,24 +360,24 @@ class FEMMeshGenerator(MeshGenerator):
 
         temp = set(out_dim_tag)
         for i_phase in microstructure_sample.phases:
-            phase_dim_tag[i_phase] = [
-                value for value in phase_dim_tag[i_phase] if value in temp
+            self.phase_dim_tag[i_phase] = [
+                value for value in self.phase_dim_tag[i_phase] if value in temp
             ]
         # Saving what tags/geometry belongs to which phase
 
         factory.synchronize()
 
         out_dim_tag_2, _ = factory.fragment(
-            [(2, rect_tag)], out_dim_tag, removeObject=True, removeTool=True
+            [(dim, self.box_tag)], out_dim_tag, removeObject=True, removeTool=True
         )
         # Computing the fragment of the particles with the matrix
 
-        phase_dim_tag[microstructure_sample.matrix_phase] = out_dim_tag_2[
+        self.phase_dim_tag[microstructure_sample.matrix_phase] = out_dim_tag_2[
             len(out_dim_tag) :
         ]
         materials = dict()
         for i_phase in microstructure_sample.phases:
-            temp = set(phase_dim_tag[i_phase])
+            temp = set(self.phase_dim_tag[i_phase])
             materials[i_phase] = [value[1] for value in out_dim_tag_2 if value in temp]
         # Collection the tags in the correct phase
 
@@ -346,8 +386,8 @@ class FEMMeshGenerator(MeshGenerator):
         # be useful for some intermidate operations, like checking the tags of entities
 
         for i_phase in microstructure_sample.phases:
-            material_tag = model.addPhysicalGroup(2, materials[i_phase])
-            model.setPhysicalName(2, material_tag, "Phase {0}".format(i_phase))
+            material_tag = model.addPhysicalGroup(dim, materials[i_phase])
+            model.setPhysicalName(dim, material_tag, "Phase {0}".format(i_phase))
         # Setting each phase as a physical group
 
         self.enforce_pbc(rve_dims)
@@ -355,62 +395,239 @@ class FEMMeshGenerator(MeshGenerator):
         gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
         gmsh.option.setNumber("Mesh.CharacteristicLengthMax", mesh_size)
 
-        print("here")
         # Generate a 3D mesh
-        model.mesh.generate(2)
+        model.mesh.generate(dim)
 
         model.mesh.optimize("HighOrder", force=False, niter=10)
 
         self.enforce_pbc(rve_dims)
         # Repeated becaused gmsh sometines behaves unpredictably
 
-        # Write the mesh to the .msh file
-        meshfile_temp = file_path + "_temp.msh"
-        meshfile = file_path + ".msh"
-        vtk_temp = file_path + "_temp.vtk"
-        vtk = file_path + ".vtk"
-        gmsh.write(meshfile_temp)
-        gmsh.write(vtk_temp)
+    def add_particle_pbc_to_model(self, i_particle, rve_dims):
+        model = gmsh.model
+        factory = gmsh.model.occ
+        eps = 0
+        for (j_pbc, p_pbc) in [
+            (j_pbc, p_pbc) for j_pbc in range(-1, 2) for p_pbc in range(-1, 2)
+        ]:
+            if i_particle.dim == 2:
+                x_c = i_particle.position_center[0] + rve_dims[0] * j_pbc
+                y_c = i_particle.position_center[1] + rve_dims[1] * p_pbc
+                z_c = 0
+                r_x = i_particle.radius
+                r_y = i_particle.radius
+                if (
+                    x_c > rve_dims[0] + r_x - eps
+                    or x_c < -r_x + eps
+                    or y_c > rve_dims[1] + r_y - eps
+                    or y_c < -r_y + eps
+                ):
+                    continue
+                # Saving the properties of the particles
+                self.particle_tags.append(factory.addDisk(x_c, y_c, z_c, r_x, r_y))
 
-        # Close GMSH
-        gmsh.finalize()
+                factory.synchronize()
+                if isinstance(i_particle, Disk):
+                    # Particle is a Disk
+                    self.phase_dim_tag[i_particle.phase].append(
+                        (2, self.particle_tags[-1])
+                    )
+                elif isinstance(i_particle, Ellipse):
+                    self.phase_dim_tag[i_particle.phase].append(
+                        (2, self.particle_tags[-1])
+                    )
+                    alpha = i_particle.angle
+                    factory.synchronize()
+                    rotate_tag = [(2, self.particle_tags[-1])]
+                    rotate_tag.extend(model.getBoundary([2, self.particle_tags[-1]]))
+                    factory.rotate(rotate_tag, x_c, y_c, z_c, 0, 0, 1, alpha)
 
-        fin = open(meshfile_temp, "rt")
-        fout = open(meshfile, "wt")
+                    self.phase_dim_tag[i_particle.phase].append(
+                        (2, self.particle_tags[-1])
+                    )
+                elif isinstance(i_particle, CylindricalFiber):
+                    face_tag = factory.addDisk(x_c, y_c, z_c, r_x, r_y)
+                    # Saving the properties of the particles
+                    if i_particle.direction_fibers == 0:
+                        # The fibers run in the x direction
+                        factory.rotate([(2, face_tag)], 0, 0, 0, 0, 1, 0, 3 * np.pi / 2)
+                        # Rotating the fiber face to the yz plane as it was ploted
+                        # in the xy plane
+                        extrude_direction = [i_particle.length_dir_fibers, 0, 0]
+                    elif i_particle.direction_fibers == 1:
+                        # The fibers run in the y direction
+                        factory.rotate([(2, face_tag)], 0, 0, 0, 1, 0, 0, np.pi / 2)
+                        # Rotating the fiber faces to the xz plane as it was ploted
+                        # in the xy plane
+                        extrude_direction = [0, i_particle.length_dir_fibers, 0]
+                    elif i_particle.direction_fibers == 2:
+                        # The fibers run in the z direction
+                        extrude_direction = [0, 0, i_particle.length_dir_fibers]
+                    extrusion_tags = factory.extrude(
+                        [(2, face_tag)], *extrude_direction
+                    )
+                    # Extruding the fiber
 
-        for line in fin:
-            fout.write(line.replace(",", "."))
+                    for i_dim_tag in extrusion_tags:
+                        if i_dim_tag[0] == 3:
+                            self.particle_tags.append(i_dim_tag[1])
 
-        fin.close()
-        fout.close()
-        os.remove(meshfile_temp)
-        # Sometimes gmsh swaps periods for commas
+                            self.phase_dim_tag[str(i_particle.phase)].append(
+                                (3, self.particle_tags[-1])
+                            )
+                            break
 
-        self.gmsh_to_links(
-            meshfile,
-            file_path,
-            2,
-            list(microstructure_sample.phases.keys()),
-            microstructure_sample.matrix_phase,
-        )
-        #
+                    factory.synchronize()
+            elif i_particle.dim == 3:
+                for l_pbc in range(-1, 2):
+                    # Particle is a Sphere
+                    x_c = i_particle.position_center[0] + rve_dims[0] * j_pbc
+                    y_c = i_particle.position_center[1] + rve_dims[1] * p_pbc
+                    z_c = i_particle.position_center[2] + rve_dims[2] * l_pbc
+                    r = i_particle.radius
+                    # Saving the properties of the particles
+                    if (
+                        x_c > rve_dims[0] + r
+                        or x_c < -r
+                        or y_c > rve_dims[1] + r
+                        or y_c < -r
+                        or z_c > rve_dims[2] + r
+                        or z_c < -r
+                    ):
+                        continue
+                    if isinstance(i_particle, Sphere):
+                        self.particle_tags.append(factory.addSphere(x_c, y_c, z_c, r))
 
-        fin = open(vtk_temp, "rt")
-        fout = open(vtk, "wt")
+                        self.phase_dim_tag[str(i_particle.phase)].append(
+                            (3, self.particle_tags[-1])
+                        )
 
-        for line in fin:
-            fout.write(line.replace(",", "."))
+                        factory.synchronize()
+                    elif isinstance(i_particle, Ellipsoid):
+                        # Particle is an Ellipsoid
+                        self.enforce_pbc_flag = False
+                        # Do not enforce periodic boundary conditions
+                        fake_radius = 1
+                        self.particle_tags.append(
+                            factory.addSphere(x_c, y_c, z_c, fake_radius)
+                        )
+                        # Creating a sphere without rotation
+                        # Rotate the disk
+                        factory.synchronize()
+                        affine_tags = [(3, self.particle_tags[-1])]
+                        # affine_tags.extend(
+                        #     model.getBoundary([(3, particle_tags[k_particle_image])]))
+                        factory.dilate(
+                            affine_tags,
+                            x_c,
+                            y_c,
+                            z_c,
+                            i_particle.semi_axis_1,
+                            i_particle.semi_axis_2,
+                            i_particle.semi_axis_3,
+                        )
+                        factory.rotate(
+                            affine_tags,
+                            x_c,
+                            y_c,
+                            z_c,
+                            i_particle.rotation_axis[0],
+                            i_particle.rotation_axis[1],
+                            i_particle.rotation_axis[2],
+                            i_particle.angle,
+                        )
 
-        fin.close()
-        fout.close()
-        os.remove(vtk_temp)
-        # Sometimes gmsh swaps periods for commas
+                        self.phase_dim_tag[str(i_particle.phase)].append(
+                            (3, self.particle_tags[-1])
+                        )
+
+                        factory.synchronize()
 
     def enforce_pbc(self, rve_dims):
         factory = gmsh.model.occ
         factory.synchronize()
 
+        if len(rve_dims) == 2:
+            self.enforce_pbc_2d(rve_dims)
+        elif len(rve_dims) == 3:
+            self.enforce_pbc_3d(rve_dims)
+
+    def enforce_pbc_one_way(self, rve_dims, direction, dim, eps=1e3):
+
+        factory = gmsh.model.occ
         gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
+        trans_vec = [0, 0, 0]
+        trans_vec[direction] = rve_dims[direction]
+        normal_plane = rve_dims if len(rve_dims) == 3 else rve_dims.append(0)
+        normal_plane[direction] = 0
+        translation_4_mat = [
+            1,
+            0,
+            0,
+            trans_vec[0],
+            0,
+            1,
+            0,
+            trans_vec[1],
+            0,
+            0,
+            1,
+            trans_vec[2],
+            0,
+            0,
+            0,
+            1,
+        ]
+
+        main_face = gmsh.model.getEntitiesInBoundingBox(
+            -eps,
+            -eps,
+            -eps,
+            normal_plane[0] + eps,
+            normal_plane[1] + eps,
+            normal_plane[2] + eps,
+            dim,
+        )
+        for i_surf in main_face:
+            # Then we get the bounding box of each left surface
+            xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(
+                i_surf[0], i_surf[1]
+            )
+            # We translate the bounding box to the right and look for surfaces inside
+            # it:
+            opposite_surf = gmsh.model.getEntitiesInBoundingBox(
+                xmin - eps + trans_vec[0],
+                ymin - eps + trans_vec[1],
+                zmin - eps + trans_vec[2],
+                xmax + eps + trans_vec[0],
+                ymax + eps + trans_vec[1],
+                zmax + eps + trans_vec[2],
+                dim,
+            )
+            # For all the matches, we compare the corresponding bounding boxes...
+            for j_surf in opposite_surf:
+                xmin2, ymin2, zmin2, xmax2, ymax2, zmax2 = gmsh.model.getBoundingBox(
+                    j_surf[0], j_surf[1]
+                )
+                # ...and if they match, we apply the periodicity constraint
+                if (
+                    abs(xmin2 - trans_vec[0] - xmin) < eps
+                    and abs(xmax2 - trans_vec[0] - xmax) < eps
+                    and abs(ymin2 - trans_vec[1] - ymin) < eps
+                    and abs(ymax2 - trans_vec[1] - ymax) < eps
+                    and abs(zmin2 - trans_vec[2] - zmin) < eps
+                    and abs(zmax2 - trans_vec[2] - zmax) < eps
+                ):
+                    gmsh.model.mesh.setPeriodic(
+                        1, [j_surf[1]], [i_surf[1]], translation_4_mat
+                    )
+                    # Ensuring periodicity
+
+        factory.synchronize()
+
+    def enforce_pbc_2d(self, rve_dims):
+        gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
+        dim = len(rve_dims)
         eps = 1e-3
         # Ask OpenCASCADE to compute more accurate bounding boxes of entities using
         # the STL mesh
@@ -507,347 +724,8 @@ class FEMMeshGenerator(MeshGenerator):
                         1, [j_edge[1]], [i_edge[1]], translation_b_t
                     )
 
-    def generate_mesh_fem_3d(
-        particles,
-        mesh_size,
-        rve_dims,
-        mesh_alg=1,
-        force_recomb_all=0,
-        element_order=2,
-        recomb_alg=2,
-        element_order_incomp=0,
-        output_term=1,
-    ):
-        """
-        This function generates the mesh for the Finite Element Method in 2D. It generates by
-        default linear triangular elements.
-
-        Parameters
-        ----------
-        particles: list(`.Particle`)
-            List containing the particles of the microstructure.
-
-        mesh_size: float
-            Size of the mesh.
-
-        rve_dims: list
-            List containing the size of the RVE.
-
-        output_term: {0, 1}, optional
-            Output to the terminal
-
-        mesh_alg: integer, optional
-            3D Meshing algorithm
-            1: Delaunay (default)
-            2: Frontal
-            7: MMG3D
-            9: R-tree
-            10: HXT
-
-        force_recomb_all: {0, 1}, optional
-            Recombination into quads.
-
-        element_order: integer, optional
-            Order of the element
-
-        recomb_alg: integer, optional
-            0: hex (default)
-            1: hex + prisms
-            2: hex + prisms + pyramids
-
-        element_order_incomp: {0, 1}, optional
-            Remove interior nodes for second order elements
-        """
-        # ======================================================================================
-        # Set up GMSH in Python
-        # ======================================================================================
-        # Select the geometry engine
-        # occ - OpenCASCADE CAD (more advanced)
-        # geo - built-in CAD kernel (less sophisticated)
-        model = gmsh.model
-        factory = model.occ
-
-        # Initialise GMSH
-        gmsh.initialize()
-
-        # Output to terminal
-        gmsh.option.setNumber("General.Terminal", output_term)
-
-        # 2D Meshing algorithm
-        # --------------------
-        # 1 - Mesh Adapt
-        # 2 - Automatic
-        # 5 - Delaunay (default)
-        # 6 - Frontal-Delaunay
-        # 7 - BAMG
-        # 8 - Frontal-Delaunay for Quads
-        # 9 - Packing of Parallelograms
-        gmsh.option.setNumber("Mesh.Algorithm", 6)
-
-        # 3D Meshing algorithm
-        # --------------------
-        # 1 - Delaunay (default)
-        # 2 - Frontal
-        # 7 - MMG3D
-        # 9 - R-tree
-        # 10 - HXT
-        gmsh.option.setNumber("Mesh.Algorithm3D", mesh_alg)
-
-        # Characteristic mesh length factor (applied acroos all mesh)
-        gmsh.option.setNumber("Mesh.CharacteristicLengthFactor", 1)
-
-        # Multi-threading
-        gmsh.option.setNumber("Mesh.MaxNumThreads1D", 0)
-        gmsh.option.setNumber("Mesh.MaxNumThreads2D", 0)
-        gmsh.option.setNumber("Mesh.MaxNumThreads3D", 0)
-
-        # MSH file version
-        gmsh.option.setNumber("Mesh.MshFileVersion", 4.1)
-
-        # Quad/Hex recombination algorithms
-        # ---------------------------------
-        # 0 - simple
-        # 1 - blossom (default)
-        # 2 - simple full-quad
-        # 3 - blosson full-quad
-        gmsh.option.setNumber("Mesh.RecombinationAlgorithm", 1)
-
-        # Force recombination in all surfaces
-        gmsh.option.setNumber("Mesh.RecombineAll", 0)
-
-        # Number of topological optimization passes of recombined surface meshes (5 by default)
-        gmsh.option.setNumber("Mesh.RecombineOptimizeTopology", 5)
-
-        # Force recombination in all volumes
-        gmsh.option.setNumber("Mesh.Recombine3DAll", force_recomb_all)
-
-        # Recombination level in 3D
-        # -------------------------
-        # 0 - hex (default)
-        # 1 - hex + prisms
-        # 2 - hex + prisms + pyramids
-        gmsh.option.setNumber("Mesh.Recombine3DLevel", recomb_alg)
-
-        # Recombination conformity type in 3D meshes
-        # ------------------------------------------
-        # 0 - nonconforming (default)
-        # 1 - trihedra
-        # 2 - pyramids + trihedra
-        # 2 - pyramids + hexSplit + trihedra
-        # 4 - hexSplit + trihedra
-        gmsh.option.setNumber("Mesh.Recombine3DConformity", 0)
-
-        # Renumber nodes and elements after mesh generation
-        gmsh.option.setNumber("Mesh.Renumber", 1)
-
-        # Save all elements even if they do not belong to physical groups
-        gmsh.option.setNumber("Mesh.SaveAll", 0)
-
-        # Number of smoothing step applied to the final mesh
-        gmsh.option.setNumber("Mesh.Smoothing", 1)
-
-        # Element order
-        gmsh.option.setNumber("Mesh.ElementOrder", element_order)
-
-        # Crete second-order nodes by linear interpolation
-        gmsh.option.setNumber("Mesh.SecondOrderLinear", 0)
-
-        # Second-order incomplete elements
-        gmsh.option.setNumber("Mesh.SecondOrderIncomplete", element_order_incomp)
-
-        # ==========================================================================================
-        # Generate the finite element mesh
-        # ==========================================================================================
-        # Define model name
-
-        title = Particle.file_path
-        model.add(title)
-
-        boxTag = factory.addBox(0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2])
-        # RVE
-        enforce_pbc = True
-        # Default value for the enforcement of periodic boundary conditions. Set to false
-        # if ellipsoids are included in the microstructure
-
-        particle_tags = []
-        k_particle_image = 0
-        phase_dim_tag = {phase: [] for phase in Particle.list_phases}
-        for i_particle in particles:
-            # Running through all the particles
-            class_name_i_particle = i_particle.__class__.__name__
-            # Saving the class name of the particle as a string
-            for (j_pbc, p_pbc) in [
-                (j_pbc, p_pbc) for j_pbc in range(-1, 2) for p_pbc in range(-1, 2)
-            ]:
-                # Periodic images in the z direction
-                if "CylindricalFiber" == class_name_i_particle:
-                    if l != 0:
-                        continue
-                    xc = i_particle.position_center[0] + rve_dims[0] * j
-                    yc = i_particle.position_center[1] + rve_dims[1] * p
-                    zc = 0
-                    rx = i_particle.radius
-                    ry = i_particle.radius
-                    # Speciying the position and the radius of the fibers face
-                    faceTag = factory.addDisk(xc, yc, zc, rx, ry)
-                    # Saving the properties of the particles
-                    if i_particle.direction_fibers == 0:
-                        # The fibers run in the x direction
-                        factory.rotate([(2, faceTag)], 0, 0, 0, 0, 1, 0, 3 * np.pi / 2)
-                        # Rotating the fiber face to the yz plane as it was ploted
-                        # in the xy plane
-                        extrusionTags = factory.extrude(
-                            [(2, faceTag)], i_particle.length_dir_fibers, 0, 0
-                        )
-                        # Extruding the fiber from the fiber face in the yz plane in the
-                        # x direction
-                    elif i_particle.direction_fibers == 1:
-                        # The fibers run in the y direction
-                        factory.rotate([(2, faceTag)], 0, 0, 0, 1, 0, 0, np.pi / 2)
-                        # Rotating the fiber faces to the xz plane as it was ploted
-                        # in the xy plane
-                        extrusionTags = factory.extrude(
-                            [(2, faceTag)], 0, i_particle.length_dir_fibers, 0
-                        )
-                        # Extruding the fiber from the fiber face in the xz plane in the
-                        # y direction
-                    elif i_particle.direction_fibers == 2:
-                        # The fibers run in the z direction
-                        extrusionTags = factory.extrude(
-                            [(2, faceTag)], 0, 0, i_particle.length_dir_fibers
-                        )
-                        # Extruding the fiber from the fiber face in the xy plane in the
-                        # z direction
-
-                    for i_dimTag in extrusionTags:
-                        if i_dimTag[0] == 3:
-                            particle_tags.append(i_dimTag[1])
-                            break
-
-                    phase_dim_tag[str(i_particle.phase)].append((3, particle_tags[-1]))
-
-                    factory.synchronize()
-                    k_particle_image += 1
-                if "Sphere" == class_name_i_particle:
-                    # Particle is a Sphere
-                    xc = i_particle.position_center[0] + rve_dims[0] * j
-                    yc = i_particle.position_center[1] + rve_dims[1] * p
-                    zc = i_particle.position_center[2] + rve_dims[2] * l
-                    r = i_particle.radius
-                    # Saving the properties of the particles
-                    if (
-                        xc > rve_dims[0] + r
-                        or xc < -r
-                        or yc > rve_dims[1] + r
-                        or yc < -r
-                        or zc > rve_dims[2] + r
-                        or zc < -r
-                    ):
-                        continue
-                    particle_tags.append(factory.addSphere(xc, yc, zc, r))
-
-                    phase_dim_tag[str(i_particle.phase)].append(
-                        (3, particle_tags[k_particle_image])
-                    )
-
-                    factory.synchronize()
-                    k_particle_image += 1
-                elif "Ellipsoid" == class_name_i_particle:
-                    # Particle is an Ellipsoid
-                    enforce_pbc = False
-                    # Do not enforce periodic boundary conditions
-                    xc = i_particle.position_center[0] + rve_dims[0] * j
-                    yc = i_particle.position_center[1] + rve_dims[1] * p
-                    zc = i_particle.position_center[2] + rve_dims[2] * l
-                    r = i_particle.radius
-                    # Saving the properties of the particles
-                    if (
-                        xc > rve_dims[0] + r
-                        or xc < -r
-                        or yc > rve_dims[1] + r
-                        or yc < -r
-                        or zc > rve_dims[2] + r
-                        or zc < -r
-                    ):
-                        continue
-                    print("here")
-                    r = 1
-                    particle_tags.append(factory.addSphere(xc, yc, zc, r))
-                    # Creating a sphere without rotation
-                    # Rotate the disk
-                    factory.synchronize()
-                    affineTags = [(3, particle_tags[k_particle_image])]
-                    # affineTags.extend(
-                    #     model.getBoundary([(3, particle_tags[k_particle_image])]))
-                    factory.dilate(
-                        affineTags,
-                        xc,
-                        yc,
-                        zc,
-                        i_particle.semi_axis_1,
-                        i_particle.semi_axis_2,
-                        i_particle.semi_axis_3,
-                    )
-                    factory.rotate(
-                        affineTags,
-                        xc,
-                        yc,
-                        zc,
-                        i_particle.rotation_axis[0],
-                        i_particle.rotation_axis[1],
-                        i_particle.rotation_axis[2],
-                        i_particle.angle,
-                    )
-
-                    phase_dim_tag[str(i_particle.phase)].append(
-                        (3, particle_tags[k_particle_image])
-                    )
-
-                    factory.synchronize()
-                    k_particle_image += 1
-
-        out_dim_tag, out_dim_tag_map = factory.intersect(
-            [(3, boxTag)],
-            [(3, particleTag) for particleTag in particle_tags],
-            removeObject=False,
-            removeTool=True,
-        )
-        # Computing the intersection of the particles with the volume element
-
-        temp = set(out_dim_tag)
-        for i_phase in Particle.list_phases:
-            phase_dim_tag[i_phase] = [
-                value for value in phase_dim_tag[i_phase] if value in temp
-            ]
-        # Saving what tags/geometry belongs to which phase
-
-        factory.synchronize()
-
-        out_dim_tag_2, out_dim_tag_map2 = factory.fragment(
-            [(3, boxTag)], out_dim_tag, removeObject=True, removeTool=True
-        )
-        # Computing the fragment of the particles with the matrix
-
-        phase_dim_tag[Particle.matrix_phase] = out_dim_tag_2[len(out_dim_tag) :]
-        materials = []
-        for i_phase in Particle.list_phases:
-            temp = set(phase_dim_tag[i_phase])
-            materials.append([value[1] for value in out_dim_tag_2 if value in temp])
-        # Collection the tags in the correct phase
-
-        factory.synchronize()
-        # Synchronize the CAD engine (always needed before generating the mesh)
-        # It may also be useful for some intermidate operations, like checking the tags of
-        # entities
-
-        for i_phase in range(len(Particle.list_phases)):
-            material_tag = model.addPhysicalGroup(3, materials[i_phase])
-            model.setPhysicalName(
-                3, material_tag, "Phase " + Particle.list_phases[i_phase]
-            )
-        # Setting each phase as a physical group
-
-        if enforce_pbc:
+    def enforce_pbc_3d(self, rve_dims):
+        if self.enforce_pbc:
             gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
             eps = 1e-4
             # Ask OpenCASCADE to compute more accurate bounding boxes of entities using
@@ -1174,407 +1052,6 @@ class FEMMeshGenerator(MeshGenerator):
                         print(gmsh.model.getBoundary(j_surf))
                         print(gmsh.model.getBoundary(i_surf))
         # --------------------------------------------------------------------------------------
-
-        gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
-        gmsh.option.setNumber("Mesh.CharacteristicLengthMax", mesh_size)
-        # Mesh size according to curvature with a maximum length
-
-        # Generate a 3D mesh
-        model.mesh.generate(3)
-
-        tetra_type = model.mesh.getElementTypes(dim=3, tag=-1)[0]
-        local_coord, _ = model.mesh.getIntegrationPoints(tetra_type, "Gauss4")
-        _, all_jacobians, _ = model.mesh.getJacobians(tetra_type, local_coord, tag=-1)
-        _, tagsAllElements, _ = model.mesh.getElements(dim=3)
-        dimTagsErrors = []
-        for i_ele, tagEle in enumerate(tagsAllElements[0]):
-            for k_point in range(11):  # int(len(local_coord)/3)):
-                if all_jacobians[i_ele * 11 + k_point] <= 0.00:
-                    dimTagsErrors.append((3, tagEle))
-                    break
-        # Finding elements with negative jacobian determinant
-        model.mesh.optimize("HighOrder", force=False, niter=10, dimTags=dimTagsErrors)
-        # Trying to fix overly distorted elements
-        tetra_type = model.mesh.getElementTypes(dim=3, tag=-1)[0]
-        local_coord, _ = model.mesh.getIntegrationPoints(tetra_type, "Gauss4")
-        _, all_jacobians, _ = model.mesh.getJacobians(tetra_type, local_coord, tag=-1)
-        _, tagsAllElements, _ = model.mesh.getElements(dim=3)
-        print(len(local_coord), len(tagsAllElements[0]))
-        dimTagsErrors = []
-        for i_ele, tagEle in enumerate(tagsAllElements[0]):
-            for k_point in range(11):  # int(len(local_coord)/3)):
-                if all_jacobians[i_ele * 11 + k_point] <= 0.00:
-                    dimTagsErrors.append((3, tagEle))
-                    break
-        print("Errors Final", dimTagsErrors)
-
-        # Enforcing boundary conditions again
-        # --------------------------------------------------------------------------------------
-        if enforce_pbc:
-            gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
-            eps = 1e-4
-            # Ask OpenCASCADE to compute more accurate bounding boxes of entities using
-            # the STL mesh
-            # --------------------------------------------------------------------------------------
-            translation_l_r = [1, 0, 0, rve_dims[0], 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
-            # Translation of the left face of the cube to the rigth face of the cube given as an
-            # affine transformation, (4x4), written by row
-            l_face = gmsh.model.getEntitiesInBoundingBox(
-                -eps, -eps, -eps, +eps, rve_dims[1] + eps, rve_dims[2] + eps, 2
-            )
-            # First we get all surfaces on the left:
-            for i_surf in l_face:
-                # Then we get the bounding box of each left surface
-                xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(
-                    i_surf[0], i_surf[1]
-                )
-                # We translate the bounding box to the right and look for surfaces inside
-                # it:
-                r_face = gmsh.model.getEntitiesInBoundingBox(
-                    xmin - eps + rve_dims[0],
-                    ymin - eps,
-                    zmin - eps,
-                    xmax + eps + rve_dims[0],
-                    ymax + eps,
-                    zmax + eps,
-                    2,
-                )
-                # For all the matches, we compare the corresponding bounding boxes...
-                for j_surf in r_face:
-                    (
-                        xmin2,
-                        ymin2,
-                        zmin2,
-                        xmax2,
-                        ymax2,
-                        zmax2,
-                    ) = gmsh.model.getBoundingBox(j_surf[0], j_surf[1])
-                    xmin2 -= rve_dims[0]
-                    xmax2 -= rve_dims[0]
-                    # ...and if they match, we apply the periodicity constraint
-                    if (
-                        abs(xmin2 - xmin) < eps
-                        and abs(xmax2 - xmax) < eps
-                        and abs(ymin2 - ymin) < eps
-                        and abs(ymax2 - ymax) < eps
-                        and abs(zmin2 - zmin) < eps
-                        and abs(zmax2 - zmax) < eps
-                    ):
-                        gmsh.model.mesh.setPeriodic(
-                            2, [j_surf[1]], [i_surf[1]], translation_l_r
-                        )
-                        print(j_surf[1], i_surf[1])
-                        print(gmsh.model.getBoundary(j_surf))
-                        print(gmsh.model.getBoundary(i_surf))
-            # --------------------------------------------------------------------------------------
-            # Ensuring periodicity
-            # --------------------------------------------------------------------------------------
-            gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
-            translation_b_t = [1, 0, 0, 0, 0, 1, 0, rve_dims[1], 0, 0, 1, 0, 0, 0, 0, 1]
-            # Translation of the top face of the cube to the bottom face of the cube given as an
-            # affine transformation, (4x4), written by row
-            b_face = gmsh.model.getEntitiesInBoundingBox(
-                -eps, -eps, -eps, rve_dims[0] + eps, +eps, rve_dims[2] + eps, 2
-            )
-            # First we get all surfaces on the bottom:
-            for i_surf in b_face:
-                # Then we get the bounding box of each bottom surface
-                xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(
-                    i_surf[0], i_surf[1]
-                )
-                # We translate the bounding box upwards and look for surfaces inside
-                # it:
-                t_face = gmsh.model.getEntitiesInBoundingBox(
-                    xmin - eps,
-                    ymin - eps + rve_dims[1],
-                    zmin - eps,
-                    xmax + eps,
-                    ymax + eps + rve_dims[1],
-                    zmax + eps,
-                    2,
-                )
-                # For all the matches, we compare the corresponding bounding boxes...
-                for j_surf in t_face:
-                    (
-                        xmin2,
-                        ymin2,
-                        zmin2,
-                        xmax2,
-                        ymax2,
-                        zmax2,
-                    ) = gmsh.model.getBoundingBox(j_surf[0], j_surf[1])
-
-                    ymin2 -= rve_dims[1]
-                    ymax2 -= rve_dims[1]
-                    # ...and if they match, we apply the periodicity constraint
-                    if (
-                        abs(xmin2 - xmin) < eps
-                        and abs(xmax2 - xmax) < eps
-                        and abs(ymin2 - ymin) < eps
-                        and abs(ymax2 - ymax) < eps
-                        and abs(zmin2 - zmin) < eps
-                        and abs(zmax2 - zmax) < eps
-                    ):
-                        gmsh.model.mesh.setPeriodic(
-                            2, [j_surf[1]], [i_surf[1]], translation_b_t
-                        )
-                        print(j_surf[1], i_surf[1])
-                        print(gmsh.model.getBoundary(j_surf))
-                        print(gmsh.model.getBoundary(i_surf))
-            # --------------------------------------------------------------------------------------
-            gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
-            translation_f_b = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, rve_dims[2], 0, 0, 0, 1]
-            # Translation of the front face of the cube to the back face of the cube given as an
-            # affine transformation, (4x4), written by row
-            f_face = gmsh.model.getEntitiesInBoundingBox(
-                -eps, -eps, -eps, rve_dims[0] + eps, rve_dims[1] + eps, +eps, 2
-            )
-            # First we get all surfaces on the front:
-            for i_surf in f_face:
-                # Then we get the bounding box of each front surface
-                xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(
-                    i_surf[0], i_surf[1]
-                )
-                # We translate the bounding box to the back and look for surfaces inside
-                # it:
-                b_face = gmsh.model.getEntitiesInBoundingBox(
-                    xmin - eps,
-                    ymin - eps,
-                    zmin - eps + rve_dims[2],
-                    xmax + eps,
-                    ymax + eps,
-                    zmax + eps + rve_dims[2],
-                    2,
-                )
-                # For all the matches, we compare the corresponding bounding boxes...
-                for j_surf in b_face:
-                    (
-                        xmin2,
-                        ymin2,
-                        zmin2,
-                        xmax2,
-                        ymax2,
-                        zmax2,
-                    ) = gmsh.model.getBoundingBox(j_surf[0], j_surf[1])
-                    zmin2 -= rve_dims[2]
-                    zmax2 -= rve_dims[2]
-                    # ...and if they match, we apply the periodicity constraint
-                    if (
-                        abs(xmin2 - xmin) < eps
-                        and abs(xmax2 - xmax) < eps
-                        and abs(ymin2 - ymin) < eps
-                        and abs(ymax2 - ymax) < eps
-                        and abs(zmin2 - zmin) < eps
-                        and abs(zmax2 - zmax) < eps
-                    ):
-                        gmsh.model.mesh.setPeriodic(
-                            2, [j_surf[1]], [i_surf[1]], translation_f_b
-                        )
-                        print(j_surf[1], i_surf[1])
-                        print(gmsh.model.getBoundary(j_surf))
-                        print(gmsh.model.getBoundary(i_surf))
-
-            gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
-            eps = 1e-4
-            # Ask OpenCASCADE to compute more accurate bounding boxes of entities using
-            # the STL mesh
-            # --------------------------------------------------------------------------------------
-            translation_l_r = [1, 0, 0, rve_dims[0], 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
-            # Translation of the left face of the cube to the rigth face of the cube given as an
-            # affine transformation, (4x4), written by row
-            l_face = gmsh.model.getEntitiesInBoundingBox(
-                -eps, -eps, -eps, +eps, rve_dims[1] + eps, rve_dims[2] + eps, 1
-            )
-            # First we get all surfaces on the left:
-            for i_surf in l_face:
-                # Then we get the bounding box of each left surface
-                xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(
-                    i_surf[0], i_surf[1]
-                )
-                # We translate the bounding box to the right and look for surfaces inside
-                # it:
-                r_face = gmsh.model.getEntitiesInBoundingBox(
-                    xmin - eps + rve_dims[0],
-                    ymin - eps,
-                    zmin - eps,
-                    xmax + eps + rve_dims[0],
-                    ymax + eps,
-                    zmax + eps,
-                    1,
-                )
-                # For all the matches, we compare the corresponding bounding boxes...
-                for j_surf in r_face:
-                    (
-                        xmin2,
-                        ymin2,
-                        zmin2,
-                        xmax2,
-                        ymax2,
-                        zmax2,
-                    ) = gmsh.model.getBoundingBox(j_surf[0], j_surf[1])
-                    xmin2 -= rve_dims[0]
-                    xmax2 -= rve_dims[0]
-                    # ...and if they match, we apply the periodicity constraint
-                    if (
-                        abs(xmin2 - xmin) < eps
-                        and abs(xmax2 - xmax) < eps
-                        and abs(ymin2 - ymin) < eps
-                        and abs(ymax2 - ymax) < eps
-                        and abs(zmin2 - zmin) < eps
-                        and abs(zmax2 - zmax) < eps
-                    ):
-                        gmsh.model.mesh.setPeriodic(
-                            1, [j_surf[1]], [i_surf[1]], translation_l_r
-                        )
-                        print(j_surf[1], i_surf[1])
-                        print(gmsh.model.getBoundary(j_surf))
-                        print(gmsh.model.getBoundary(i_surf))
-            # --------------------------------------------------------------------------------------
-            # Ensuring periodicity
-            # --------------------------------------------------------------------------------------
-            gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
-            translation_b_t = [1, 0, 0, 0, 0, 1, 0, rve_dims[1], 0, 0, 1, 0, 0, 0, 0, 1]
-            # Translation of the top face of the cube to the bottom face of the cube given as an
-            # affine transformation, (4x4), written by row
-            b_face = gmsh.model.getEntitiesInBoundingBox(
-                -eps, -eps, -eps, rve_dims[0] + eps, +eps, rve_dims[2] + eps, 1
-            )
-            # First we get all surfaces on the bottom:
-            for i_surf in b_face:
-                # Then we get the bounding box of each bottom surface
-                xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(
-                    i_surf[0], i_surf[1]
-                )
-                # We translate the bounding box upwards and look for surfaces inside
-                # it:
-                t_face = gmsh.model.getEntitiesInBoundingBox(
-                    xmin - eps,
-                    ymin - eps + rve_dims[1],
-                    zmin - eps,
-                    xmax + eps,
-                    ymax + eps + rve_dims[1],
-                    zmax + eps,
-                    1,
-                )
-                # For all the matches, we compare the corresponding bounding boxes...
-                for j_surf in t_face:
-                    (
-                        xmin2,
-                        ymin2,
-                        zmin2,
-                        xmax2,
-                        ymax2,
-                        zmax2,
-                    ) = gmsh.model.getBoundingBox(j_surf[0], j_surf[1])
-
-                    ymin2 -= rve_dims[1]
-                    ymax2 -= rve_dims[1]
-                    # ...and if they match, we apply the periodicity constraint
-                    if (
-                        abs(xmin2 - xmin) < eps
-                        and abs(xmax2 - xmax) < eps
-                        and abs(ymin2 - ymin) < eps
-                        and abs(ymax2 - ymax) < eps
-                        and abs(zmin2 - zmin) < eps
-                        and abs(zmax2 - zmax) < eps
-                    ):
-                        gmsh.model.mesh.setPeriodic(
-                            1, [j_surf[1]], [i_surf[1]], translation_b_t
-                        )
-                        print(j_surf[1], i_surf[1])
-                        print(gmsh.model.getBoundary(j_surf))
-                        print(gmsh.model.getBoundary(i_surf))
-            # --------------------------------------------------------------------------------------
-            gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
-            translation_f_b = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, rve_dims[2], 0, 0, 0, 1]
-            # Translation of the front face of the cube to the back face of the cube given as an
-            # affine transformation, (4x4), written by row
-            f_face = gmsh.model.getEntitiesInBoundingBox(
-                -eps, -eps, -eps, rve_dims[0] + eps, rve_dims[1] + eps, +eps, 1
-            )
-            # First we get all surfaces on the front:
-            for i_surf in f_face:
-                # Then we get the bounding box of each front surface
-                xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(
-                    i_surf[0], i_surf[1]
-                )
-                # We translate the bounding box to the back and look for surfaces inside
-                # it:
-                b_face = gmsh.model.getEntitiesInBoundingBox(
-                    xmin - eps,
-                    ymin - eps,
-                    zmin - eps + rve_dims[2],
-                    xmax + eps,
-                    ymax + eps,
-                    zmax + eps + rve_dims[2],
-                    1,
-                )
-                # For all the matches, we compare the corresponding bounding boxes...
-                for j_surf in b_face:
-                    (
-                        xmin2,
-                        ymin2,
-                        zmin2,
-                        xmax2,
-                        ymax2,
-                        zmax2,
-                    ) = gmsh.model.getBoundingBox(j_surf[0], j_surf[1])
-                    zmin2 -= rve_dims[2]
-                    zmax2 -= rve_dims[2]
-                    # ...and if they match, we apply the periodicity constraint
-                    if (
-                        abs(xmin2 - xmin) < eps
-                        and abs(xmax2 - xmax) < eps
-                        and abs(ymin2 - ymin) < eps
-                        and abs(ymax2 - ymax) < eps
-                        and abs(zmin2 - zmin) < eps
-                        and abs(zmax2 - zmax) < eps
-                    ):
-                        gmsh.model.mesh.setPeriodic(
-                            1, [j_surf[1]], [i_surf[1]], translation_f_b
-                        )
-                        print(j_surf[1], i_surf[1])
-                        print(gmsh.model.getBoundary(j_surf))
-                        print(gmsh.model.getBoundary(i_surf))
-        # --------------------------------------------------------------------------------------
-
-        factory.synchronize()
-
-        # Write the mesh to the .msh file
-        meshfile_temp = title + "_temp.msh"
-        meshfile = title + ".msh"
-        vtk_temp = title + "_temp.vtk"
-        vtk = title + ".vtk"
-        gmsh.write(meshfile_temp)
-        gmsh.write(vtk_temp)
-
-        # Close GMSH
-        gmsh.finalize()
-        # ==========================================================================================
-        # Convert it to LINKS format and write the respective input file
-        # ==========================================================================================
-
-        fin = open(meshfile_temp, "rt")
-        fout = open(meshfile, "wt")
-
-        for line in fin:
-            fout.write(line.replace(",", "."))
-
-        fin.close()
-        fout.close()
-        os.remove(meshfile_temp)
-
-        gmsh_to_links(meshfile, title, 3, Particle.list_phases, Particle.matrix_phase)
-
-        fin = open(vtk_temp, "rt")
-        fout = open(vtk, "wt")
-
-        for line in fin:
-            fout.write(line.replace(",", "."))
-
-        fin.close()
-        fout.close()
-        os.remove(vtk_temp)
 
     def gmsh_to_links(self, meshfile, title, dim, list_phases, matrix_phase):
         """
