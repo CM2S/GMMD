@@ -228,7 +228,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
         particles: list(particles)
             Particles in the simulation box.
         """
-        self.position_center_history = [np.zeros(len(particles), dtype=object)]
+        self.position_center_history = [[None] for _ in particles]
+        self.particle_velocities = [None for _ in particles]
         if self.type_init_conf == "random":
             # Random configuration for the particle centers and the zero velocity
             # np.random.seed(42)
