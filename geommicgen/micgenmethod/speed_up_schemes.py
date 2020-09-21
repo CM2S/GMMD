@@ -291,7 +291,7 @@ class VerletList(CellList):
         Cell list used to compute the Verlet list.
     """
 
-    def __init__(self, verlet_factor, **kwargs):
+    def __init__(self, verlet_factor):
         """
         Initialize a Verlet list.
 
@@ -299,20 +299,14 @@ class VerletList(CellList):
         ----------
         verlet_factor: float
             Multiplicative factor used to compute the neighboorhood of the particle.
-
-        Keyword Parameters
-        ------------------
-        Parameters for the initializer of the CellList
         """
         self.verlet_factor = verlet_factor
         # Saving the Verlet radius to compute the Verlet list
         self.new_verlet_list = True
         # Signaling that for the first computation of the forces there is a need to compute
         # a new Verlet list
-        self.cell_list = None
-        self.molecular_dynamics_sim = None
         self.verlet_neighboorhoods = None
-        super().__init__(**kwargs)
+        super().__init__()
 
     def new_list(self, particles):
         """
@@ -341,8 +335,6 @@ class VerletList(CellList):
             self.new_verlet_list = False
             super().new_list(particles)
             # Creating the cell list used to compute the Verlet list
-            self.cell_list = self.particle_list
-            # Saving the cell list
             for i_particle_index, i_particle in enumerate(particles):
                 # Running though all the particles
                 self.verlet_neighboorhoods[
@@ -350,9 +342,10 @@ class VerletList(CellList):
                 ] = i_particle.position_center
                 # Updating the position of all the Verlet neighboorhoods to coincide with
                 # the particles current position
+                particle_list_from_cell_list = self.particle_list
                 self.particle_list = []
                 # Resetting the Verlet list of particle i
-                for j_particle_index in self.cell_list:
+                for j_particle_index in particle_list_from_cell_list:
                     # Running through all the particles in the neighboring cell
                     if self.verlet_neighboorhoods[i_particle_index].intersection(
                         self.verlet_neighboorhoods[j_particle_index]
