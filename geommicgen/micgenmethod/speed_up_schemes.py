@@ -75,9 +75,15 @@ class CellList(SpeedUpScheme):
         """
         dim = particles[0].dim
 
+        if self.max_radius is None:
+            self.max_radius = np.max(
+                np.array([particle.radius for particle in particles])
+            )
         n_cells = np.prod(np.array(self.n_cell_dim))
 
-        self.particle_list = [set() for i in range(n_cells)]
+        self.cell_list = [set() for i in range(n_cells)]
+        self.particle_list = [[] for _ in particles]
+        self.pos_cell_list = [None for _ in particles]
 
         for i_index, i_particle in enumerate(particles):
             # Running through all the particles
