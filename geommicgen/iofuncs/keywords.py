@@ -103,10 +103,7 @@ class Keyword(object):
     def isIn(self, line):
         """Check if the first string in the *line* is the keyword *self*."""
 
-        if line.split()[0].lower() == self.name.lower():
-            isIn = True
-        else:
-            isIn = False
+        isIn = line.split()[0].lower() == self.name.lower()
 
         return isIn
 
