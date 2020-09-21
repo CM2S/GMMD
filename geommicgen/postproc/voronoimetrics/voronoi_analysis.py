@@ -12,7 +12,7 @@ from plotting_functions import (
     plotVoronoi2DwithIMTs,
     plotVoronoi3D,
     plotVoronoi3DwithIMTs,
-    createFigure,
+    create_figure,
 )
 
 from scipy.spatial import Voronoi
@@ -142,7 +142,7 @@ class setVoronoi:
                         i_particle.position_center + Particle.box * np.array([j, k])
                     )
                     for j_vertex in range(len(construction_voronoi.vertices)):
-                        if i_particle.pointInside(
+                        if i_particle.point_inside(
                             construction_voronoi.vertices[j_vertex]
                             - Particle.box * np.array([j, k])
                         ):
@@ -232,7 +232,7 @@ class set3DVoronoi:
                         # Saving the center points of the particles
                         for j_vertex in range(len(construction_voronoi.vertices)):
                             # Going through all the vertices of the construction voronoi
-                            if i_particle.pointInside(
+                            if i_particle.point_inside(
                                 construction_voronoi.vertices[j_vertex]
                                 - Particle.box * np.array([j, k, l])
                             ):
@@ -349,7 +349,7 @@ def newIndices(ind_vec, removed_ind):
 def computeGlobalCriticalErosionThickness(particles):
     """Compute the global critical erosion thickness."""
     loc_erosion_thick = [
-        i_particle.computeCriticalErosionThickness() for i_particle in particles
+        i_particle.compute_critical_erosion_thickness() for i_particle in particles
     ]
     # List of critical erosion thickness for each particle
     glob_crit_erosion_thick = np.min(loc_erosion_thick)
@@ -686,7 +686,7 @@ def compute2DSetVoronoi(particles, n_surf_points=30):
             for k in range(-1, 2):
                 # Running through all the particles and their periodic images
                 if part_counter == 0:
-                    particle_surf = i_particle.generatePointsOnSurface(
+                    particle_surf = i_particle.generate_points_on_surface(
                         n_surf_points, erosion_thick=global_crit_ero_thick
                     ) + Particle.box * np.array([j, k])
                 else:
@@ -694,7 +694,7 @@ def compute2DSetVoronoi(particles, n_surf_points=30):
                         (
                             particle_surf,
                             (
-                                i_particle.generatePointsOnSurface(
+                                i_particle.generate_points_on_surface(
                                     n_surf_points, erosion_thick=global_crit_ero_thick
                                 )
                                 + Particle.box * np.array([j, k])
@@ -778,7 +778,7 @@ def compute3DSetVoronoi(particles, n_surf_points=5):
                 for l in range(-1, 2):
                     # Running through all the particles and their periodic images
                     if part_counter == 0:
-                        particle_surf = i_particle.generatePointsOnSurface(
+                        particle_surf = i_particle.generate_points_on_surface(
                             n_surf_points, erosion_thick=global_crit_ero_thick
                         ) + Particle.box * np.array([j, k, l])
                     else:
@@ -786,7 +786,7 @@ def compute3DSetVoronoi(particles, n_surf_points=5):
                             (
                                 particle_surf,
                                 (
-                                    i_particle.generatePointsOnSurface(
+                                    i_particle.generate_points_on_surface(
                                         n_surf_points,
                                         erosion_thick=global_crit_ero_thick,
                                     )
@@ -993,7 +993,7 @@ if __name__ == "__main__":
         xdist = np.max(xmax) - np.min(xmin)
         ydist = np.max(ymax) - np.min(ymin)
         for degree in range(7):
-            _, axis, (w_fig, h_fig) = createFigure(nrows=3, ncols=2)
+            _, axis, (w_fig, h_fig) = create_figure(nrows=3, ncols=2)
             plt.axis("equal")
             # plt.plot(phi, 1 + np.cos(3*phi))
             # plt.plot(phi, 3 + 1/2*np.exp(-3*1j*phi) + 1/2*np.exp(3*1j*phi) + 1)
@@ -1008,7 +1008,7 @@ if __name__ == "__main__":
             plt.close()
     else:
         dp_dir = "/home/zeluis/Documents/Tese/programa/studies/thermostats/minkowski/example_2D_convex_4/"
-        _, axis, (w_fig, h_fig) = createFigure(nrows=4, ncols=3)
+        _, axis, (w_fig, h_fig) = create_figure(nrows=4, ncols=3)
 
         vertices_1 = np.array(
             [[230, 99.6333], [100, 339.633], [328, 340.6333], [301, 170]]
@@ -1086,7 +1086,7 @@ if __name__ == "__main__":
         axis.axis("off")
         plt.savefig(dp_dir + "poly" + ".pdf", bbox_inches="tight")
         plt.close()
-        _, axis, (w_fig, h_fig) = createFigure(nrows=4, ncols=3)
+        _, axis, (w_fig, h_fig) = create_figure(nrows=4, ncols=3)
         plt.axis("equal")
         # plt.plot(phi, 1 + np.cos(3*phi))
         # plt.plot(phi, 3 + 1/2*np.exp(-3*1j*phi) + 1/2*np.exp(3*1j*phi) + 1)
@@ -1101,7 +1101,7 @@ if __name__ == "__main__":
         print(np.angle(coeffs))
         IMTs = np.abs(coeffs) / np.abs(coeffs[0])
         colors = cm.Blues(IMTs[2:])
-        _, axis, (w_fig, h_fig) = createFigure(nrows=4, ncols=3)
+        _, axis, (w_fig, h_fig) = create_figure(nrows=4, ncols=3)
         # plt.polar(phi, np.real(norm_dens), color='k')
         rects = plt.barh(
             range(5),
