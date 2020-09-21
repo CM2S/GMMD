@@ -175,6 +175,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
         start = time.time()
         self.run_molecular_dynamics_simulation(particles)
         self.time = time.time() - start
+        microstructure_sample.total_overlap = self.total_overlap
+        microstructure_sample.particles = particles
 
     def set_box(self, particles, rve_dims):
         """
