@@ -22,6 +22,9 @@ class Thermostat(abc.ABC):
 class MicroCanonicalEnsemble(Thermostat):
     """This is the class for no thermostat, producing a micro canonical ensemble."""
 
+    def __init__(self):
+        self.reference_temp = None
+
     def apply_thermostat(self, particle_velocities, kin_energy):
         """Do nothing."""
 
@@ -168,7 +171,7 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
             # If the end of the equilibration time has been reached
             if (
                 self.molecular_dynamics_sim.total_overlap
-                > self.molecular_dynamics_sim.step.max_residue
+                > self.molecular_dynamics_sim.max_residue
             ):
                 # If a legal configuration has not been achieved
                 if any(
