@@ -133,6 +133,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.total_overlap = None
         self.total_overlap_history = []
         self.position_center_history = None
+        self.relative_energy_history = []
+        self.kinetic_energy_history = []
         self.speed_up_scheme = None
         self.thermostat = None
         self.min_distance = min_distance
@@ -143,6 +145,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.max_steps_to_relax = max_steps_to_relax
         self.dt = dt
         self.save_history = save_history
+        self.time = None
 
     def generate_microstructure(self, microstructure_sample):
         """
