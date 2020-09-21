@@ -199,6 +199,15 @@ class MolecularDynamicsSimulation(GenerationMethod):
         else:
             self.box = rve_dims
 
+    def set_thermostat(self, thermostat):
+        """Set the thermostat for the moleuclar dynamics simulation."""
+        self.thermostat = thermostat
+        thermostat.molecular_dynamics_sim = self
+
+    def set_speed_up_scheme(self, speed_up_scheme):
+        """Set speed up scheme for the molecular dynamics simulation."""
+        self.speed_up_scheme = speed_up_scheme
+        speed_up_scheme.molecular_dynamics_sim = self
     def generate_initial_configuration(self, particles):
         """
         Generate the initial configuration for particles.
