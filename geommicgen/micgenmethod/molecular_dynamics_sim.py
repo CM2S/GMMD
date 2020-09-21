@@ -369,7 +369,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
             # Computing the relative
             self.compute_kinetic_energy(particles)
             # Computing the kinetic energy
-            print_funcs.printToTerminalRefresh(
+            print_funcs.print_to_terminal_refresh(
                 self.step,
                 self.total_overlap,
                 self.relative_energy,
@@ -400,13 +400,15 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 if self.total_overlap <= self.max_residue:
                     # If the configuration has an overlap area smaller than the tolerance
                     n_steps_relax += 1
-                    # print('yes',n_steps_relax)
                 else:
                     n_steps_relax = 0
                     # Restarting the count
-                # print_funcs.printToTerminalRefresh(
-                #     step, Particle.total_overlap, relative_energy, kin_energy
-                # )
+                print_funcs.print_to_terminal_refresh(
+                    self.step,
+                    self.total_overlap,
+                    self.relative_energy,
+                    self.kinetic_energy,
+                )
                 if self.step > 500 and all(
                     (
                         np.abs(
