@@ -107,8 +107,23 @@ class CellList(SpeedUpScheme):
                     + pos_cell_list_dim[2] * self.n_cell_dim[0] * self.n_cell_dim[1]
                 )
                 # Saving the position in the cell list of particle i_particle
-            self.particle_list[pos_cell_list].add(i_index)
-            i_particle.cell_list_position = pos_cell_list
+            self.cell_list[pos_cell_list].add(i_index)
+            self.pos_cell_list[i_index] = pos_cell_list
+        for i_particle_index, _ in enumerate(particles):
+            for k_neighboor_cell in range(3 ** dim):
+                # Running through the neighboor cells
+                pos_neighboor_cell = self.neighboor_cell(
+                    self.pos_cell_list[i_particle_index],
+                    k_neighboor_cell,
+                    dim,
+                    self.n_cell_dim,
+                )
+                # Computing the index of the neighboor cell
+                for j_particle_index in self.cell_list[pos_neighboor_cell]:
+                    # Running through all the particles in the neighboring cell
+                    # If the neighboorhoods of the particles intersect
+                    self.particle_list[i_particle_index].append(j_particle_index)
+                    # Add the particle j_particle to i_particle's Verlet list
 
     def neighboor_cell(self, pos_current_cell, local_pos_neighboor_cell, dim, n_cells):
         """
