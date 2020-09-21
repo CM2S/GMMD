@@ -160,8 +160,10 @@ class KeywordTypeA(Keyword):
 
     def storeValue(self, val):
         """Store the value of the keyword."""
-        Keyword.input_reader.all_options.setdefault(self.keyword_group, {})
-        Keyword.input_reader.all_options[self.keyword_group][self.name] = val
+        Keyword.input_reader.all_options.setdefault(self.keyword_group.lower(), {})
+        Keyword.input_reader.all_options[self.keyword_group.lower()][
+            self.name.lower()
+        ] = val
 
 
 class KeywordTypeB(Keyword):
@@ -201,7 +203,7 @@ class KeywordTypeB(Keyword):
 
     def storeValue(self, value):
         """Store the value of the keyword."""
-        Keyword.input_reader.all_options[self.name] = value
+        Keyword.input_reader.all_options[self.name.lower()] = value
 
 
 class KeywordTypeC(Keyword):
@@ -283,7 +285,7 @@ class KeywordTypeC(Keyword):
             for sub_keyword in self.sub_keys:
                 if sub_keyword.isIn(line):
                     value = sub_keyword.readValue()
-                    options[current_header][sub_keyword.name] = value
+                    options[current_header][sub_keyword.name.lower()] = value
                     break
             Keyword.input_reader.ignoreComments()
             # Ignore comments
@@ -292,7 +294,7 @@ class KeywordTypeC(Keyword):
 
     def storeValue(self, val):
         """Store the value of the keyword."""
-        Keyword.input_reader.all_options[self.name] = val
+        Keyword.input_reader.all_options[self.name.lower()] = val
 
 
 class TopLevelReader:
