@@ -33,3 +33,43 @@ def create_sample_results_directory(dp_dir):
     return results_folder, file_path
 
 
+def create_design_point_results_directory(
+    input_file_dir: str, input_file_name: str
+) -> str:
+    """
+    Create the results directory.
+
+    Parameters
+    ----------
+    input_file_dir: str
+        Directory where the results are going to be stored.
+
+    input_file_name: str
+        Name of the input file.
+
+    Returns
+    -------
+    results_folder: str
+        Directory created to stored the results with same name as the input file.
+    """
+    results_folder = os.path.join(input_file_dir, input_file_name)
+    # Creating a tentative path for the results folder
+    results_folder_old = results_folder
+    # Saving the original name of the results folder
+    i = 0
+    # Initializing the filename suffix
+    results_folder = results_folder_old
+    # Creating a new folder name appending an integer to the name of the original
+    while True:
+        # folder
+        i += 1
+        # Increasing the filenam suffix
+        if not os.path.exists(results_folder):
+            # Repeat while the folder names already exists
+            break
+        results_folder = results_folder_old + "_" + str(i)
+        # Creating a new folder name appending an integer to the name of the original
+    os.makedirs(results_folder)
+    # Creating the directory
+
+    return results_folder
