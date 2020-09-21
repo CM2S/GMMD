@@ -1,10 +1,10 @@
-def printInitialMessage():
+def print_initial_message():
     printToFile("name program")
     printToFile("stuff, my name, CM2S")
     printToFile("=" * 80)
 
 
-def printFinalMessage(time, total_overlap, number_iterations, sample, max_overlap):
+def print_final_message(time, total_overlap, number_iterations, sample, max_overlap):
     printToFile("=" * 80)
     printToFile("**RESULTS**\n")
     printToFile("Total iterations: {0}".format(number_iterations))
@@ -20,7 +20,9 @@ def printToFile(message, end="\n"):
     print(message, end=end)
 
 
-def printToTerminalRefresh(step, total_overlap, relative_energy, kin_energy, **kwargs):
+def print_to_terminal_refresh(
+    step, total_overlap, relative_energy, kin_energy, **kwargs
+):
     """Print info about the current iteration."""
     if kwargs.get("first"):
         # First meassage containing information about the iteration
