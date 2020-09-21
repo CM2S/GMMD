@@ -70,7 +70,6 @@ class Keyword(object):
                 else:
                     value_str = " ".join(value_str)
                     value_str = value_str.split(", ")
-                    print("here", value_str)
                     value_str[0] = value_str[0][1:]
                     value_str[-1] = value_str[-1][:-1]
                     # Remove squre brackets from vector
@@ -335,7 +334,9 @@ class TopLevelReader:
 
     def ignoreComments(self):
         """Ignore comments, moving to the next line that doesn't contain a commment."""
-        while self.i_line < len(self.input):
+        while True:
+            if self.i_line >= len(self.input):
+                break
             # Remaain inside the file
             line = self.input[self.i_line]
             # Save current line
@@ -378,10 +379,11 @@ class TopLevelReader:
 
     def moveAlong(self):
         """Move alogn the input file."""
+        self.ignoreComments()
         while self.i_line < len(self.input):
             # Remaain inside the file
-            self.ignoreComments()
             self.checkTopLevelKeywords()
+            self.ignoreComments()
 
     def readInputFile(self, input_file_path):
         """Read the input file at *input_file_path*."""
