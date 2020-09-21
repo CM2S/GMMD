@@ -161,14 +161,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
         """
         particles = []
         for phase in microstructure_sample.phases.values():
-            particles.append(
-                self.generate_particles(
-                    microstructure_sample.rve_dims,
-                    phase.type,
-                    phase.phase_name,
-                    phase.descriptors,
-                )
-            )
+            if phase.type is not Matrix:
+                particles += phase.generate_particles(microstructure_sample.rve_dims)
         # Generating the particles
         self.set_box(particles, microstructure_sample.rve_dims)
         self.generate_initial_configuration(particles)
@@ -216,6 +210,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         """Set speed up scheme for the molecular dynamics simulation."""
         self.speed_up_scheme = speed_up_scheme
         speed_up_scheme.molecular_dynamics_sim = self
+
     def generate_initial_configuration(self, particles):
         """
         Generate the initial configuration for particles.
@@ -238,9 +233,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 i_particle.position_center = self.box * np.random.uniform(
                     size=i_particle.dim
                 )
+                self.particle_velocities[i_ind] = np.zeros(i_particle.dim)
                 # Generating the positions from a random uniform distribution
-                self.particle_velocities = np.zeros((i_particle.dim))
-                self.position_center_history[0][i_ind] = i_particle.position_center
+                self.position_center_history[i_ind][0] = i_particle.position_center
                 # Saving initial configuration
         elif self.type_init_conf == "grid":
             # Particles randomly assigned to a place in a grid constructed to have an equal
@@ -273,9 +268,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
 
                                 # Generating the positions from a random uniform
                                 # distribution between
-                                self.particle_velocities = np.random.uniform(
-                                    low=-0.1, high=0.1, size=3
-                                )
+                                self.particle_velocities[
+                                    grid_places[k_counter]
+                                ] = np.random.uniform(low=-0.1, high=0.1, size=3)
                                 self.position_center_history[0][
                                     grid_places[k_counter]
                                 ] = particles[grid_places[k_counter]].position_center
@@ -317,7 +312,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 raise errors.UnsupportedInitialConfigurationType(self.type_init_conf)
             except errors.UnsupportedInitialConfigurationType as error:
                 error.message()
-                quit()
 
     @contextmanager
     def virtual_particle_sizes(self, particles):
@@ -351,8 +345,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 self.thermostat.equilibration_steps.append(self.thermostat.jump_list)
             if not self.save_history:
                 # If the complete motion was not saved
-                for i_particle in particles:
-                    i_particle.position_center_history.append(
+                for i_particle_ind, _ in enumerate(particles):
+
+                    self.position_center_history[i_particle_ind].append(
                         i_particle.position_center.flatten()
                     )
                     # Saving the final configuration
@@ -370,6 +365,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         particles : list(`.Particle`)
             Array containing the Particle objects to be placed inside the RVE.
         """
+        self.integration_scheme = "verlet"
         with self.virtual_particle_sizes(particles):
             number_particles = len(particles)
             # Saving the number of particles
@@ -413,7 +409,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 # Computing the relative energy
                 self.compute_kinetic_energy(particles)
                 # Computing the kinetic energy
-                self.thermostat.apply_thermostat()
+                self.thermostat.apply_thermostat(
+                    self.particle_velocities, self.kinetic_energy
+                )
                 # Contract all particles
                 if self.total_overlap <= self.max_residue:
                     # If the configuration has an overlap area smaller than the tolerance
@@ -457,25 +455,33 @@ class MolecularDynamicsSimulation(GenerationMethod):
         # Computing a new list for force computation
         self.total_overlap = 0
         # Setting the total overlap to zero as it will computed again
-        self.particle_overlap_areas = len(particles) * [None]
+        self.particle_overlap_areas = [0 for _ in particles]
         # Setting all the overlap areas to zero at the beginning of the iteration as
         # they are added sequentially as each pair is considered
-        self.particle_forces = len(particles) * [None]
+        self.particle_forces = [np.zeros(particles[0].dim) for _ in particles]
         # Setting all forces to zero at the beginning of the iteration as they are added
         # sequentially as each pair is considered
         for i_particle_index, i_particle in enumerate(particles):
             # Running though all the particles
-            for j_particle_index in self.speed_up_scheme.list():
+            for j_particle_index in self.speed_up_scheme.particle_list[
+                i_particle_index
+            ]:
+                if j_particle_index is None:
+                    continue
                 j_particle = particles[j_particle_index]
                 if j_particle_index > i_particle_index:
                     # Running through the particle pairs that have not been considered yet
-                    intersection_area = i_particle.intersectionArea(j_particle)
+                    intersection_area = i_particle.intersection_area(
+                        j_particle, self.box
+                    )
                     # Intersection area between particle i and j
                     self.particle_overlap_areas[i_particle_index] += intersection_area
                     self.particle_overlap_areas[j_particle_index] += intersection_area
                     self.total_overlap += intersection_area
                     # Updating the overlap area
-                    unit_vector_i_j = i_particle.intersectionVector(j_particle)
+                    unit_vector_i_j = i_particle.intersection_vector(
+                        j_particle, self.box
+                    )
                     # Unit vector from particle i to particle j
                     force_i_j = -intersection_area * unit_vector_i_j
                     # Computing the force on particle_i due to particle_j proportional to
