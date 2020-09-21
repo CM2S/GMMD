@@ -122,6 +122,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
         save_history: bool
             Save all the trajectories of the particles, the history of the relative and
             kinetic energy.
+
+        time: float
+            Time taken by the simulation.
         """
         self.box = None
         self.particle_velocities = None
