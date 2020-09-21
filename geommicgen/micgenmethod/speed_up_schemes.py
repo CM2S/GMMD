@@ -29,19 +29,13 @@ class CellList(SpeedUpScheme):
 
     molecular_dynamics_sim: `.MolecularDynamicsSimulation`
         Molecular dynamics simulation usign the cell list for force computation.
+
+    particle_list: list(set)
+        List containing the set of particles in the neighboorhood of each particle.
+
+    cell_list: list(set)
+        List containing the set of particles in each cell.
     """
-
-    def __init__(self, molecular_dynamics_sim, particles):
-        """
-        Initialize a cell list for the *molecular_dynamics_sim* acting on *particles*.
-
-        Parameters
-        ----------
-        molecular_dynamics_sim: `.MolecularDynamicsSimulation`
-            Molecular dynamics simulation usign the cell list for force computation.
-
-        particles: list(`.Particle`)
-            List containing the particles in the simulation box.
 
         particle_list: list(int)
             List containing the indices of the particles in
