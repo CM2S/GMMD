@@ -37,13 +37,13 @@ class CellList(SpeedUpScheme):
         List containing the set of particles in each cell.
     """
 
-        particle_list: list(int)
-            List containing the indices of the particles in
-        """
-        self.molecular_dynamics_sim = molecular_dynamics_sim
-        self.max_radius = np.max(np.array([particle.radius for particle in particles]))
+    def __init__(self):
+        """Initialize a cell list for the *molecular_dynamics_sim* acting on *particles."""
+        self.molecular_dynamics_sim = None
+        self.max_radius = None
         # Saving the maximum radius of the circunscribing disk/sphere
         self.particle_list = None
+        self.cell_list = None
 
     @cached_property
     def n_cell_dim(self):
