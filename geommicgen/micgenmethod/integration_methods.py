@@ -175,8 +175,6 @@ if __name__ == "__main__":
         x_0, x_dot_0, f_vec, m_mat, c_mat, k_mat, dt, n_steps, dim
     )
 
-    print(x_dot_vec)
-
     t = np.arange(0, dt * n_steps, dt)
     plt.plot(t, x_vec[0, :])
     plt.plot(t, x_vec[1, :])
