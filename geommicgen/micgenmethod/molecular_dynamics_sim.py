@@ -474,7 +474,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         # Dimension of the problem
         for i_particle_index, i_particle in enumerate(particles):
             # Running through all the particles
-            if self.integration_scheme == "Newmark":
+            if self.integration_scheme == "newmark":
                 # The integration scheme chosen was Newmark
                 damping_constant = kwargs.get("damping_constant", 0)
                 [new_position, new_velocity, _] = Newmark(
@@ -494,7 +494,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 )
                 # Obtaining the new position and velocity of particle i
 
-            elif self.integration_scheme == "Verlet":
+            elif self.integration_scheme == "verlet":
                 # The integration scheme chosen was Verlet
                 [new_position, new_velocity] = VerletSync(
                     i_particle.position_center,
