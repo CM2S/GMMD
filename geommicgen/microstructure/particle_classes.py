@@ -916,14 +916,14 @@ class Disk(Ellipse):
         """
         if isinstance(other_particle, (Disk, CylindricalFiber)):
             # The other particle is also a Disk
-            intersection_verlet = self.intersection_disk_disk(other_particle, box)
+            intersection = self.intersection_disk_disk(other_particle, box)
             # Computing the intersection area
         elif isinstance(other_particle, Ellipse):
             # The other particle is an Ellipse
             other_particle: Ellipse
-            intersection_verlet = other_particle.intersection(self, box)
+            intersection = other_particle.intersection(self, box)
             # Computing the intersection area
-        return intersection_verlet
+        return intersection
         # Returning the intersection area
 
     def point_inside(self, point):
@@ -1689,7 +1689,7 @@ class Ellipsoid(Particle):
         p = coefficients_characteristic_equation(
             self.M(),
             [self.semi_axis_1, self.semi_axis_2, self.semi_axis_3],
-            other_ellipsoid.A_glob(verlet, diff_nearest),
+            other_ellipsoid.A_glob(diff_nearest),
         )
         # Obtaining the coefficients of the characteristic equation
         # det(\lambda*A_i + A_j) = 0
