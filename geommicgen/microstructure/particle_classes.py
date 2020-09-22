@@ -974,6 +974,9 @@ class CylindricalFiber(Disk):
 
     acceptable_descriptions: list(set(strings))
         Acceptable sets of parameters that fully describe a phase containing disks.
+
+    dim: int
+        Dimension that the particle inhabits
     """
 
     possible_parameters = {
@@ -992,6 +995,7 @@ class CylindricalFiber(Disk):
         {"area", "vf", "direction"},
         {"area", "n", "direction"},
     ]
+    dim = 3
     # List of acceptable collections of parameters
 
     def __init__(self, phase, descriptors, rve_dims):
@@ -1013,7 +1017,7 @@ class CylindricalFiber(Disk):
         # Integer giving the direction of the fibers
         self.length_dir_fibers = rve_dims[self.direction_fibers]
         # Setting the size of the simulation box
-        box = rve_dims
+        box = list(rve_dims)
         del box[self.direction_fibers]
         super().__init__(phase, descriptors, box)
         # Using the constructor of the parent class
