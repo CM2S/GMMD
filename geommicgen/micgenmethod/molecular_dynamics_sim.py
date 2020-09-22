@@ -389,8 +389,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
             # Saving the number of particles
             self.max_residue = self.max_residue_per_particle * number_particles
             # Maximum total overlap residue
-            self.step = 0
-            # Initializing the the time step at 0
             n_steps_relax = 0
             # Initializing the number of steps that a microstructure was complying with the
             # maximum overlap residue
@@ -457,7 +455,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     # smaller than 1e-5% assume it is not possible to find a legal
                     # configuration
                 ):
-                    print_funcs.printToFile("Failed sample")
+                    print_funcs.print_to_file("Failed sample")
                     break
 
     def compute_forces(self, particles):
