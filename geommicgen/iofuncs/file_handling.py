@@ -1,4 +1,8 @@
 import os
+import sys
+import pickle
+
+from .printing import print_output
 
 
 def create_sample_results_directory(dp_dir):
@@ -73,3 +77,48 @@ def create_design_point_results_directory(
     # Creating the directory
 
     return results_folder
+
+
+def get_arguments_from_command_line():
+    if len(sys.argv) == 1:
+        # No input file has been supplied
+        raise ValueError("No input file was supplied.")
+        # Exiting the script
+    elif len(sys.argv) > 3:
+        raise ValueError("Too many input files were supplied.")
+
+    input_file_path = sys.argv[1]
+    input_file_dir = os.path.dirname(sys.argv[1])
+    input_file_name, ext = os.path.splitext(os.path.basename(sys.argv[1]))
+    # Obtaining the directory and the name of the input file
+    previous_mic_path = None
+    if len(sys.argv) == 3:
+        _, ext = os.path.splitext(os.path.basename(sys.argv[2]))
+        if ext == ".mic":
+            previous_mic_path = sys.argv[2]
+        else:
+            raise ValueError(
+                "Wrong extension for the previous microstucutre file: {0}".format(ext)
+            )
+    return input_file_path, input_file_dir, input_file_name, ext, previous_mic_path
+
+
+def load_previous_sample(previous_mic_path):
+    info_previous_sample = pickle.load(open(previous_mic_path, "rb"))
+    # No need to generate a new microstructure. Using a previous microstructure.
+    current_sample = info_previous_sample["microstructure"]
+    current_mic_generator = info_previous_sample["generation_method"]
+    # Reconstructing the relevant Particle attributes that could not be pickled
+    return current_sample, current_mic_generator
+
+
+def save_mic(sample_file_path, current_sample, current_mic_generator):
+    pickle.dump(
+        {
+            "microstructure": current_sample,
+            "generation_method": current_mic_generator,
+        },
+        open(sample_file_path + ".mic", "wb"),
+    )
+    print_output(sample_file_path + ".mic")
+    # Saving the configuration for later use
