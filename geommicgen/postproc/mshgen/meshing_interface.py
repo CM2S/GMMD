@@ -499,28 +499,9 @@ class FEMMeshGenerator(MeshGenerator):
                 ):
                     continue
                 # Saving the properties of the particles
-                self.particle_tags.append(factory.addDisk(x_c, y_c, z_c, r_x, r_y))
 
                 factory.synchronize()
-                if isinstance(i_particle, Disk):
-                    # Particle is a Disk
-                    self.phase_dim_tag[i_particle.phase].append(
-                        (2, self.particle_tags[-1])
-                    )
-                elif isinstance(i_particle, Ellipse):
-                    self.phase_dim_tag[i_particle.phase].append(
-                        (2, self.particle_tags[-1])
-                    )
-                    alpha = i_particle.angle
-                    factory.synchronize()
-                    rotate_tag = [(2, self.particle_tags[-1])]
-                    rotate_tag.extend(model.getBoundary([2, self.particle_tags[-1]]))
-                    factory.rotate(rotate_tag, x_c, y_c, z_c, 0, 0, 1, alpha)
-
-                    self.phase_dim_tag[i_particle.phase].append(
-                        (2, self.particle_tags[-1])
-                    )
-                elif isinstance(i_particle, CylindricalFiber):
+                if isinstance(i_particle, CylindricalFiber):
                     face_tag = factory.addDisk(x_c, y_c, z_c, r_x, r_y)
                     # Saving the properties of the particles
                     if i_particle.direction_fibers == 0:
@@ -542,7 +523,6 @@ class FEMMeshGenerator(MeshGenerator):
                         [(2, face_tag)], *extrude_direction
                     )
                     # Extruding the fiber
-
                     for i_dim_tag in extrusion_tags:
                         if i_dim_tag[0] == 3:
                             self.particle_tags.append(i_dim_tag[1])
@@ -550,9 +530,30 @@ class FEMMeshGenerator(MeshGenerator):
                             self.phase_dim_tag[str(i_particle.phase)].append(
                                 (3, self.particle_tags[-1])
                             )
-                            break
+                            # break
 
+                            factory.synchronize()
+                elif isinstance(i_particle, Disk):
+                    self.particle_tags.append(factory.addDisk(x_c, y_c, z_c, r_x, r_y))
+                    # Particle is a Disk
+                    self.phase_dim_tag[i_particle.phase].append(
+                        (2, self.particle_tags[-1])
+                    )
+                elif isinstance(i_particle, Ellipse):
+                    self.particle_tags.append(factory.addDisk(x_c, y_c, z_c, r_x, r_y))
+                    # Particle is a Disk
+                    self.phase_dim_tag[i_particle.phase].append(
+                        (2, self.particle_tags[-1])
+                    )
+                    alpha = i_particle.angle
                     factory.synchronize()
+                    rotate_tag = [(2, self.particle_tags[-1])]
+                    rotate_tag.extend(model.getBoundary([2, self.particle_tags[-1]]))
+                    factory.rotate(rotate_tag, x_c, y_c, z_c, 0, 0, 1, alpha)
+
+                    self.phase_dim_tag[i_particle.phase].append(
+                        (2, self.particle_tags[-1])
+                    )
             elif i_particle.dim == 3:
                 for l_pbc in range(-1, 2):
                     # Particle is a Sphere
