@@ -48,9 +48,6 @@ class Keyword(object):
         type: str, optional
             Type of the variable
 
-        mandatory: boolean, optional
-            Mandatory or optional keyword. True by default.
-
         Keyword Arguments
         -----------------
         default_value: object
@@ -114,13 +111,6 @@ class Keyword(object):
 
         return isIn
 
-    def removeFromMandatory(self):
-        """Remove from the list of mandatory keywords not set."""
-        try:
-            self.input_reader.mandatory_keywords_not_set.remove(self)
-        except KeyError:
-            pass
-
 
 class KeywordTypeA(Keyword):
     """This the class for keywords formatted in the input file as::
@@ -133,14 +123,11 @@ class KeywordTypeA(Keyword):
 
     Attributes
     ----------
-    mandatory: optional, {True, False}
-        Defaults to True.
-
     keyword_group: str
         Used for storage.
     """
 
-    def __init__(self, name, keyword_group, mandatory=True, **kwargs):
+    def __init__(self, name, keyword_group, **kwargs):
         """
         Instanciate a `.KeywordTypeB` object.
 
@@ -149,9 +136,6 @@ class KeywordTypeA(Keyword):
         name: str
             Name of the keyword.
 
-        mandatory: optional, {True, False}
-            Defaults to True.
-
         Keyword Arguments
         -----------------
         default_value: object
@@ -159,7 +143,6 @@ class KeywordTypeA(Keyword):
         """
         super().__init__(name, **kwargs)
         self.keyword_group = keyword_group
-        self.mandatory = mandatory
 
         if "default_value" in kwargs:
             self.default_value = kwargs["default_value"]
@@ -182,13 +165,9 @@ class KeywordTypeB(Keyword):
 
     ``{'keyword.name': val}``
 
-    Attributes
-    ----------
-    mandatory: optional, {True, False}
-        Defaults to True.
     """
 
-    def __init__(self, name, mandatory=True, **kwargs):
+    def __init__(self, name, **kwargs):
         """
         Instanciate a `.KeywordTypeB` object.
 
@@ -196,17 +175,12 @@ class KeywordTypeB(Keyword):
         ----------
         name: str
             Name of the keyword.
-
-        mandatory: optional, {True, False}
-            Defaults to True.
         """
         super().__init__(name, **kwargs)
 
         if "default_value" in kwargs:
             self.default_value = kwargs["default_value"]
             self.storeValue(self.default_value)
-
-        self.mandatory = mandatory
 
     def storeValue(self, value):
         """Store the value of the keyword."""
@@ -238,12 +212,9 @@ class KeywordTypeC(Keyword):
 
     sub_keys: set(`.Keyword`)
         Set containing the acceptable sub keywords.
-
-    mandatory: optional, {True, False}
-        Defaults to True.
     """
 
-    def __init__(self, name, header_keys, sub_keys, mandatory=True, **kwargs):
+    def __init__(self, name, header_keys, sub_keys, **kwargs):
         """
         Instanciate a `.KeywordTypeC` object.
 
@@ -257,14 +228,10 @@ class KeywordTypeC(Keyword):
 
         sub_keys: set(`.Keyword`)
             Set containing the acceptable sub keywords.
-
-        mandatory: optional, {True, False}
-            Defaults to True.
         """
         super().__init__(name, **kwargs)
         self.header_keys = header_keys
         self.sub_keys = sub_keys
-        self.mandatory = mandatory
 
     def readValue(self):
         """Read the values of the *self* keyword. """
@@ -323,9 +290,6 @@ class TopLevelReader:
     all_options: dict
         Dictionary where all the options are stored as they are read.
 
-    mandatory_keywords_not_set: set
-        Set of top level keywords not set yet.
-
     top_level_keywords: set(`.Keyword`)
         Set containing the top level keywords.
     """
@@ -336,7 +300,6 @@ class TopLevelReader:
         self.i_line = 0
         self.input = None
         self.all_options = {}
-        self.mandatory_keywords_not_set = set()
         self.top_level_keywords = set()
         Keyword.input_reader = self
 
@@ -375,9 +338,6 @@ class TopLevelReader:
                 # Read the value
                 possible_keyword.storeValue(val)
                 # Store the value
-                possible_keyword.removeFromMandatory()
-                # Remove the keyword from the set of mandatory keywords yiet to be set
-                # if it is mandatory
                 break
         if not current_line_keyword:
             # No keyword was found in the current line
@@ -402,18 +362,12 @@ class TopLevelReader:
             # Initializing the line counter
             self.moveAlong()
             # Move along the file
-        if len(self.mandatory_keywords_not_set) > 0:
-            # There are mandatory keywords that were not set
-            print({keyword.name for keyword in self.mandatory_keywords_not_set})
-            raise ValueError()
 
     def addTopLevelKeyword(self, *args):
         """Add a top level keyword to the input reader."""
         for keyword in args:
             self.top_level_keywords.add(keyword)
             self.all_keywords[keyword.name] = keyword
-            if keyword.mandatory:
-                self.mandatory_keywords_not_set.add(keyword)
 
 
 def generateAllPossibleKeywordsFromParticleAttributes():
@@ -457,81 +411,70 @@ top_level_reader.addTopLevelKeyword(
     KeywordTypeA(
         "Max_Steps_To_Relax",
         "Mic_Gen_Parameters",
-        mandatory=False,
         default_value=0,
         type="int",
     ),
     KeywordTypeA(
         "Speed_Up_Scheme",
         "Mic_Gen_Parameters",
-        mandatory=False,
         default_value="Cell",
         type="str",
     ),
     KeywordTypeA(
         "Verlet_Factor",
         "Mic_Gen_Parameters",
-        mandatory=False,
         type="float",
         parent_keyword=("Speed_Up_Scheme", "Verlet"),
     ),
     KeywordTypeA(
         "dt",
         "Mic_Gen_Parameters",
-        mandatory=False,
         default_value=0.05,
         type="float",
     ),
     KeywordTypeA(
         "Save_History",
         "Mic_Gen_Parameters",
-        mandatory=False,
         default_value=False,
         type="bool",
     ),
     KeywordTypeA(
         "Type_Initial_Configuration",
         "Mic_Gen_Parameters",
-        mandatory=False,
         default_value="random",
         type="str",
     ),
     KeywordTypeA(
         "Motion_Analysis",
         "Mic_Gen_Parameters",
-        mandatory=False,
         default_value=False,
         type="bool",
     ),
     KeywordTypeA(
         "Thermostat",
         "Mic_Gen_Parameters",
-        mandatory=False,
         default_type="multi_temperature",
         type="str",
     ),
     KeywordTypeA(
         "Min_Distance",
         "Mic_Gen_Parameters",
-        mandatory=False,
         default_value=0,
         type="float",
     ),
     KeywordTypeA(
         "Initial_Temp",
         "Mic_Gen_Parameters",
-        mandatory=False,
         default_value=2.5e10,
         type="float",
     ),
     KeywordTypeA(
         "Remesh",
         "Mic_Gen_Parameters",
-        mandatory=False,
         default_value=False,
         type="bool",
     ),
-    KeywordTypeA("Dir_Previous_Mic", "Mic_Gen_Parameters", mandatory=False, type="str"),
+    KeywordTypeA("Dir_Previous_Mic", "Mic_Gen_Parameters", type="str"),
     KeywordTypeA("RVE_Dimensions", "Mic_Gen_Parameters", type="float"),
 )
 # Generation parameters
@@ -564,7 +507,6 @@ top_level_reader.addTopLevelKeyword(
             Keyword("Mesh_Size", type="float"),
             Keyword("N_Voxels_Dims", type="float"),
         },
-        mandatory=False,
     )
 )
 # Mesh generation parameters
