@@ -168,6 +168,12 @@ class MolecularDynamicsSimulation(GenerationMethod):
         for phase in microstructure_sample.phases.values():
             if phase.type is not Matrix:
                 particles += phase.generate_particles(microstructure_sample.rve_dims)
+        if microstructure_sample.volume_fraction > 1:
+            raise ValueError(
+                "The volume fraction goes over 1: {0}".format(
+                    microstructure_sample.volume_fraction
+                )
+            )
         # Generating the particles
         self.set_box(particles, microstructure_sample.rve_dims)
         self.generate_initial_configuration(particles)
