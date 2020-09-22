@@ -1,7 +1,14 @@
+import os
+
+
 def print_initial_message():
-    printToFile("name program")
-    printToFile("stuff, my name, CM2S")
-    printToFile("=" * 80)
+    print_to_file("\n")
+    print_to_file("Geometrical microstucutre generation")
+    print_to_file("=" * 80)
+    print_to_file("Computational Multi-Scale Modelling of".rjust(80))
+    print_to_file("Solids and Structures Research Group".rjust(80))
+    print_to_file("\n")
+
 def print_output_header():
     print_to_file("Output")
     print_to_file("=" * 80 + "\n")
