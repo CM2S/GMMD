@@ -2,6 +2,20 @@ def print_initial_message():
     printToFile("name program")
     printToFile("stuff, my name, CM2S")
     printToFile("=" * 80)
+def print_output_header():
+    print_to_file("Output")
+    print_to_file("=" * 80 + "\n")
+
+
+def print_output(filepath):
+    print_to_file("Output")
+    print_to_file("=" * 80 + "\n")
+    print_to_file("Microstructure output file: {0}".format(filepath))
+
+
+def print_femsh_output(filepath):
+    print_to_file("Finite element method mesh:")
+    print_to_file("\t Output file: {0}".format(filepath))
 
 
 def print_final_message(time, total_overlap, number_iterations, sample, max_overlap):
@@ -11,6 +25,9 @@ def print_final_message(time, total_overlap, number_iterations, sample, max_over
     printToFile("Simulation time: {:.3f} s".format(time))
     printToFile("Total overlap: {:.2e}".format(total_overlap))
     printToFile("Maximum overlap: {:.2e}".format(max_overlap))
+def print_rgmsh_output(filepath):
+    print_to_file("Regular grid mesh:")
+    print_to_file("\t Output file: {0}".format(filepath))
 
 
 def printToFile(message, end="\n"):
