@@ -205,7 +205,7 @@ class Ellipse(Particle):
         elif "major_axis" in descriptors and "vf" in descriptors and "n" in descriptors:
             # The major_axis, the volume faction and the number of particles were supplied
             volume_part = (
-                descriptors["vf"][0] * rve_dims[0] * rve_dims[1] / descriptors["n"][0]
+                descriptors["vf"] * rve_dims[0] * rve_dims[1] / descriptors["n"]
             )
             # All particles will have the same volume
             aux_minor_axis = volume_part / (np.pi * descriptors["major_axis"] * 1 / 4)
@@ -216,7 +216,7 @@ class Ellipse(Particle):
         elif "minor_axis" in descriptors and "vf" in descriptors and "n" in descriptors:
             # The minor axis, the volume faction and the number of particles were supplied
             volume_part = (
-                descriptors["vf"][0] * rve_dims[0] * rve_dims[1] / descriptors["n"][0]
+                descriptors["vf"] * rve_dims[0] * rve_dims[1] / descriptors["n"]
             )
             aux_major_axis = volume_part / (np.pi * descriptors["minor_axis"] * 1 / 4)
             # Minor axis computed assuming that all particles have the same area
@@ -225,7 +225,7 @@ class Ellipse(Particle):
             # Ensuring that the major axis is greater than the minor axis
         elif "ratio" in descriptors and "vf" in descriptors and "n" in descriptors:
             volume_part = (
-                descriptors["vf"][0] * rve_dims[0] * rve_dims[1] / descriptors["n"][0]
+                descriptors["vf"] * rve_dims[0] * rve_dims[1] / descriptors["n"]
             )
             minor_axis = np.sqrt(volume_part / (np.pi * descriptors["ratio"] * 1 / 4))
             major_axis = descriptors["ratio"] * minor_axis
