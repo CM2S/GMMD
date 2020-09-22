@@ -11,8 +11,6 @@ import abc
 # GMSH module
 import gmsh
 
-# Simple math tools
-
 # Finite element mesh conversor to LINKS
 from gmsh2links.main import readMesh
 from microstructure.particle_classes import (
@@ -24,10 +22,11 @@ from microstructure.particle_classes import (
 )
 
 # Importing the particle class
+
 import numpy as np
 import errors.error_classes as errors
 
-# from plotting_functions import plot_pixels, plot_voxels
+from iofuncs.printing import print_rgmsh_output, print_femsh_output
 
 
 class MeshGenerator(abc.ABC):
@@ -801,6 +800,8 @@ class FEMMeshGenerator(MeshGenerator):
                     for k_con in con_mat[i_phase][j_node]:
                         dat.write("{0} ".format(k_con))
 
+        print_femsh_output(os.path.join(title, "femsh.rve"))
+
 
 class RegularGridMeshGenerator(MeshGenerator):
     def __init__(self, n_voxels_dims, rve_dims):
@@ -876,11 +877,7 @@ class RegularGridMeshGenerator(MeshGenerator):
                         # Setting pixel [i_row, j_column, k_layer] as belong to the
                         # phase of particle k_particle
 
-            filename = "{0[0]}_{0[1]}.{1}".format(self.n_voxels_dims, "rgmsh")
-            np.save(
-                os.path.join(sample_dir, "meshes", filename),
-                regular_grid,
-            )
+            filename = "{0[0]}_{0[1]}".format(self.n_voxels_dims)
 
         elif len(microstructure_sample.rve_dims) == 3:
             # This is a 2D dimnensional problem
@@ -920,29 +917,40 @@ class RegularGridMeshGenerator(MeshGenerator):
                         # Setting pixel [i_row, j_column, k_layer] as belong to the
                         # phase of particle k_particle
 
-            filename = "{0[0]}_{0[1]}_{0[2]}.{1}".format(self.n_voxels_dims, "rgmsh")
-            np.save(
-                os.path.join(
-                    sample_dir,
-                    "meshes",
-                    filename,
-                ),
-                regular_grid,
-            )
+            filename = "{0[0]}_{0[1]}_{0[2]}".format(self.n_voxels_dims)
 
-        if True:
+        result_dir = os.path.join(sample_dir, "meshes")
+        if not os.path.exists(result_dir):
+            os.makedirs(result_dir)
+        np.save(
+            os.path.join(
+                result_dir,
+                filename + ".rgmsh",
+            ),
+            regular_grid,
+        )
+
+        from postproc.plotfuncs.plotting_functions import plot_pixels, plot_voxels
+
+        if len(microstructure_sample.rve_dims) == 2:
+            plot_pixels(
+                regular_grid,
+                os.path.join(result_dir, filename + ".pdf"),
+                show=False,
+            )
+        elif len(microstructure_sample.rve_dims) == 3:
             plot_voxels(
                 regular_grid,
-                Particle.matrix_phase,
-                Particle.list_phases,
-                Particle.file_path
-                + "_"
-                + str(n_voxels_dims[0])
-                + "_"
-                + str(n_voxels_dims[1])
-                + "_"
-                + str(n_voxels_dims[0])
-                + "."
-                + disc_ext,
+                microstructure_sample.matrix_phase,
+                list(microstructure_sample.phases.keys()),
+                os.path.join(result_dir, filename + ".pdf"),
+                show=False,
             )
+
+        print_rgmsh_output(
+            os.path.join(
+                result_dir,
+                filename + ".rgmsh",
+            )
+        )
         # Ploting the regular grid
