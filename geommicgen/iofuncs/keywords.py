@@ -388,14 +388,14 @@ def generateAllPossibleKeywordsFromParticleAttributes():
     all_particle_sub_classes = get_all_subclasses(part_cls.Particle)
     all_phase_descriptor_sub_classes = get_all_subclasses(phase.PhaseDescriptor)
     keyword_set = set()
-    for descriptor in part_cls.Particle.possible_parameters:
+    for descriptor, (_, var_type) in part_cls.Particle.possible_parameters.items():
         # Volume fraction and number of particles
-        keyword_set.add(Keyword(descriptor, type="float"))
+        keyword_set.add(Keyword(descriptor, type=var_type))
     for particle_type in all_particle_sub_classes:
-        for descriptor in particle_type.possible_parameters:
+        for descriptor, (_, var_type) in particle_type.possible_parameters.items():
             if descriptor in part_cls.Particle.possible_parameters:
                 continue
-            keyword_set.add(Keyword(descriptor, type="float"))
+            keyword_set.add(Keyword(descriptor, type=var_type))
             keyword_set.add(Keyword(descriptor + "_distribution", type="str"))
             for distribution in all_phase_descriptor_sub_classes:
                 for parameter in distribution.parameters:

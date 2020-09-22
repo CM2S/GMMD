@@ -36,7 +36,10 @@ class Particle(abc.ABC):
         Possible parameters characterizing a phase containing this of particle.
     """
 
-    possible_parameters = {"n": "Number of particles", "vf": "Volume fraction"}
+    possible_parameters = {
+        "n": ("Number of particles", "int"),
+        "vf": ("Volume fraction", "float"),
+    }
     acceptable_descriptions = [set()]
 
     def __init__(self, dim: int, phase: str):
@@ -152,11 +155,11 @@ class Ellipse(Particle):
 
     possible_parameters = {
         **{
-            "major_axis": "Major axis",
-            "minor_axis": "Minor axis",
-            "angle": "Angle",
-            "eccentricity": "Eccentricity",
-            "ratio": "Ratio a/b",
+            "major_axis": ("Major axis", "float"),
+            "minor_axis": ("Minor axis", "float"),
+            "angle": ("Angle", "float"),
+            "eccentricity": ("Eccentricity", "float"),
+            "ratio": ("Ratio a/b", "float"),
         },
         **Particle.possible_parameters,
     }
@@ -727,7 +730,7 @@ class Disk(Ellipse):
 
     possible_parameters = {
         **Particle.possible_parameters,
-        **{"r": "Radius", "area": "Area per particle"},
+        **{"r": ("Radius", "float"), "area": ("Area per particle", "float")},
     }
     #
     # )
@@ -936,9 +939,9 @@ class CylindricalFiber(Disk):
 
     possible_parameters = {
         **{
-            "r": "Radius",
-            "area": "Area per particle",
-            "n": "Number of particles",
+            "r": ("Radius", "float"),
+            "area": ("Area per particle", "float"),
+            "direction": ("Fiber direction", "int"),
         },
         **Particle.possible_parameters,
     }
@@ -1026,15 +1029,15 @@ class Ellipsoid(Particle):
 
     possible_parameters = {
         **{
-            "axis_1": "Axis 1",
-            "axis_2": "Axis 2",
-            "axis_3": "Axis 3",
-            "rot_axis_comp_x": "x-component rotation axis",
-            "rot_axis_comp_y": "y-component rotation axis",
-            "rot_axis_comp_z": "z-component rotation axis",
-            "angle": "Rotation angle",
-            "ratio_12": "Ratio a1/a2",
-            "ratio_13": "Ratio a1/a3",
+            "axis_1": ("Axis 1", "float"),
+            "axis_2": ("Axis 2", "float"),
+            "axis_3": ("Axis 3", "float"),
+            "rot_axis_comp_x": ("x-component rotation axis", "float"),
+            "rot_axis_comp_y": ("y-component rotation axis", "float"),
+            "rot_axis_comp_z": ("z-component rotation axis", "float"),
+            "angle": ("Rotation angle", "float"),
+            "ratio_12": ("Ratio a1/a2", "float"),
+            "ratio_13": ("Ratio a1/a3", "float"),
         },
         **Particle.possible_parameters,
     }
@@ -1736,12 +1739,15 @@ class Sphere(Ellipsoid):
     """
 
     possible_parameters = {
-        **{"r": "Radius", "volume": "Volume per particle"},
+        **{"r": ("Radius", "float"), "volume": ("Volume per particle", "float")},
         **Particle.possible_parameters,
     }
 
     # all possible_parameters
-    geom_possible_parameters = {"r": "Radius", "volume": "Volume per particle"}
+    geom_possible_parameters = {
+        "r": ("Radius", "float"),
+        "volume": ("Volume per particle", "float"),
+    }
     # all possible geometrical parameters
     acceptable_descriptions = [
         {"r", "n"},
@@ -1786,9 +1792,9 @@ class Sphere(Ellipsoid):
             radius = np.cbrt(volume / (4 / 3 * np.pi))
 
         ellipsoid_descriptors = {
-            "axis_1": radius,
-            "axis_2": radius,
-            "axis_3": radius,
+            "axis_1": 2 * radius,
+            "axis_2": 2 * radius,
+            "axis_3": 2 * radius,
             "angle": 0.0,
             "rot_axis_comp_x": 0.0,
             "rot_axis_comp_y": 0.0,
