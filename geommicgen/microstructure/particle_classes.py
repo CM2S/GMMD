@@ -81,7 +81,11 @@ class Particle(abc.ABC):
             # Checking acceptable sets of parameters
             pass
         else:
-            raise ValueError
+            raise ValueError(
+                "{0} is not an acceptable description of an {1}.".format(
+                    descriptors, cls.__name__
+                )
+            )
 
     def intersection_vector(self, other_particle, box):
         """Compute the unit vector from the center of masss of particle i to particle j."""
@@ -229,7 +233,7 @@ class Ellipse(Particle):
             angle = descriptors["angle"]
 
         if major_axis <= 0 or minor_axis <= 0:
-            raise ValueError
+            raise ValueError("Major and minor axis must be positive values.")
 
         self.major_axis = major_axis
         self.minor_axis = minor_axis
