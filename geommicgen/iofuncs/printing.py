@@ -59,7 +59,8 @@ def print_to_terminal_refresh(
     """Print info about the current iteration."""
     if kwargs.get("first"):
         # First meassage containing information about the iteration
-        printToFile("**SIMULATION INFO**\n")
+        print("MD simulation info")
+        print("=" * 80 + "\n")
         print("Step: {0}".format(step))
         print("Total Overlap: {:.2e}".format(total_overlap))
     else:
