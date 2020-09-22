@@ -77,10 +77,8 @@ class Phase:
                 ]
             )
         }
-        try:
-            self.type.check_acceptable_description(set(self.descriptors.keys()))
-        except ValueError:
-            pass
+        self.type.check_acceptable_description(set(self.descriptors.keys()))
+
         for descriptor in self.descriptors:
             descriptor_distribution = phase_descriptors.get(
                 descriptor + "_distribution", "fixed"
