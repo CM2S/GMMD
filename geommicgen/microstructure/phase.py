@@ -63,6 +63,7 @@ class Phase:
             Phase descriptors such as the phase type, the volume fraction, number of
             particles and so on.
         """
+        self.microstucutre = None
         self.name = name
         # Name of the phase
         self.type = Phase.phase_types[phase_descriptors["phase_type"]]
