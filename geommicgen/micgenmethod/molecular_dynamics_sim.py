@@ -13,6 +13,7 @@ from contextlib import contextmanager
 import time
 import numpy as np
 
+# pylint: disable=import-error
 import errors.error_classes as errors
 import iofuncs.printing as print_funcs
 from micgenmethod.microstructure_gen_method import GenerationMethod
