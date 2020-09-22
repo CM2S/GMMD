@@ -271,7 +271,7 @@ def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
     # Generate a 3D mesh
     model.mesh.generate(3)
 
-    _ = mesh_generator.write_mesh_gmsh(sample_dir)
+    _ = mesh_generator.write_mesh_gmsh(sample_dir, "final_config")
 
 
 def plot_kinetic_energy_history(

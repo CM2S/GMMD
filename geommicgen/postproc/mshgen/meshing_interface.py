@@ -334,13 +334,13 @@ class FEMMeshGenerator(MeshGenerator):
             # Second-order incomplete elements
         )
 
-    def write_mesh_gmsh(self, mesh_results_dir):
+    def write_mesh_gmsh(self, mesh_results_dir, name):
         """Write the mesh to the .msh and .vtk file."""
 
-        meshfile_temp = os.path.join(mesh_results_dir, "femmsh_temp.msh")
-        meshfile = os.path.join(mesh_results_dir, "femmsh.msh")
-        vtk_temp = os.path.join(mesh_results_dir, "femmsh_temp.vtk")
-        vtk = os.path.join(mesh_results_dir, "femmsh.vtk")
+        meshfile_temp = os.path.join(mesh_results_dir, name + "_temp.msh")
+        meshfile = os.path.join(mesh_results_dir, name + ".msh")
+        vtk_temp = os.path.join(mesh_results_dir, name + "_temp.vtk")
+        vtk = os.path.join(mesh_results_dir, name + ".vtk")
         gmsh.write(meshfile_temp)
         gmsh.write(vtk_temp)
 
