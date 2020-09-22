@@ -9,6 +9,8 @@ import numpy as np
 from .phase import Phase
 from .particle_classes import Matrix
 
+import iofuncs.printing as print_funcs
+
 
 class Microstructure:
     """
