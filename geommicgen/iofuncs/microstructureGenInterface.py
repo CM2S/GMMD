@@ -322,8 +322,8 @@ def generateMicrostructures(
             input_file.write("\n")
         # Dumping the info_dict dictionary into info_micro.p to be loaded in the program
         # that generates microstructures
-        command = ["python3", "main.py", input_file_temp]
-        subprocess.run(command)
+        command = ["python3", "geommicgen", input_file_temp]
+        subprocess.run(command, check=True)
         # Executing the script for microstructure generation
 
 
