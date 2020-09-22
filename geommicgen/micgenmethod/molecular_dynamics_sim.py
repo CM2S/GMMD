@@ -175,12 +175,21 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 )
             )
         # Generating the particles
-        start = time.time()
-        self.time = time.time() - start
-        microstructure_sample.total_overlap = self.total_overlap
         self.set_box(microstructure_sample.particles, microstructure_sample.rve_dims)
         self.generate_initial_configuration(microstructure_sample.particles)
+        print_funcs.print_microstructure_info(microstructure_sample)
+        try:
+            start = time.time()
             self.run_molecular_dynamics_simulation(microstructure_sample.particles)
+            self.time = time.time() - start
+            microstructure_sample.total_overlap = self.total_overlap
+        finally:
+            print_funcs.print_final_message(
+                self.time,
+                microstructure_sample.total_overlap,
+                len(self.total_overlap_history),
+                self.max_residue,
+            )
 
     def set_box(self, particles, rve_dims):
         """
