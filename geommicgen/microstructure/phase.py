@@ -257,11 +257,8 @@ class FixedValue(PhaseDescriptor):
 
     def generate_sample(self, n_samples=1):
         """Return the fixed value of the descriptor."""
-        if n_samples == 1:
-            sample = self.value
-        else:
-            sample = np.full((int(n_samples)), self.value)
-        return sample
+        sample = np.full((int(n_samples)), self.value)
+        return sample if len(sample) > 1 else sample[0]
 
 
 class NormalDistribution(PhaseDescriptor):
@@ -306,7 +303,7 @@ class NormalDistribution(PhaseDescriptor):
     def generate_sample(self, n_samples=1):
         """Generate sample from a normal distribution."""
         sample = np.random.normal(loc=self.mean, scale=self.sigma, size=n_samples)
-        return sample
+        return sample if len(sample) > 1 else sample[0]
 
 
 class UniformDistribution(PhaseDescriptor):
@@ -413,4 +410,4 @@ class DiscreteDistribution(PhaseDescriptor):
         """Generate sample from the discrete distribution."""
         sample = np.random.choice(self.values, n_samples, p=self.probabilities)
 
-        return sample
+        return sample if len(sample) > 1 else sample[0]
