@@ -490,8 +490,8 @@ class FEMMeshGenerator(MeshGenerator):
                 x_c = i_particle.position_center[0] + rve_dims[0] * j_pbc
                 y_c = i_particle.position_center[1] + rve_dims[1] * p_pbc
                 z_c = 0
-                r_x = i_particle.radius
-                r_y = i_particle.radius
+                r_x = i_particle.semi_major_axis
+                r_y = i_particle.semi_minor_axis
                 if (
                     x_c > rve_dims[0] + r_x - eps
                     or x_c < -r_x + eps
