@@ -164,10 +164,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
         microstructure_sample: `.Microstructure`
             Microstructure sample to be generated
         """
-        particles = []
         for phase in microstructure_sample.phases.values():
             if phase.type is not Matrix:
-                particles += phase.generate_particles(microstructure_sample.rve_dims)
+                phase.generate_particles(microstructure_sample.rve_dims)
         if microstructure_sample.volume_fraction > 1:
             raise ValueError(
                 "The volume fraction goes over 1: {0}".format(
@@ -175,13 +174,12 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 )
             )
         # Generating the particles
-        self.set_box(particles, microstructure_sample.rve_dims)
-        self.generate_initial_configuration(particles)
         start = time.time()
-        self.run_molecular_dynamics_simulation(particles)
         self.time = time.time() - start
         microstructure_sample.total_overlap = self.total_overlap
-        microstructure_sample.particles = particles
+        self.set_box(microstructure_sample.particles, microstructure_sample.rve_dims)
+        self.generate_initial_configuration(microstructure_sample.particles)
+            self.run_molecular_dynamics_simulation(microstructure_sample.particles)
 
     def set_box(self, particles, rve_dims):
         """
