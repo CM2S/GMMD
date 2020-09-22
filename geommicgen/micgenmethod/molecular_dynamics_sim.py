@@ -289,8 +289,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
                                 self.particle_velocities[
                                     grid_places[k_counter]
                                 ] = np.random.uniform(low=-0.1, high=0.1, size=3)
-                                self.position_center_history[0][
-                                    grid_places[k_counter]
+                                self.position_center_history[grid_places[k_counter]][
+                                    0
                                 ] = particles[grid_places[k_counter]].position_center
                                 # Saving particle history
                             k_counter += 1
@@ -320,10 +320,10 @@ class MolecularDynamicsSimulation(GenerationMethod):
                             self.particle_velocities = np.random.uniform(
                                 low=-0.1, high=0.1, size=2
                             )
-                            self.position_center_history[0][
-                                grid_places[k_counter]
+                            self.position_center_history[grid_places[k_counter]][
+                                0
                             ] = particles[grid_places[k_counter]].position_center
-                            # # Saving particle history
+                        # # Saving particle history
                         k_counter += 1
         else:
             try:
