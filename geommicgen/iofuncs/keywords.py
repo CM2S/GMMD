@@ -481,8 +481,8 @@ top_level_reader.addTopLevelKeyword(
 
 
 top_level_reader.addTopLevelKeyword(
-    KeywordTypeB("Problem_Type", "Problem_Type", type="int"),
-    KeywordTypeB("N_DP_Samples", "N_DP_Samples", type="int"),
+    KeywordTypeB("Problem_Type", type="int"),
+    KeywordTypeB("N_DP_Samples", type="int"),
 )
 # General keywords
 
@@ -501,11 +501,11 @@ top_level_reader.addTopLevelKeyword(
 top_level_reader.addTopLevelKeyword(
     KeywordTypeC(
         "Mesh_Options",
-        header_keys={Keyword("Femsh", type="none"), Keyword("Rgmsh", type="none")},
+        header_keys={Keyword("femsh", type="none"), Keyword("rgmsh", type="none")},
         sub_keys={
             Keyword("Element_Type", type="str"),
             Keyword("Mesh_Size", type="float"),
-            Keyword("N_Voxels_Dims", type="float"),
+            Keyword("N_Voxels_Dims", type="int"),
         },
     )
 )
