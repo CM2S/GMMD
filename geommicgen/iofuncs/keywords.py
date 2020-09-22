@@ -255,11 +255,25 @@ class KeywordTypeC(Keyword):
                 break
             for header_keyword in self.header_keys:
                 if header_keyword.isIn(line):
+                    keyword_already_supplied = set()
                     current_header = header_keyword.readValue()
+                    if current_header in options:
+                        raise ValueError(
+                            "The {0} group {1} was specified twice.".format(
+                                self.name, current_header
+                            )
+                        )
                     options[current_header] = {}
                     break
             for sub_keyword in self.sub_keys:
                 if sub_keyword.isIn(line):
+                    if sub_keyword in keyword_already_supplied:
+                        raise ValueError(
+                            "The keyword {0} is supplied twice.".format(
+                                sub_keyword.name
+                            )
+                        )
+                    keyword_already_supplied.add(sub_keyword)
                     value = sub_keyword.readValue()
                     options[current_header][sub_keyword.name.lower()] = value
                     break
