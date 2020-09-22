@@ -10,7 +10,7 @@ import abc
 
 import numpy as np
 
-from .particle_classes import Matrix, Disk, Ellipse, Sphere, Ellipsoid
+from .particle_classes import Matrix, Disk, Ellipse, Sphere, Ellipsoid, CylindricalFiber
 
 
 class Phase:
@@ -40,7 +40,14 @@ class Phase:
         Dictinary containing the correspondence between a phase type and its name.
     """
 
-    phase_types = {1: Matrix, 2: Disk, 3: Ellipse, 4: Sphere, 5: Ellipsoid}
+    phase_types = {
+        1: Matrix,
+        2: Disk,
+        3: Ellipse,
+        4: Sphere,
+        5: Ellipsoid,
+        6: CylindricalFiber,
+    }
     # Correspondence between phase type and phase type class
 
     def __init__(self, name, phase_descriptors):
