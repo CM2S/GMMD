@@ -241,8 +241,9 @@ class FEMMeshGenerator(MeshGenerator):
             sample_dir,
         )
         mesh_results_dir = os.path.join(sample_dir, "meshes")
-        os.makedirs(mesh_results_dir)
-        meshfile = self.write_mesh_gmsh(mesh_results_dir)
+        if not os.path.exists(mesh_results_dir):
+            os.makedirs(mesh_results_dir)
+        meshfile = self.write_mesh_gmsh(mesh_results_dir, "femsh")
         self.gmsh_to_links(
             meshfile,
             mesh_results_dir,
