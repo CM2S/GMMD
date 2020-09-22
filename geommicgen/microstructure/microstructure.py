@@ -77,3 +77,27 @@ class Microstructure:
                     "The particle type chosen is not compatible "
                     + "with the dimensions of the microstructure."
                 )
+            if self.phases[phase.name].type.__name__ == "CylindricalFiber":
+                for phase in self.phases:
+                    if phase.type.__name__ not in ("CylindricalFiber", "Matrix"):
+                        raise ValueError(
+                            "The CylindricalFiber particles are only compatible with each other."
+                        )
+
+    @property
+    def particles(self):
+        """Particles in the microstucutre."""
+        particles = []
+        for i_phase in self.phases.values():
+            particles += i_phase.particles
+
+        return particles
+
+    @property
+    def volume_fraction(self):
+        """Volume fraction of particles in the microstucutre."""
+        vf = 0
+        for i_phase in self.phases.values():
+            vf += i_phase.volume_fraction
+
+        return vf
