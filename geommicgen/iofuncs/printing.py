@@ -9,6 +9,13 @@ def print_initial_message():
     print_to_file("Solids and Structures Research Group".rjust(80))
     print_to_file("\n")
 
+
+def print_analysis_previous(input_file_path, previous_mic_path):
+    print_to_file("Input file: {0}".format(input_file_path))
+    print_to_file("Previous microstucutre: {0}".format(previous_mic_path))
+    print_to_file("\n")
+
+
 def print_output_header():
     print_to_file("Output")
     print_to_file("=" * 80 + "\n")
