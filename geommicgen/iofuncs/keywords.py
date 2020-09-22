@@ -99,8 +99,10 @@ class Keyword(object):
                 value_str = line.split()[1]
                 final_val = value_str
         except ValueError:
-            error_cls.IncompatibleValue.messsage("Error")
-            quit()
+            print(
+                "In line {0} the value of the keyword has the wrong type.".format(line)
+            )
+            raise
         Keyword.input_reader.i_line += 1
         return final_val
 
@@ -341,9 +343,11 @@ class TopLevelReader:
                 break
         if not current_line_keyword:
             # No keyword was found in the current line
-            print(line, "does not contain a keyword")
-            # FIXME: create an appropriate error
-            quit()
+            raise ValueError(
+                "Line {0} of input file does not contain a keyword: {1}".format(
+                    self.i_line, line
+                )
+            )
 
     def moveAlong(self):
         """Move alogn the input file."""
