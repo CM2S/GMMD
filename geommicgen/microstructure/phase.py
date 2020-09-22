@@ -238,7 +238,7 @@ class FixedValue(PhaseDescriptor):
         Parameters of the statistical distribution.
     """
 
-    parameters = {}
+    parameters = {"value"}
 
     def __init__(self, name, value):
         """
