@@ -257,9 +257,12 @@ def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
     # entities
     factory.synchronize()
 
-    for i_phase, i_tags in mesh_generator.phase_dim_tag.items():
-        material_tag = model.addPhysicalGroup(3, [tag for _, tag in i_tags])
-        model.setPhysicalName(3, material_tag, "Phase {0}".format(i_phase))
+    for i_phase, i_dim_tags in mesh_generator.phase_dim_tag.items():
+        bound_dim_tags = model.getBoundary([(3, tag) for _, tag in i_dim_tags])
+        material_tag = model.addPhysicalGroup(
+            2, [tag for dim, tag in bound_dim_tags if dim == 2]
+        )
+        model.setPhysicalName(2, material_tag, "Phase {0}".format(i_phase))
 
     # model.mesh.setSize(points, mesh_size)
     gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
