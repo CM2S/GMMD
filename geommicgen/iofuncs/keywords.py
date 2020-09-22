@@ -469,6 +469,12 @@ top_level_reader.addTopLevelKeyword(
         type="float",
     ),
     KeywordTypeA(
+        "Min_Eq_Steps_At_Temp",
+        "Mic_Gen_Parameters",
+        default_value=25,
+        type="int",
+    ),
+    KeywordTypeA(
         "Remesh",
         "Mic_Gen_Parameters",
         default_value=False,
