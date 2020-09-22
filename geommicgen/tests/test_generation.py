@@ -7,9 +7,17 @@ from unittest.mock import sentinel, Mock, patch, call
 
 import numpy as np
 
-from geommicgen.micgenmethod.microstructure_gen_method import GenerationMethod
-from geommicgen.micgenmethod.molecular_dynamics_sim import MolecularDynamicsSimulation
-from geommicgen.microstructure.particle_classes import CylindricalFiber
+
+# pylint: disable=import-error
+from micgenmethod.microstructure_gen_method import (
+    GenerationMethod,
+)
+from micgenmethod.molecular_dynamics_sim import (
+    MolecularDynamicsSimulation,
+)
+from microstructure.particle_classes import (
+    CylindricalFiber,
+)
 
 
 class MicGenTest(GenerationMethod):
@@ -25,53 +33,12 @@ class TestGenerationMethod(unittest.TestCase):
 
         # with self.assertRaises(ValueError):
 
-        class MicGenTest(GenerationMethod):
+        class MicGenTestIncomp(GenerationMethod):
             pass
 
         with self.assertRaises(TypeError):
 
-            _ = MicGenTest()
-
-    @patch("geommicgen.microstructure.particle_classes.Disk")
-    @patch("geommicgen.microstructure.phase.FixedValue")
-    def test_generate_particles_number(self, mock_fixed_value, mock_disk):
-        gen_method = MicGenTest()
-        rve_dims = [1.0, 1.0]
-        descriptors = {
-            "n": mock_fixed_value("n", 10),
-            "vf": mock_fixed_value("vf", 0.1),
-        }
-        phase = sentinel.phase
-        particles = gen_method.generate_particles(
-            rve_dims, mock_disk, phase, **descriptors
-        )
-        self.assertTrue(len(particles), 10)
-        for particle in particles:
-            self.assertTrue(particle.name, "Disk()")
-
-    @patch("geommicgen.microstructure.particle_classes.Disk")
-    @patch("geommicgen.microstructure.phase.FixedValue")
-    def test_generate_particles_vf(self, mock_fixed_value, mock_disk):
-        gen_method = MicGenTest()
-        rve_dims = [1.0, 1.0]
-        vf_mock = mock_fixed_value("vf", 0.1)
-        vf_mock.value = 0.1
-        descriptors = {
-            "r": mock_fixed_value("r", 0.1),
-            "vf": vf_mock,
-        }
-        mock_disk.return_value = sentinel.particle
-        sentinel.particle.volume = np.pi * 0.1 ** 2
-        phase = sentinel.phase
-        particles = gen_method.generate_particles(
-            rve_dims, mock_disk, phase, **descriptors
-        )
-        self.assertEqual(len(particles), 4)
-        for particle in particles:
-            self.assertTrue(particle.name, "Disk()")
-
-    def test_generate_particles_matrix(self):
-        self.assertTrue(False)
+            _ = MicGenTestIncomp()
 
 
 class TestMolecularDynamicSimulation(unittest.TestCase):
@@ -91,57 +58,55 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
             ]
         }
 
-    @patch(
-        "geommicgen.micgenmethod.microstructure_gen_method.GenerationMethod.generate_particles"
-    )
-    @patch(
-        "geommicgen.micgenmethod.molecular_dynamics_sim.MolecularDynamicsSimulation.run_molecular_dynamics_simulation",
-    )
-    def test_generate_microstructure_particles_are_generated(
-        self,
-        _,
-        mock_generate_particles,
-    ):
-        """Test if the particles are generated for each phase"""
-
-        current_generation_method = MolecularDynamicsSimulation(
-            *self.md_init_mock_kwargs
-        )
-        current_generation_method.type_init_conf = "random"
-        mock_microstructure_sample = Mock(rve_dims=[1.0, 1.0])
-        phase_1 = Mock()
-        phase_2 = Mock()
-        phase_3 = Mock()
-        mock_microstructure_sample.phases = {
-            "1": phase_1,
-            "2": phase_2,
-            "3": phase_3,
-        }
-
-        current_generation_method.generate_microstructure(mock_microstructure_sample)
-        mock_generate_particles.assert_has_calls(
-            [
-                call(
-                    mock_microstructure_sample.rve_dims,
-                    mock_microstructure_sample.phases["1"].type,
-                    mock_microstructure_sample.phases["1"].phase_name,
-                    mock_microstructure_sample.phases["1"].descriptors,
-                ),
-                call(
-                    mock_microstructure_sample.rve_dims,
-                    mock_microstructure_sample.phases["2"].type,
-                    mock_microstructure_sample.phases["2"].phase_name,
-                    mock_microstructure_sample.phases["2"].descriptors,
-                ),
-                call(
-                    mock_microstructure_sample.rve_dims,
-                    mock_microstructure_sample.phases["3"].type,
-                    mock_microstructure_sample.phases["3"].phase_name,
-                    mock_microstructure_sample.phases["3"].descriptors,
-                ),
-            ],
-            any_order=True,
-        )
+    # @patch("micgenmethod.microstructure_gen_method.GenerationMethod.generate_particles")
+    # @patch(
+    #     "micgenmethod.molecular_dynamics_sim.MolecularDynamicsSimulation.run_molecular_dynamics_simulation",
+    # )
+    # def test_generate_microstructure_particles_are_generated(
+    #     self,
+    #     _,
+    #     mock_generate_particles,
+    # ):
+    #     """Test if the particles are generated for each phase"""
+    #
+    #     current_generation_method = MolecularDynamicsSimulation(
+    #         *self.md_init_mock_kwargs
+    #     )
+    #     current_generation_method.type_init_conf = "random"
+    #     mock_microstructure_sample = Mock(rve_dims=[1.0, 1.0])
+    #     phase_1 = Mock()
+    #     phase_2 = Mock()
+    #     phase_3 = Mock()
+    #     mock_microstructure_sample.phases = {
+    #         "1": phase_1,
+    #         "2": phase_2,
+    #         "3": phase_3,
+    #     }
+    #
+    #     current_generation_method.generate_microstructure(mock_microstructure_sample)
+    #     mock_generate_particles.assert_has_calls(
+    #         [
+    #             call(
+    #                 mock_microstructure_sample.rve_dims,
+    #                 mock_microstructure_sample.phases["1"].type,
+    #                 mock_microstructure_sample.phases["1"].phase_name,
+    #                 mock_microstructure_sample.phases["1"].descriptors,
+    #             ),
+    #             call(
+    #                 mock_microstructure_sample.rve_dims,
+    #                 mock_microstructure_sample.phases["2"].type,
+    #                 mock_microstructure_sample.phases["2"].phase_name,
+    #                 mock_microstructure_sample.phases["2"].descriptors,
+    #             ),
+    #             call(
+    #                 mock_microstructure_sample.rve_dims,
+    #                 mock_microstructure_sample.phases["3"].type,
+    #                 mock_microstructure_sample.phases["3"].phase_name,
+    #                 mock_microstructure_sample.phases["3"].descriptors,
+    #             ),
+    #         ],
+    #         any_order=True,
+    #     )
 
     # @patch(
     #     "geommicgen.micgenmethod.microstructure_gen_method.GenerationMethod.generate_particles"
@@ -175,8 +140,8 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
         mock_cylindrical_fiber_1 = Mock()
         mock_cylindrical_fiber_2 = Mock()
         mock_cylindrical_fiber_1.__class__ = CylindricalFiber
-        mock_cylindrical_fiber_1.direction_fibers = "x"
-        mock_cylindrical_fiber_2.direction_fibers = "x"
+        mock_cylindrical_fiber_1.direction_fibers = 0
+        mock_cylindrical_fiber_2.direction_fibers = 0
         particles = [mock_cylindrical_fiber_1, mock_cylindrical_fiber_2]
         current_generation_method.set_box(particles, rve_dims)
         self.assertEqual(current_generation_method.box, [2.0, 3.0])
@@ -252,7 +217,9 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
         current_generation_method.generate_initial_configuration(
             particles,
         )
-        self.assertTrue(all(current_generation_method.particle_velocities < 1e-4))
+        self.assertTrue(
+            np.all(np.array(current_generation_method.particle_velocities) < 1e-4)
+        )
 
     def test_generate_initial_configuration_velocities_grid_2d(self):
         """Check if any of the particles for a grid configuration in 2D has non-zero
@@ -280,7 +247,7 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
         current_generation_method.generate_initial_configuration(
             particles,
         )
-        self.assertTrue(any(current_generation_method.particle_velocities != 0))
+        self.assertTrue(np.any(current_generation_method.particle_velocities != 0))
 
     def test_generate_initial_configuration_save_history_random(self):
         """Check if particle's position is saved for a random initial configuration"""
@@ -296,7 +263,7 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
         for part_ind, particle in enumerate(particles):
             self.assertTrue(
                 all(
-                    current_generation_method.position_center_history[0][part_ind]
+                    current_generation_method.position_center_history[part_ind][0]
                     == particle.position_center
                 )
             )
@@ -315,7 +282,7 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
         for part_ind, particle in enumerate(particles):
             self.assertTrue(
                 all(
-                    current_generation_method.position_center_history[0][part_ind]
+                    current_generation_method.position_center_history[part_ind][0]
                     == particle.position_center
                 )
             )
@@ -334,7 +301,7 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
         for part_ind, particle in enumerate(particles):
             self.assertTrue(
                 all(
-                    current_generation_method.position_center_history[0][part_ind]
+                    current_generation_method.position_center_history[part_ind][0]
                     == particle.position_center
                 )
             )

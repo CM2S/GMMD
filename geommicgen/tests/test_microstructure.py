@@ -4,7 +4,7 @@ from unittest.mock import sentinel, Mock, patch
 # from microstructure.phase import Phase
 
 
-from geommicgen.microstructure.microstructure import Microstructure
+from microstructure.microstructure import Microstructure
 
 
 class TestMicrostructure(unittest.TestCase):
@@ -58,11 +58,11 @@ class TestMicrostructure(unittest.TestCase):
         self.assertEqual(self.microstructure_2D.matrix_phase, matrix_mock.name)
 
     def test_add_phase_mic_dim_incompatible_w_particle(self):
-        """Check if multiple matrix phases raise an exception"""
+        """Check if matrix/particle incompatibility is detected."""
         matrix_mock = sentinel.matrix
         matrix_mock.type = Mock(__name__="Matrix")
         disks_mock = sentinel.disks
-        disks_mock.type = Mock(__name__="Disk")
+        disks_mock.type = Mock(__name__="Sphere")
         disks_mock.type.dim = 3
         with self.assertRaises(ValueError):
             # Number of RVE dimensions is not compatible with particle type
@@ -70,7 +70,18 @@ class TestMicrostructure(unittest.TestCase):
             self.microstructure_2D.add_phase(disks_mock)
 
     def test_add_phase_incompatible_phases(self):
-        self.assertTrue(False)
+        matrix_mock = sentinel.matrix
+        matrix_mock.type = Mock(__name__="Matrix")
+        cylindricalfiber_mock = sentinel.cylindricalfiber
+        cylindricalfiber_mock.type = Mock(__name__="CylindricalFiber")
+        spheres_mock = sentinel.disks
+        spheres_mock.type = Mock(__name__="Sphere")
+        spheres_mock.type.dim = 3
+        with self.assertRaises(ValueError):
+            # Number of RVE dimensions is not compatible with particle type
+            self.microstructure_3D.add_phase(matrix_mock)
+            self.microstructure_3D.add_phase(spheres_mock)
+            self.microstructure_3D.add_phase(cylindricalfiber_mock)
 
     # with self.assertRaises(ValueError):
     #     # Number of RVE dimensions is not compatible with particle type
