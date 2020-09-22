@@ -412,7 +412,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
             # # Print info about the iteration
             while (
                 self.step < self.max_step
-            ) and n_steps_relax < self.max_steps_to_relax:
+            ) and n_steps_relax <= self.max_steps_to_relax:
                 # Run the simulation while the number of steps the overlap has been smaller
                 # than the  allowed maximum residue is larger than
                 # options['max_steps_to_relax'], so that the  particles have time to get
