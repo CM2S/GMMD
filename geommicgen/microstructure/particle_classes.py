@@ -1757,6 +1757,32 @@ class Ellipsoid(Particle):
         # Semi-latus rectum
         return erosion_thickness
 
+    def intersection(self, other_particle: Particle, box: list) -> bool:
+        """
+        Check if the Ellipsoid intersects the other particle.
+
+        Parameters
+        ----------
+        other_particle: `.Particle`
+            Other particle
+
+        box: list
+            Dimensions of the simulation box.
+
+        Returns
+        -------
+        intersection: bool
+            True if the particles intersect.
+        """
+        if isinstance(other_particle, Sphere, Ellipsoid):
+            other_particle: Ellipsoid
+            # The other particle is also an Ellipsoid or subclass
+            intersection = self.intersection_ellipsoid_ellipsoid(other_particle, box)
+        else:
+            raise ValueError("Incompatible particles.")
+        return intersection
+        # Returning the intersection area
+
 
 class Sphere(Ellipsoid):
     """
