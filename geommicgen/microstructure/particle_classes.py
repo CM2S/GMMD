@@ -712,6 +712,41 @@ class Ellipse(Particle):
         # Semi-latus rectum
         return erosion_thickness
 
+    def uniform_sample_ellipse(self, n_samples=1):
+        """Generate uniform random sample of points inside an ellipse."""
+        points = []
+        for _ in range(n_samples):
+            z = np.array([0.0, 0.0])
+            z[0] = np.random.normal()
+            z[1] = np.random.normal()
+            r = np.random.uniform() ** (1 / 2)
+            R = np.linalg.norm(z)
+            x_loc = r * self.semi_major_axis * z[0] / R
+            y_loc = r * self.semi_minor_axis * z[1] / R
+            [x_glob, y_glob] = self.rot_mat.dot([x_loc, y_loc]) + self.position_center
+            points.append(np.array([x_glob, y_glob]))
+
+        return points
+
+    def regular_sample_ellipse(self, n_samples=1):
+        """Generate a regular grid of points inside the ellipse."""
+        n_theta = int(np.sqrt(n_samples ** (1)))
+        n_r = int(np.round(n_samples / n_theta))
+        theta = np.linspace(0, 2 * np.pi, n_theta, endpoint=False)
+        r = np.linspace(0.01, 1, n_r, endpoint=True)
+        points = []
+        for i_theta, j_radius in [
+            (i_theta, j_radius) for i_theta in theta for j_radius in r
+        ]:
+            [x_loc, y_loc] = [
+                j_radius * self.semi_major_axis * np.cos(i_theta),
+                j_radius * self.semi_minor_axis * np.sin(i_theta),
+            ]
+            [x_glob, y_glob] = self.rot_mat.dot([x_loc, y_loc]) + self.position_center
+            points.append(np.array([x_glob, y_glob]))
+
+        return points
+
 
 class Disk(Ellipse):
     """
@@ -2147,50 +2182,6 @@ def intersection_points_ellipses(
                 # if on_ellipse_2_1 and on_ellipse_2_2 and np.abs(x_pt)<0.05:
                 #     intersect_pts.pop()
     return intersect_pts
-
-
-def uniform_sample_ellipse(center, A, B, angle):
-    """Generate uniform random sample of points inside an ellipse."""
-    z = np.array([0.0, 0.0])
-    z[0] = np.random.normal()
-    z[1] = np.random.normal()
-    r = np.random.uniform() ** (1 / 2)
-    R = np.linalg.norm(z)
-    x = r * A * z[0] / R
-    y = r * B * z[1] / R
-    rot_mat = np.array(
-        [[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]
-    )
-    [x, y] = rot_mat.dot([x, y])
-
-    return [x + center[0], y + center[1]]
-
-
-def regular_sample_ellipse(center, A, B, angle, n_samples):
-    """Generate a regular grid of points inside the ellipse."""
-    n_theta = int(np.sqrt(n_samples ** (1)))
-    n_r = int(np.round(n_samples / n_theta))
-    print(n_theta, n_r)
-    theta = np.linspace(0, 2 * np.pi, n_theta, endpoint=False)
-    rot_mat = np.array(
-        [[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]
-    )
-    r = np.linspace(0.01, 1, n_r, endpoint=True)
-    k_sample = 0
-    x = []
-    y = []
-    for i_theta in theta:
-        for j_radius in r:
-            x.append(j_radius * A * np.cos(i_theta))
-            y.append(j_radius * B * np.sin(i_theta))
-
-            [x[k_sample], y[k_sample]] = rot_mat.dot([x[k_sample], y[k_sample]]) + [
-                center[0],
-                center[1],
-            ]
-            k_sample += 1
-
-    return [x, y]
 
     # if __name__ == "__main__":
     #     # Test drive
