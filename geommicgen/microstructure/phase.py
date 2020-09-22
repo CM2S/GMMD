@@ -171,10 +171,11 @@ class Phase:
             vf_real = 0
             # Initializing the real volume fraction
             while vf_real < self.descriptors["vf"].value:
+
                 for i_descriptor_name, i_descriptor in self.descriptors.items():
                     current_sample[i_descriptor_name] = i_descriptor.generate_sample()
-                    particles.append(self.type(self.name, current_sample, rve_dims))
-                    vf_real += particles[-1].volume / np.prod(rve_dims)
+                particles.append(self.type(self.name, current_sample, rve_dims))
+                vf_real += particles[-1].volume / np.prod(rve_dims)
         else:
             # The desired number of disks was specified
             samples = {}
@@ -190,7 +191,7 @@ class Phase:
                 }
                 particles.append(self.type(self.name, i_particle_descriptors, rve_dims))
 
-        return particles
+        self.particles = particles
 
 
 class PhaseDescriptor(abc.ABC):
