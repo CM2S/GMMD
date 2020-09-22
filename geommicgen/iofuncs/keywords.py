@@ -75,8 +75,16 @@ class Keyword(object):
                     # Remove squre brackets from vector
                     final_val = np.array([float(val) for val in value_str])
             elif self.type == "int":
-                value_str = line.split()[1]
-                final_val = int(value_str)
+                value_str = line.split()[1:]
+                if len(value_str) == 1:
+                    final_val = int(value_str[0])
+                else:
+                    value_str = " ".join(value_str)
+                    value_str = value_str.split(", ")
+                    value_str[0] = value_str[0][1:]
+                    value_str[-1] = value_str[-1][:-1]
+                    # Remove squre brackets from vector
+                    final_val = np.array([int(val) for val in value_str])
             elif self.type == "bool":
                 value_str = line.split()[1]
                 if value_str == "True":
