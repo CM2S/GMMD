@@ -1551,15 +1551,9 @@ class Ellipsoid(Particle):
         overlap_volume: float
             Overlap volume(area) between the ellipsoid and the other particle.
         """
-        diff_in_box = self.position_center - other_particle.position_center
-        diff_nearest_other = box * np.round(diff_in_box / box)
-        # Computing the difference vector between the centers of the current sphere and
-        # the nearest image of the other sphere
 
         if isinstance(other_particle, Ellipsoid):
-            intersection = self.intersection_ellipsoids(
-                other_particle, diff_nearest_other, box
-            )
+            intersection = self.intersection_ellipsoid_ellipsoid(other_particle, box)
             # Saving the class name of the other particle as a string
             if intersection:
                 # There is overlap
@@ -1572,7 +1566,7 @@ class Ellipsoid(Particle):
                 overlap_volume = 0
         return overlap_volume
 
-    def intersection_ellipsoids(self, other_ellipsoid, diff_nearest, verlet=False):
+    def intersection_ellipsoid_ellipsoid(self, other_ellipsoid, box):
         """
         Check if the current and the other ellipsoid intersect.
         """
@@ -1685,6 +1679,11 @@ class Ellipsoid(Particle):
             eta_4 = -(p_4_bar - p_1_bar * p_3_bar)
             eta_5 = p_1_bar ** 2 - p_2_bar
             return [eta_1, eta_2, eta_3, eta_4, eta_5]
+
+        diff_in_box = self.position_center - other_ellipsoid.position_center
+        diff_nearest = box * np.round(diff_in_box / box)
+        # Computing the difference vector between the centers of the current sphere and
+        # the nearest image of the other sphere
 
         p = coefficients_characteristic_equation(
             self.M(),
