@@ -204,14 +204,14 @@ class FEMMeshGenerator(MeshGenerator):
         Element descriptors.
         """
         if mesh_size < 0:
-            raise ValueError
+            raise ValueError("The mesh size must be a positive number.")
         self.mesh_size = mesh_size
         if element_type not in FEMMeshGenerator.known_element_descriptors:
-            raise ValueError
+            raise ValueError("Unknown element: {0}".format(element_type))
         if FEMMeshGenerator.known_element_descriptors[element_type]["dim"] != len(
             rve_dims
         ):
-            raise ValueError
+            raise ValueError("Element chosen has the wrong dimension.")
         self.element_type = element_type
         self.descriptors_element_type = FEMMeshGenerator.known_element_descriptors[
             element_type
@@ -816,9 +816,13 @@ class RegularGridMeshGenerator(MeshGenerator):
             Dimensions of the microstucutre in each spatial direction.
         """
         if len(n_voxels_dims) != len(rve_dims):
-            raise ValueError
+            raise ValueError(
+                "Number of voxels specified incompatible with RVE dimensions."
+            )
         if any([n_voxel < 1 for n_voxel in n_voxels_dims]):
-            raise ValueError
+            raise ValueError(
+                "The number of voxels in each direction has to be larger than 1."
+            )
         self.n_voxels_dims = np.array(n_voxels_dims)
 
     def generate_mesh(self, microstructure_sample, sample_dir):
