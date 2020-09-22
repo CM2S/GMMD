@@ -30,7 +30,6 @@ def print_rgmsh_output(filepath):
     print_to_file("\t Output file: {0}".format(filepath))
 
 
-def printToFile(message, end="\n"):
 def print_final_message(time, total_overlap, number_iterations, max_overlap):
     print_to_file("")
     print_to_file("MD simulation results")
@@ -40,8 +39,16 @@ def print_final_message(time, total_overlap, number_iterations, max_overlap):
     print_to_file("Total overlap: {:.2e}".format(total_overlap))
     print_to_file("Maximum overlap: {:.2e}".format(max_overlap))
     print_to_file("\n")
+
+
+def print_to_file(message, end="\n"):
     """Print to the screen file of corresponding to the current `.Particle` object"""
-    with open("temp.screen", "a") as screen:
+
+    if os.path.exists("temp.screen"):
+        action = "a"
+    else:
+        action = "w"
+    with open("temp.screen", action) as screen:
         print(message, file=screen, end=end)
     print(message, end=end)
 
