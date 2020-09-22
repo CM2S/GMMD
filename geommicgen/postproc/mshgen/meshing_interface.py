@@ -656,9 +656,7 @@ class FEMMeshGenerator(MeshGenerator):
         gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
         trans_vec = [0, 0, 0]
         trans_vec[direction] = rve_dims[direction]
-        normal_plane = (
-            list(rve_dims) if len(rve_dims) == 3 else list(rve_dims).append(0)
-        )
+        normal_plane = list(rve_dims) if len(rve_dims) == 3 else list(rve_dims) + [0]
         normal_plane[direction] = 0
         translation_4_mat = [
             1,
