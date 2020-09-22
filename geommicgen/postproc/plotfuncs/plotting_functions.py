@@ -148,9 +148,8 @@ def set_style(artists, ax, style):
         artist.set_color(colors[ind])
 
 
-def generate_colors(particles):
+def generate_colors(n_colors):
     """Generate a color for each pahse."""
-    colors = {}
     colors_def = [
         (68 / 255, 119 / 255, 170 / 255, 1),
         (102 / 255, 204 / 255, 238 / 255, 1),
@@ -160,15 +159,7 @@ def generate_colors(particles):
         (170 / 255, 51 / 255, 119 / 255, 1),
         (187 / 255, 187 / 255, 187 / 255, 1),
     ]
-    k_color = 0
-    for phase in Particle.list_phases:
-        # Running through all the phases
-        if phase == Particle.matrix_phase:
-            continue
-        colors[phase] = colors_def[k_color]
-        k_color += 1
-
-    return colors
+    return colors_def[0 : n_colors + 1]
 
 
 def plot_particles(particles, rve_dims, sample_dir, **kwargs):
@@ -198,7 +189,7 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
     # Setting the correct proportions
 
     phases = list({i_particle.phase for i_particle in particles})
-    colors = generate_colors(len)
+    colors = generate_colors(len(phases))
     phase_colors = dict(zip(phases, colors))
 
     for i_particle in particles:
