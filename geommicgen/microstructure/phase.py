@@ -142,7 +142,6 @@ class Phase:
                 raise
 
         self.virtual_volume_fraction = 0
-        self.number_particles = 0
         self.particles = []
 
     @property
@@ -153,6 +152,11 @@ class Phase:
             volume_fraction += particle.volume / self.microstructure.volume
 
         return volume_fraction
+
+    @property
+    def number_particles(self):
+        """Number of particles."""
+        return len(self.particles)
 
     def generate_particles(self, rve_dims):
         """
