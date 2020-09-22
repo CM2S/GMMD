@@ -112,8 +112,13 @@ class Phase:
                                     ]
                                 )
                                 # Save the value
-                            except KeyError as error:
-                                raise KeyError from error
+                            except KeyError:
+                                print(
+                                    "The probability for {0} was not supplied in Phase {1}.".format(
+                                        descriptor + "_value", self.name
+                                    )
+                                )
+                                raise
 
                     self.descriptors[descriptor] = DiscreteDistribution(
                         descriptor, values, probabilities
@@ -123,12 +128,18 @@ class Phase:
                         descriptor, phase_descriptors[descriptor]
                     )
                 else:
-                    raise ValueError
-            except KeyError as e:
-                print("Error")
-
-            except ValueError as e:
-                print("Error")
+                    raise ValueError(
+                        "The distribution supplied for {0} in Phase {1} is not supported".format(
+                            descriptor, self.name
+                        )
+                    )
+            except KeyError:
+                print(
+                    "The descriptor {0} in Phase {1} is not completly defined.".format(
+                        descriptor, self.name
+                    )
+                )
+                raise
 
         self.virtual_volume_fraction = 0
         self.number_particles = 0
@@ -334,7 +345,11 @@ class UniformDistribution(PhaseDescriptor):
             Upper bound of the uniform distribution.
         """
         if low > high:
-            raise ValueError
+            raise ValueError(
+                "Descriptor {0}: For a uniform distribution the lower bound must be smaller than the upper bound.".format(
+                    name
+                )
+            )
 
         self.low = low
         self.high = high
@@ -343,7 +358,7 @@ class UniformDistribution(PhaseDescriptor):
     def generate_sample(self, n_samples=1):
         """Generate sample from a normal distribution."""
         sample = np.random.uniform(low=self.low, high=self.high, size=n_samples)
-        return sample
+        return sample if len(sample) > 1 else sample[0]
 
 
 class DiscreteDistribution(PhaseDescriptor):
@@ -385,7 +400,9 @@ class DiscreteDistribution(PhaseDescriptor):
         """
         if np.abs(np.sum(probabilities) - 1) > 1e-2:
             # probabilities don't add up to one
-            raise ValueError
+            raise ValueError(
+                "Descriptor {0}: The probabilities must sum to one.".format(name)
+            )
 
         self.values = values
         self.probabilities = probabilities
