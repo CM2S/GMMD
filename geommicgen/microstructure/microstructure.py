@@ -46,10 +46,12 @@ class Microstructure:
         self.dim = len(rve_dims)
         if self.dim != 2 and self.dim != 3:
             # Only 2D and 3D microstructures allowed
-            raise ValueError
+            raise ValueError("Only 2D and 3D microstucutres are supproted.")
         if any([rve_dim <= 0 for rve_dim in self.rve_dims]):
             # The dimnesion of the microstrucutre must be positive
-            raise ValueError
+            raise ValueError(
+                "The dimensions of the microstucutre must be positive values."
+            )
         self.volume = np.prod(rve_dims)
         self.phases = {}
 
@@ -65,8 +67,13 @@ class Microstructure:
         phase.microstructure = self
         if self.phases[phase.name].type.__name__ == "Matrix":
             if self.matrix_phase is not None:
-                raise ValueError
+                raise ValueError(
+                    "The matrix for Phase {0} was specified twice.".format(phase.name)
+                )
             self.matrix_phase = phase.name
         else:
             if self.dim != self.phases[phase.name].type.dim:
-                raise ValueError
+                raise ValueError(
+                    "The particle type chosen is not compatible "
+                    + "with the dimensions of the microstructure."
+                )
