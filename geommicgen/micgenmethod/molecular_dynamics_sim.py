@@ -214,11 +214,10 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 for particle in particles
             ]
         ):
-            ax_ind = {"x": 0, "y": 1, "z": 2}
-            self.box = rve_dims
-            del self.box[ax_ind[particles[0].direction_fibers]]
+            self.box = list(rve_dims)
+            del self.box[particles[0].direction_fibers]
         else:
-            self.box = rve_dims
+            self.box = list(rve_dims)
 
     def set_thermostat(self, thermostat):
         """Set the thermostat for the moleuclar dynamics simulation."""
