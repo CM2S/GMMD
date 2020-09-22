@@ -12,7 +12,6 @@ def doMotionAnalysis(particles, rve_dims, sample_dir, **kwargs):
 
     motion_results_dir = os.path.join(sample_dir, "motion_results")
     os.makedirs(motion_results_dir)
-    plot_particles(particles, rve_dims, motion_results_dir)
     if "position_center_history" in kwargs:
         plot_paths(particles, kwargs["position_center_history"], motion_results_dir)
 
