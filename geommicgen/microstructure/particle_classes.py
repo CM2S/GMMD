@@ -1888,7 +1888,7 @@ class Sphere(Ellipsoid):
         elif isinstance(other_particle, Ellipsoid):
             # The other particle is an Ellipsoid
             other_particle: Ellipsoid
-            intersection_volume = other_particle.intersection_area(self)
+            intersection_volume = other_particle.intersection_area(self, box)
             # Computing the intersection area
         return intersection_volume
         # Returning the intersection area
@@ -2031,7 +2031,6 @@ class Sphere(Ellipsoid):
         # Generating the points in the Sphere's local coordinates
         points_glob = points_loc + self.position_center
         # Transforming local in global coordinates
-        print(points_glob)
         return points_glob
 
     def compute_critical_erosion_thickness(self):
