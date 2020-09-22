@@ -369,7 +369,7 @@
 [insert here]
 
 
-#                                                  Thermostat used during the simulation [O]
+#                                                  Initial temperature for the thermostat [O]
 # ==========================================================================================
 # Meaning:   Initial temperature of the system of particles, as understood from the
 #	     equipartion theorem from statistical mechanics. It is not in kelvin.
@@ -379,6 +379,18 @@
 # x:         float
 # ------------------------------------------------------------------------------------------
 [insert here]
+
+#                                           Minimum number of iteration at a temperature [O]
+# ==========================================================================================
+# Meaning:   Minimum number of iterations spent at each temperatue stage before the
+#	     temperature can be lowered.
+#
+# Syntax:    Min_Eq_Steps_At_Temp x (default to 25)
+#
+# x:         int
+# ------------------------------------------------------------------------------------------
+[insert here]
+
 
 
 #                                                     Minimum distance between particles [O]
