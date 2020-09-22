@@ -82,6 +82,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
     save_history: bool
         Save all the trajectories of the particles, the history of the relative and
         kinetic energy.
+
+    step: int
+        Current iteration of the MD simulation.
     """
 
     def __init__(
@@ -146,6 +149,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.dt = dt
         self.save_history = save_history
         self.time = None
+        self.step = 0
+        # Initializing the the time step at 0
 
     def generate_microstructure(self, microstructure_sample):
         """
