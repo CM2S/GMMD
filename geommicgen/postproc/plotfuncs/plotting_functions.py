@@ -218,7 +218,7 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
 def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
 
     dim = len(rve_dims)
-    mesh_generator = FEMMeshGenerator(particles[0].radius / 10, "tetra4", rve_dims)
+    mesh_generator = FEMMeshGenerator(particles[0].radius / 5, "tetra4", rve_dims)
 
     mesh_generator.init_gmsh_model()
 
@@ -269,7 +269,7 @@ def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
     gmsh.option.setNumber("Mesh.CharacteristicLengthMax", mesh_generator.mesh_size)
 
     # Generate a 3D mesh
-    model.mesh.generate(3)
+    model.mesh.generate(2)
 
     _ = mesh_generator.write_mesh_gmsh(sample_dir, "final_config")
 

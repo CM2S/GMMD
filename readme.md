@@ -8,7 +8,7 @@
 
 ### Summary
 (???) is a numerical tool developed in the context of computational mechanics to aid the design and development of advanced materials.
-Employing a time-driven molecular dynamics simulation, (???) offers a solution to generate microstructures of matrix-composite materials in a computationally **efficient** and **robust** way. 
+Employing a time-driven molecular dynamics simulation, (???) offers a solution to generate microstructures of matrix-composite materials in a computationally **efficient** and **robust** way.
 
 
 ### Authors
@@ -42,7 +42,7 @@ other softwares implemented in different programming languages and benefiting fr
 ### Post-processing:
 * Mesh output files.
   - Regular mesh with the desired number of voxels in each spatial direction.
-  - Non conform finite element mesh. 
+  - Non conform finite element mesh.
 * VTK (XML format)(?) output files allowing the visualization of data associated to the material microstructure (material phases, material clusters, ...) and response local fields (strain, stress, internal variables, ...);
 * Voronoi metrics based on the Minkowski Structure Metrics and the Minkowski Irreducible Tensors.
 
@@ -68,7 +68,7 @@ Some software must be installed in order to successfully run (???):
 
   > In Linux/UNIX operative systems, pip can be simply installed from apt library by executing the following command:  
   `sudo apt install python3-pip`
-  
+
 * ParaView (see [here](https://www.paraview.org/download/)) - Required to visualize the data contained in the VTK output files (learn [here](https://www.paraview.org/resources/));  
 
   > In Linux/UNIX operative systems, ParaView can be installed by placing the tarball in the installation directory and extracting it by executing the following command:  
@@ -88,6 +88,6 @@ A complete (???) input data file where each parameter specification (either mand
     > In Linux/UNIX operative systems, open a terminal console window and execute the following command:  
     `python3.X (???).py input_data_file.dat`
      <br/><br/>
-    The program execution can be followed in the terminal console window, where the data associated to the program launch, to the progress of the main execution phases and to the program end is output. 
-  
-3. **Get results.** As soon as (???) is executed according to an input data file (lets say, `input_data_file.dat`), a folder with the same name is created in the same directory (`input_data_file/`). This folder contains all the output data related to the microstructure generation, namely: (? - to be decided) a log file (`input_data_file.screen`), where all data printed to the default standard ouput is stored; a homogenized results file (`input_data_file.hres`), where the homogenized results are stored; and one or more VTK output files (`.vti`) that can be read with a suitable software (e.g. [ParaView](https://www.paraview.org/)) to visualize and analyse the problem data.
+    The program execution can be followed in the terminal console window, where the data associated to the program launch, to the progress of the main execution phases and to the program end is output.
+
+3. **Get results.** As soon as (???) is executed according to an input data file (lets say, `input_data_file.dat`), a folder with the same name is created in the same directory (`input_data_file/`). This folder contains all the output data related to the microstructure generation, namely: (? - to be decided) a log file (`input_data_file.screen`), where all data printed to the default standard ouput is stored;

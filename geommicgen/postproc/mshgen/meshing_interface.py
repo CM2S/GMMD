@@ -11,7 +11,7 @@ import abc
 # GMSH module
 import gmsh
 
-# Finite element mesh conversor to LINKS
+# pylint: disable=import-error
 from gmsh2links.main import readMesh
 from microstructure.particle_classes import (
     Disk,
@@ -24,7 +24,6 @@ from microstructure.particle_classes import (
 # Importing the particle class
 
 import numpy as np
-import errors.error_classes as errors
 
 from iofuncs.printing import print_rgmsh_output, print_femsh_output
 
@@ -65,8 +64,9 @@ class FEMMeshGenerator(MeshGenerator):
 
     enforce_pbc_flag: bool
         Flag for the enforcement of periodic boundary conditions. By defalut True. Only set
-        to  False if there are Ellipsoids in the microstructure. Gmsh has not been able to
-        produce  microstucutres containing Ellipsoids and with pbcs.
+        to  False if there are Ellipsoids or CylindricalFibers in the microstructure. Gmsh
+        has not been able to produce  microstucutres containing Ellipsoids or
+        CylindricalFibers and with pbcs.
 
     Class Attributes
     ----------------
@@ -216,7 +216,7 @@ class FEMMeshGenerator(MeshGenerator):
             element_type
         ]
         kwargs.update(self.descriptors_element_type)
-        self.output_term = kwargs.get("output_term", False)
+        self.output_term = kwargs.get("output_term", 1)
         self.particle_tags = []
         self.box_tag = None
         self.phase_dim_tag = None
@@ -336,7 +336,6 @@ class FEMMeshGenerator(MeshGenerator):
 
     def write_mesh_gmsh(self, mesh_results_dir, name):
         """Write the mesh to the .msh and .vtk file."""
-
         meshfile_temp = os.path.join(mesh_results_dir, name + "_temp.msh")
         meshfile = os.path.join(mesh_results_dir, name + ".msh")
         vtk_temp = os.path.join(mesh_results_dir, name + "_temp.vtk")
@@ -502,6 +501,7 @@ class FEMMeshGenerator(MeshGenerator):
 
                 factory.synchronize()
                 if isinstance(i_particle, CylindricalFiber):
+                    self.enforce_pbc_flag = False
                     face_tag = factory.addDisk(x_c, y_c, z_c, r_x, r_y)
                     # Saving the properties of the particles
                     if i_particle.direction_fibers == 0:
@@ -804,6 +804,15 @@ class FEMMeshGenerator(MeshGenerator):
 
 
 class RegularGridMeshGenerator(MeshGenerator):
+    """
+    Class for the mesh generator of finite element meshes.
+
+    Attributes
+    ----------
+    n_voxels_dims: array(int)
+        Number of voxels in each spatial direction.
+    """
+
     def __init__(self, n_voxels_dims, rve_dims):
         """
         Initialize a RegularGridMeshGenerator class object.
@@ -905,17 +914,40 @@ class RegularGridMeshGenerator(MeshGenerator):
                 # Center of the pixel corresponding to row i_row, column j_column and
                 # layer k_layer
                 for l_particle in microstructure_sample.particles:
-                    # Running through all the particles
-                    diff_in_box = l_particle.position_center - center_pixel_i_j_k
-                    # Difference vector between the center of the two ellipses
-                    diff_nearest_other = rve_dims * np.round(diff_in_box / rve_dims)
-                    # Vector from the particle whose center is in the RVE to the nearest
-                    # image
-                    if l_particle.point_inside(center_pixel_i_j_k + diff_nearest_other):
-                        # The center of the pixel is inside particle k_particle
-                        regular_grid[i_row, j_column, k_layer] = l_particle.phase
-                        # Setting pixel [i_row, j_column, k_layer] as belong to the
-                        # phase of particle k_particle
+                    if l_particle.__class__.__name__ == "CylindricalFiber":
+                        box_indices = [0, 1, 2]
+                        box_indices.remove(l_particle.direction_fibers)
+                        # Running through all the particles
+                        diff_in_box = (
+                            l_particle.position_center - center_pixel_i_j_k[box_indices]
+                        )
+                        # Difference vector between the center of the two ellipses
+                        diff_nearest_other = rve_dims[box_indices] * np.round(
+                            diff_in_box / rve_dims[box_indices]
+                        )
+                        # Vector from the particle whose center is in the RVE to the nearest
+                        # image
+                        if l_particle.point_inside(
+                            center_pixel_i_j_k[box_indices] + diff_nearest_other
+                        ):
+                            # The center of the pixel is inside particle k_particle
+                            regular_grid[i_row, j_column, k_layer] = l_particle.phase
+                            # Setting pixel [i_row, j_column, k_layer] as belong to the
+                            # phase of particle k_particle
+                    else:
+                        # Running through all the particles
+                        diff_in_box = l_particle.position_center - center_pixel_i_j_k
+                        # Difference vector between the center of the two ellipses
+                        diff_nearest_other = rve_dims * np.round(diff_in_box / rve_dims)
+                        # Vector from the particle whose center is in the RVE to the nearest
+                        # image
+                        if l_particle.point_inside(
+                            center_pixel_i_j_k + diff_nearest_other
+                        ):
+                            # The center of the pixel is inside particle k_particle
+                            regular_grid[i_row, j_column, k_layer] = l_particle.phase
+                            # Setting pixel [i_row, j_column, k_layer] as belong to the
+                            # phase of particle k_particle
 
             filename = "{0[0]}_{0[1]}_{0[2]}".format(self.n_voxels_dims)
 

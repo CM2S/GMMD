@@ -19,24 +19,25 @@ class Phase:
 
     Attributes
     ----------
-    number_particles: integer
-        Number of particles in the phase.
+    name: str
+        Name of the phase.
 
-    volume_fraction: float
-        Volume fraction of the phase.
-
-    type: int
+    type: `.Particle`
         Type of phase.
 
-    type_name: string
-        Name of the phase type.
+    descriptors: dict
+        Dictionary containing as keys the names of the descriptors and as values the
+        descriptor class objects.
 
-    geometrical_descriptors: set(strings)
-        Geometrical descriptors of the phase.
+    microstucutre: `.Microstructure`
+        Microstructure containing the phase.
+
+    particles: list(`.Particles`)
+        List of particles belonging to the phase.
 
     Class Attributes
     ----------------
-    phase_type_name: dict
+    phase_types: dict
         Dictinary containing the correspondence between a phase type and its name.
     """
 
@@ -54,7 +55,7 @@ class Phase:
         """
         Intialize a Phase class instance.
 
-        Parameter
+        Parameters
         ---------
         name: string
             Name of the phase.
@@ -62,6 +63,14 @@ class Phase:
         phase_descriptors: dict
             Phase descriptors such as the phase type, the volume fraction, number of
             particles and so on.
+
+        Raises
+        -------
+        KeyError:
+            If there are descriptor parameters missing.
+
+        ValueError:
+            If the distribution specified for one of the descriptors is not supported.
         """
         self.microstucutre = None
         self.name = name
@@ -142,7 +151,6 @@ class Phase:
                 )
                 raise
 
-        self.virtual_volume_fraction = 0
         self.particles = []
 
     @property
@@ -156,7 +164,7 @@ class Phase:
 
     @property
     def number_particles(self):
-        """Number of particles."""
+        """Get number of particles."""
         return len(self.particles)
 
     def generate_particles(self, rve_dims):

@@ -49,7 +49,7 @@ def print_final_message(time, total_overlap, number_iterations, max_overlap):
 
 
 def print_to_file(message, end="\n"):
-    """Print to the screen file of corresponding to the current `.Particle` object"""
+    """Print to the screen file of corresponding to the current microstucutre sample."""
 
     if os.path.exists("temp.screen"):
         action = "a"
@@ -70,11 +70,15 @@ def print_to_terminal_refresh(
         print("=" * 80 + "\n")
         print("Step: {0}".format(step))
         print("Total Overlap: {:.2e}".format(total_overlap))
+        # print("Relative Energy: {:.2e}".format(relative_energy))
+        # print("Kinetic Energy: {:.2e}".format(kin_energy))
     else:
-        for i in range(2):
+        for _ in range(2):
             print("\033[F\033[K", end="")
         print("Step: {0}".format(step))
         print("Total Overlap: {:.2e}".format(total_overlap))
+        # print("Relative Energy: {:.2e}".format(relative_energy))
+        # print("Kinetic Energy: {:.2e}".format(kin_energy))
 
 
 def print_microstructure_info(microstucutre):

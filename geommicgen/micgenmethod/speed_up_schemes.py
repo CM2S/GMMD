@@ -7,6 +7,8 @@ list is computed from the cell list.
 
 import abc
 from functools import cached_property
+from copy import deepcopy
+
 import numpy as np
 
 
@@ -35,6 +37,9 @@ class CellList(SpeedUpScheme):
 
     cell_list: list(set)
         List containing the set of particles in each cell.
+
+    pos_cell_list: list(int)
+        List containing the cell location for each particle.
     """
 
     def __init__(self):
@@ -44,6 +49,7 @@ class CellList(SpeedUpScheme):
         # Saving the maximum radius of the circunscribing disk/sphere
         self.particle_list = None
         self.cell_list = None
+        self.pos_cell_list = []
 
     @cached_property
     def n_cell_dim(self):
@@ -287,8 +293,9 @@ class VerletList(CellList):
     new_verlet_list: bool
         Flag to signal the computation of a new Verlet list.
 
-    cell_list: list(int)
-        Cell list used to compute the Verlet list.
+    verlet_neighboorhoods: list(`.Particle`)
+        List of Verlet neighboorhoods, having the same shape as the corresponding particles,
+        but larger.
     """
 
     def __init__(self, verlet_factor):
@@ -318,14 +325,17 @@ class VerletList(CellList):
             Particles in the simulatin box, whose cell list is to be computed.
         """
         if self.verlet_neighboorhoods is None:
-            self.verlet_neighboorhoods = particles
-            for i_particle in particles:
-                i_particle.dilate((self.verlet_factor - 1) * i_particle.radius)
+            self.verlet_neighboorhoods = deepcopy(particles)
+            for i_particle_index, i_particle in enumerate(particles):
+                self.verlet_neighboorhoods[i_particle_index].dilate(
+                    (self.verlet_factor - 1) * particles[i_particle_index].radius
+                )
             # Initializing the displacement_last_verlet
         for i_particle_index, i_particle in enumerate(particles):
             # Computing the displacement of the center of the particle
-            if not i_particle.intersection(
-                self.verlet_neighboorhoods[i_particle_index]
+            if i_particle.intersection(
+                self.verlet_neighboorhoods[i_particle_index],
+                self.molecular_dynamics_sim.box,
             ):
                 # Checking if the displacement takes the particle out of its neighboorhood
                 self.new_verlet_list = True
@@ -335,23 +345,24 @@ class VerletList(CellList):
             self.new_verlet_list = False
             super().new_list(particles)
             # Creating the cell list used to compute the Verlet list
+            particle_list_from_cell_list = self.particle_list
+            self.particle_list = [[] for _ in particles]
+            # Resetting the Verlet list of
             for i_particle_index, i_particle in enumerate(particles):
                 # Running though all the particles
                 self.verlet_neighboorhoods[
                     i_particle_index
-                ] = i_particle.position_center
+                ].position_center = i_particle.position_center
                 # Updating the position of all the Verlet neighboorhoods to coincide with
                 # the particles current position
-                particle_list_from_cell_list = self.particle_list
-                self.particle_list = []
-                # Resetting the Verlet list of particle i
-                for j_particle_index in particle_list_from_cell_list:
+                for j_particle_index in particle_list_from_cell_list[i_particle_index]:
                     # Running through all the particles in the neighboring cell
                     if self.verlet_neighboorhoods[i_particle_index].intersection(
-                        self.verlet_neighboorhoods[j_particle_index]
+                        self.verlet_neighboorhoods[j_particle_index],
+                        self.molecular_dynamics_sim.box,
                     ):
                         # If the neighboorhoods of the particles intersect
-                        particles[i_particle].particle_list.append(j_particle_index)
+                        self.particle_list[i_particle_index].append(j_particle_index)
                         # Add the particle j_particle to i_particle's Verlet list
 
 
@@ -371,6 +382,10 @@ class Naive(SpeedUpScheme):
         Flag to signal the computation of a new Verlet list.
     """
 
+    def __init__(self):
+        """Initialize a Naive class object. It does nothing."""
+        self.particle_list = []
+
     def new_list(self, particles):
         """
         Use all the particles.
@@ -379,4 +394,4 @@ class Naive(SpeedUpScheme):
         ----------
         Particles in the simulatin box, whose cell list is to be computed.
         """
-        self.particle_list = list(range(len(particles)))
+        self.particle_list = [list(range(len(particles))) for _ in particles]

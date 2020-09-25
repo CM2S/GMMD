@@ -23,6 +23,7 @@ class MicroCanonicalEnsemble(Thermostat):
     """This is the class for no thermostat, producing a micro canonical ensemble."""
 
     def __init__(self):
+        """Initialize MicroCanonicalEnsemble class object. Do nothing."""
         self.reference_temp = None
 
     def apply_thermostat(self, particle_velocities, kin_energy):
@@ -105,17 +106,21 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
 
     Attributes
     ----------
-    reference_temp: float
-        Reference temperature to be maintained by the thermostat.
-
-    k_b: float
-        Analog of the Boltzmann constant.
-
     molecular_dynamics_sim: `.MolecularDynamicsSimulation`
         MD simulatin to which the thermostat is being applied.
 
     temp_change_steps: list(int)
         Steps at which the temperature was lowered.
+
+    min_eq_steps_at_temp: int
+        Minimum number of iterations spent at a the current temperature stage. After this
+        number of iterations the temperature may be lowered.
+
+    eq_steps_list: list
+        List of the real number of equilibration steps used.
+
+    _next_temp_change: int
+        Iteration at which the temperature may be lowered.
     """
 
     def __init__(self, initial_temp, min_eq_steps_at_temp):

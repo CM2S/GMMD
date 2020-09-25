@@ -34,6 +34,9 @@ class Particle(abc.ABC):
     ---------------
     possible_parameters: dict
         Possible parameters characterizing a phase containing this of particle.
+
+    acceptable_descriptions: list(set)
+        List of acceptable descriptions.
     """
 
     possible_parameters = {
@@ -53,6 +56,9 @@ class Particle(abc.ABC):
 
         phase: str
             Name of the phase to which the particle belongs.
+
+        position_center: array
+            Position of the center of mass of the particle.
         """
         self.dim = dim
         # Setting the the dimension where the particle "lives"
@@ -88,7 +94,21 @@ class Particle(abc.ABC):
             )
 
     def intersection_vector(self, other_particle, box):
-        """Compute the unit vector from the center of masss of particle i to particle j."""
+        """Compute the unit vector from the center of masss of particle i to particle j.
+
+        Parameters
+        ----------
+        other_particle: `.Particle`
+            Other particle.
+
+        box: list
+            Dimensions of the simulation box in each spatial direction
+
+        Returns
+        -------
+        unit_vector_i_j: array
+            Unit vector from the center of *self* to *other_particle*
+        """
         vector_centers = other_particle.position_center - self.position_center
         vector_centers = vector_centers - box * np.round(vector_centers / box)
         # Vector connecting the centers of the current particle and the nearest image of
@@ -117,9 +137,6 @@ class Ellipse(Particle):
 
     Attributes
     ----------
-    phase: string
-        Phase to which the ellipse belongs
-
     major_axis: float
         Major axis of the ellipse.
 
@@ -782,6 +799,7 @@ class Disk(Ellipse):
         {"area", "n"},
     ]
     # List of acceptable collections of parameters
+    dim = 2
 
     def __init__(self, phase, descriptors, rve_dims):
         """
@@ -1571,9 +1589,7 @@ class Ellipsoid(Particle):
         return overlap_volume
 
     def intersection_ellipsoid_ellipsoid(self, other_ellipsoid, box):
-        """
-        Check if the current and the other ellipsoid intersect.
-        """
+        """Check if the current and the other ellipsoid intersect."""
 
         def coefficients_characteristic_equation(M_i, axis_lengths, A_j):
             """
@@ -1777,7 +1793,7 @@ class Ellipsoid(Particle):
         intersection: bool
             True if the particles intersect.
         """
-        if isinstance(other_particle, Sphere, Ellipsoid):
+        if isinstance(other_particle, (Sphere, Ellipsoid)):
             other_particle: Ellipsoid
             # The other particle is also an Ellipsoid or subclass
             intersection = self.intersection_ellipsoid_ellipsoid(other_particle, box)
@@ -1812,11 +1828,6 @@ class Sphere(Ellipsoid):
     }
 
     # all possible_parameters
-    geom_possible_parameters = {
-        "r": ("Radius", "float"),
-        "volume": ("Volume per particle", "float"),
-    }
-    # all possible geometrical parameters
     acceptable_descriptions = [
         {"r", "n"},
         {"r", "vf"},
@@ -1990,7 +2001,6 @@ class Sphere(Ellipsoid):
 
     def point_inside(self, point, tol=1e-3):
         """Check if point is inside the particle."""
-
         point_in = np.linalg.norm(self.position_center - point) - self.radius <= tol
 
         return point_in

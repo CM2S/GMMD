@@ -86,6 +86,15 @@ class MolecularDynamicsSimulation(GenerationMethod):
 
     step: int
         Current iteration of the MD simulation.
+
+    time: float
+        Time taken by the simulation.
+
+    relative_energy_history: list(float)
+        List of the relative energy history.
+
+    kinetic_energy_history: list(float)
+        List of the kinetic energy history.
     """
 
     def __init__(
@@ -126,9 +135,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
         save_history: bool
             Save all the trajectories of the particles, the history of the relative and
             kinetic energy.
-
-        time: float
-            Time taken by the simulation.
         """
         self.box = None
         self.particle_velocities = None
@@ -151,6 +157,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.save_history = save_history
         self.time = None
         self.step = 0
+        self.max_force = None
         # Initializing the the time step at 0
 
     def generate_microstructure(self, microstructure_sample):
@@ -344,9 +351,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
         ----------
         particles: list(`.Particle`)
             List of the particles inside the simulation box.
-
-        min_distance: float
-            Minimum distance between two particles.
         """
         for i_particle in particles:
             # Running through all the particles
@@ -383,7 +387,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
         particles : list(`.Particle`)
             Array containing the Particle objects to be placed inside the RVE.
         """
-        self.integration_scheme = "verlet"
         with self.virtual_particle_sizes(particles):
             number_particles = len(particles)
             # Saving the number of particles
@@ -399,6 +402,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
             # Computing the relative
             self.compute_kinetic_energy(particles)
             # Computing the kinetic energy
+
             print_funcs.print_to_terminal_refresh(
                 self.step,
                 self.total_overlap,
@@ -423,12 +427,12 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 # Computing the forces on all particles
                 self.compute_relative_energy()
                 # Computing the relative energy
-                self.compute_kinetic_energy(particles)
                 # Computing the kinetic energy
+                self.compute_kinetic_energy(particles)
+                # Contract all particles
                 self.thermostat.apply_thermostat(
                     self.particle_velocities, self.kinetic_energy
                 )
-                # Contract all particles
                 if self.total_overlap <= self.max_residue:
                     # If the configuration has an overlap area smaller than the tolerance
                     n_steps_relax += 1
@@ -509,6 +513,18 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     # Adding the force due to the interaction between particle 1 and 2 to
                     # the total force acting on particle 2
         self.total_overlap_history.append(self.total_overlap)
+        # if self.max_force is None:
+        #     # self.max_force = np.max(
+        #     #     [np.linalg.norm(force) for force in self.particle_forces]
+        #     # )
+        #     self.max_force = np.max([i_particle.volume for i_particle in particles])
+        # self.current_max_force = np.max(
+        #     [np.linalg.norm(force) for force in self.particle_forces]
+        # )
+        # self.particle_forces = [
+        #     force * self.max_force / self.current_max_force
+        #     for force in self.particle_forces
+        # ]
 
     def integrate(self, particles, **kwargs):
         """Integrate the equations of motion."""
@@ -516,7 +532,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         # Dimension of the problem
         for i_particle_index, i_particle in enumerate(particles):
             # Running through all the particles
-            if self.integration_scheme == "newmark":
+            if False:  # self.integration_scheme == "newmark":
                 # The integration scheme chosen was Newmark
                 damping_constant = kwargs.get("damping_constant", 0)
                 [new_position, new_velocity, _] = Newmark(
@@ -536,7 +552,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 )
                 # Obtaining the new position and velocity of particle i
 
-            elif self.integration_scheme == "verlet":
+            elif True:  # self.integration_scheme == "verlet":
                 # The integration scheme chosen was Verlet
                 [new_position, new_velocity] = VerletSync(
                     i_particle.position_center,

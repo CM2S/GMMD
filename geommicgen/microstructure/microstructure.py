@@ -1,15 +1,11 @@
 """
 This module contains the Microstructure class.
+
 Each instance of the Microstructure class is a microstructure sample, composed of instances
- of the Phase class, in turn described by the adequate phase descriptors.
+of the Phase class, in turn described by the adequate phase descriptors.
 """
 
 import numpy as np
-
-from .phase import Phase
-from .particle_classes import Matrix
-
-import iofuncs.printing as print_funcs
 
 
 class Microstructure:
@@ -30,9 +26,6 @@ class Microstructure:
     phases: dict
         Dictionary whose keys are the name of the phases and whose values are the
         corresponding instance of `.Phase`.
-
-    matrix_phase: str
-        Name of the matrix phase
     """
 
     def __init__(self, rve_dims):
@@ -80,8 +73,8 @@ class Microstructure:
                     + "with the dimensions of the microstructure."
                 )
             if self.phases[phase.name].type.__name__ == "CylindricalFiber":
-                for phase in self.phases:
-                    if phase.type.__name__ not in ("CylindricalFiber", "Matrix"):
+                for i_phase in self.phases.values():
+                    if i_phase.type.__name__ not in ("CylindricalFiber", "Matrix"):
                         raise ValueError(
                             "The CylindricalFiber particles are only compatible with each other."
                         )

@@ -1,9 +1,8 @@
 """Initialization module for the geommicgen module."""
 
-import sys
 import os
 
-
+# pylint: disable=import-error
 import postproc.voronoimetrics.motion_analysis as motion_analysis
 
 import iofuncs.printing as print_funcs
@@ -213,13 +212,13 @@ def run_program():
                 # Adding a thermostat to the MD simulation
 
                 try:
-                    if mic_gen_parameters.get("speed_up_scheme") == "cell_list":
+                    if mic_gen_parameters.get("speed_up_scheme") == "Cell":
                         current_speed_up_scheme = CellList()
-                    elif mic_gen_parameters.get("speed_up_scheme") == "verlet_list":
+                    elif mic_gen_parameters.get("speed_up_scheme") == "Verlet":
                         current_speed_up_scheme = VerletList(
                             mic_gen_parameters["verlet_factor"]
                         )
-                    elif mic_gen_parameters["speed_up_scheme"] == "naive":
+                    elif mic_gen_parameters["speed_up_scheme"] == "Naive":
                         current_speed_up_scheme = Naive()
                     else:
                         current_speed_up_scheme = CellList()
@@ -251,10 +250,10 @@ def run_program():
                 # Saving the RVE properties
 
             try:
+                plot_particles(current_sample.particles, rve_dims, sample_dir)
                 for mesh_generator in mesh_generators:
                     mesh_generator.generate_mesh(current_sample, sample_dir)
                     # Generate corresponding mesh
-                plot_particles(current_sample.particles, rve_dims, sample_dir)
                 if "motion_analysis" in top_level_reader.all_options:
                     motion_analysis.doMotionAnalysis(
                         current_sample.particles,
