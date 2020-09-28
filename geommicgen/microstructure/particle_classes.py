@@ -2061,6 +2061,14 @@ class Cylinder(Particle):
     length: float
         Length of the particle
 
+    azimuth_angle: float
+        Azimuth angle of the cylinder, i.e. the angle that the axis of the cylinder forms
+        with the positive x semi-axis when project onto the xy plane.
+
+    polar_angle: float
+        Polar angle of the cylinder, i.e. the angle that the axis of the
+        cylinder forms with the positive z semi-axis.
+
     Class Attributes
     ----------------
     possible_parameters: dict
@@ -2090,6 +2098,25 @@ class Cylinder(Particle):
     # List of acceptable collections of parameters
 
     def __init__(self, phase, descriptors, rve_dims):
+        """
+        Initialize a classe Cylinder obejct.
+
+        Parameters
+        ----------
+        phase: string
+            Phase to which the ellipse belongs
+
+        descriptors: dict
+            Dictionary of the form *{descriptor_name: value}*
+
+        rve_dims: list
+            List containing the dimensions of the microstructure in each direction.
+
+        Raises
+        ------
+        ValueError:
+            When the cylinder radius or the length are nonpositive numbers.
+        """
         if "r_cyl" in descriptors:
             if descriptors["r_cyl"] <= 0:
                 raise ValueError(
