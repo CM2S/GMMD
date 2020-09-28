@@ -2155,11 +2155,43 @@ class Cylinder(Particle):
         volume = self.length * np.pi * self.r_cyl ** 2
         return volume
 
+    @property
+    def sym_axis_unit_vec(self):
+        """Get unit vector along the cylinder's symmetry axis."""
+        sym_axis_unit_vec = np.array(
+            [
+                np.cos(self.azimuth_angle) * np.sin(self.polar_angle),
+                np.sin(self.azimuth_angle) * np.sin(self.polar_angle),
+                np.cos(self.polar_angle),
+            ]
+        )
+        return sym_axis_unit_vec
+
     def intersection(self):
         pass
 
     def intersection_area(self):
         pass
+
+    def support_function(self, direction: np.array) -> list:
+
+        dir_parallel_comp = (
+            direction.dot(self.sym_axis_unit_vec) * self.sym_axis_unit_vec
+        )
+        dir_normal_comp = direction - dir_parallel_comp
+        dir_unit_normal_comp = dir_normal_comp / np.linalg.norm(dir_normal_comp)
+        axial_vec_local = (
+            self.length
+            / 2
+            * self.sym_axis_unit_vec
+            * np.sign(self.sym_axis_unit_vec.dot(dir_parallel_comp))
+            if np.sign(self.sym_axis_unit_vec.dot(dir_parallel_comp)) != 0
+            else self.length / 2 * self.sym_axis_unit_vec
+        )
+        trans_vec_local = self.r_cyl * dir_unit_normal_comp
+        point_global = self.position_center + axial_vec_local + trans_vec_local
+
+        return point_global
 
 
 class Matrix(Particle):

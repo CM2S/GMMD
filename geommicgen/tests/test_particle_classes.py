@@ -319,4 +319,27 @@ class TestCylinder(unittest.TestCase):
         with self.assertRaises(ValueError):
             _ = Cylinder(phase, descriptors, rve_dims)
 
-    # def test_intersection_parallel
+    def test_support_function(self):
+        """Check supprt function."""
+        phase = "1"
+        descriptors = {
+            "r_cyl": 0.1,
+            "length": 0.2,
+            "n": 1,
+            "azimuth_angle": 0,
+            "polar_angle": 0,
+        }
+        rve_dims = [1, 1, 1]
+        cyl = Cylinder(phase, descriptors, rve_dims)
+        cyl.position_center = np.array([0.5, 0.5, 0.5])
+        direction = np.array([1, 0, 0])
+        furthest_point = cyl.support_function(direction)
+        self.assertTrue(all(np.abs(furthest_point - np.array([0.6, 0.5, 0.6])) < 1e-4))
+        cyl_2 = Cylinder(phase, descriptors, rve_dims)
+        cyl_2.position_center = np.array([0.6, 0.7, 0.5])
+        direction_2 = np.array([0, 1, -1])
+        furthest_point_2 = cyl_2.support_function(direction_2)
+        print(furthest_point_2)
+        self.assertTrue(
+            all(np.abs(furthest_point_2 - np.array([0.6, 0.8, 0.4])) < 1e-4)
+        )
