@@ -2093,6 +2093,8 @@ class Cylinder(Particle):
     acceptable_descriptions = [
         {"r_cyl", "length", "n"},
         {"r_cyl", "length", "vf"},
+        {"r_cyl", "ratio", "n"},
+        {"ratio", "length", "vf"},
         {"n", "length", "vf"},
     ]
     # List of acceptable collections of parameters
@@ -2124,6 +2126,8 @@ class Cylinder(Particle):
                     + "The radius of a cylinder particle must be a positive number."
                 )
             self.r_cyl = descriptors["r_cyl"]
+            if "ratio" in descriptors:
+                self.length = self.r_cyl * descriptors["ratio"]
         if "length" in descriptors:
             if descriptors["length"] <= 0:
                 raise ValueError(
@@ -2131,12 +2135,14 @@ class Cylinder(Particle):
                     + "The length of a cylinder particle must be a positive number."
                 )
             self.length = descriptors["length"]
-            if "r_cyl" not in descriptors:
+            if "vf" in descriptors and "n" in descriptors:
                 self.r_cyl = np.sqrt(
                     descriptors["vf"]
                     * np.prod(rve_dims)
                     / (self.length * np.pi * descriptors["n"])
                 )
+            elif "ratio" in descriptors:
+                self.r_cyl = self.length / descriptors["ratio"]
         if "azimuth_angle" in descriptors:
             self.azimuth_angle = descriptors["azimuth_angle"]
         if "polar_angle" in descriptors:

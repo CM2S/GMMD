@@ -260,6 +260,23 @@ class TestCylinder(unittest.TestCase):
         self.assertEqual(cyl.azimuth_angle, 0)
         self.assertEqual(cyl.polar_angle, 0)
 
+    def test_descriptors_ratio(self):
+        """Check if the correct geometrical descriptors are obtained speficiyng the ratio."""
+        phase = "1"
+        descriptors = {
+            "ratio": 2,
+            "length": 0.2,
+            "n": 10,
+            "azimuth_angle": 0,
+            "polar_angle": 0,
+        }
+        rve_dims = [1, 1, 1]
+        cyl = Cylinder(phase, descriptors, rve_dims)
+        self.assertEqual(cyl.length, 0.2)
+        self.assertTrue(np.abs(cyl.r_cyl - 0.1) < 1e-4)
+        self.assertEqual(cyl.azimuth_angle, 0)
+        self.assertEqual(cyl.polar_angle, 0)
+
     def test_volume(self):
         """Check if the volume property is correctly specified."""
         phase = "1"
