@@ -2050,6 +2050,85 @@ class Sphere(Ellipsoid):
         return erosion_thickness
 
 
+class Cylinder(Particle):
+    """This is the class for short cylinders.
+
+    Attributes
+    ----------
+    r_cyl: float
+        Radius of the cylinder
+
+    length: float
+        Length of the particle
+
+    Class Attributes
+    ----------------
+    possible_parameters: dict
+        Dictionary containing as keys the possible parameters used to describe a sphere,
+        and their names for printing
+
+    acceptable_descriptions: list(set(strings))
+        Acceptable sets of parameters that fully describe a phase containing spheres.
+    """
+
+    possible_parameters = {
+        **{
+            "r_cyl": ("Cylinder Radius", "float"),
+            "length": ("Cylinder Length", "float"),
+            "azimuth_angle": ("Azimuthal angle", "float"),
+            "polar_angle": ("Polar angle", "float"),
+        },
+        **Particle.possible_parameters,
+    }
+
+    # all possible_parameters
+    acceptable_descriptions = [
+        {"r_cyl", "length", "n"},
+        {"r_cyl", "length", "vf"},
+        {"n", "length", "vf"},
+    ]
+    # List of acceptable collections of parameters
+
+    def __init__(self, phase, descriptors, rve_dims):
+        if "r_cyl" in descriptors:
+            if descriptors["r_cyl"] <= 0:
+                raise ValueError(
+                    "In Phase {0}:".format(phase)
+                    + "The radius of a cylinder particle must be a positive number."
+                )
+            self.r_cyl = descriptors["r_cyl"]
+        if "length" in descriptors:
+            if descriptors["length"] <= 0:
+                raise ValueError(
+                    "In Phase {0}:".format(phase)
+                    + "The length of a cylinder particle must be a positive number."
+                )
+            self.length = descriptors["length"]
+            if "r_cyl" not in descriptors:
+                self.r_cyl = np.sqrt(
+                    descriptors["vf"]
+                    * np.prod(rve_dims)
+                    / (self.length * np.pi * descriptors["n"])
+                )
+        if "azimuth_angle" in descriptors:
+            self.azimuth_angle = descriptors["azimuth_angle"]
+        if "polar_angle" in descriptors:
+            self.polar_angle = descriptors["polar_angle"]
+        super().__init__(3, phase)
+
+    @property
+    def volume(self):
+        """Particle volume."""
+        volume = self.length * np.pi * self.r_cyl ** 2
+        return volume
+
+    def intersection(self):
+        pass
+
+    def intersection_area(self):
+        pass
+
+
 class Matrix(Particle):
     """
     Class for the "matrix" particle.

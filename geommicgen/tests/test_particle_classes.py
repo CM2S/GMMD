@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from scipy import integrate
 import time
-from microstructure.particle_classes import Ellipsoid, Ellipse
+from microstructure.particle_classes import Ellipsoid, Ellipse, Cylinder
 
 
 class EllipsoidTestPartiallyIntersecting(unittest.TestCase):
@@ -223,3 +223,83 @@ class EllipseTestPartiallyIntersecting(unittest.TestCase):
     #
     #     # plt.axis([-1, 2, -1, 2])
     #     plt.show()
+
+
+class TestCylinder(unittest.TestCase):
+    def test_init(self):
+        """Check if the attributes were set correctly in __init__."""
+        phase = "1"
+        descriptors = {
+            "r_cyl": 0.1,
+            "length": 0.1,
+            "n": 2,
+            "azimuth_angle": 0,
+            "polar_angle": 0,
+        }
+        rve_dims = [1, 1, 1]
+        cyl = Cylinder(phase, descriptors, rve_dims)
+        self.assertEqual(cyl.length, 0.1)
+        self.assertEqual(cyl.r_cyl, 0.1)
+        self.assertEqual(cyl.azimuth_angle, 0)
+        self.assertEqual(cyl.polar_angle, 0)
+
+    def test_descriptors(self):
+        """Check if the correct geometrical descriptors are obtained."""
+        phase = "1"
+        descriptors = {
+            "vf": 0.1,
+            "length": 0.2,
+            "n": 10,
+            "azimuth_angle": 0,
+            "polar_angle": 0,
+        }
+        rve_dims = [1, 1, 1]
+        cyl = Cylinder(phase, descriptors, rve_dims)
+        self.assertEqual(cyl.length, 0.2)
+        self.assertTrue(np.abs(cyl.r_cyl - np.sqrt(0.1 / (0.2 * 10 * np.pi))) < 1e-4)
+        self.assertEqual(cyl.azimuth_angle, 0)
+        self.assertEqual(cyl.polar_angle, 0)
+
+    def test_volume(self):
+        """Check if the volume property is correctly specified."""
+        phase = "1"
+        descriptors = {
+            "r_cyl": 0.1,
+            "length": 0.2,
+            "n": 10,
+            "azimuth_angle": 0,
+            "polar_angle": 0,
+        }
+        rve_dims = [1, 1, 1]
+        cyl = Cylinder(phase, descriptors, rve_dims)
+        self.assertTrue(np.abs(cyl.volume - 0.1 ** 2 * np.pi * 0.2) < 1e-4)
+
+    def test_invalid_inputs_radius(self):
+        """Check if the proper exception is raise for negative radius."""
+        phase = "1"
+        descriptors = {
+            "r_cyl": -0.1,
+            "length": 0.2,
+            "n": 10,
+            "azimuth_angle": 0,
+            "polar_angle": 0,
+        }
+        rve_dims = [1, 1, 1]
+        with self.assertRaises(ValueError):
+            _ = Cylinder(phase, descriptors, rve_dims)
+
+    def test_invalid_inputs_length(self):
+        """Check if the proper exception is raise for negative length."""
+        phase = "1"
+        descriptors = {
+            "r_cyl": 0.1,
+            "length": -0.2,
+            "n": 10,
+            "azimuth_angle": 0,
+            "polar_angle": 0,
+        }
+        rve_dims = [1, 1, 1]
+        with self.assertRaises(ValueError):
+            _ = Cylinder(phase, descriptors, rve_dims)
+
+    # def test_intersection_parallel
