@@ -2091,12 +2091,13 @@ class Cylinder(Particle):
 
     # all possible_parameters
     acceptable_descriptions = [
-        {"r_cyl", "length", "n"},
-        {"r_cyl", "length", "vf"},
-        {"r_cyl", "ratio", "n"},
-        {"ratio", "length", "vf"},
-        {"n", "length", "vf"},
+        {"r_cyl", "length", "n", "azimuth_angle", "polar_angle"},
+        {"r_cyl", "length", "vf", "azimuth_angle", "polar_angle"},
+        {"r_cyl", "ratio", "n", "azimuth_angle", "polar_angle"},
+        {"ratio", "length", "vf", "azimuth_angle", "polar_angle"},
+        {"n", "length", "vf", "azimuth_angle", "polar_angle"},
     ]
+    dim = 3
     # List of acceptable collections of parameters
 
     def __init__(self, phase, descriptors, rve_dims):
