@@ -10,7 +10,15 @@ import abc
 
 import numpy as np
 
-from .particle_classes import Matrix, Disk, Ellipse, Sphere, Ellipsoid, CylindricalFiber
+from .particle_classes import (
+    Matrix,
+    Disk,
+    Ellipse,
+    Sphere,
+    Ellipsoid,
+    CylindricalFiber,
+    Cylinder,
+)
 
 
 class Phase:
@@ -48,6 +56,7 @@ class Phase:
         4: Sphere,
         5: Ellipsoid,
         6: CylindricalFiber,
+        7: Cylinder,
     }
     # Correspondence between phase type and phase type class
 
