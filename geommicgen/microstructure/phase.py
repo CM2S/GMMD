@@ -198,10 +198,14 @@ class Phase:
                     n_samples=self.descriptors["n"].value
                 )
             for i_particle in range(int(self.descriptors["n"].value)):
-                i_particle_descriptors = {
-                    descriptor_name: descriptor_values[i_particle]
-                    for descriptor_name, descriptor_values in samples.items()
-                }
+                i_particle_descriptors = (
+                    {
+                        descriptor_name: descriptor_values[i_particle]
+                        for descriptor_name, descriptor_values in samples.items()
+                    }
+                    if self.descriptors["n"].value != 1
+                    else samples
+                )
                 particles.append(self.type(self.name, i_particle_descriptors, rve_dims))
 
         self.particles = particles
