@@ -2194,6 +2194,18 @@ class Cylinder(Particle):
 
         return point_global
 
+    def contract(self, distance):
+        """Contract the particle."""
+        self.r_cyl -= distance
+        self.length -= distance
+        # Contracting the particle size subracting the minimum distance from the semi-axis
+
+    def dilate(self, distance):
+        """Dilate the particle."""
+        self.r_cyl += distance
+        self.length += distance
+        # Dilating the particle size adding the minimum distance to the semi-axis
+
 
 class Matrix(Particle):
     """
