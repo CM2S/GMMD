@@ -9,7 +9,50 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from scipy import integrate
 import time
-from microstructure.particle_classes import Ellipsoid, Ellipse, Cylinder
+from microstructure.particle_classes import Ellipsoid, Ellipse, Cylinder, Particle, Disk
+from postproc.plotfuncs.plotting_functions import plot_particles_3d
+import pickle
+
+
+class TestEllipsoid(unittest.TestCase):
+    def test_support_function(self):
+        """Check supprt function."""
+        phase = "1"
+        descriptors = {
+            "axis_1": 0.1,
+            "axis_2": 0.15,
+            "axis_3": 0.05,
+            "rot_axis_comp_x": 0,
+            "rot_axis_comp_y": 0,
+            "rot_axis_comp_z": 1,
+            "angle": np.pi / 4,
+            "n": 1,
+        }
+        rve_dims = [1, 1, 1]
+        ellip = Ellipsoid(phase, descriptors, rve_dims)
+        ellip.position_center = np.array([0.5, 0.5, 0.5])
+        direction = np.array([0, 0, 1])
+        furthest_point = ellip.support_function(direction)
+        self.assertTrue(
+            all(np.abs(furthest_point - np.array([0.5, 0.5, 0.525])) < 1e-4)
+        )
+
+        direction_2 = np.array([1, 1, 0])
+        furthest_point_2 = ellip.support_function(direction_2)
+        self.assertTrue(
+            all(
+                np.abs(
+                    furthest_point_2
+                    - np.array([0.5 + 0.05 / np.sqrt(2), 0.5 + 0.05 / np.sqrt(2), 0.5])
+                )
+                < 1e-4
+            )
+        )
+
+        direction_3 = np.array([0.3, 0.15, 0])
+        furthest_point_3 = ellip.support_function(direction_3)
+        plot_particles_3d([ellip], rve_dims, "/home/jose/Documents/code/test_runs/3D")
+        print(furthest_point_3)
 
 
 class EllipsoidTestPartiallyIntersecting(unittest.TestCase):
@@ -78,6 +121,35 @@ class EllipsoidTestPartiallyIntersecting(unittest.TestCase):
         # v_ellipsoid_2 = ellipsoid_2.volume
         # print(overlap_volume_1, end_1 - start_1, overlap_volume_2, end_2 - start_2)
         self.assertTrue(np.abs(overlap_volume_1 - overlap_volume_2) < 1e-2)
+
+    def test_intersection_gjk(self):
+        intersection, _ = self.ellipsoid_1.intersection_gjk(
+            self.ellipsoid_2, self.rve_dims
+        )
+        self.assertTrue(intersection)
+
+    def test_intersection_gjk_2(self):
+        previous_mic_path = (
+            "/home/jose/Documents/code/test_runs/3D/cylindrs_94/mic_0/mic.mic"
+        )
+        info_previous_sample = pickle.load(open(previous_mic_path, "rb"))
+        # No need to generate a new microstructure. Using a previous microstructure.
+        current_sample = info_previous_sample["microstructure"]
+        current_mic_generator = info_previous_sample["generation_method"]
+        trouble_pair = []
+        for i_particle in current_sample.particles:
+            if (
+                i_particle.position_center[0] < 0.25
+                and 0.25 < i_particle.position_center[1] < 0.75
+                and i_particle.position_center[2] > 0.75
+            ):
+                trouble_pair.append(i_particle)
+                print(vars(i_particle))
+        intersection, penetration_length = trouble_pair[0].intersection_gjk(
+            trouble_pair[1], [1, 1, 1]
+        )
+        print("penetration_length", penetration_length)
+        self.assertTrue(intersection)
 
 
 class EllipseTestPartiallyIntersecting(unittest.TestCase):
@@ -339,7 +411,285 @@ class TestCylinder(unittest.TestCase):
         cyl_2.position_center = np.array([0.6, 0.7, 0.5])
         direction_2 = np.array([0, 1, -1])
         furthest_point_2 = cyl_2.support_function(direction_2)
-        print(furthest_point_2)
         self.assertTrue(
             all(np.abs(furthest_point_2 - np.array([0.6, 0.8, 0.4])) < 1e-4)
         )
+
+
+class TestGJKIntersection(unittest.TestCase):
+    # @unittest.skip
+    def test_two_intersecting_cylinders(self):
+        rve_dims = [1, 1, 1]
+        phase_1 = "1"
+        descriptors_1 = {
+            "r_cyl": 0.1,
+            "length": 0.2,
+            "n": 1,
+            "azimuth_angle": 0,
+            "polar_angle": 0,
+        }
+        cyl_1 = Cylinder(phase_1, descriptors_1, rve_dims)
+        cyl_1.position_center = np.array([0.5, 0.5, 0.5])
+
+        phase_2 = "1"
+        descriptors_2 = {
+            "r_cyl": 0.15,
+            "length": 0.3,
+            "n": 1,
+            "azimuth_angle": np.pi / 2,
+            "polar_angle": np.pi / 3,
+        }
+        cyl_2 = Cylinder(phase_2, descriptors_2, rve_dims)
+        cyl_2.position_center = np.array([0.5, 0.55, 0.5])
+        intersection, _ = cyl_1.intersection_gjk(cyl_2, rve_dims)
+        self.assertTrue(intersection)
+
+    # @unittest.skip
+    def test_two_non_intersecting_cylinders(self):
+        rve_dims = [1, 1, 1]
+        phase_1 = "1"
+        descriptors_1 = {
+            "r_cyl": 0.1,
+            "length": 0.2,
+            "n": 1,
+            "azimuth_angle": 0,
+            "polar_angle": 0,
+        }
+        cyl_1 = Cylinder(phase_1, descriptors_1, rve_dims)
+        cyl_1.position_center = np.array([0.5, 0.5, 0.5])
+
+        phase_2 = "1"
+        descriptors_2 = {
+            "r_cyl": 0.15,
+            "length": 0.3,
+            "n": 1,
+            "azimuth_angle": np.pi / 2,
+            "polar_angle": np.pi / 2,
+        }
+        cyl_2 = Cylinder(phase_2, descriptors_2, rve_dims)
+        cyl_2.position_center = np.array([0.5, 0.9, 0.5])
+        intersection, _ = cyl_1.intersection_gjk(cyl_2, rve_dims)
+        self.assertTrue(not intersection)
+
+    # @unittest.skip
+    def test_two_barely_parallel_intersecting_cylinders(self):
+        rve_dims = [1, 1, 1]
+        phase_1 = "1"
+        descriptors_1 = {
+            "r_cyl": 0.1,
+            "length": 0.2,
+            "n": 1,
+            "azimuth_angle": 0,
+            "polar_angle": 0,
+        }
+        cyl_1 = Cylinder(phase_1, descriptors_1, rve_dims)
+        cyl_1.position_center = np.array([0.5, 0.5, 0.5])
+
+        phase_2 = "1"
+        descriptors_2 = {
+            "r_cyl": 0.15,
+            "length": 0.3,
+            "n": 1,
+            "azimuth_angle": 0,
+            "polar_angle": 0,
+        }
+        cyl_2 = Cylinder(phase_2, descriptors_2, rve_dims)
+        cyl_2.position_center = np.array([0.5, 0.7, 0.5])
+        intersection, _ = cyl_1.intersection_gjk(cyl_2, rve_dims)
+        self.assertTrue(intersection)
+
+    # @unittest.skip
+    def test_two_barely_non_parallel_intersecting_cylinders(self):
+        rve_dims = [1, 1, 1]
+        phase_1 = "1"
+        descriptors_1 = {
+            "r_cyl": 0.060,
+            "length": 0.11,
+            "n": 1,
+            "azimuth_angle": -0.20930148133804824,
+            "polar_angle": -0.11341128400795103,
+        }
+        cyl_1 = Cylinder(phase_1, descriptors_1, rve_dims)
+        cyl_1.position_center = np.array([0.98059724, 0.13955079, 0.08649996])
+
+        phase_2 = "1"
+        descriptors_2 = {
+            "r_cyl": 0.060000000000000005,
+            "length": 0.11,
+            "n": 1,
+            "azimuth_angle": -0.09742604257341621,
+            "polar_angle": 0.34888461357284584,
+        }
+
+        cyl_2 = Cylinder(phase_2, descriptors_2, rve_dims)
+        cyl_2.position_center = np.array([0.88500169, 0.14251379, 0.119088])
+        intersection, _ = cyl_1.intersection_gjk(cyl_2, rve_dims)
+        self.assertTrue(intersection)
+
+    # @unittest.skip
+    def test_two_barely_non_parallel_intersecting_cylinders_2(self):
+        rve_dims = [1, 1, 1]
+        phase_1 = "1"
+        descriptors_1 = {
+            "r_cyl": 0.060000000000000005,
+            "length": 0.11,
+            "azimuth_angle": 0.5169283751534829,
+            "polar_angle": 0.0508044080346002,
+            "n": 1,
+        }
+
+        cyl_1 = Cylinder(phase_1, descriptors_1, rve_dims)
+        cyl_1.position_center = np.array([0.18788528, 0.80803687, 0.06790679])
+
+        phase_2 = "1"
+        descriptors_2 = {
+            "r_cyl": 0.060000000000000005,
+            "length": 0.11,
+            "azimuth_angle": 0.5337399441494118,
+            "polar_angle": 0.027687637482383134,
+            "n": 1,
+        }
+
+        cyl_2 = Cylinder(phase_2, descriptors_2, rve_dims)
+        cyl_2.position_center = np.array([0.32783983, 0.79778433, 0.01264376])
+        intersection, _ = cyl_1.intersection_gjk(cyl_2, rve_dims)
+        self.assertTrue(not intersection)
+
+    # @unittest.skip
+    def test_two_intersecting_disks(self):
+        rve_dims = [1, 1]
+        phase_1 = "1"
+        descriptors_1 = {
+            "r": 0.1,
+            "n": 1,
+        }
+        disk_1 = Disk(phase_1, descriptors_1, rve_dims)
+        disk_1.position_center = np.array([0.5, 0.55])
+
+        phase_2 = "1"
+        descriptors_2 = {
+            "r": 0.15,
+            "n": 1,
+        }
+        disk_2 = Disk(phase_2, descriptors_2, rve_dims)
+        disk_2.position_center = np.array([0.5, 0.55])
+        intersection, _ = disk_1.intersection_gjk(disk_2, rve_dims)
+        self.assertTrue(intersection)
+
+    # @unittest.skip
+    def test_two_non_intersecting_disks(self):
+        rve_dims = [1, 1]
+        phase_1 = "1"
+        descriptors_1 = {
+            "r": 0.1,
+            "n": 1,
+        }
+        disk_1 = Disk(phase_1, descriptors_1, rve_dims)
+        disk_1.position_center = np.array([0.5, 0.85])
+
+        phase_2 = "1"
+        descriptors_2 = {
+            "r": 0.15,
+            "n": 1,
+        }
+        disk_2 = Disk(phase_2, descriptors_2, rve_dims)
+        disk_2.position_center = np.array([0.5, 0.55])
+        intersection, _ = disk_1.intersection_gjk(disk_2, rve_dims)
+        self.assertTrue(not intersection)
+
+    # @unittest.skip
+    def test_two_parallel_non_intersecting_cylinders_3(self):
+        rve_dims = [1, 1, 1]
+        phase_1 = "1"
+        descriptors_1 = {
+            "r_cyl": 0.060000000000000005,
+            "length": 0.11,
+            "azimuth_angle": 0.39385173716150756,
+            "polar_angle": 0.35855785155877495,
+            "n": 1,
+        }
+
+        cyl_1 = Cylinder(phase_1, descriptors_1, rve_dims)
+        cyl_1.position_center = np.array([0.42469612, 0.24732879, 0.87700376])
+
+        phase_2 = "1"
+        descriptors_2 = {
+            "r_cyl": 0.060000000000000005,
+            "length": 0.11,
+            "azimuth_angle": 0.39385173716150756,
+            "polar_angle": 0.35855785155877495,
+            "n": 1,
+        }
+
+        cyl_2 = Cylinder(phase_2, descriptors_2, rve_dims)
+        cyl_2.position_center = np.array([0.3770918, 0.12216294, 0.92497031])
+        intersection, _ = cyl_1.intersection_gjk(cyl_2, rve_dims)
+        self.assertTrue(not intersection)
+
+
+class testNearest(unittest.TestCase):
+    def test_triangle_xy_plane(self):
+
+        pt_1 = np.array([0.5, 0.2, 0])
+        pt_2 = np.array([0.4, 0.3, 0])
+        pt_3 = np.array([-0.1, 0.2, 0])
+        simplex = [pt_1, pt_2, pt_3]
+        simplex_new, search_direction = Particle.nearest_simplex(simplex)
+        self.assertTrue(all(simplex_new[0] == pt_1))
+        self.assertTrue(all(simplex_new[1] == pt_3))
+
+        pt_1 = np.array([0.5, 0.2, 0])
+        pt_2 = np.array([0.4, 0.3, 0])
+        pt_3 = np.array([-0.1, -0.2, 0])
+        simplex = [pt_1, pt_2, pt_3]
+        simplex_new, search_direction = Particle.nearest_simplex(simplex)
+        self.assertTrue(all(simplex_new[0] == pt_2))
+        self.assertTrue(all(simplex_new[1] == pt_3))
+
+        pt_1 = np.array([0.5, 0.2, 0])
+        pt_2 = np.array([0.4, 0.3, 0])
+        pt_3 = np.array([0.1, 0.1, 0])
+        simplex = [pt_1, pt_2, pt_3]
+        simplex_new, search_direction = Particle.nearest_simplex(simplex)
+        self.assertTrue(all(simplex_new[0] == pt_3))
+
+        pt_1 = np.array([0.5, 0, 0])
+        pt_2 = np.array([0, 0.3, 0])
+        pt_3 = np.array([-0.01, -0.01, -0.01])
+        simplex = [pt_1, pt_2, pt_3]
+        simplex_new, search_direction = Particle.nearest_simplex(simplex)
+        self.assertTrue(all(simplex_new[0] == pt_3))
+        self.assertTrue(all(simplex_new[1] == pt_2))
+        self.assertTrue(all(simplex_new[2] == pt_1))
+
+    # @patch("microstructure.particle_classes.nearest_simplex.nearest_triangle")
+    def test_tetrahedron(self):  # , mock_nearest_triangle):
+
+        pt_1 = np.array([0.5, 0.2, -0.1])
+        pt_2 = np.array([-0.2, 0.3, 0.5])
+        pt_3 = np.array([0.2, 0.1, 0.3])
+        pt_4 = np.array([-0.01, -0.01, -0.01])
+        simplex = [pt_1, pt_2, pt_3, pt_4]
+        simplex_new, _ = Particle.nearest_simplex(simplex)
+        self.assertTrue(all(simplex_new[0] == pt_1))
+        self.assertTrue(all(simplex_new[1] == pt_2))
+        self.assertTrue(all(simplex_new[2] == pt_3))
+        self.assertTrue(all(simplex_new[3] == pt_4))
+
+        pt_1 = np.array([0.5, 0.2, -0.1])
+        pt_2 = np.array([-0.2, 0.3, -0.5])
+        pt_3 = np.array([0.2, 0.1, 0.3])
+        pt_4 = np.array([-0.1, 0.1, 0.1])
+        simplex = [pt_1, pt_2, pt_3, pt_4]
+        simplex_new, search_direction = Particle.nearest_simplex(simplex)
+        self.assertTrue(all(simplex_new[0] == pt_1))
+        self.assertTrue(all(simplex_new[1] == pt_2))
+        self.assertTrue(all(simplex_new[2] == pt_4))
+
+        # pt_1 = np.array([0.5, 0.2, -0.1])
+        # pt_2 = np.array([-0.2, 0.3, 0.5])
+        # pt_3 = np.array([0.2, 0.1, 0.3])
+        # pt_4 = np.array([0.2, -0, 0.2])
+        # simplex = [pt_1, pt_2, pt_3, pt_4]
+        # simplex_new, _ = Particle.nearest_simplex(simplex)
+        # self.assertTrue(all(simplex_new[0] == pt_2))

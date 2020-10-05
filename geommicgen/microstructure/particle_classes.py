@@ -93,6 +93,225 @@ class Particle(abc.ABC):
                 )
             )
 
+    def intersection_gjk(self, particle_2: Particle, box: list) -> tuple[bool, float]:
+        """Check using a version of the GJK intersection method if the particles intersect.
+
+        At the core of the algorithm is the theorem stating that if the two convex shapes
+        intersect, their Minkowski difference, i.e. the difference of all the points in both
+        sets, contains the origin. The distance between the two shapes will also be the
+        smallest distance between the origin and the boundary of the Minkowski difference.
+
+        We start with a random direction, get the corresponding point from the support
+        function of the Minkowski difference. After this first step we try to find points
+        belonging to the Minkowski difference that are closer to the origin. This always
+        motivates the direction of the search direction.
+
+        We conclude that the two shapes do not intersect if the new point from the Minkowski
+        difference is behind the origin as seen from the perspective of the search
+        direction, i.e. their dot product is negative.
+
+        Instead of computing the complete Minkowski difference of the shapes we limit
+        ourselves to simplices, and try to enclose the origin with the simplex of hightest
+        dimension corresponding to the problem, a triangle for 2D and a tetrahedron for 3D.
+
+        Parameters
+        ----------
+        particle_2: `.Particle`
+            Particle that will be checked for intersection with *self*.
+
+        box: list
+            Simulation box containing the particles.
+
+        Returns
+        -------
+        intersection: bool
+            True if the particles intersect, False otherwise.
+
+        penetration_length: float
+            The penetratin length if an intersection is detected, *None* otherwise.
+        """
+        diff_in_box = self.position_center - particle_2.position_center
+        # Difference vector between the center of the two particles
+        diff_nearest_other = box * np.round(diff_in_box / box)
+        # Vector from the position of the other ellipse to its nearest image to the current
+        # ellipse
+        if self.dim == 2:
+            diff_nearest_other = np.append(diff_nearest_other, [0])
+
+        random_dir = np.array(
+            [
+                1,
+                1,
+                1,
+            ]
+        )
+        simplex = [
+            self.support_function(random_dir)
+            - (particle_2.support_function(-random_dir) + diff_nearest_other)
+        ]
+        search_direction = -simplex[0]
+        while True:
+            new_mink_diff_point = self.support_function(search_direction) - (
+                particle_2.support_function(-search_direction) + diff_nearest_other
+            )
+            if new_mink_diff_point.dot(np.array(search_direction)) < 0:
+                # If moving towards the origin we have no gone past it
+                intersection = False
+                penetration_length = None
+                break
+            # We've gone past the origin
+            simplex.append(new_mink_diff_point)
+            simplex, search_direction = self.nearest_simplex(simplex)
+            if len(simplex) == self.dim + 1:
+                # We have found a simplex of the hightest dimension of the problem
+                # containing the origin
+                intersection = True
+                penetration_length = search_direction[0]
+                break
+
+        return intersection, penetration_length
+
+    @staticmethod
+    def nearest_simplex(simplex):
+        """
+        Get the nearest simplex to the origin and the corresponding search direction.
+
+        This function computes from the simplex given the subset of points comprising a the
+        closest simplex to the origin.
+        """
+
+        def nearest_triangle(vec_to_origin, vec_1, vec_2, sub_simplex):
+            normal_tri = np.cross(vec_1, vec_2)
+            if np.cross(vec_1, normal_tri).dot(vec_to_origin) > 0:
+                if vec_1.dot(vec_to_origin) > 0:
+                    del sub_simplex[1]
+                    search_direction = np.cross(
+                        vec_1,
+                        np.cross(vec_to_origin, vec_1),
+                    )
+                elif vec_2.dot(vec_to_origin) > 0:
+                    del sub_simplex[0]
+                    search_direction = np.cross(
+                        vec_2,
+                        np.cross(vec_to_origin, vec_2),
+                    )
+                else:
+                    del sub_simplex[0:2]
+                    search_direction = vec_to_origin
+            elif np.cross(normal_tri, vec_2).dot(vec_to_origin) > 0:
+                if vec_2.dot(vec_to_origin) > 0:
+                    del sub_simplex[0]
+                    search_direction = np.cross(
+                        vec_2,
+                        np.cross(vec_to_origin, vec_2),
+                    )
+                else:
+                    del sub_simplex[0:2]
+                    search_direction = vec_to_origin
+            else:
+                if normal_tri.dot(vec_last_to_origin) > 0:
+                    search_direction = normal_tri
+                    sub_simplex.reverse()
+                else:
+                    search_direction = -normal_tri
+
+            return sub_simplex, search_direction
+
+        if len(simplex) == 2:
+            vec_last_to_previous = simplex[0] - simplex[1]
+            vec_last_to_origin = -simplex[1]
+            if vec_last_to_previous.dot(vec_last_to_origin) > 0:
+                search_direction = (
+                    np.linalg.norm(vec_last_to_previous) * vec_last_to_origin
+                    - vec_last_to_previous.dot(vec_last_to_origin) * vec_last_to_origin
+                )
+            else:
+                del simplex[0]
+                search_direction = simplex[1]
+        elif len(simplex) == 3:
+            vec_last_to_origin = -simplex[2]
+            vec_last_to_previous_1 = simplex[0] - simplex[2]
+            vec_last_to_previous_2 = simplex[1] - simplex[2]
+            normal_tri = np.cross(vec_last_to_previous_1, vec_last_to_previous_2)
+            if np.cross(vec_last_to_previous_1, normal_tri).dot(vec_last_to_origin) > 0:
+                if vec_last_to_previous_1.dot(vec_last_to_origin) > 0:
+                    del simplex[1]
+                    search_direction = np.cross(
+                        vec_last_to_previous_1,
+                        np.cross(vec_last_to_origin, vec_last_to_previous_1),
+                    )
+                elif vec_last_to_previous_2.dot(vec_last_to_origin) > 0:
+                    del simplex[0]
+                    search_direction = np.cross(
+                        vec_last_to_previous_2,
+                        np.cross(vec_last_to_origin, vec_last_to_previous_2),
+                    )
+                else:
+                    del simplex[0:2]
+                    search_direction = vec_last_to_origin
+            elif (
+                np.cross(normal_tri, vec_last_to_previous_2).dot(vec_last_to_origin) > 0
+            ):
+                if vec_last_to_previous_2.dot(vec_last_to_origin) > 0:
+                    del simplex[0]
+                    search_direction = np.cross(
+                        vec_last_to_previous_2,
+                        np.cross(vec_last_to_origin, vec_last_to_previous_2),
+                    )
+                else:
+                    del simplex[0:2]
+                    search_direction = vec_last_to_origin
+            else:
+                if normal_tri.dot(vec_last_to_origin) > 0:
+                    search_direction = normal_tri
+                    simplex.reverse()
+                else:
+                    search_direction = -normal_tri
+        elif len(simplex) == 4:
+            vec_last_to_origin = -simplex[3]
+            vec_last_to_previous_1 = simplex[0] - simplex[3]
+            vec_last_to_previous_2 = simplex[1] - simplex[3]
+            vec_last_to_previous_3 = simplex[2] - simplex[3]
+            normal_tri_12 = np.cross(vec_last_to_previous_1, vec_last_to_previous_2)
+            normal_tri_23 = np.cross(vec_last_to_previous_2, vec_last_to_previous_3)
+            normal_tri_31 = np.cross(vec_last_to_previous_3, vec_last_to_previous_1)
+            # Outward normals
+            if normal_tri_12.dot(vec_last_to_origin) < 0:
+                simplex, search_direction = nearest_triangle(
+                    vec_last_to_origin,
+                    vec_last_to_previous_1,
+                    vec_last_to_previous_2,
+                    [simplex[0], simplex[1], simplex[3]],
+                )
+
+            elif normal_tri_23.dot(vec_last_to_origin) < 0:
+                simplex, search_direction = nearest_triangle(
+                    vec_last_to_origin,
+                    vec_last_to_previous_2,
+                    vec_last_to_previous_3,
+                    [simplex[1], simplex[2], simplex[3]],
+                )
+            elif normal_tri_31.dot(vec_last_to_origin) < 0:
+                simplex, search_direction = nearest_triangle(
+                    vec_last_to_origin,
+                    vec_last_to_previous_3,
+                    vec_last_to_previous_1,
+                    [simplex[2], simplex[0], simplex[3]],
+                )
+            else:
+                d_12 = vec_last_to_origin.dot(
+                    normal_tri_12 / np.linalg.norm(normal_tri_12)
+                )
+                d_23 = vec_last_to_origin.dot(
+                    normal_tri_23 / np.linalg.norm(normal_tri_23)
+                )
+                d_31 = vec_last_to_origin.dot(
+                    normal_tri_31 / np.linalg.norm(normal_tri_31)
+                )
+                search_direction = np.max([d_12, d_23, d_31]) * np.array([1, 0, 0])
+
+        return simplex, search_direction
+
     def intersection_vector(self, other_particle, box):
         """Compute the unit vector from the center of masss of particle i to particle j.
 
@@ -974,6 +1193,11 @@ class Disk(Ellipse):
         erosion_thickness = self.radius
         return erosion_thickness
 
+    def support_function(self, direction):
+        radius_vec = direction[0:2] / np.linalg.norm(direction[0:2]) * self.radius
+        return np.append(self.position_center + radius_vec, [0])
+        # GJK algorithm is written for 3D
+
 
 class CylindricalFiber(Disk):
     """
@@ -1574,7 +1798,7 @@ class Ellipsoid(Particle):
             Overlap volume(area) between the ellipsoid and the other particle.
         """
 
-        if isinstance(other_particle, Ellipsoid):
+        if False:  # isinstance(other_particle, Ellipsoid):
             intersection = self.intersection_ellipsoid_ellipsoid(other_particle, box)
             # Saving the class name of the other particle as a string
             if intersection:
@@ -1586,6 +1810,11 @@ class Ellipsoid(Particle):
             else:
                 # There is no overlap
                 overlap_volume = 0
+        elif isinstance(other_particle, (Cylinder, Ellipsoid)):
+            intersection, penetration_length = self.intersection_gjk(
+                other_particle, box
+            )
+            overlap_volume = penetration_length if intersection else 0
         return overlap_volume
 
     def intersection_ellipsoid_ellipsoid(self, other_ellipsoid, box):
@@ -1797,10 +2026,35 @@ class Ellipsoid(Particle):
             other_particle: Ellipsoid
             # The other particle is also an Ellipsoid or subclass
             intersection = self.intersection_ellipsoid_ellipsoid(other_particle, box)
+        elif isinstance(other_particle, Cylinder):
+            intersection, _ = self.intersection_gjk(other_particle, box)
         else:
             raise ValueError("Incompatible particles.")
         return intersection
         # Returning the intersection area
+
+    def support_function(self, direction):
+        dir_local = self.rotation_mat.T.dot(direction)
+        dir_normal = np.array(
+            [
+                dir_local[0] * (self.semi_axis_1 ** 2),
+                dir_local[1] * (self.semi_axis_2 ** 2),
+                dir_local[2] * (self.semi_axis_3 ** 2),
+            ]
+        )
+        rescale_factor = np.sqrt(
+            1
+            / (
+                (dir_normal[0] / self.semi_axis_1) ** 2
+                + (dir_normal[1] / self.semi_axis_2) ** 2
+                + (dir_normal[2] / self.semi_axis_3) ** 2
+            )
+        )
+        point_on_ellipsoid_loc = rescale_factor * dir_normal
+        point_on_ellipsoid_glob = (
+            self.rotation_mat.dot(point_on_ellipsoid_loc) + self.position_center
+        )
+        return point_on_ellipsoid_glob
 
 
 class Sphere(Ellipsoid):
@@ -1901,6 +2155,11 @@ class Sphere(Ellipsoid):
             other_particle: Ellipsoid
             intersection_volume = other_particle.intersection_area(self, box)
             # Computing the intersection area
+        else:
+            intersection, penetration_length = self.intersection_gjk(
+                other_particle, box
+            )
+            intersection_volume = penetration_length if intersection else 0
         return intersection_volume
         # Returning the intersection area
 
@@ -1996,6 +2255,9 @@ class Sphere(Ellipsoid):
         elif isinstance(other_particle, Ellipsoid):
             other_particle: Ellipsoid
             intersection = other_particle.intersection(self, box)
+        else:
+            intersection, _ = self.intersection_gjk(other_particle, box)
+
         return intersection
         # Returning the intersection area
 
@@ -2048,6 +2310,11 @@ class Sphere(Ellipsoid):
         erosion_thickness = 0.9 * self.radius
         # Semi-latus rectum
         return erosion_thickness
+
+    def support_function(self, direction):
+        return (
+            self.position_center + direction / np.linalg.norm(direction) * self.radius
+        )
 
 
 class Cylinder(Particle):
@@ -2145,9 +2412,9 @@ class Cylinder(Particle):
             elif "ratio" in descriptors:
                 self.r_cyl = self.length / descriptors["ratio"]
         if "azimuth_angle" in descriptors:
-            self.azimuth_angle = descriptors["azimuth_angle"]
+            self.azimuth_angle = np.abs(descriptors["azimuth_angle"])
         if "polar_angle" in descriptors:
-            self.polar_angle = descriptors["polar_angle"]
+            self.polar_angle = np.abs(descriptors["polar_angle"])
         super().__init__(3, phase)
 
     @property
@@ -2168,19 +2435,25 @@ class Cylinder(Particle):
         )
         return sym_axis_unit_vec
 
-    def intersection(self):
-        pass
+    @property
+    def radius(self):
+        radius = np.sqrt((self.length / 2) ** 2 + self.r_cyl ** 2)
+        return radius
 
-    def intersection_area(self):
-        pass
+    def intersection(self, other_particle, box):
+        intersection, _ = self.intersection_gjk(other_particle, box)
+        return intersection
 
-    def support_function(self, direction: np.array) -> list:
+    def intersection_area(self, other_particle, box):
+        intersection, overlap_length = self.intersection_gjk(other_particle, box)
+        return overlap_length if intersection else 0
+
+    def support_function(self, direction: np.array) -> np.array:
 
         dir_parallel_comp = (
             direction.dot(self.sym_axis_unit_vec) * self.sym_axis_unit_vec
         )
         dir_normal_comp = direction - dir_parallel_comp
-        dir_unit_normal_comp = dir_normal_comp / np.linalg.norm(dir_normal_comp)
         axial_vec_local = (
             self.length
             / 2
@@ -2189,9 +2462,12 @@ class Cylinder(Particle):
             if np.sign(self.sym_axis_unit_vec.dot(dir_parallel_comp)) != 0
             else self.length / 2 * self.sym_axis_unit_vec
         )
-        trans_vec_local = self.r_cyl * dir_unit_normal_comp
+        trans_vec_local = (
+            self.r_cyl * dir_normal_comp / np.linalg.norm(dir_normal_comp)
+            if np.linalg.norm(dir_normal_comp) != 0
+            else 0
+        )
         point_global = self.position_center + axial_vec_local + trans_vec_local
-
         return point_global
 
     def contract(self, distance):
