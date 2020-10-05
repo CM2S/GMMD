@@ -19,6 +19,7 @@ from microstructure.particle_classes import (
     Ellipsoid,
     Sphere,
     CylindricalFiber,
+    Cylinder,
 )
 
 # Importing the particle class
@@ -616,6 +617,41 @@ class FEMMeshGenerator(MeshGenerator):
                         self.phase_dim_tag[str(i_particle.phase)].append(
                             (3, self.particle_tags[-1])
                         )
+
+                        factory.synchronize()
+                    elif isinstance(i_particle, Cylinder):
+                        i_particle: Cylinder
+                        self.enforce_pbc_flag = False
+                        r_x = i_particle.r_cyl
+                        r_y = i_particle.r_cyl
+                        face_tag = factory.addDisk(
+                            x_c, y_c, z_c - i_particle.length / 2, r_x, r_y
+                        )
+                        # Saving the properties of the particles
+                        extrude_direction = [0, 0, i_particle.length]
+                        extrusion_tags = factory.extrude(
+                            [(2, face_tag)], *extrude_direction
+                        )
+                        # Extruding the fiber
+                        for i_dim_tag in extrusion_tags:
+                            if i_dim_tag[0] == 3:
+                                self.particle_tags.append(i_dim_tag[1])
+                                self.phase_dim_tag[str(i_particle.phase)].append(
+                                    (3, self.particle_tags[-1])
+                                )
+                                # break
+                        factory.rotate(
+                            [(3, self.particle_tags[-1])],
+                            x_c,
+                            y_c,
+                            z_c,
+                            -i_particle.sym_axis_unit_vec[1],
+                            i_particle.sym_axis_unit_vec[0],
+                            0,
+                            i_particle.polar_angle,
+                        )
+                        # Rotating the fiber face to the yz plane as it was ploted
+                        # in the xy plane
 
                         factory.synchronize()
 
