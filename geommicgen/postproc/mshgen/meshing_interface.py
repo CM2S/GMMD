@@ -640,18 +640,19 @@ class FEMMeshGenerator(MeshGenerator):
                                     (3, self.particle_tags[-1])
                                 )
                                 # break
-                        factory.rotate(
-                            [(3, self.particle_tags[-1])],
-                            x_c,
-                            y_c,
-                            z_c,
-                            -i_particle.sym_axis_unit_vec[1],
-                            i_particle.sym_axis_unit_vec[0],
-                            0,
-                            i_particle.polar_angle,
-                        )
-                        # Rotating the fiber face to the yz plane as it was ploted
-                        # in the xy plane
+                        if i_particle.polar_angle != 0:
+                            factory.rotate(
+                                [(3, self.particle_tags[-1])],
+                                x_c,
+                                y_c,
+                                z_c,
+                                -i_particle.sym_axis_unit_vec[1],
+                                i_particle.sym_axis_unit_vec[0],
+                                0,
+                                i_particle.polar_angle,
+                            )
+                            # Rotating the fiber face to the correct plane as it was ploted
+                            # in the xy plane
 
                         factory.synchronize()
 
