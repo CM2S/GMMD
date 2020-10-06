@@ -127,7 +127,7 @@ class Particle(abc.ABC):
         intersection: bool
             True if the particles intersect, False otherwise.
 
-        penetration_length: float
+        overlap_length: float
             The penetratin length if an intersection is detected, *None* otherwise.
         """
         diff_in_box = self.position_center - particle_2.position_center
@@ -157,7 +157,7 @@ class Particle(abc.ABC):
             if new_mink_diff_point.dot(np.array(search_direction)) < 0:
                 # If moving towards the origin we have no gone past it
                 intersection = False
-                penetration_length = None
+                overlap_length = None
                 break
             # We've gone past the origin
             simplex.append(new_mink_diff_point)
@@ -166,10 +166,10 @@ class Particle(abc.ABC):
                 # We have found a simplex of the hightest dimension of the problem
                 # containing the origin
                 intersection = True
-                penetration_length = search_direction[0]
+                overlap_length = search_direction[0]
                 break
 
-        return intersection, penetration_length
+        return intersection, overlap_length
 
     @staticmethod
     def nearest_simplex(simplex):
@@ -1811,10 +1811,8 @@ class Ellipsoid(Particle):
                 # There is no overlap
                 overlap_volume = 0
         elif isinstance(other_particle, (Cylinder, Ellipsoid)):
-            intersection, penetration_length = self.intersection_gjk(
-                other_particle, box
-            )
-            overlap_volume = penetration_length if intersection else 0
+            intersection, overlap_length = self.intersection_gjk(other_particle, box)
+            overlap_volume = overlap_length if intersection else 0
         return overlap_volume
 
     def intersection_ellipsoid_ellipsoid(self, other_ellipsoid, box):
@@ -2156,10 +2154,8 @@ class Sphere(Ellipsoid):
             intersection_volume = other_particle.intersection_area(self, box)
             # Computing the intersection area
         else:
-            intersection, penetration_length = self.intersection_gjk(
-                other_particle, box
-            )
-            intersection_volume = penetration_length if intersection else 0
+            intersection, overlap_length = self.intersection_gjk(other_particle, box)
+            intersection_volume = overlap_length if intersection else 0
         return intersection_volume
         # Returning the intersection area
 
@@ -2481,6 +2477,339 @@ class Cylinder(Particle):
         self.r_cyl += distance
         self.length += distance
         # Dilating the particle size adding the minimum distance to the semi-axis
+
+    def intersection_cylinder_cylinder(
+        self: Cylinder, other_cylinder: Cylinder, box: list
+    ):
+        """Check if two cylinders intersect. If so give overlap length.
+
+        This method used analytical means to detect the intersection of two cylinders and
+        give their overlap length.
+
+        Parameters
+        ----------
+        other_cylinder: `.Cylinder`
+            Other cylinder.
+
+        box: list
+            Dimensions of the simulation box.
+
+        Returns
+        -------
+        intersection: bool
+            True if the cylinders intersect, False otherwise.
+
+        overlap_length: float
+            Equal to the overlap_length if the cylinders overlap, 0 otherwise.
+        """
+        normal = (
+            np.cross(self.sym_axis_unit_vec, other_cylinder.sym_axis_unit_vec)
+            if self.sym_axis_unit_vec.dot(other_cylinder.sym_axis_unit_vec) != 1
+            else np.cross(self.sym_axis_unit_vec, np.array([1, 0, 0]))
+        )
+        normal_unit = normal / np.linalg.norm(normal)
+        # Normal vector to both symmetry axis of the cylinders
+        shortest_dist = np.abs(
+            normal_unit.dot(self.position_center - other_cylinder.position_center)
+        )
+        if shortest_dist > self.r_cyl + other_cylinder.r_cyl:
+            intersection = False
+            overlap_length = 0
+            return intersection, overlap_length
+        else:
+            normal_1 = np.cross(normal_unit, self.sym_axis_unit_vec * self.length / 2)
+            normal_2 = np.cross(
+                normal_unit,
+                other_cylinder.sym_axis_unit_vec * other_cylinder.length / 2,
+            )
+            # Normals to each of the axis and the common normal
+            normalized_dist_1 = (
+                normal_2.dot(other_cylinder.position_center - self.position_center)
+                / normal_2.dot(self.sym_axis_unit_vec * self.length / 2)
+                if np.abs(normal_2.dot(self.sym_axis_unit_vec)) > 1e-5
+                else 0
+            )
+            normalized_dist_2 = (
+                normal_1.dot(self.position_center - other_cylinder.position_center)
+                / normal_1.dot(
+                    other_cylinder.sym_axis_unit_vec * other_cylinder.length / 2
+                )
+                if np.abs(normal_1.dot(other_cylinder.sym_axis_unit_vec)) > 1e-5
+                else 0
+            )
+            # Normalized distance relative to the length of each cylinder from the center
+            # point to the closest point on the axis to the other axis.
+            if np.abs(normalized_dist_1) <= 1 and np.abs(normalized_dist_2) <= 1:
+                # Intersection located in the laterals of the cylinders
+                intersection = True
+                overlap_length = None
+                return intersection, overlap_length
+            else:
+                (
+                    intersection,
+                    overlap_length,
+                ) = self.intersection_top_disk_lateral_cylinder(other_cylinder, box)
+                if intersection is True:
+                    return intersection, overlap_length
+                intersection, overlap_length = self.intersection_top_disks(
+                    other_cylinder, box
+                )
+                if intersection is True:
+                    return intersection, overlap_length
+                intersection = False
+                overlap_length = 0
+                return intersection, overlap_length
+
+    def intersection_top_disks(self: Cylinder, other: Cylinder, box: list):
+        """Check if the top of two cylinders intersect.
+
+        Parameters
+        ----------
+        other: `.Cylinder`
+            Other cylinder.
+
+        box: list
+            Dimensions of the simulation box.
+
+        Returns
+        -------
+        intersection: bool
+            True if the cylinders intersect, False otherwise.
+
+        overlap_length: float
+            Equal to the overlap_length if the cylinders overlap, 0 otherwise.
+        """
+
+        def intersection_disk_disk(
+            pos_d1: np.array,
+            r_d1: float,
+            normal_d1: np.array,
+            pos_d2: np.array,
+            r_d2: float,
+            normal_d2: np.array,
+        ) -> tuple[bool, float]:
+            """Check if top two disks of two cylinders intersect.
+
+            Parameters
+            ----------
+            pos_d1: array
+                Center of disk 1.
+
+            r_d1: float
+                Radius of disk 1.
+
+            normal_d1: array
+                Outer normal to disk 1.
+
+            pos_d2: array
+                Center of disk 2.
+
+            r_d2: float
+                Radius of disk 2.
+
+            normal_d2: array
+                Outer normal to disk 2.
+
+            Returns
+            -------
+            intersection: bool
+                True if the cylinders intersect, False otherwise.
+
+            overlap_length: float
+                Equal to the overlap_length if the cylinders overlap, 0 otherwise.
+            """
+            normal = np.cross(normal_d1, normal_d2)
+            normal_to_int = np.cross(normal, normal_d1)
+            common_pt = (
+                pos_d1
+                + normal_d2.dot(pos_d2 - pos_d1)
+                / normal_d2.dot(normal_to_int)
+                * normal_to_int
+            )
+            if (
+                np.linalg.norm(common_pt - pos_d1) <= r_d1
+                and np.linalg.norm(common_pt - pos_d2) <= r_d2
+            ):
+                # if r_d1**2 - np.linalg.norm(common_pt - pos_d1)**2 >
+                intersection = True
+                overlap_length = None
+            else:
+                intersection = False
+                overlap_length = None
+            return intersection, overlap_length
+
+        intersection, overlap_length = intersection_disk_disk(
+            self.position_center + self.sym_axis_unit_vec * self.length / 2,
+            self.r_cyl,
+            self.sym_axis_unit_vec,
+            other.position_center + other.sym_axis_unit_vec * other.length / 2,
+            other.r_cyl,
+            other.sym_axis_unit_vec,
+        )
+        if intersection is True:
+            return intersection, overlap_length
+
+        intersection, overlap_length = intersection_disk_disk(
+            self.position_center + self.sym_axis_unit_vec * self.length / 2,
+            self.r_cyl,
+            self.sym_axis_unit_vec,
+            other.position_center - other.sym_axis_unit_vec * other.length / 2,
+            other.r_cyl,
+            -other.sym_axis_unit_vec,
+        )
+        if intersection is True:
+            return intersection, overlap_length
+
+        intersection, overlap_length = intersection_disk_disk(
+            self.position_center - self.sym_axis_unit_vec * self.length / 2,
+            self.r_cyl,
+            -self.sym_axis_unit_vec,
+            other.position_center + other.sym_axis_unit_vec * other.length / 2,
+            other.r_cyl,
+            other.sym_axis_unit_vec,
+        )
+        if intersection is True:
+            return intersection, overlap_length
+
+        intersection, overlap_length = intersection_disk_disk(
+            self.position_center - self.sym_axis_unit_vec * self.length / 2,
+            self.r_cyl,
+            -self.sym_axis_unit_vec,
+            other.position_center - other.sym_axis_unit_vec * other.length / 2,
+            other.r_cyl,
+            -other.sym_axis_unit_vec,
+        )
+        if intersection is True:
+            return intersection, overlap_length
+
+        intersection = False
+        overlap_length = None
+        return intersection, overlap_length
+
+    def intersection_top_disk_lateral_cylinder(
+        self: Cylinder, other: Cylinder, box: list
+    ) -> tuple[bool, float]:
+        """Check if the top of one one of the cylinders intersects the lateral of the other.
+
+        Parameters
+        ----------
+        other: `.Cylinder`
+            Other cylinder.
+
+        box: list
+            Dimensions of the simulation box.
+
+        Returns
+        -------
+        intersection: bool
+            True if the cylinders intersect, False otherwise.
+
+        overlap_length: float
+            Equal to the overlap_length if the cylinders overlap, 0 otherwise.
+        """
+
+        def intersection_disk_cylinder(
+            pos_c: np.array,
+            r_c: float,
+            len_c: np.array,
+            pos_d: np.array,
+            r_d: float,
+            normal_d: np.array,
+        ):
+            """Check if the top of a cylinder intersect the lateral of another cylinder.
+
+            Parameters
+            ----------
+            pos_c: array
+                Center of the cylinder.
+
+            r_c: float
+                Radius of the cylinder.
+
+            len_c: array
+                Vector parallel to the symmetry axis, whose norm is equal to half its
+                length.
+
+            pos_d: array
+                Center of the disk.
+
+            r_d: float
+                Radius of the disk.
+
+            normal_d: array
+                Outer normal the disk.
+
+            Returns
+            -------
+            intersection: bool
+                True if the cylinders intersect, False otherwise.
+
+            overlap_length: float
+                Equal to the overlap_length if the cylinders overlap, 0 otherwise.
+            """
+            intrsct_pt_axis_disk = (
+                pos_c + normal_d.dot(pos_d - pos_c) / normal_d.dot(len_c) * len_c
+            )
+            pt_bound_disk = pos_d + r_d * (
+                intrsct_pt_axis_disk - pos_d
+            ) / np.linalg.norm(intrsct_pt_axis_disk - pos_d)
+            dist = len_c.dot(pt_bound_disk - pos_c) / np.linalg.norm(len_c)
+            # proj_on_axis_bound_pt = pos_c + dist * len_c / np.linalg.norm(len_c)
+            if np.abs(dist) < np.linalg.norm(len_c):
+                intersection = True
+                overlap_length = None
+            elif np.linalg.norm(intrsct_pt_axis_disk - pos_d) < r_d:
+                intersection = True
+                overlap_length = None
+            else:
+                intersection = False
+                overlap_length = 0
+
+            return intersection, overlap_length
+
+        intersection, overlap_length = intersection_disk_cylinder(
+            self.position_center,
+            self.r_cyl,
+            self.sym_axis_unit_vec * self.length / 2,
+            other.position_center + other.sym_axis_unit_vec * other.length / 2,
+            other.r_cyl,
+            other.sym_axis_unit_vec,
+        )
+        if intersection is True:
+            return intersection, overlap_length
+
+        intersection, overlap_length = intersection_disk_cylinder(
+            self.position_center,
+            self.r_cyl,
+            self.sym_axis_unit_vec * self.length / 2,
+            other.position_center - other.sym_axis_unit_vec * other.length / 2,
+            other.r_cyl,
+            -other.sym_axis_unit_vec,
+        )
+        if intersection is True:
+            return intersection, overlap_length
+
+        intersection, overlap_length = intersection_disk_cylinder(
+            other.position_center,
+            other.r_cyl,
+            other.sym_axis_unit_vec * self.length / 2,
+            self.position_center + self.sym_axis_unit_vec * self.length / 2,
+            self.r_cyl,
+            self.sym_axis_unit_vec,
+        )
+        if intersection is True:
+            return intersection, overlap_length
+
+        intersection, overlap_length = intersection_disk_cylinder(
+            other.position_center,
+            other.r_cyl,
+            other.sym_axis_unit_vec * self.length / 2,
+            self.position_center - self.sym_axis_unit_vec * self.length / 2,
+            self.r_cyl,
+            -self.sym_axis_unit_vec,
+        )
+        if intersection is True:
+            return intersection, overlap_length
 
 
 class Matrix(Particle):
