@@ -319,7 +319,9 @@ class Particle(abc.ABC):
                 d_31 = vec_last_to_origin.dot(
                     normal_tri_31 / np.linalg.norm(normal_tri_31)
                 )
-                search_direction = np.max([d_12, d_23, d_31]) * np.array([1, 0, 0])
+                search_direction = np.min(np.abs([d_12, d_23, d_31])) * np.array(
+                    [1, 0, 0]
+                )
 
         return simplex, search_direction
 
