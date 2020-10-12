@@ -817,3 +817,25 @@ class testNearest(unittest.TestCase):
         self.assertTrue(all(simplex_new[0] == pt_1))
         self.assertTrue(all(simplex_new[1] == pt_2))
         self.assertTrue(all(simplex_new[2] == pt_4))
+
+
+class TestNearestPeriodImage(unittest.TestCase):
+    """Test the staticmethod nearest_periodic_image"""
+
+    def test_2d(self):
+        """Test nearest_periodic_image in 2D."""
+        box = [2, 1]
+        point_1 = np.array([0.9, 0.9])
+        point_2 = np.array([0.9, 0.1])
+        nearest_image_pt_1 = Particle.nearest_periodic_image(point_1, point_2, box)
+        self.assertTrue(all(np.abs(nearest_image_pt_1 - np.array([0.9, -0.1])) < 1e-4))
+
+    def test_3d(self):
+        """Test nearest_periodic_image in 3D."""
+        box = [1, 1, 1]
+        point_1 = np.array([0.5, 0.1, 0.9])
+        point_2 = np.array([0.9, 0.9, 0.9])
+        nearest_image_pt_1 = Particle.nearest_periodic_image(point_1, point_2, box)
+        self.assertTrue(
+            all(np.abs(nearest_image_pt_1 - np.array([0.5, 1.1, 0.9])) < 1e-4)
+        )

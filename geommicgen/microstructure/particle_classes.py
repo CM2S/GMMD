@@ -66,6 +66,17 @@ class Particle(abc.ABC):
         # Phase to which the particle belongs
         self.position_center = None
 
+    @staticmethod
+    def nearest_periodic_image(point_1, point_2, box):
+        """Get the nearest periodic image of *point_1* to *point_2* in *box* with pbcs."""
+        diff_in_box = point_2 - point_1
+        # Difference vector between the two points
+        diff_nearest_other = box * np.round(diff_in_box / box)
+        # Vector from the nearest image of point_2 relative point_1 to point_1
+        point_1_nearest_image = point_1 + diff_nearest_other
+
+        return point_1_nearest_image
+
     @classmethod
     def check_acceptable_description(cls, descriptors):
         """Check if descriptors are an acceptable description.
@@ -2502,6 +2513,9 @@ class Cylinder(Particle):
         overlap_length: float
             Equal to the overlap_length if the cylinders overlap, 0 otherwise.
         """
+        other_cylinder_position_center_pbc = Particle.nearest_periodic_image(
+            other_cylinder.position_center, self.position_center, box
+        )
         normal = (
             np.cross(self.sym_axis_unit_vec, other_cylinder.sym_axis_unit_vec)
             if self.sym_axis_unit_vec.dot(other_cylinder.sym_axis_unit_vec) != 1
@@ -2510,7 +2524,7 @@ class Cylinder(Particle):
         normal_unit = normal / np.linalg.norm(normal)
         # Normal vector to both symmetry axis of the cylinders
         shortest_dist = np.abs(
-            normal_unit.dot(self.position_center - other_cylinder.position_center)
+            normal_unit.dot(self.position_center - other_cylinder_position_center_pbc)
         )
         if shortest_dist > self.r_cyl + other_cylinder.r_cyl:
             intersection = False
