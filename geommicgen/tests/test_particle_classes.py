@@ -146,7 +146,6 @@ class EllipsoidTestPartiallyIntersecting(unittest.TestCase):
         intersection, overlap_length = trouble_pair[0].intersection_gjk(
             trouble_pair[1], [1, 1, 1]
         )
-        print("overlap_length", overlap_length)
         self.assertTrue(intersection)
 
 

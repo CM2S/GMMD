@@ -239,9 +239,9 @@ def run_program():
             for phase_name, phase_descriptors in mic_gen_descriptors.items():
                 current_phase = Phase(phase_name, phase_descriptors)
                 current_sample.add_phase(current_phase)
+                # Populating the microstructure sample with phases
             if current_sample.matrix_phase is None:
                 raise ValueError("No matrix phase was specified.")
-            # Populating the microstructure sample with phases
 
             try:
                 current_mic_generator.generate_microstructure(current_sample)

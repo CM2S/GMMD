@@ -463,12 +463,6 @@ top_level_reader.addTopLevelKeyword(
         type="str",
     ),
     KeywordTypeA(
-        "Motion_Analysis",
-        "Mic_Gen_Parameters",
-        default_value=False,
-        type="bool",
-    ),
-    KeywordTypeA(
         "Thermostat",
         "Mic_Gen_Parameters",
         default_type="multi_temperature",
@@ -507,6 +501,11 @@ top_level_reader.addTopLevelKeyword(
 top_level_reader.addTopLevelKeyword(
     KeywordTypeB("Problem_Type", type="int"),
     KeywordTypeB("N_DP_Samples", type="int"),
+    KeywordTypeB(
+        "Motion_Analysis",
+        default_value=False,
+        type="bool",
+    ),
 )
 # General keywords
 
