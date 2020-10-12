@@ -2325,6 +2325,83 @@ class Sphere(Ellipsoid):
             self.position_center + direction / np.linalg.norm(direction) * self.radius
         )
 
+    def intersection_sphere_cylinder(
+        self: Sphere, cylinder: Cylinder, box: list
+    ) -> tuple[bool, float]:
+        cylinder_position_center_pbc = Particle.nearest_periodic_image(
+            cylinder.position_center, self.position_center, box
+        )
+        dist_on_axis = cylinder.sym_axis_unit_vec.dot(
+            self.position_center - cylinder_position_center_pbc
+        )
+        if np.abs(dist_on_axis) > cylinder.length / 2 + self.radius:
+            if (
+                np.linalg.norm(self.position_center - cylinder_position_center_pbc)
+                < self.radius
+            ):
+                intersection = True
+                overlap_length = cylinder.length
+
+                return intersection, overlap_length
+
+            intersection = False
+            overlap_length = 0
+
+            return intersection, overlap_length
+
+        if np.abs(dist_on_axis) < cylinder.length / 2:
+            L = np.sqrt(
+                np.sum((self.position_center - cylinder) ** 2) - dist_on_axis ** 2
+            )
+            if L < self.radius + cylinder.r_cyl:
+                intersection = True
+                overlap_length = np.sqrt((self.radius + cylinder.r_cyl) ** 2 - L ** 2)
+                # sc2
+
+            intersection = True
+            overlap_length = 0
+
+            return intersection, overlap_length
+
+        if (
+            cylinder.length / 2
+            <= np.abs(dist_on_axis)
+            <= cylinder.length / 2 + self.radius
+        ):
+            L = np.sqrt(
+                np.sum((self.position_center - cylinder) ** 2) - dist_on_axis ** 2
+            )
+            if L < np.sqrt(
+                self.radius ** 2 - (dist_on_axis - cylinder.length / 2) ** 2
+            ):
+                if np.abs(L) < cylinder.r_cyl:
+                    intersection = True
+                    overlap_length = (
+                        cylinder.length / 2 + self.radius - np.abs(dist_on_axis)
+                    )
+                    # sc3
+
+                    return intersection, overlap_length
+
+                if np.abs(L) >= cylinder.r_cyl:
+                    intersection = True
+                    overlap_length = (
+                        np.sqrt(
+                            self.radius ** 2
+                            - (np.abs(dist_on_axis) - cylinder.length / 2) ** 2
+                        )
+                        + cylinder.r_cyl
+                        - L
+                    )
+                    # sc4
+
+                    return intersection, overlap_length
+
+                intersection = False
+                overlap_length = None
+
+                return intersection, overlap_length
+
 
 class Cylinder(Particle):
     """This is the class for short cylinders.
@@ -2493,7 +2570,7 @@ class Cylinder(Particle):
 
     def intersection_cylinder_cylinder(
         self: Cylinder, other_cylinder: Cylinder, box: list
-    ):
+    ) -> tuple[bool, float]:
         """Check if two cylinders intersect. If so give overlap length.
 
         This method used analytical means to detect the intersection of two cylinders and
@@ -2532,51 +2609,51 @@ class Cylinder(Particle):
             intersection = False
             overlap_length = 0
             return intersection, overlap_length
-        else:
-            normal_1 = np.cross(normal_unit, self.sym_axis_unit_vec * self.length / 2)
-            normal_2 = np.cross(
-                normal_unit,
-                other_cylinder.sym_axis_unit_vec * other_cylinder.length / 2,
-            )
-            # Normals to each of the axis and the common normal
-            normalized_dist_1 = (
-                normal_2.dot(other_cylinder.position_center - self.position_center)
-                / normal_2.dot(self.sym_axis_unit_vec * self.length / 2)
-                if np.abs(normal_2.dot(self.sym_axis_unit_vec)) > 1e-5
-                else 0
-            )
-            normalized_dist_2 = (
-                normal_1.dot(self.position_center - other_cylinder.position_center)
-                / normal_1.dot(
-                    other_cylinder.sym_axis_unit_vec * other_cylinder.length / 2
-                )
-                if np.abs(normal_1.dot(other_cylinder.sym_axis_unit_vec)) > 1e-5
-                else 0
-            )
-            # Normalized distance relative to the length of each cylinder from the center
-            # point to the closest point on the axis to the other axis.
-            if np.abs(normalized_dist_1) <= 1 and np.abs(normalized_dist_2) <= 1:
-                # Intersection located in the laterals of the cylinders
-                intersection = True
-                overlap_length = None
-                return intersection, overlap_length
-            else:
-                (
-                    intersection,
-                    overlap_length,
-                ) = self.intersection_top_disk_lateral_cylinder(other_cylinder, box)
-                if intersection is True:
-                    return intersection, overlap_length
-                intersection, overlap_length = self.intersection_top_disks(
-                    other_cylinder, box
-                )
-                if intersection is True:
-                    return intersection, overlap_length
-                intersection = False
-                overlap_length = 0
-                return intersection, overlap_length
+            # If the shortest distance between axis is greater than the sum of the radii of
+            # the cylinders they do not intersect
 
-    def intersection_top_disks(self: Cylinder, other: Cylinder, box: list):
+        normal_1 = np.cross(normal_unit, self.sym_axis_unit_vec * self.length / 2)
+        normal_2 = np.cross(
+            normal_unit,
+            other_cylinder.sym_axis_unit_vec * other_cylinder.length / 2,
+        )
+        # Normals to each of the axis and the common normal
+        normalized_dist_1 = (
+            normal_2.dot(other_cylinder_position_center_pbc - self.position_center)
+            / normal_2.dot(self.sym_axis_unit_vec * self.length / 2)
+            if np.abs(normal_2.dot(self.sym_axis_unit_vec)) > 1e-5
+            else 0
+        )
+        normalized_dist_2 = (
+            normal_1.dot(self.position_center - other_cylinder_position_center_pbc)
+            / normal_1.dot(other_cylinder.sym_axis_unit_vec * other_cylinder.length / 2)
+            if np.abs(normal_1.dot(other_cylinder.sym_axis_unit_vec)) > 1e-5
+            else 0
+        )
+        # Normalized distance relative to the length of each cylinder from the center
+        # point to the closest point on the axis to the other axis.
+        if np.abs(normalized_dist_1) <= 1 and np.abs(normalized_dist_2) <= 1:
+            # Intersection located in the laterals of the cylinders
+            intersection = True
+            overlap_length = self.r_cyl + other_cylinder.r_cyl - shortest_dist
+            return intersection, overlap_length
+
+        (
+            intersection,
+            overlap_length,
+        ) = self.intersection_top_disk_lateral_cylinder(other_cylinder, box)
+        if intersection is True:
+            return intersection, overlap_length
+        intersection, overlap_length = self.intersection_top_disks(other_cylinder, box)
+        if intersection is True:
+            return intersection, overlap_length
+        intersection = False
+        overlap_length = 0
+        return intersection, overlap_length
+
+    def intersection_top_disks(
+        self: Cylinder, other: Cylinder, box: list
+    ) -> tuple[bool, float]:
         """Check if the top of two cylinders intersect.
 
         Parameters
@@ -2646,19 +2723,34 @@ class Cylinder(Particle):
                 np.linalg.norm(common_pt - pos_d1) <= r_d1
                 and np.linalg.norm(common_pt - pos_d2) <= r_d2
             ):
-                # if r_d1**2 - np.linalg.norm(common_pt - pos_d1)**2 >
                 intersection = True
-                overlap_length = None
+                if (
+                    r_d1 ** 2 - np.linalg.norm(common_pt - pos_d1) ** 2
+                    > r_d2 ** 2 - np.linalg.norm(common_pt - pos_d2) ** 2
+                ):
+                    overlap_length = np.abs(
+                        -(r_d2 - np.linalg.norm(common_pt - pos_d2))
+                    )
+                    # d1
+                else:
+                    overlap_length = np.abs(
+                        -(r_d1 - np.linalg.norm(common_pt - pos_d1))
+                    )
+                    # d2
             else:
                 intersection = False
                 overlap_length = None
             return intersection, overlap_length
 
+        other_position_center_pbc = Particle.nearest_periodic_image(
+            other.position_center, self.position_center, box
+        )
+
         intersection, overlap_length = intersection_disk_disk(
             self.position_center + self.sym_axis_unit_vec * self.length / 2,
             self.r_cyl,
             self.sym_axis_unit_vec,
-            other.position_center + other.sym_axis_unit_vec * other.length / 2,
+            other_position_center_pbc + other.sym_axis_unit_vec * other.length / 2,
             other.r_cyl,
             other.sym_axis_unit_vec,
         )
@@ -2669,7 +2761,7 @@ class Cylinder(Particle):
             self.position_center + self.sym_axis_unit_vec * self.length / 2,
             self.r_cyl,
             self.sym_axis_unit_vec,
-            other.position_center - other.sym_axis_unit_vec * other.length / 2,
+            other_position_center_pbc - other.sym_axis_unit_vec * other.length / 2,
             other.r_cyl,
             -other.sym_axis_unit_vec,
         )
@@ -2680,7 +2772,7 @@ class Cylinder(Particle):
             self.position_center - self.sym_axis_unit_vec * self.length / 2,
             self.r_cyl,
             -self.sym_axis_unit_vec,
-            other.position_center + other.sym_axis_unit_vec * other.length / 2,
+            other_position_center_pbc + other.sym_axis_unit_vec * other.length / 2,
             other.r_cyl,
             other.sym_axis_unit_vec,
         )
@@ -2691,7 +2783,7 @@ class Cylinder(Particle):
             self.position_center - self.sym_axis_unit_vec * self.length / 2,
             self.r_cyl,
             -self.sym_axis_unit_vec,
-            other.position_center - other.sym_axis_unit_vec * other.length / 2,
+            other_position_center_pbc - other.sym_axis_unit_vec * other.length / 2,
             other.r_cyl,
             -other.sym_axis_unit_vec,
         )
@@ -2770,24 +2862,47 @@ class Cylinder(Particle):
                 intrsct_pt_axis_disk - pos_d
             ) / np.linalg.norm(intrsct_pt_axis_disk - pos_d)
             dist = len_c.dot(pt_bound_disk - pos_c) / np.linalg.norm(len_c)
-            # proj_on_axis_bound_pt = pos_c + dist * len_c / np.linalg.norm(len_c)
+            proj_on_axis_bound_pt = pos_c + dist * len_c / np.linalg.norm(len_c)
             if np.abs(dist) < np.linalg.norm(len_c):
                 intersection = True
-                overlap_length = None
+                if (
+                    np.linalg.norm(pos_d - intrsct_pt_axis_disk) > r_d
+                    and np.linalg.norm(proj_on_axis_bound_pt - pt_bound_disk) < r_c
+                ):
+                    overlap_length = np.abs(
+                        -(np.linalg.norm(proj_on_axis_bound_pt - pt_bound_disk) - r_c)
+                    )
+                    # cd1
+                elif (
+                    np.linalg.norm(pos_d - intrsct_pt_axis_disk) < r_d
+                    and np.linalg.norm(proj_on_axis_bound_pt - pt_bound_disk) < r_c
+                ):
+                    overlap_length = np.abs(
+                        -(
+                            np.linalg.norm(proj_on_axis_bound_pt - pt_bound_disk)
+                            - 2 * r_c
+                        )
+                    )
+                    # cd1
             elif np.linalg.norm(intrsct_pt_axis_disk - pos_d) < r_d:
                 intersection = True
-                overlap_length = None
+                overlap_length = 2 * r_c
+                # cd3
             else:
                 intersection = False
                 overlap_length = 0
 
             return intersection, overlap_length
 
+        other_position_center_pbc = Particle.nearest_periodic_image(
+            other.position_center, self.position_center, box
+        )
+
         intersection, overlap_length = intersection_disk_cylinder(
             self.position_center,
             self.r_cyl,
             self.sym_axis_unit_vec * self.length / 2,
-            other.position_center + other.sym_axis_unit_vec * other.length / 2,
+            other_position_center_pbc + other.sym_axis_unit_vec * other.length / 2,
             other.r_cyl,
             other.sym_axis_unit_vec,
         )
@@ -2798,7 +2913,7 @@ class Cylinder(Particle):
             self.position_center,
             self.r_cyl,
             self.sym_axis_unit_vec * self.length / 2,
-            other.position_center - other.sym_axis_unit_vec * other.length / 2,
+            other_position_center_pbc - other.sym_axis_unit_vec * other.length / 2,
             other.r_cyl,
             -other.sym_axis_unit_vec,
         )
@@ -2806,7 +2921,7 @@ class Cylinder(Particle):
             return intersection, overlap_length
 
         intersection, overlap_length = intersection_disk_cylinder(
-            other.position_center,
+            other_position_center_pbc,
             other.r_cyl,
             other.sym_axis_unit_vec * self.length / 2,
             self.position_center + self.sym_axis_unit_vec * self.length / 2,
@@ -2817,7 +2932,7 @@ class Cylinder(Particle):
             return intersection, overlap_length
 
         intersection, overlap_length = intersection_disk_cylinder(
-            other.position_center,
+            other_position_center_pbc,
             other.r_cyl,
             other.sym_axis_unit_vec * self.length / 2,
             self.position_center - self.sym_axis_unit_vec * self.length / 2,
