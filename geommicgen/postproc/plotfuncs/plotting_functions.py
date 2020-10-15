@@ -300,6 +300,12 @@ def plot_overlap_history(
     show=False,
     **kwargs
 ):
+    def moving_average(vec, ind, n=5):
+        if ind > n // 2 and ind < len(vec) - n // 2:
+            value = np.sum(vec[ind - n // 2 : ind + n // 2 + 1]) / (2 * (n // 2) + 1)
+        else:
+            value = None
+        return value
 
     if "axes" in kwargs:
         ax = kwargs["axes"]
@@ -312,8 +318,16 @@ def plot_overlap_history(
     if max_residue != 0:
         plt.semilogy([0, len(total_overlap_history)], [max_residue, max_residue])
     graph_overlap_history = plt.semilogy(
-        range(len(total_overlap_history)), total_overlap_history
+        range(len(total_overlap_history)),
+        total_overlap_history,
+        color=kwargs.get("color", (68 / 255, 119 / 255, 170 / 255, 1)),
     )
+    # for i_window in [2, 5, 10, 20, 50]:
+    #     smooth_rolling_ave = [
+    #         moving_average(total_overlap_history, ind, n=i_window)
+    #         for ind, _ in enumerate(total_overlap_history)
+    #     ]
+    #     plt.semilogy(range(len(total_overlap_history)), smooth_rolling_ave)
     plt.grid()
     if "axes" not in kwargs:
         if save:
