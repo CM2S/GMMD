@@ -2205,6 +2205,7 @@ class Sphere(Ellipsoid):
             # The intersection area of the spheres is zero
         elif d <= r_1 - r_2:
             # Sphere 2 is interely contained within Sphere 1
+            # intersection_volume = r_1 + r_2  # 4 / 3 * np.pi * r_2 ** 3
             intersection_volume = 4 / 3 * np.pi * r_2 ** 3
             # The intersection area is equal to the area of the smaller sphere, Sphere 2
         else:
@@ -2213,6 +2214,9 @@ class Sphere(Ellipsoid):
             # at disk 1 and the x axis goes through the center of both disks
             d_2 = d - d_1
             # Distance in the x axis from the intersection point to disk 2
+            # intersection_volume = (r_1 + r_2 - d) ** 2 / (
+            #     r_1 + r_2
+            # )  # / (2 * r_2) * 4 / 3 * np.pi * r_2 ** 3
             intersection_volume = (
                 r_1 ** 3
                 / 3
