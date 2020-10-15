@@ -487,6 +487,18 @@ top_level_reader.addTopLevelKeyword(
         type="int",
     ),
     KeywordTypeA(
+        "Lowering_Temp_Criterion",
+        "Mic_Gen_Parameters",
+        default_value="original",
+        type="str",
+    ),
+    KeywordTypeA(
+        "Average_Window",
+        "Mic_Gen_Parameters",
+        default_value=25,
+        type="int",
+    ),
+    KeywordTypeA(
         "Remesh",
         "Mic_Gen_Parameters",
         default_value=False,
