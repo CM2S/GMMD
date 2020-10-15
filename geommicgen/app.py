@@ -192,10 +192,23 @@ def run_program():
                             mic_gen_parameters["initial_temp"]
                         )
                     elif mic_gen_parameters.get("thermostat") == "multi_temperature":
-                        current_thermostat = MultiTemperatureIsokineticThermostat(
-                            mic_gen_parameters["initial_temp"],
-                            mic_gen_parameters["min_eq_steps_at_temp"],
-                        )
+                        if (
+                            mic_gen_parameters.get("lowering_temp_criterion")
+                            == "rolling_ave"
+                        ):
+                            current_thermostat = MultiTemperatureIsokineticThermostat(
+                                mic_gen_parameters["initial_temp"],
+                                criterion="rolling_ave",
+                                average_window=mic_gen_parameters["average_window"],
+                            )
+                        else:
+                            current_thermostat = MultiTemperatureIsokineticThermostat(
+                                mic_gen_parameters["initial_temp"],
+                                criterion="original",
+                                min_eq_steps_at_temp=mic_gen_parameters[
+                                    "min_eq_steps_at_temp"
+                                ],
+                            )
                     elif mic_gen_parameters.get("thermostat") == "micro_canonical":
                         current_thermostat = MicroCanonicalEnsemble()
                     else:

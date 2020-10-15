@@ -123,7 +123,7 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
         Iteration at which the temperature may be lowered.
     """
 
-    def __init__(self, initial_temp, min_eq_steps_at_temp):
+    def __init__(self, initial_temp, criterion, **kwargs):
         """
         Initialize an MultiTemperatureIsokineticThermostat.
 
@@ -136,11 +136,16 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
             Minimum number of steps spent at a given temperature, after which the heuristic
             rule to decide if the temperature is to be decreased is applied.
         """
-        self.min_eq_steps_at_temp = min_eq_steps_at_temp
         self.eq_steps_list = []
-        self._next_temp_change = min_eq_steps_at_temp
         self.molecular_dynamics_sim = None
-        self.temp_change_steps = []
+        self.temp_change_steps = [0]
+        if criterion == "original":
+            self.criterion = "original"
+            self.min_eq_steps_at_temp = kwargs["min_eq_steps_at_temp"]
+            self._next_temp_change = kwargs["min_eq_steps_at_temp"]
+        elif criterion == "rolling_ave":
+            self.criterion = "rolling_ave"
+            self.average_window = kwargs["average_window"]
         super().__init__(initial_temp)
 
     def apply_thermostat(self, particle_velocities, kin_energy):
@@ -172,14 +177,29 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
             List of the particle velocities after applying the thermostat.
         """
         # The thermostat used is the multi_temperature scheme
-        if self.molecular_dynamics_sim.step > self._next_temp_change:
-            # If the end of the equilibration time has been reached
-            if (
-                self.molecular_dynamics_sim.total_overlap
-                > self.molecular_dynamics_sim.max_residue
-            ):
-                # If a legal configuration has not been achieved
-                if any(
+        if (
+            self.molecular_dynamics_sim.total_overlap
+            > self.molecular_dynamics_sim.max_residue
+        ):
+            # If a legal configuration has not been achieved
+            if self.reached_quilibrium():
+                # If the total overlap has increased in the previous iterations
+                self.reference_temp *= 1 / 4
+                # Lowering the temperature
+                self.temp_change_steps.append(self.molecular_dynamics_sim.step)
+                # Saving minimum equilibration times and times at which the
+                # temperature has been lowered
+        particle_velocities = super().apply_thermostat(particle_velocities, kin_energy)
+        # Compute the rescaling factor only if the kinetic energy is nonzero
+
+        return particle_velocities
+
+    def reached_quilibrium(self) -> bool:
+        equilibrium_flag = False
+        if self.criterion == "original":
+            if self.molecular_dynamics_sim.step > self._next_temp_change:
+                # If the end of the equilibration time has been reached
+                equilibrium_flag = any(
                     np.array(
                         self.molecular_dynamics_sim.total_overlap_history[
                             -self.min_eq_steps_at_temp // 2 :
@@ -191,10 +211,8 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
                         ]
                     )
                     > 0
-                ):
-                    # If the total overlap has increased in the previous iterations
-                    self.reference_temp *= 1 / 4
-                    # Lowering the temperature
+                )
+                if equilibrium_flag:
                     self.min_eq_steps_at_temp += (
                         self.molecular_dynamics_sim.step - self._next_temp_change - 1
                     )
@@ -203,11 +221,19 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
                         self.molecular_dynamics_sim.step + self.min_eq_steps_at_temp
                     )
                     # Updating the iteration of the last temperature change
-                    self.temp_change_steps.append(self.molecular_dynamics_sim.step)
                     self.eq_steps_list.append(self.min_eq_steps_at_temp)
-                    # Saving minimum equilibration times and times at which the
-                    # temperature has been lowered
-        # Compute the rescaling factor only if the kinetic energy is nonzero
-        particle_velocities = super().apply_thermostat(particle_velocities, kin_energy)
+        elif self.criterion == "rolling_ave":
+            if (
+                self.molecular_dynamics_sim.step - self.temp_change_steps[-1]
+                > self.average_window
+            ):
+                step = self.molecular_dynamics_sim.step
+                equilibrium_flag = (
+                    self.molecular_dynamics_sim.total_overlap_history[
+                        step - self.average_window
+                    ]
+                    - self.molecular_dynamics_sim.total_overlap_history[step]
+                    < 0
+                )
 
-        return particle_velocities
+        return equilibrium_flag
