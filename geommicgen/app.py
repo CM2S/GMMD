@@ -276,6 +276,8 @@ def run_program():
                         total_overlap_history=current_mic_generator.total_overlap_history,
                         max_residue=current_mic_generator.max_residue,
                         kinetic_energy_history=current_mic_generator.kinetic_energy_history,
+                        temp_change_steps=current_mic_generator.thermostat.temp_change_steps,
+                        temp_change=True,
                     )
                     # Do analysis of the motion of the particles
                 if "voronoi_metrics" in top_level_reader.all_options:
