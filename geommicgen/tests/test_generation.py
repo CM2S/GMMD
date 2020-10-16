@@ -318,3 +318,107 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
         for particle in particles:
             particle.dilate.assert_called_with(0.1)
             particle.contract.assert_called_with(0.1)
+
+
+class TestMolecularDynamicSimulationForce(unittest.TestCase):
+    def setUp(self):
+        self.md_init_mock_kwargs = {
+            key: Mock()
+            for key in [
+                "max_residue_per_particle",
+                "max_step",
+                "max_steps_to_relax",
+                "dt",
+                "min_distance",
+                "type_init_conf",
+                "save_history",
+            ]
+        }
+
+    def test_compute_forces_overlap(self):
+        current_generation_method = MolecularDynamicsSimulation(
+            *self.md_init_mock_kwargs.values()
+        )
+        current_generation_method.set_speed_up_scheme(Mock(particle_list=[[1], [0]]))
+        current_generation_method.particle_forces = [0, 0]
+        particle_1 = Mock(position_center=np.array([0.6, 0.5]))
+        particle_1.intersection_area.return_value = 0.1
+        particle_1.intersection_vector.return_value = np.array([1, 0])
+        particle_2 = Mock(position_center=np.array([0.5, 0.5]))
+        particle_2.intersection_area.return_value = 0.1
+        particle_2.intersection_vector.return_value = np.array([-1, 0])
+        particles = [particle_1, particle_2]
+        current_generation_method.compute_forces_overlap(particles)
+        self.assertTrue(current_generation_method.total_overlap == 0.1)
+        self.assertTrue(
+            np.all(current_generation_method.particle_forces[0] == np.array([-0.1, 0]))
+        )
+        self.assertTrue(
+            np.all(current_generation_method.particle_forces[1] == np.array([0.1, 0]))
+        )
+
+    def test_compute_forces_thermostat(self):
+        current_generation_method = MolecularDynamicsSimulation(
+            *self.md_init_mock_kwargs.values()
+        )
+        current_generation_method.particle_forces = [0, 0]
+        particle_1 = Mock(position_center=np.array([0.6, 0.5]))
+        particle_2 = Mock(position_center=np.array([0.5, 0.5]))
+        particles = [particle_1, particle_2]
+        current_generation_method.particle_velocities = [
+            np.array([0.1, 0.2]),
+            np.array([0.2, -0.1]),
+        ]
+        current_generation_method.set_thermostat(Mock(force_coeff=0.1))
+        current_generation_method.compute_forces_thermostat(particles)
+        self.assertTrue(
+            np.all(
+                np.abs(
+                    current_generation_method.particle_forces[0]
+                    - np.array([-0.01, -0.02])
+                )
+                < 1e-4
+            )
+        )
+        self.assertTrue(
+            np.all(
+                np.abs(
+                    current_generation_method.particle_forces[1]
+                    - np.array([-0.02, 0.01])
+                )
+                < 1e-4
+            )
+        )
+
+    def test_compute_forces_damping(self):
+        current_generation_method = MolecularDynamicsSimulation(
+            *self.md_init_mock_kwargs.values()
+        )
+        current_generation_method.particle_forces = [0, 0]
+        particle_1 = Mock(position_center=np.array([0.6, 0.5]))
+        particle_2 = Mock(position_center=np.array([0.5, 0.5]))
+        particles = [particle_1, particle_2]
+        current_generation_method.particle_velocities = [
+            np.array([0.1, 0.2]),
+            np.array([0.2, -0.1]),
+        ]
+        current_generation_method.damping_coeff = 0.1
+        current_generation_method.compute_forces_damping(particles)
+        self.assertTrue(
+            np.all(
+                np.abs(
+                    current_generation_method.particle_forces[0]
+                    - np.array([-0.01, -0.02])
+                )
+                < 1e-4
+            )
+        )
+        self.assertTrue(
+            np.all(
+                np.abs(
+                    current_generation_method.particle_forces[1]
+                    - np.array([-0.02, 0.01])
+                )
+                < 1e-4
+            )
+        )

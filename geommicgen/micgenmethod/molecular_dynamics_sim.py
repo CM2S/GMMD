@@ -473,14 +473,34 @@ class MolecularDynamicsSimulation(GenerationMethod):
         """
         self.speed_up_scheme.new_list(particles)
         # Computing a new list for force computation
+        self.particle_forces = [np.zeros(particles[0].dim) for _ in particles]
+        # Setting all forces to zero at the beginning of the iteration as they are added
+        # sequentially as each pair is considered
+        self.compute_forces_overlap(particles)
+        # Computing forces due to particle overlap
+        self.compute_forces_thermostat(particles)
+        # Computing forces due to the thermostat
+        self.compute_forces_damping(particles)
+        # Computing forces due to damping
+        # if self.max_force is None:
+        #     # self.max_force = np.max(
+        #     #     [np.linalg.norm(force) for force in self.particle_forces]
+        #     # )
+        #     self.max_force = np.max([i_particle.volume for i_particle in particles])
+        # self.current_max_force = np.max(
+        #     [np.linalg.norm(force) for force in self.particle_forces]
+        # )
+        # self.particle_forces = [
+        #     force * self.max_force / self.current_max_force
+        #     for force in self.particle_forces
+        # ]
+
+    def compute_forces_overlap(self, particles):
         self.total_overlap = 0
         # Setting the total overlap to zero as it will computed again
         self.particle_overlap_areas = [0 for _ in particles]
         # Setting all the overlap areas to zero at the beginning of the iteration as
         # they are added sequentially as each pair is considered
-        self.particle_forces = [np.zeros(particles[0].dim) for _ in particles]
-        # Setting all forces to zero at the beginning of the iteration as they are added
-        # sequentially as each pair is considered
         for i_particle_index, i_particle in enumerate(particles):
             # Running though all the particles
             for j_particle_index in self.speed_up_scheme.particle_list[
@@ -513,18 +533,25 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     # Adding the force due to the interaction between particle 1 and 2 to
                     # the total force acting on particle 2
         self.total_overlap_history.append(self.total_overlap)
-        # if self.max_force is None:
-        #     # self.max_force = np.max(
-        #     #     [np.linalg.norm(force) for force in self.particle_forces]
-        #     # )
-        #     self.max_force = np.max([i_particle.volume for i_particle in particles])
-        # self.current_max_force = np.max(
-        #     [np.linalg.norm(force) for force in self.particle_forces]
-        # )
-        # self.particle_forces = [
-        #     force * self.max_force / self.current_max_force
-        #     for force in self.particle_forces
-        # ]
+
+    def compute_forces_thermostat(self, particles):
+        if self.thermostat.force_coeff is None:
+            pass
+        else:
+            for i_particle_ind, _ in enumerate(particles):
+                self.particle_forces[i_particle_ind] -= (
+                    self.thermostat.force_coeff
+                    * self.particle_velocities[i_particle_ind]
+                )
+
+    def compute_forces_damping(self, particles):
+        if self.damping_coeff == 0:
+            pass
+        else:
+            for i_particle_ind, _ in enumerate(particles):
+                self.particle_forces[i_particle_ind] -= (
+                    self.damping_coeff * self.particle_velocities[i_particle_ind]
+                )
 
     def integrate(self, particles, **kwargs):
         """Integrate the equations of motion."""
