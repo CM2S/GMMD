@@ -21,6 +21,7 @@ from micgenmethod.thermostats import (
     IsokineticThermostat,
     MultiTemperatureIsokineticThermostat,
     MicroCanonicalEnsemble,
+    BerendsenForceThermostat,
 )
 from micgenmethod.speed_up_schemes import CellList, VerletList, Naive
 
@@ -172,6 +173,17 @@ def run_program():
 
             if ext == ".mdsim":
                 # Molecular dynamics simulation
+                md_kwargs_keys = {
+                    "damping_coeff",
+                    "particle_mass_opt",
+                    "force_option",
+                    "force_rescale",
+                }
+                md_kwargs = {
+                    key: value
+                    for key, value in mic_gen_parameters.items()
+                    if key in md_kwargs_keys
+                }
                 try:
                     current_mic_generator = MolecularDynamicsSimulation(
                         mic_gen_parameters["max_residue_per_particle"],
@@ -181,6 +193,7 @@ def run_program():
                         mic_gen_parameters["min_distance"],
                         mic_gen_parameters["type_initial_configuration"],
                         mic_gen_parameters["save_history"],
+                        **md_kwargs
                     )
                 except KeyError:
                     print("Missing mandatory parameter defining a MD simulation.")
@@ -211,6 +224,11 @@ def run_program():
                             )
                     elif mic_gen_parameters.get("thermostat") == "micro_canonical":
                         current_thermostat = MicroCanonicalEnsemble()
+                    elif mic_gen_parameters.get("thermostat") == "berendsen":
+                        current_thermostat = BerendsenForceThermostat(
+                            mic_gen_parameters["initial_temp"],
+                            mic_gen_parameters["berendsen_coeff"],
+                        )
                     else:
                         current_thermostat = MicroCanonicalEnsemble()
                 except KeyError:
@@ -278,6 +296,8 @@ def run_program():
                         kinetic_energy_history=current_mic_generator.kinetic_energy_history,
                         temp_change_steps=current_mic_generator.thermostat.temp_change_steps,
                         temp_change=True,
+                        overlap_pairs_history=current_mic_generator.particle_overlap_areas_dict,
+                        len_sim=current_mic_generator.step,
                     )
                     # Do analysis of the motion of the particles
                 if "voronoi_metrics" in top_level_reader.all_options:

@@ -44,6 +44,9 @@ class IsokineticThermostat(Thermostat):
 
     k_b: float
         Analog of the Boltzmann constant.
+
+    force_coeff: float
+        Apply the thermostat as a force proportional to the velocity of the particle.
     """
 
     def __init__(self, reference_temp):
@@ -59,6 +62,8 @@ class IsokineticThermostat(Thermostat):
         # Intial temperature
         self.k_b = 1e-15
         # Analog to the Boltzmann constant
+        self.force_coeff = None
+        # Thermostat force coefficient
 
     def apply_thermostat(self, particle_velocities, kin_energy):
         """
@@ -84,13 +89,80 @@ class IsokineticThermostat(Thermostat):
         number_particles = len(particle_velocities)
         # The thermostate used is the isokinetic with constant temperature
         lambda_vel = np.sqrt(
-            2 * dim * number_particles * self.k_b * self.reference_temp / kin_energy
+            0.5 * dim * number_particles * self.k_b * self.reference_temp / kin_energy
         )
         for i_particle_index in range(number_particles):
             # Running through all the particles
             particle_velocities[i_particle_index] *= lambda_vel
             # Rescalling the velocities
-        return particle_velocities
+
+
+class BerendsenForceThermostat(Thermostat):
+    """
+    This is the class for the Berendsen thermostat applied using a force.
+
+    It enforces the reference temperature adding a force proportional to the velocity.
+    In the same direction if the temperature is too low and in the opposite direction if it
+    is too high.
+
+    Attributes
+    ----------
+    reference_temp: float
+        Reference temperature to be maintained by the thermostat.
+
+    k_b: float
+        Analog of the Boltzmann constant.
+
+    force_coeff: float
+        Apply the thermostat as a force proportional to the velocity of the particle.
+    """
+
+    def __init__(self, reference_temp, berendsen_coeff):
+        """
+        Initialize an IsokineticThermostat.
+
+        Parameters
+        ----------
+        reference_temp: float
+            Reference temperature to be maintained by the thermostat.
+
+        berendsen_coeff: float
+            Coefficient regulating the force coefficient
+        """
+        self.reference_temp = reference_temp
+        # Intial temperature
+        self.k_b = 1e-15
+        # Analog to the Boltzmann constant
+        self.berendsen_coeff = berendsen_coeff
+        self.force_coeff = 0
+        # Thermostat force coefficient
+
+    def apply_thermostat(self, particle_velocities, kin_energy):
+        """
+        Apply the thermostat.
+
+        It simply computes the force coefficient that defines the thermostat force accounted
+        for in the dynamical equilibrium of each particle.
+
+        Parameters
+        ----------
+        particle_velocities: list(array)
+            List of the particle velocities.
+
+        kin_energy: float
+            Kinetic energy of the system of particles.
+
+        Returns
+        -------
+        particle_velocities: list(array)
+            List of the particle velocities after applying the thermostat.
+        """
+        dim = len(particle_velocities[0])
+        number_particles = len(particle_velocities)
+        # The thermostate used is the isokinetic with constant temperature
+        self.force_coeff = self.berendsen_coeff * (
+            kin_energy - 0.5 * dim * number_particles * self.k_b * self.reference_temp
+        )
 
 
 class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
@@ -121,6 +193,9 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
 
     _next_temp_change: int
         Iteration at which the temperature may be lowered.
+
+    force_coeff: float
+        Apply the thermostat as a force proportional to the velocity of the particle.
     """
 
     def __init__(self, initial_temp, criterion, **kwargs):
@@ -146,6 +221,8 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
         elif criterion == "rolling_ave":
             self.criterion = "rolling_ave"
             self.average_window = kwargs["average_window"]
+        self.force_coeff = None
+        # Thermostat force coefficient
         super().__init__(initial_temp)
 
     def apply_thermostat(self, particle_velocities, kin_energy):

@@ -46,6 +46,7 @@ def create_figure(
     nrows_sub: int = 1,
     ncols_sub: int = 1,
     sharey: bool = False,
+    sharex: bool = False,
 ):
     """Create a matplotlib figure for a a4 report latex page.
 
@@ -66,7 +67,7 @@ def create_figure(
     w = (latex_textwidth - 0.2 * (ncols - 1)) / ncols
     h = (latex_textheigth - 1.63 * (nrows - 1)) / nrows
     fig, axs = plt.subplots(
-        figsize=(w, h), nrows=nrows_sub, ncols=ncols_sub, sharey=sharey
+        figsize=(w, h), nrows=nrows_sub, ncols=ncols_sub, sharey=sharey, sharex=sharex
     )
     return [fig, axs, (w, h)]
 
@@ -78,7 +79,7 @@ def create_legend(artists, labels, axes, to_fig=False, fig_h=4, ncols=3):
         legend = fig.legend(
             handles=artists,
             labels=labels,
-            bbox_to_anchor=(0.0, 1, 1.0, 0.102),
+            bbox_to_anchor=(0.0, 0.9, 1.0, 0.102),
             loc="lower center",
             ncol=ncols,
             mode="tight",
@@ -91,6 +92,7 @@ def create_legend(artists, labels, axes, to_fig=False, fig_h=4, ncols=3):
 
         frame.set_linewidth(lw_common)
         frame.set_edgecolor("k")
+        plt.tight_layout(rect=(0, 0, 1, 0.9))
     else:
         print("h_fig", fig_h)
         lw_common = axes.spines["bottom"].get_linewidth()
@@ -328,6 +330,14 @@ def plot_overlap_history(
     #         for ind, _ in enumerate(total_overlap_history)
     #     ]
     #     plt.semilogy(range(len(total_overlap_history)), smooth_rolling_ave)
+    if "overlap_pairs_history" in kwargs:
+        ax_2 = plt.twinx(plt.gca())
+        artist_ratio = plot_ratio_new_old_overlap(
+            kwargs["overlap_pairs_history"], kwargs["len_sim"], "", axes=ax_2
+        )
+        for artist in artist_ratio:
+            artist.set_linestyle(":")
+        plt.axhline(1, linewidth=0.01, linestyle="-", color="k")
     plt.grid()
     if "axes" not in kwargs:
         if save:
@@ -340,7 +350,7 @@ def plot_overlap_history(
         return graph_overlap_history
 
 
-def plot_paths(particles, position_center_history, motion_results_dir):
+def plot_paths(particles, box, position_center_history, motion_results_dir):
     """Plot particle paths."""
     path_results_dir = os.path.join(motion_results_dir, "paths")
     os.makedirs(path_results_dir)
@@ -410,6 +420,60 @@ def plot_paths(particles, position_center_history, motion_results_dir):
                 msh_vtk.write("\nLOOKUP_TABLE default")
                 for i_particle in particles:
                     msh_vtk.write("\n{0}".format(i_particle.phase))
+
+
+def plot_ratio_new_old_overlap(
+    overlap_pairs_history, len_sim, results_dir, show=False, save=True, **kwargs
+):
+    """Plot the ratio of increasing and decreasing intersection overlap."""
+
+    def moving_average(vec, ind, n=5):
+        if ind > n // 2 and ind < len(vec) - n // 2:
+            value = np.sum(vec[ind - n // 2 : ind + n // 2 + 1]) / (2 * (n // 2) + 1)
+        else:
+            value = None
+        return value
+
+    if "axes" in kwargs:
+        ax = kwargs["axes"]
+        plt.sca(ax)
+    else:
+        plt.figure()
+    inc_history = [0 for _ in range(len_sim)]
+    dec_history = [0 for _ in range(len_sim)]
+    for pair_overlap_history in overlap_pairs_history.values():
+        change_history_pair = (
+            np.array(pair_overlap_history)[1:] - np.array(pair_overlap_history)[:-1]
+        )
+        for i_step, i_change in enumerate(change_history_pair):
+            if i_change > 0:
+                inc_history[i_step] += i_change
+                print(inc_history[i_step], i_change)
+            elif i_change < 0:
+                dec_history[i_step] += i_change
+                print(dec_history[i_step], i_change)
+    ratio = [
+        np.abs(inc_hist / dec_hist) if dec_hist != 0 else None
+        for inc_hist, dec_hist in zip(inc_history, dec_history)
+    ]
+    graph_overlap = plt.semilogy(list(range(len_sim)), ratio)
+    # plt.plot(
+    #     list(range(len_sim)), [moving_average(ratio, ind) for ind in range(len_sim)]
+    # )
+    # plt.plot(
+    #     list(range(len_sim)), [moving_average(ratio, ind, 20) for ind in range(len_sim)]
+    # )
+    plt.grid()
+    # plt.ylim((0, 2))
+    if "axes" not in kwargs:
+        if save:
+            plt.savefig(os.path.join(results_dir, "ratio_new_old_overlap.pdf"))
+
+        if show:
+            plt.show()
+        plt.close()
+    else:
+        return graph_overlap
 
 
 def plot_pixels(pixel_grid, dir, show=False, save=True):

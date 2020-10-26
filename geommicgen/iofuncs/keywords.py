@@ -505,6 +505,30 @@ top_level_reader.addTopLevelKeyword(
         type="bool",
     ),
     KeywordTypeA(
+        "Damping_Coeff",
+        "Mic_Gen_Parameters",
+        default_value=0,
+        type="float",
+    ),
+    KeywordTypeA(
+        "Particle_Mass_Opt",
+        "Mic_Gen_Parameters",
+        default_value="volume",
+        type="str",
+    ),
+    KeywordTypeA(
+        "Force_Option",
+        "Mic_Gen_Parameters",
+        default_value="intersection_area",
+        type="str",
+    ),
+    KeywordTypeA(
+        "Berendsen_Coeff",
+        "Mic_Gen_Parameters",
+        default_value=1e-2,
+        type="float",
+    ),
+    KeywordTypeA(
         "Force_Rescale",
         "Mic_Gen_Parameters",
         default_value=False,

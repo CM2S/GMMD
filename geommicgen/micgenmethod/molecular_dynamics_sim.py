@@ -106,6 +106,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         min_distance,
         type_init_conf,
         save_history,
+        **kwargs
     ):
         """
         Initialize the MolecularDynamicsSimulation class.
@@ -135,11 +136,23 @@ class MolecularDynamicsSimulation(GenerationMethod):
         save_history: bool
             Save all the trajectories of the particles, the history of the relative and
             kinetic energy.
+
+        Keyword Parameters
+        ------------------
+        damping_coeff: float
+            Viscous damping coefficient.
+
+        particle_mass_opt: {'volume', 'radius', 'unit'}
+            Consider the mass equal to its volume, its radius or equal to one.
+
+        force_option: {"intersection_area", "intersection_length"}
+            Force proportional to the overlap area/volume or the overlap length
         """
         self.box = None
         self.particle_velocities = None
         self.particle_forces = None
         self.particle_overlap_areas = None
+        self.particle_overlap_areas_dict = {}
         self.total_overlap = None
         self.total_overlap_history = []
         self.position_center_history = None
@@ -157,8 +170,11 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.save_history = save_history
         self.time = None
         self.step = 0
-        self.max_force = None
         # Initializing the the time step at 0
+        self.max_force = None
+        self.damping_coeff = kwargs.get("damping_coeff", 0)
+        self.particle_mass_opt = kwargs.get("particle_mass_opt", "volume")
+        self.force_option = kwargs.get("force_option", "intersection_area")
         self.force_rescale = kwargs.get("force_rescale", False)
 
     def generate_microstructure(self, microstructure_sample):
@@ -413,6 +429,25 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 first=True,
             )
             # # Print info about the iteration
+            if self.thermostat.reference_temp < 0:
+                vel = (
+                    1
+                    / np.abs(self.thermostat.reference_temp)
+                    * (2 * particles[0].radius / self.dt - self.dt)
+                )
+                print("{0:e}".format(self.thermostat.reference_temp), "\n\n")
+                self.thermostat.reference_temp = (
+                    vel ** 2
+                    * np.sum(
+                        [
+                            particle.mass(self.particle_mass_opt)
+                            for particle in particles
+                        ]
+                    )
+                    / (particles[0].dim * self.thermostat.k_b * len(particles))
+                )
+                print("{0:e}".format(self.thermostat.reference_temp), "\n\n")
+
             while (
                 self.step < self.max_step
             ) and n_steps_relax <= self.max_steps_to_relax:
@@ -428,9 +463,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 # Computing the forces on all particles
                 self.compute_relative_energy()
                 # Computing the relative energy
-                # Computing the kinetic energy
                 self.compute_kinetic_energy(particles)
-                # Contract all particles
+                # Computing the kinetic energy
                 self.thermostat.apply_thermostat(
                     self.particle_velocities, self.kinetic_energy
                 )
@@ -515,9 +549,28 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 j_particle = particles[j_particle_index]
                 if j_particle_index > i_particle_index:
                     # Running through the particle pairs that have not been considered yet
-                    intersection_area = i_particle.intersection_area(
+                    intersection_area = getattr(i_particle, self.force_option)(
                         j_particle, self.box
                     )
+                    self.particle_overlap_areas_dict.setdefault(
+                        (i_particle_index, j_particle_index),
+                        [0 for _ in range(self.step - 1)],
+                    )
+                    self.particle_overlap_areas_dict[
+                        (i_particle_index, j_particle_index)
+                    ] += [
+                        0
+                        for _ in range(
+                            len(
+                                self.particle_overlap_areas_dict[
+                                    (i_particle_index, j_particle_index)
+                                ]
+                            ),
+                            self.step - 1,
+                        )
+                    ] + [
+                        intersection_area
+                    ]
                     # Intersection area between particle i and j
                     self.particle_overlap_areas[i_particle_index] += intersection_area
                     self.particle_overlap_areas[j_particle_index] += intersection_area
@@ -565,7 +618,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
             # Running through all the particles
             if False:  # self.integration_scheme == "newmark":
                 # The integration scheme chosen was Newmark
-                damping_constant = kwargs.get("damping_constant", 0)
+                damping_constant = kwargs.get("damping_coeff", 0)
                 [new_position, new_velocity, _] = Newmark(
                     i_particle.position_center,
                     self.particle_velocities[i_particle_index],
@@ -589,7 +642,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     i_particle.position_center,
                     self.particle_velocities[i_particle_index],
                     np.array([self.particle_forces[i_particle_index]], dtype="float").T,
-                    i_particle.volume,
+                    i_particle.mass(self.particle_mass_opt),
                     self.dt,
                     1,
                     dim,
@@ -632,9 +685,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
 
     def compute_kinetic_energy(self, particles):
         """Kinetic energy of the system of particles."""
-        self.kinetic_energy = np.sum(
+        self.kinetic_energy = 0.5 * np.sum(
             [
-                i_particle.volume * np.sum(velocity ** 2)
+                i_particle.mass(self.particle_mass_opt) * np.sum(velocity ** 2)
                 for i_particle, velocity in zip(particles, self.particle_velocities)
             ]
         )

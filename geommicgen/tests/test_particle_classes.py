@@ -9,8 +9,15 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from scipy import integrate
 import time
-from microstructure.particle_classes import Ellipsoid, Ellipse, Cylinder, Particle, Disk
-from postproc.plotfuncs.plotting_functions import plot_particles_3d
+from microstructure.particle_classes import (
+    Ellipsoid,
+    Ellipse,
+    Cylinder,
+    Particle,
+    Disk,
+    Sphere,
+)
+from postproc.plotfuncs.plotting_functions import plot_particles_3d, plot_particles_2d
 import pickle
 
 
@@ -116,6 +123,32 @@ class EllipsoidTestPartiallyIntersecting(unittest.TestCase):
         overlap_volume_2 = self.ellipsoid_1.intersection_volume_ellipsoid_other(
             self.ellipsoid_2, self.rve_dims, alg_type="regular"
         )
+
+        # v_ellipsoid_2 = ellipsoid_2.volume
+        # print(overlap_volume_1, end_1 - start_1, overlap_volume_2, end_2 - start_2)
+        self.assertTrue(np.abs(overlap_volume_1 - overlap_volume_2) < 1e-2)
+
+    def test_ellipsoid_intersection_volume_general_monte_carlo(self):
+        """Checking the computed intersection volume.
+
+        Computed using a random distribution of points and a grid."""
+        begin_1 = time.time()
+        overlap_volume_1 = self.ellipsoid_1.intersection_volume_ellipsoid_other(
+            self.ellipsoid_2, self.rve_dims, alg_type="random"
+        )
+        time_1 = time.time() - begin_1
+        begin_2 = time.time()
+        (
+            overlap_volume_2,
+            error_estimate,
+        ) = self.ellipsoid_1.intersection_area_monte_carlo(
+            self.ellipsoid_2,
+            self.rve_dims,
+        )
+        time_2 = time.time() - begin_2
+        print("time", time_1, time_2)
+        print("error_estimate", error_estimate)
+        print("overlap", overlap_volume_1, overlap_volume_2)
         # v_ellipsoid_2 = ellipsoid_2.volume
         # print(overlap_volume_1, end_1 - start_1, overlap_volume_2, end_2 - start_2)
         self.assertTrue(np.abs(overlap_volume_1 - overlap_volume_2) < 1e-2)
@@ -292,6 +325,66 @@ class EllipseTestPartiallyIntersecting(unittest.TestCase):
     #
     #     # plt.axis([-1, 2, -1, 2])
     #     plt.show()
+
+
+class EllipseTestIntersectionLength(unittest.TestCase):
+    def setUp(self):
+
+        self.rve_dims = [1.0, 1.0]
+
+        self.ellipse_1 = Ellipse(
+            "1", {"major_axis": 0.4, "minor_axis": 0.1, "angle": 0}, self.rve_dims
+        )
+        self.ellipse_2 = Ellipse(
+            "1",
+            {"major_axis": 0.4, "minor_axis": 0.1, "angle": 0},
+            self.rve_dims,
+        )
+
+    def test_ellipse_intersection_not(self):
+        self.ellipse_1.position_center = np.array([0.8, 0.9])
+        self.ellipse_2.position_center = np.array([0.1, 0.2])
+        intersection_length = self.ellipse_1.intersection_length(
+            self.ellipse_2, self.rve_dims
+        )
+        self.assertTrue(intersection_length == 0)
+
+    def test_ellipse_intersection_2_pts(self):
+        self.ellipse_1.position_center = np.array([0.4, 0.5])
+        self.ellipse_2.position_center = np.array([0.5, 0.5])
+        intersection_length = self.ellipse_1.intersection_length(
+            self.ellipse_2, self.rve_dims
+        )
+        self.assertTrue(np.abs(intersection_length - 0.3) < 1e-4)
+
+    def test_ellipse_intersection_4_pts(self):
+        self.ellipse_1 = Ellipse(
+            "1", {"major_axis": 0.4, "minor_axis": 0.1, "angle": 0.3}, self.rve_dims
+        )
+        self.ellipse_2 = Ellipse(
+            "1",
+            {"major_axis": 0.4, "minor_axis": 0.1, "angle": np.pi / 2 + 0.3},
+            self.rve_dims,
+        )
+        self.ellipse_1.position_center = np.array([0.5, 0.5])
+        self.ellipse_2.position_center = np.array([0.5, 0.5])
+        intersection_length = self.ellipse_1.intersection_length(
+            self.ellipse_2, self.rve_dims
+        )
+        self.assertTrue(np.abs(intersection_length - 0.1) < 1e-4)
+
+    def test_ellipse_intersection_inside(self):
+        self.ellipse_2 = Ellipse(
+            "1",
+            {"major_axis": 0.05, "minor_axis": 0.01, "angle": np.pi / 2},
+            self.rve_dims,
+        )
+        self.ellipse_1.position_center = np.array([0.5, 0.5])
+        self.ellipse_2.position_center = np.array([0.5, 0.5])
+        intersection_length = self.ellipse_1.intersection_length(
+            self.ellipse_2, self.rve_dims
+        )
+        self.assertTrue(np.abs(intersection_length - 0.05) < 1e-4)
 
 
 class TestCylinder(unittest.TestCase):
@@ -837,4 +930,179 @@ class TestNearestPeriodImage(unittest.TestCase):
         nearest_image_pt_1 = Particle.nearest_periodic_image(point_1, point_2, box)
         self.assertTrue(
             all(np.abs(nearest_image_pt_1 - np.array([0.5, 1.1, 0.9])) < 1e-4)
+        )
+
+
+class TestSupportFuntionEllipse(unittest.TestCase):
+    """Test the support function of the Ellipse."""
+
+    def test_support_function_ellipse_1(self):
+        rve_dims = [1.0, 1.0]
+
+        ellipse_1 = Ellipse(
+            "1", {"major_axis": 0.4, "minor_axis": 0.1, "angle": 0}, rve_dims
+        )
+        ellipse_1.position_center = np.array([0.5, 0.5])
+        pt_1 = ellipse_1.support_function(np.array([1, 0]))
+        pt_3 = ellipse_1.support_function(np.array([0, 1]))
+        self.assertTrue(np.all(np.abs(pt_1 - np.array([0.7, 0.5])) < 1e-4))
+        self.assertTrue(np.all(np.abs(pt_3 - np.array([0.5, 0.55])) < 1e-4))
+
+
+class TestSalnikovSphereCylinder(unittest.TestCase):
+    """Test the intersection function from Salnikov for spheres and cylinders."""
+
+    def setUp(self):
+        self.rve_dims = [1, 1, 1]
+        self.sphere = Sphere("1", {"r": 0.1, "n": 1}, self.rve_dims)
+        self.cylinder = Cylinder(
+            "1",
+            {
+                "r_cyl": 0.2,
+                "length": 0.4,
+                "azimuth_angle": 0,
+                "polar_angle": np.pi / 2,
+                "n": 1,
+            },
+            self.rve_dims,
+        )
+
+    def test_intersect_top(self):
+        self.cylinder.position_center = np.array([0.5, 0.5, 0.5])
+        self.sphere.position_center = np.array([0.7001, 0.5, 0.5])
+        intersection, intersection_length = self.sphere.intersection_sphere_cylinder(
+            self.cylinder, self.rve_dims
+        )
+        self.assertTrue(intersection)
+        print(intersection_length)
+        self.assertTrue(np.abs(intersection_length - 0.1) < 1e-4)
+
+    @unittest.skip("Incomplete")
+    def test_intersect_lateral(self):
+        pass
+
+    @unittest.skip("Incomplete")
+    def test_intersect_inside(self):
+        pass
+
+
+class TestPointInsideCylinder(unittest.TestCase):
+    """Test the point_inside function for the cylinder."""
+
+    def setUp(self):
+        self.rve_dims = [1, 1, 1]
+        self.cylinder = Cylinder(
+            "1",
+            {
+                "r_cyl": 0.2,
+                "length": 0.4,
+                "azimuth_angle": 0,
+                "polar_angle": np.pi / 2,
+                "n": 1,
+            },
+            self.rve_dims,
+        )
+        self.cylinder.position_center = np.array([0.5, 0.5, 0.5])
+
+    def test_point_inside_in(self):
+        point_inside = self.cylinder.point_inside(np.array([0.5, 0.5, 0.5]))
+        self.assertTrue(point_inside)
+
+    def test_point_inside_out(self):
+        point_inside = self.cylinder.point_inside(np.array([0.75, 0.5, 0.5]))
+        self.assertTrue(not point_inside)
+
+
+class TestIntegrationCylinder(unittest.TestCase):
+    """Test the Monte Carlo integration for cylinders."""
+
+    def test_cylinder_inside(self):
+        """The cylinder is completly inside an ellipsoid."""
+        rve_dims = [1, 1, 1]
+        cylinder = Cylinder(
+            "1",
+            {
+                "r_cyl": 0.3,
+                "length": 0.8,
+                "azimuth_angle": 0,
+                "polar_angle": np.pi / 2,
+                "n": 1,
+            },
+            rve_dims,
+        )
+        cylinder.position_center = np.array([0.5, 0.5, 0.5])
+        ellipsoid = Ellipsoid(
+            "1",
+            {
+                "axis_1": 1,
+                "axis_2": 1,
+                "axis_3": 1,
+                "rot_axis_comp_x": np.sqrt(3) / 3,
+                "rot_axis_comp_y": np.sqrt(3) / 3,
+                "rot_axis_comp_z": np.sqrt(3) / 3,
+                "angle": 0,
+            },
+            rve_dims,
+        )
+        ellipsoid.position_center = np.array([0.5, 0.5, 0.5])
+        intersection_volume, error_estimate = ellipsoid.intersection_area_monte_carlo(
+            cylinder, rve_dims, tol=1
+        )
+        print(
+            "error_estimate_2",
+            error_estimate,
+            intersection_volume,
+            cylinder.volume,
+            ((intersection_volume - cylinder.volume) / cylinder.volume) * 100,
+        )
+        self.assertTrue(
+            np.abs((intersection_volume - cylinder.volume) / cylinder.volume) * 100 < 1
+        )
+
+    def test_cylinder_outside(self):
+        """An Ellipsoid is completly inside the Cylinder."""
+        rve_dims = [1, 1, 1]
+        cylinder = Cylinder(
+            "1",
+            {
+                "r_cyl": 0.5,
+                "length": 0.8,
+                "azimuth_angle": 0,
+                "polar_angle": np.pi / 2,
+                "n": 1,
+            },
+            rve_dims,
+        )
+        cylinder.position_center = np.array([0.5, 0.5, 0.5])
+        ellipsoid = Ellipsoid(
+            "1",
+            {
+                "axis_1": 0.75,
+                "axis_2": 0.7,
+                "axis_3": 0.6,
+                "rot_axis_comp_x": np.sqrt(3) / 3,
+                "rot_axis_comp_y": np.sqrt(3) / 3,
+                "rot_axis_comp_z": np.sqrt(3) / 3,
+                "angle": 0,
+            },
+            rve_dims,
+        )
+        ellipsoid.position_center = np.array([0.5, 0.5, 0.5])
+        intersection_volume, error_estimate = cylinder.intersection_area_monte_carlo(
+            ellipsoid, rve_dims, tol=1
+        )
+        (
+            intersection_volume_2,
+            error_estimate_2,
+        ) = cylinder.intersection_area_monte_carlo(ellipsoid, rve_dims, tol=1)
+        print("error_estimate_1", error_estimate, intersection_volume, ellipsoid.volume)
+        print(
+            "error_estimate_2",
+            error_estimate_2,
+            intersection_volume_2,
+            ellipsoid.volume,
+        )
+        self.assertTrue(
+            np.abs((intersection_volume - ellipsoid.volume) / ellipsoid.volume) * 100
+            < 1
         )
