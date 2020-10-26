@@ -504,6 +504,12 @@ top_level_reader.addTopLevelKeyword(
         default_value=False,
         type="bool",
     ),
+    KeywordTypeA(
+        "Force_Rescale",
+        "Mic_Gen_Parameters",
+        default_value=False,
+        type="bool",
+    ),
     KeywordTypeA("Dir_Previous_Mic", "Mic_Gen_Parameters", type="str"),
     KeywordTypeA("RVE_Dimensions", "Mic_Gen_Parameters", type="float"),
 )

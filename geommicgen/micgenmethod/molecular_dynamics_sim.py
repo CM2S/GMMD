@@ -159,6 +159,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.step = 0
         self.max_force = None
         # Initializing the the time step at 0
+        self.force_rescale = kwargs.get("force_rescale", False)
 
     def generate_microstructure(self, microstructure_sample):
         """
@@ -482,18 +483,21 @@ class MolecularDynamicsSimulation(GenerationMethod):
         # Computing forces due to the thermostat
         self.compute_forces_damping(particles)
         # Computing forces due to damping
-        # if self.max_force is None:
-        #     # self.max_force = np.max(
-        #     #     [np.linalg.norm(force) for force in self.particle_forces]
-        #     # )
-        #     self.max_force = np.max([i_particle.volume for i_particle in particles])
-        # self.current_max_force = np.max(
-        #     [np.linalg.norm(force) for force in self.particle_forces]
-        # )
-        # self.particle_forces = [
-        #     force * self.max_force / self.current_max_force
-        #     for force in self.particle_forces
-        # ]
+        if self.force_rescale:
+            if self.max_force is None:
+                # self.max_force = np.max(
+                #     [np.linalg.norm(force) for force in self.particle_forces]
+                # )
+                self.max_force = np.max([i_particle.volume for i_particle in particles])
+            self.current_max_force = np.max(
+                [np.linalg.norm(force) for force in self.particle_forces]
+            )
+            self.particle_forces = [
+                force * self.max_force / self.current_max_force
+                if self.current_max_force != 0
+                else force
+                for force in self.particle_forces
+            ]
 
     def compute_forces_overlap(self, particles):
         self.total_overlap = 0
