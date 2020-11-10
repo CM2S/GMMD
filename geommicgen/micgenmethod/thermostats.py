@@ -223,6 +223,7 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
             self.criterion = "rolling_ave"
             self.average_window = kwargs["average_window"]
         self.force_coeff = None
+        self.temp_low_ratio = kwargs.get("temp_low_ratio", 1 / 4)
         # Thermostat force coefficient
         super().__init__(initial_temp)
 
@@ -262,7 +263,9 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
             # If a legal configuration has not been achieved
             if self.reached_equilibrium():
                 # If the total overlap has increased in the previous iterations
-                self.reference_temp *= 1 / 4
+                self.reference_temp *= self.temp_low_ratio
+                # self.molecular_dynamics_sim.dt *= 1.001
+                # self.molecular_dynamics_sim.force_rescale_coeff *= 2  # 16 ** 2
                 # Lowering the temperature
                 self.temp_change_steps.append(self.molecular_dynamics_sim.step)
                 # Saving minimum equilibration times and times at which the
