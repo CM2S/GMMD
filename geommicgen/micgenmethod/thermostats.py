@@ -222,6 +222,13 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
         elif criterion == "rolling_ave":
             self.criterion = "rolling_ave"
             self.average_window = kwargs["average_window"]
+        elif criterion == "ratio_in_out":
+            self.criterion = "ratio_in_out"
+            self.inc_history = []
+            self.dec_history = []
+            self.ratio = []
+            self._count = 0
+            self.max_ratio_osc = kwargs["max_ratio_osc"]
         self.force_coeff = None
         self.temp_low_ratio = kwargs.get("temp_low_ratio", 1 / 4)
         # Thermostat force coefficient
@@ -316,5 +323,46 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
                     - self.molecular_dynamics_sim.total_overlap_history[step]
                     < 0
                 )
+        elif self.criterion == "ratio_in_out":
+            self.inc_history.append(0)
+            self.dec_history.append(0)
+
+            try:
+                for (
+                    pair_overlap_history
+                ) in self.molecular_dynamics_sim.particle_overlap_areas_dict.values():
+                    pair_overlap_history += [
+                        0
+                        for _ in range(
+                            len(pair_overlap_history), self.molecular_dynamics_sim.step
+                        )
+                    ]
+                    change = pair_overlap_history[-1] - pair_overlap_history[-2]
+                    if change > 0:
+                        self.inc_history[-1] += change
+                    elif change < 0:
+                        self.dec_history[-1] += change
+                self.ratio.append(
+                    np.abs(self.inc_history[-1] / self.dec_history[-1])
+                    if self.dec_history[-1] != 0
+                    else 1e12
+                    if self.inc_history[-1] != 0
+                    else 1
+                )
+                if (self.ratio[-1] - 1) * (self.ratio[-2] - 1) <= 0:
+                    self._count += 1
+                if self._count >= self.max_ratio_osc:
+                    self._count = 0
+                    if (
+                        self.molecular_dynamics_sim.step - self.temp_change_steps[-1]
+                        < 4
+                    ) and False:
+                        self.molecular_dynamics_sim.dt *= 0.9
+                        equilibrium_flag = False
+                        print(self.molecular_dynamics_sim.dt, "\n\n")
+                    else:
+                        equilibrium_flag = True
+            except IndexError:
+                equilibrium_flag = False
 
         return equilibrium_flag
