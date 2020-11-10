@@ -47,6 +47,7 @@ def create_figure(
     ncols_sub: int = 1,
     sharey: bool = False,
     sharex: bool = False,
+    **kwargs
 ):
     """Create a matplotlib figure for a a4 report latex page.
 
@@ -64,8 +65,14 @@ def create_figure(
     matplotlib.rcParams["font.family"] = "Adobe Caslon Pro"
     matplotlib.rcParams["text.usetex"] = True
     matplotlib.rcParams["text.latex.unicode"] = True
-    w = (latex_textwidth - 0.2 * (ncols - 1)) / ncols
-    h = (latex_textheigth - 1.63 * (nrows - 1)) / nrows
+    if "w" not in kwargs:
+        w = (latex_textwidth - 0.2 * (ncols - 1)) / ncols
+    else:
+        w = kwargs["w"]
+    if "h" not in kwargs:
+        h = (latex_textheigth - 1.63 * (nrows - 1)) / nrows
+    else:
+        h = kwargs["h"]
     fig, axs = plt.subplots(
         figsize=(w, h), nrows=nrows_sub, ncols=ncols_sub, sharey=sharey, sharex=sharex
     )
