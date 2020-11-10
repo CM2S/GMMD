@@ -260,7 +260,7 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
             > self.molecular_dynamics_sim.max_residue
         ):
             # If a legal configuration has not been achieved
-            if self.reached_quilibrium():
+            if self.reached_equilibrium():
                 # If the total overlap has increased in the previous iterations
                 self.reference_temp *= 1 / 4
                 # Lowering the temperature
@@ -272,7 +272,7 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
 
         return particle_velocities
 
-    def reached_quilibrium(self) -> bool:
+    def reached_equilibrium(self) -> bool:
         equilibrium_flag = False
         if self.criterion == "original":
             if self.molecular_dynamics_sim.step > self._next_temp_change:
