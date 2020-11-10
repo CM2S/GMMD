@@ -209,19 +209,31 @@ def run_program():
                             mic_gen_parameters.get("lowering_temp_criterion")
                             == "rolling_ave"
                         ):
-                            current_thermostat = MultiTemperatureIsokineticThermostat(
-                                mic_gen_parameters["initial_temp"],
-                                criterion="rolling_ave",
-                                average_window=mic_gen_parameters["average_window"],
-                            )
+                            kwargs = {
+                                "criterion": "rolling_ave",
+                                "average_window": mic_gen_parameters["average_window"],
+                            }
+                        elif (
+                            mic_gen_parameters.get("lowering_temp_criterion")
+                            == "ratio_in_out"
+                        ):
+                            kwargs = {
+                                "criterion": "ratio_in_out",
+                                "max_ratio_osc": mic_gen_parameters["max_ratio_osc"],
+                            }
                         else:
-                            current_thermostat = MultiTemperatureIsokineticThermostat(
-                                mic_gen_parameters["initial_temp"],
-                                criterion="original",
-                                min_eq_steps_at_temp=mic_gen_parameters[
+                            kwargs = {
+                                "criterion": "original",
+                                "min_eq_steps_at_temp": mic_gen_parameters[
                                     "min_eq_steps_at_temp"
                                 ],
-                            )
+                            }
+                        kwargs.update(
+                            {"temp_low_ratio": mic_gen_parameters["temp_low_ratio"]}
+                        )
+                        current_thermostat = MultiTemperatureIsokineticThermostat(
+                            mic_gen_parameters["initial_temp"], **kwargs
+                        )
                     elif mic_gen_parameters.get("thermostat") == "micro_canonical":
                         current_thermostat = MicroCanonicalEnsemble()
                     elif mic_gen_parameters.get("thermostat") == "berendsen":
