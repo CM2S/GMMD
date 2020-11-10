@@ -130,7 +130,9 @@ def VerletSync(x_0, x_dot_0, f_vec, m_part, dt, n_steps, dim):
     x_dot_vec = np.zeros((dim, n_steps + 1), dtype="float")
     x_dot_vec[:, 0] = x_dot_0
     # Initializing the array vectors containing the positions, velocities and accelerations
-    x_vec[:, 1] = x_vec[:, 0] + dt * x_dot_vec[:, 0] + f_vec[:, 0] / m_part * dt ** 2
+    x_vec[:, 1] = (
+        x_vec[:, 0] + dt * x_dot_vec[:, 0] + 0.5 * f_vec[:, 0] / m_part * dt ** 2
+    )
     # Computing the next position
     x_dot_vec[:, 1] = (x_vec[:, 1] - x_vec[:, 0]) / dt
     # Computing the velocitiy
