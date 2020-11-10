@@ -64,6 +64,7 @@ class IsokineticThermostat(Thermostat):
         # Analog to the Boltzmann constant
         self.force_coeff = None
         # Thermostat force coefficient
+        self.temp_change_steps = [0]
 
     def apply_thermostat(self, particle_velocities, kin_energy):
         """
