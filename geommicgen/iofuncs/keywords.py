@@ -534,6 +534,24 @@ top_level_reader.addTopLevelKeyword(
         default_value=False,
         type="bool",
     ),
+    KeywordTypeA(
+        "Max_Ratio_Osc",
+        "Mic_Gen_Parameters",
+        default_value=2,
+        type="int",
+    ),
+    KeywordTypeA(
+        "dt_adapt",
+        "Mic_Gen_Parameters",
+        default_value="const",
+        type="str",
+    ),
+    KeywordTypeA(
+        "temp_low_ratio",
+        "Mic_Gen_Parameters",
+        default_value=1 / 4,
+        type="float",
+    ),
     KeywordTypeA("Dir_Previous_Mic", "Mic_Gen_Parameters", type="str"),
     KeywordTypeA("RVE_Dimensions", "Mic_Gen_Parameters", type="float"),
 )
