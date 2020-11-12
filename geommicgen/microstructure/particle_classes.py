@@ -104,7 +104,9 @@ class Particle(abc.ABC):
                 )
             )
 
-    def intersection_gjk(self, particle_2: Particle, box: list) -> tuple[bool, float]:
+    def intersection_gjk(
+        self, particle_2: Particle, box: list, tol: float = 1e-8
+    ) -> tuple[bool, float]:
         """Check using a version of the GJK intersection method if the particles intersect.
 
         At the core of the algorithm is the theorem stating that if the two convex shapes
@@ -160,8 +162,13 @@ class Particle(abc.ABC):
             self.support_function(random_dir)
             - (particle_2.support_function(-random_dir) + diff_nearest_other)
         ]
+        all_simplex = [
+            self.support_function(random_dir)
+            - (particle_2.support_function(-random_dir) + diff_nearest_other)
+        ]
         search_direction = -simplex[0]
         while True:
+            print(simplex)
             new_mink_diff_point = self.support_function(search_direction) - (
                 particle_2.support_function(-search_direction) + diff_nearest_other
             )
@@ -172,18 +179,168 @@ class Particle(abc.ABC):
                 break
             # We've gone past the origin
             simplex.append(new_mink_diff_point)
+            all_simplex.append(new_mink_diff_point)
             simplex, search_direction = self.nearest_simplex(simplex)
             if len(simplex) == self.dim + 1:
                 # We have found a simplex of the hightest dimension of the problem
                 # containing the origin
                 intersection = True
-                overlap_length = search_direction[0]
+                if len(simplex) == 3:
+                    edge_1 = simplex[0] - simplex[1]
+                    edge_2 = simplex[1] - simplex[2]
+                    edge_3 = simplex[2] - simplex[0]
+                    perp_1 = simplex[0] - simplex[0].dot(edge_1) * edge_1 / edge_1.dot(
+                        edge_1
+                    )
+                    perp_2 = simplex[1] - simplex[1].dot(edge_2) * edge_2 / edge_2.dot(
+                        edge_2
+                    )
+                    perp_3 = simplex[2] - simplex[2].dot(edge_3) * edge_3 / edge_3.dot(
+                        edge_3
+                    )
+                    pt_1 = self.support_function(perp_1) - (
+                        particle_2.support_function(-perp_1) + diff_nearest_other
+                    )
+                    pt_2 = self.support_function(perp_2) - (
+                        particle_2.support_function(-perp_2) + diff_nearest_other
+                    )
+                    pt_3 = self.support_function(perp_3) - (
+                        particle_2.support_function(-perp_3) + diff_nearest_other
+                    )
+                    print("pts", pt_1, pt_2, pt_3)
+                    dist_1 = np.linalg.norm(
+                        self.support_function(perp_1)
+                        - (particle_2.support_function(-perp_1) + diff_nearest_other)
+                    )
+                    dist_2 = np.linalg.norm(
+                        self.support_function(perp_2)
+                        - (particle_2.support_function(-perp_2) + diff_nearest_other)
+                    )
+                    dist_3 = np.linalg.norm(
+                        self.support_function(perp_3)
+                        - (particle_2.support_function(-perp_3) + diff_nearest_other)
+                    )
+                    print("dist", dist_1, dist_2, dist_3)
+                    min_dist = np.min([dist_1, dist_2, dist_3])
+                    if dist_1 == min_dist:
+                        del simplex[2]
+                        old_min = simplex[0]
+                        search_direction = perp_1
+                    elif dist_2 == min_dist:
+                        del simplex[0]
+                        search_direction = perp_2
+                        old_min = simplex[1]
+                    elif dist_3 == min_dist:
+                        old_min = simplex[2]
+                        search_direction = perp_3
+                        del simplex[1]
+                if len(simplex) == 4:
+                    edge_1 = simplex[0] - simplex[1]
+                    edge_2 = simplex[1] - simplex[2]
+                    edge_3 = simplex[2] - simplex[0]
+                    perp_1 = simplex[0] - simplex[0].dot(edge_1) * edge_1 / edge_1.dot(
+                        edge_1
+                    )
+                    perp_2 = simplex[1] - simplex[1].dot(edge_2) * edge_2 / edge_2.dot(
+                        edge_2
+                    )
+                    perp_3 = simplex[2] - simplex[2].dot(edge_3) * edge_3 / edge_3.dot(
+                        edge_3
+                    )
+                    pt_1 = self.support_function(perp_1) - (
+                        particle_2.support_function(-perp_1) + diff_nearest_other
+                    )
+                    pt_2 = self.support_function(perp_2) - (
+                        particle_2.support_function(-perp_2) + diff_nearest_other
+                    )
+                    pt_3 = self.support_function(perp_3) - (
+                        particle_2.support_function(-perp_3) + diff_nearest_other
+                    )
+                    print("pts", pt_1, pt_2, pt_3)
+                    dist_1 = np.linalg.norm(
+                        self.support_function(perp_1)
+                        - (particle_2.support_function(-perp_1) + diff_nearest_other)
+                    )
+                    dist_2 = np.linalg.norm(
+                        self.support_function(perp_2)
+                        - (particle_2.support_function(-perp_2) + diff_nearest_other)
+                    )
+                    dist_3 = np.linalg.norm(
+                        self.support_function(perp_3)
+                        - (particle_2.support_function(-perp_3) + diff_nearest_other)
+                    )
+                    print("dist", dist_1, dist_2, dist_3)
+                    min_dist = np.min([dist_1, dist_2, dist_3])
+                    if dist_1 == min_dist:
+                        del simplex[2]
+                        old_min = simplex[0]
+                        search_direction = perp_1
+                    elif dist_2 == min_dist:
+                        del simplex[0]
+                        search_direction = perp_2
+                        old_min = simplex[1]
+                    elif dist_3 == min_dist:
+                        old_min = simplex[2]
+                        search_direction = perp_3
+                        del simplex[1]
+                all_new_simplex = []
+                iter = 0
+                max_iter = 200
+                while True:
+                    iter += 1
+                    # for _ in range(10):
+                    print(simplex)
+                    new_mink_diff_point = self.support_function(search_direction) - (
+                        particle_2.support_function(-search_direction)
+                        + diff_nearest_other
+                    )
+                    print(
+                        np.linalg.norm(old_min - new_mink_diff_point)
+                        / np.linalg.norm(new_mink_diff_point),
+                        tol,
+                        np.linalg.norm(new_mink_diff_point),
+                    )
+                    if (
+                        np.linalg.norm(old_min - new_mink_diff_point)
+                        / np.linalg.norm(new_mink_diff_point)
+                        < tol
+                        or iter > max_iter
+                    ):
+                        overlap_length = np.linalg.norm(new_mink_diff_point)
+                        import matplotlib.pyplot as plt
+
+                        all_simplex = np.array(all_simplex)
+                        all_new_simplex = np.array(all_new_simplex)
+                        plt.scatter(all_simplex[:, 0], all_simplex[:, 1])
+                        for ind, _ in enumerate(all_simplex[:, 0]):
+                            plt.annotate(
+                                ind, (all_simplex[ind, 0], all_simplex[ind, 1])
+                            )
+                        plt.scatter(all_new_simplex[:, 0], all_new_simplex[:, 1])
+                        for ind, _ in enumerate(all_new_simplex[:, 0]):
+                            plt.annotate(
+                                ind, (all_new_simplex[ind, 0], all_new_simplex[ind, 1])
+                            )
+                        plt.scatter([0], [0])
+                        pts = np.array([pt_1, pt_2, pt_3])
+                        plt.scatter(pts[:, 0], pts[:, 1])
+                        for ind, _ in enumerate(pts[:, 0]):
+                            plt.annotate(ind, (pts[ind, 0], pts[ind, 1]))
+                        plt.scatter([0], [0])
+                        plt.show()
+                        break
+                    old_min = new_mink_diff_point
+                    simplex.append(new_mink_diff_point)
+                    all_new_simplex.append(new_mink_diff_point)
+                    simplex, search_direction = self.nearest_simplex(
+                        simplex, inside=True
+                    )
                 break
 
         return intersection, overlap_length
 
     @staticmethod
-    def nearest_simplex(simplex):
+    def nearest_simplex(simplex, inside=False):
         """
         Get the nearest simplex to the origin and the corresponding search direction.
 
@@ -191,7 +348,7 @@ class Particle(abc.ABC):
         closest simplex to the origin.
         """
 
-        def nearest_triangle(vec_to_origin, vec_1, vec_2, sub_simplex):
+        def nearest_triangle(vec_to_origin, vec_1, vec_2, sub_simplex, inside=False):
             normal_tri = np.cross(vec_1, vec_2)
             if np.cross(vec_1, normal_tri).dot(vec_to_origin) > 0:
                 if vec_1.dot(vec_to_origin) > 0:
@@ -210,7 +367,7 @@ class Particle(abc.ABC):
                     del sub_simplex[0:2]
                     search_direction = vec_to_origin
             elif np.cross(normal_tri, vec_2).dot(vec_to_origin) > 0:
-                if vec_2.dot(vec_to_origin) > 0:
+                if vec_2.dot(vec_to_origin) > 0 or inside:
                     del sub_simplex[0]
                     search_direction = np.cross(
                         vec_2,
@@ -220,64 +377,102 @@ class Particle(abc.ABC):
                     del sub_simplex[0:2]
                     search_direction = vec_to_origin
             else:
-                if normal_tri.dot(vec_last_to_origin) > 0:
-                    search_direction = normal_tri
-                    sub_simplex.reverse()
+                if inside:
+                    biss = vec_1 / np.linalg.norm(vec_1) + vec_2 / np.linalg.norm(vec_2)
+                    print("biss", biss)
+                    perp_1 = vec_1 - vec_1.dot(biss) * biss / biss.dot(biss)
+                    if perp_1.dot(vec_to_origin) > 0:
+                        del sub_simplex[1]
+                        search_direction = -np.cross(
+                            vec_1,
+                            np.cross(vec_to_origin, vec_1),
+                        )
+                    else:
+                        del sub_simplex[0]
+                        search_direction = -np.cross(
+                            vec_2,
+                            np.cross(vec_to_origin, vec_2),
+                        )
                 else:
-                    search_direction = -normal_tri
+                    if normal_tri.dot(vec_last_to_origin) > 0:
+                        search_direction = normal_tri
+                        sub_simplex.reverse()
+                    else:
+                        search_direction = -normal_tri
 
             return sub_simplex, search_direction
 
         if len(simplex) == 2:
+
             vec_last_to_previous = simplex[0] - simplex[1]
             vec_last_to_origin = -simplex[1]
             if vec_last_to_previous.dot(vec_last_to_origin) > 0:
-                search_direction = (
-                    np.linalg.norm(vec_last_to_previous) * vec_last_to_origin
-                    - vec_last_to_previous.dot(vec_last_to_origin) * vec_last_to_origin
+                print(
+                    "here_search",
+                    vec_last_to_origin,
+                    vec_last_to_previous,
+                    vec_last_to_previous.dot(vec_last_to_origin),
                 )
+                search_direction = (
+                    vec_last_to_origin
+                    - vec_last_to_previous.dot(vec_last_to_origin)
+                    * vec_last_to_previous
+                    / np.linalg.norm(vec_last_to_previous) ** 2
+                )
+                print("search_direction_2", search_direction)
             else:
-                del simplex[0]
                 search_direction = simplex[1]
+                del simplex[0]
         elif len(simplex) == 3:
+
             vec_last_to_origin = -simplex[2]
             vec_last_to_previous_1 = simplex[0] - simplex[2]
             vec_last_to_previous_2 = simplex[1] - simplex[2]
-            normal_tri = np.cross(vec_last_to_previous_1, vec_last_to_previous_2)
-            if np.cross(vec_last_to_previous_1, normal_tri).dot(vec_last_to_origin) > 0:
-                if vec_last_to_previous_1.dot(vec_last_to_origin) > 0:
-                    del simplex[1]
-                    search_direction = np.cross(
-                        vec_last_to_previous_1,
-                        np.cross(vec_last_to_origin, vec_last_to_previous_1),
-                    )
-                elif vec_last_to_previous_2.dot(vec_last_to_origin) > 0:
-                    del simplex[0]
-                    search_direction = np.cross(
-                        vec_last_to_previous_2,
-                        np.cross(vec_last_to_origin, vec_last_to_previous_2),
-                    )
-                else:
-                    del simplex[0:2]
-                    search_direction = vec_last_to_origin
-            elif (
-                np.cross(normal_tri, vec_last_to_previous_2).dot(vec_last_to_origin) > 0
-            ):
-                if vec_last_to_previous_2.dot(vec_last_to_origin) > 0:
-                    del simplex[0]
-                    search_direction = np.cross(
-                        vec_last_to_previous_2,
-                        np.cross(vec_last_to_origin, vec_last_to_previous_2),
-                    )
-                else:
-                    del simplex[0:2]
-                    search_direction = vec_last_to_origin
-            else:
-                if normal_tri.dot(vec_last_to_origin) > 0:
-                    search_direction = normal_tri
-                    simplex.reverse()
-                else:
-                    search_direction = -normal_tri
+            simplex, search_direction = nearest_triangle(
+                vec_last_to_origin,
+                vec_last_to_previous_1,
+                vec_last_to_previous_2,
+                [simplex[0], simplex[1], simplex[2]],
+                inside=inside,
+            )
+
+            # normal_tri = np.cross(vec_last_to_previous_1, vec_last_to_previous_2)
+            # if np.cross(vec_last_to_previous_1, normal_tri).dot(vec_last_to_origin) > 0:
+            #     if vec_last_to_previous_1.dot(vec_last_to_origin) > 0:
+            #         del simplex[1]
+            #         search_direction = np.cross(
+            #             vec_last_to_previous_1,
+            #             np.cross(vec_last_to_origin, vec_last_to_previous_1),
+            #         )
+            #     elif vec_last_to_previous_2.dot(vec_last_to_origin) > 0:
+            #         del simplex[0]
+            #         search_direction = np.cross(
+            #             vec_last_to_previous_2,
+            #             np.cross(vec_last_to_origin, vec_last_to_previous_2),
+            #         )
+            #     else:
+            #         del simplex[0:2]
+            #         search_direction = vec_last_to_origin
+            # elif (
+            #     np.cross(normal_tri, vec_last_to_previous_2).dot(vec_last_to_origin) > 0
+            # ):
+            #     if vec_last_to_previous_2.dot(vec_last_to_origin) > 0:
+            #         del simplex[0]
+            #         search_direction = np.cross(
+            #             vec_last_to_previous_2,
+            #             np.cross(vec_last_to_origin, vec_last_to_previous_2),
+            #         )
+            #     else:
+            #         del simplex[0:2]
+            #         search_direction = vec_last_to_origin
+            # else:
+            #
+            #     if normal_tri.dot(vec_last_to_origin) > 0:
+            #         search_direction = normal_tri
+            #         simplex.reverse()
+            #     else:
+            #         search_direction = -normal_tri
+
         elif len(simplex) == 4:
             vec_last_to_origin = -simplex[3]
             vec_last_to_previous_1 = simplex[0] - simplex[3]
@@ -323,6 +518,7 @@ class Particle(abc.ABC):
                     [1, 0, 0]
                 )
 
+        print("search_direction", search_direction)
         return simplex, search_direction
 
     def intersection_vector(self, other_particle, box):

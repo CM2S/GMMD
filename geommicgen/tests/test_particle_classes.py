@@ -852,6 +852,34 @@ class TestGJKIntersection(unittest.TestCase):
         self.assertTrue(not intersection)
 
 
+class TestGJKIntersectionOverlapLength(unittest.TestCase):
+    # @unittest.skip
+    def test_two_intersecting_disks(self):
+        rve_dims = [1, 1]
+        phase_1 = "1"
+        descriptors_1 = {
+            "r": 0.05,
+            "n": 1,
+        }
+        disk_1 = Disk(phase_1, descriptors_1, rve_dims)
+        disk_1.position_center = np.array([0.5, 0.5])
+
+        phase_2 = "1"
+        descriptors_2 = {
+            "r": 0.05,
+            "n": 1,
+        }
+        disk_2 = Disk(phase_2, descriptors_2, rve_dims)
+        disk_2.position_center = np.array([0.5, 0.55])
+        plot_particles_2d([disk_1, disk_2], rve_dims, "", save=False, show=True)
+        intersection, overlap_length = disk_1.intersection_gjk(disk_2, rve_dims)
+        self.assertTrue(intersection)
+        print(overlap_length)
+        self.assertTrue(np.abs(0.05 - overlap_length) / 0.05 < 1e-8)
+
+    # @unittest.skip
+
+
 class testNearest(unittest.TestCase):
     def test_triangle_xy_plane(self):
 
