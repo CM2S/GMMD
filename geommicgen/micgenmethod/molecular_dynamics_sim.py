@@ -178,6 +178,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.force_option = kwargs.get("force_option", "intersection_area")
         self.force_rescale = kwargs.get("force_rescale", False)
         self.dt_adapt = kwargs.get("dt_adapt", "const")
+        self.force_rescale_coeff = 1
 
     def generate_microstructure(self, microstructure_sample):
         """
@@ -520,18 +521,18 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.compute_forces_damping(particles)
         # Computing forces due to damping
         if self.force_rescale:
-            if self.max_force is None:
-                # self.max_force = np.max(
-                #     [np.linalg.norm(force) for force in self.particle_forces]
-                # )
-                self.max_force = np.max([i_particle.volume for i_particle in particles])
-            self.current_max_force = np.max(
-                [np.linalg.norm(force) for force in self.particle_forces]
-            )
+            # if self.max_force is None:
+            # self.max_force = np.max(
+            #     [np.linalg.norm(force) for force in self.particle_forces]
+            # )
+            #     self.max_force = np.max([i_particle.volume for i_particle in particles])
+            # self.current_max_force = np.max(
+            #     [np.linalg.norm(force) for force in self.particle_forces]
+            # )
             self.particle_forces = [
-                force * self.max_force / self.current_max_force
-                if self.current_max_force != 0
-                else force
+                force * self.force_rescale_coeff
+                # force * self.max_force / self.current_max_force
+                if self.current_max_force != 0 else force
                 for force in self.particle_forces
             ]
 
