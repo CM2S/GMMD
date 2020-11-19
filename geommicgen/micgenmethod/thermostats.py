@@ -353,15 +353,7 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
                     self._count += 1
                 if self._count >= self.max_ratio_osc:
                     self._count = 0
-                    if (
-                        self.molecular_dynamics_sim.step - self.temp_change_steps[-1]
-                        < 4
-                    ) and False:
-                        self.molecular_dynamics_sim.dt *= 0.9
-                        equilibrium_flag = False
-                        print(self.molecular_dynamics_sim.dt, "\n\n")
-                    else:
-                        equilibrium_flag = True
+                    equilibrium_flag = True
             except IndexError:
                 equilibrium_flag = False
 
