@@ -192,6 +192,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         microstructure_sample: `.Microstructure`
             Microstructure sample to be generated
         """
+        self.microstucutre_sample = microstructure_sample
         for phase in microstructure_sample.phases.values():
             if phase.type is not Matrix:
                 phase.generate_particles(microstructure_sample.rve_dims)
