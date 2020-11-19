@@ -435,11 +435,17 @@ class MolecularDynamicsSimulation(GenerationMethod):
             # # Print info about the iteration
             if self.thermostat.reference_temp < 0:
                 vel = (
-                    1
-                    / np.abs(self.thermostat.reference_temp)
-                    * (2 * particles[0].radius / self.dt - self.dt)
+                    0.25
+                    * 10 ** (1 + self.thermostat.reference_temp)
+                    * particles[0].radius
+                    / self.dt
                 )
-                print("{0:e}".format(self.thermostat.reference_temp), "\n\n")
+                # (
+                #     1
+                #     / np.abs(self.thermostat.reference_temp)
+                #     * (2 * particles[0].radius / self.dt - self.dt)
+                # )
+                # print("{0:e}".format(self.thermostat.reference_temp), "\n\n")
                 self.thermostat.reference_temp = (
                     vel ** 2
                     * np.sum(
@@ -450,7 +456,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     )
                     / (particles[0].dim * self.thermostat.k_b * len(particles))
                 )
-                print("{0:e}".format(self.thermostat.reference_temp), "\n\n")
 
             while (
                 self.step < self.max_step
