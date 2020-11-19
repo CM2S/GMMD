@@ -178,6 +178,7 @@ def run_program():
                     "particle_mass_opt",
                     "force_option",
                     "force_rescale",
+                    "dt_adapt",
                 }
                 md_kwargs = {
                     key: value

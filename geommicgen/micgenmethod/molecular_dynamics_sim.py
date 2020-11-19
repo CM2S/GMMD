@@ -12,6 +12,7 @@ Thermostat and SpeedUpScheme abstract classes to work.
 from contextlib import contextmanager
 import time
 import numpy as np
+from scipy.stats import hmean
 
 # pylint: disable=import-error
 import errors.error_classes as errors
@@ -176,6 +177,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.particle_mass_opt = kwargs.get("particle_mass_opt", "volume")
         self.force_option = kwargs.get("force_option", "intersection_area")
         self.force_rescale = kwargs.get("force_rescale", False)
+        self.dt_adapt = kwargs.get("dt_adapt", "const")
 
     def generate_microstructure(self, microstructure_sample):
         """
@@ -614,6 +616,70 @@ class MolecularDynamicsSimulation(GenerationMethod):
         """Integrate the equations of motion."""
         dim = particles[0].dim
         # Dimension of the problem
+        if self.dt_adapt == "log":
+            self.dt = -0.08 * np.log(
+                self.kinetic_energy
+                + np.sum(
+                    [
+                        np.sum(i_particle_force ** 2)
+                        for i_particle_force in self.particle_forces
+                    ]
+                )
+            )
+        elif self.dt_adapt == "quad":
+            max_vel = np.mean(
+                [
+                    np.linalg.norm(i_particle_vel)
+                    for i_particle_vel in self.particle_velocities
+                ]
+            )
+            self.dt = (
+                1
+                / (
+                    np.sqrt(2)
+                    * len(particles)
+                    * np.pi
+                    * 2
+                    * (particles[0].radius) ** 2
+                    * max_vel
+                )
+                if max_vel != 0
+                else self.dt
+            )
+        elif self.dt_adapt == "const":
+            pass
+        elif self.dt_adapt == "sqrt":
+            max_vel = np.max(
+                [
+                    np.linalg.norm(i_particle_vel)
+                    for i_particle_vel in self.particle_velocities
+                ]
+            )
+            harm_r = hmean([particle.radius for particle in particles])
+            harm_m = hmean(
+                [particle.mass(option=self.particle_mass_opt) for particle in particles]
+            )
+            adim_mean_path = 1 / (
+                np.sqrt(2)
+                * particles[0].dim
+                * self.microstucutre_sample.volume_fraction
+            )
+            self.dt = 2 * (
+                np.min([1.2, adim_mean_path])
+                * (
+                    np.sqrt(
+                        harm_m
+                        / (
+                            2
+                            * (2 * harm_r - self.dt * max_vel)
+                            * harm_r
+                            / (2 * harm_r) ** 2
+                        )
+                    )
+                    if max_vel != 0 and 2 * harm_r > self.dt * max_vel
+                    else 0.05
+                )
+            )
         for i_particle_index, i_particle in enumerate(particles):
             # Running through all the particles
             if False:  # self.integration_scheme == "newmark":
