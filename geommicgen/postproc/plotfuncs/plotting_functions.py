@@ -337,11 +337,15 @@ def plot_overlap_history(
     #         for ind, _ in enumerate(total_overlap_history)
     #     ]
     #     plt.semilogy(range(len(total_overlap_history)), smooth_rolling_ave)
-    if "overlap_pairs_history" in kwargs:
-        ax_2 = plt.twinx(plt.gca())
-        artist_ratio = plot_ratio_new_old_overlap(
-            kwargs["overlap_pairs_history"], kwargs["len_sim"], "", axes=ax_2
-        )
+    if "overlap_ratio" in kwargs:
+        _ = plt.twinx(plt.gca())
+        artist_ratio = plt.semilogy([None, None] + kwargs["overlap_ratio"])
+        # artist_ratio = plot_ratio_new_old_overlap(
+        #     kwargs["overlap_pairs_history"],
+        #     kwargs["len_sim"],
+        #     "",
+        #     axes=ax_2,
+        # )
         for artist in artist_ratio:
             artist.set_linestyle(":")
         plt.axhline(1, linewidth=0.01, linestyle="-", color="k")
@@ -446,8 +450,8 @@ def plot_ratio_new_old_overlap(
         plt.sca(ax)
     else:
         plt.figure()
-    inc_history = [0 for _ in range(len_sim)]
-    dec_history = [0 for _ in range(len_sim)]
+    inc_history = [0 for _ in range(len_sim + 2)]
+    dec_history = [0 for _ in range(len_sim + 2)]
     for pair_overlap_history in overlap_pairs_history.values():
         change_history_pair = (
             np.array(pair_overlap_history)[1:] - np.array(pair_overlap_history)[:-1]
@@ -455,15 +459,20 @@ def plot_ratio_new_old_overlap(
         for i_step, i_change in enumerate(change_history_pair):
             if i_change > 0:
                 inc_history[i_step] += i_change
-                print(inc_history[i_step], i_change)
             elif i_change < 0:
                 dec_history[i_step] += i_change
-                print(dec_history[i_step], i_change)
     ratio = [
-        np.abs(inc_hist / dec_hist) if dec_hist != 0 else None
+        np.abs(inc_hist / dec_hist) if dec_hist != 0 else 1e12 if inc_hist != 0 else 1
         for inc_hist, dec_hist in zip(inc_history, dec_history)
     ]
-    graph_overlap = plt.semilogy(list(range(len_sim)), ratio)
+    count = 0
+    for (ind, (rat_1, rat_2)) in enumerate(zip(ratio[:-1], ratio[1:])):
+        if (rat_1 - 1) * (rat_2 - 1) <= 0:
+            count += 1
+        if count == 2:
+            plt.axvline(ind + 3, linewidth=0.1, linestyle=":", color="r", alpha=0.5)
+            count = 0
+    graph_overlap = plt.semilogy(list(range(2, len_sim + 3)), ratio)
     # plt.plot(
     #     list(range(len_sim)), [moving_average(ratio, ind) for ind in range(len_sim)]
     # )

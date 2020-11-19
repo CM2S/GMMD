@@ -309,7 +309,7 @@ def run_program():
                         kinetic_energy_history=current_mic_generator.kinetic_energy_history,
                         temp_change_steps=current_mic_generator.thermostat.temp_change_steps,
                         temp_change=True,
-                        overlap_pairs_history=current_mic_generator.particle_overlap_areas_dict,
+                        overlap_ratio=current_mic_generator.thermostat.ratio,
                         len_sim=current_mic_generator.step,
                     )
                     # Do analysis of the motion of the particles
