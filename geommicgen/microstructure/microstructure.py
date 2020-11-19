@@ -96,3 +96,12 @@ class Microstructure:
             vf += i_phase.volume_fraction
 
         return vf
+
+    @property
+    def volume_fraction_circ(self):
+        """Volume fraction of circumscribed sphesres/disks to the particles."""
+        vf = 0
+        for i_phase in self.phases.values():
+            vf += i_phase.volume_fraction_circ
+
+        return vf

@@ -172,6 +172,15 @@ class Phase:
         return volume_fraction
 
     @property
+    def volume_fraction_circ(self):
+        """Volume fraction in decimal of the circumscribed spheres/disks."""
+        volume_fraction = 0
+        for particle in self.particles:
+            volume_fraction += particle.volume_circ / self.microstructure.volume
+
+        return volume_fraction
+
+    @property
     def number_particles(self):
         """Get number of particles."""
         return len(self.particles)
