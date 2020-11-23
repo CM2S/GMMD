@@ -146,6 +146,7 @@ class Particle(abc.ABC):
         overlap_length: float
             The penetratin length if an intersection is detected, *None* otherwise.
         """
+        minimum_dist_rem = np.array([0 for _ in range(self.dim)])
         diff_in_box = self.position_center - particle_2.position_center
         # Difference vector between the center of the two particles
         diff_nearest_other = box * np.round(diff_in_box / box)
@@ -165,459 +166,126 @@ class Particle(abc.ABC):
             self.support_function(random_dir)
             - (particle_2.support_function(-random_dir) + diff_nearest_other)
         ]
-        all_simplex = [
-            self.support_function(random_dir)
-            - (particle_2.support_function(-random_dir) + diff_nearest_other)
-        ]
-        search_direction = [random_dir, -simplex[0]]
+        search_direction = -simplex[0]
         while True:
-            new_mink_diff_point = self.support_function(search_direction[-1]) - (
-                particle_2.support_function(-search_direction[-1]) + diff_nearest_other
+            new_mink_diff_point = self.support_function(search_direction) - (
+                particle_2.support_function(-search_direction) + diff_nearest_other
             )
-            if new_mink_diff_point.dot(np.array(search_direction[-1])) < 0:
+            if new_mink_diff_point.dot(np.array(search_direction)) < 0:
                 # If moving towards the origin we have no gone past it
                 intersection = False
                 overlap_length = 0
                 break
             # We've gone past the origin
             simplex.append(new_mink_diff_point)
-            all_simplex.append(new_mink_diff_point)
-            simplex, search_direction = self.nearest_simplex(simplex, search_direction)
+            simplex, search_direction = self.nearest_simplex(simplex)
             if len(simplex) == self.dim + 1:
                 # We have found a simplex of the hightest dimension of the problem
                 # containing the origin
+                unit_vector = self.intersection_vector(particle_2, box)
+                if self.dim == 2:
+                    first_guess = np.array([np.arctan2(unit_vector[1], unit_vector[0])])
+                elif self.dim == 3:
+                    first_guess = np.array(
+                        [
+                            np.arctan2(unit_vector[1], unit_vector[0]),
+                            np.arctan(
+                                np.sqrt(unit_vector[0] ** 2 + unit_vector[1] ** 2)
+                                / unit_vector[2]
+                            ),
+                        ]
+                    )
+                # Using the unit vector of the straight line going throught the center of
+                # the particles as a first guess.
+                # The search for the minimum distance is done on the space of the polar and
+                # spherical coordinates
                 intersection = True
-                _, overlap_length, *_ = fmin(
-                    Particle.dist,
-                    np.array([1, 0.5]),
+                search_direction_angles, overlap_length, *_ = fmin(
+                    Particle.minimum_dist_to_diff_sup,
+                    first_guess[0 : self.dim - 1],
                     args=(self, particle_2, box),
-                    ftol=1e-8,
+                    ftol=tol,
+                    # xtol=1e-8,
                     maxiter=1000,
                     full_output=1,
                     disp=0,
                 )
+                if self.dim == 2:
+                    i_theta = search_direction_angles[0]
+                    minimum_dist_rem = np.array([np.cos(i_theta), np.sin(i_theta)])
+
+                elif self.dim == 3:
+                    i_theta, j_phi = search_direction_angles
+                    minimum_dist_rem = np.array(
+                        [
+                            np.sin(i_theta) * np.cos(j_phi),
+                            np.sin(i_theta) * np.sin(j_phi),
+                            np.cos(i_theta),
+                        ]
+                    )
                 break
-                # if len(simplex) == 3:
-                #     edge_1 = simplex[0] - simplex[1]
-                #     edge_2 = simplex[1] - simplex[2]
-                #     edge_3 = simplex[2] - simplex[0]
-                #     perp_1 = simplex[0] - simplex[0].dot(edge_1) * edge_1 / edge_1.dot(
-                #         edge_1
-                #     )
-                #     perp_2 = simplex[1] - simplex[1].dot(edge_2) * edge_2 / edge_2.dot(
-                #         edge_2
-                #     )
-                #     perp_3 = simplex[2] - simplex[2].dot(edge_3) * edge_3 / edge_3.dot(
-                #         edge_3
-                #     )
-                #     pt_1 = self.support_function(perp_1) - (
-                #         particle_2.support_function(-perp_1) + diff_nearest_other
-                #     )
-                #     pt_2 = self.support_function(perp_2) - (
-                #         particle_2.support_function(-perp_2) + diff_nearest_other
-                #     )
-                #     pt_3 = self.support_function(perp_3) - (
-                #         particle_2.support_function(-perp_3) + diff_nearest_other
-                #     )
-                #     print("pts", pt_1, pt_2, pt_3)
-                #     dist_1 = np.linalg.norm(
-                #         self.support_function(perp_1)
-                #         - (particle_2.support_function(-perp_1) + diff_nearest_other)
-                #     )
-                #     dist_2 = np.linalg.norm(
-                #         self.support_function(perp_2)
-                #         - (particle_2.support_function(-perp_2) + diff_nearest_other)
-                #     )
-                #     dist_3 = np.linalg.norm(
-                #         self.support_function(perp_3)
-                #         - (particle_2.support_function(-perp_3) + diff_nearest_other)
-                #     )
-                #     print("dist", dist_1, dist_2, dist_3)
-                #     min_dist = np.min([dist_1, dist_2, dist_3])
-                #     if dist_1 == min_dist:
-                #         del simplex[2]
-                #         del search_direction[2]
-                #         old_min = simplex[0]
-                #         search_direction = perp_1
-                #     elif dist_2 == min_dist:
-                #         del simplex[0]
-                #         del search_direction[0]
-                #         search_direction = perp_2
-                #         old_min = simplex[1]
-                #     elif dist_3 == min_dist:
-                #         del simplex[1]
-                #         del search_direction[1]
-                #         old_min = simplex[2]
-                #         search_direction = perp_3
-                # if len(simplex) == 4:
-                #
-                #     search_direction = [
-                #         i_direction / np.linalg.norm(i_direction)
-                #         for i_direction in search_direction
-                #     ]
-                #     edge_1 = simplex[0] - simplex[1]
-                #     edge_2 = simplex[1] - simplex[2]
-                #     edge_3 = simplex[2] - simplex[3]
-                #     edge_4 = simplex[3] - simplex[0]
-                #     perp_1 = np.cross(edge_1, edge_2)
-                #     perp_2 = np.cross(edge_3, edge_2)
-                #     perp_3 = np.cross(edge_3, edge_4)
-                #     # (
-                #     #     search_direction[2] + search_direction[3] + search_direction[0]
-                #     # )
-                #     perp_4 = np.cross(edge_1, edge_4)
-                #
-                #     pt_1 = self.support_function(perp_1) - (
-                #         particle_2.support_function(-perp_1) + diff_nearest_other
-                #     )
-                #     pt_2 = self.support_function(perp_2) - (
-                #         particle_2.support_function(-perp_2) + diff_nearest_other
-                #     )
-                #     pt_3 = self.support_function(perp_3) - (
-                #         particle_2.support_function(-perp_3) + diff_nearest_other
-                #     )
-                #     pt_4 = self.support_function(perp_4) - (
-                #         particle_2.support_function(-perp_4) + diff_nearest_other
-                #     )
-                #     print("pts", pt_1, pt_2, pt_3, pt_4)
-                #     print(
-                #         "here",
-                #         self.support_function(search_direction[0])
-                #         - (
-                #             particle_2.support_function(-search_direction[0])
-                #             + diff_nearest_other
-                #         ),
-                #         self.support_function(search_direction[1])
-                #         - (
-                #             particle_2.support_function(-search_direction[1])
-                #             + diff_nearest_other
-                #         ),
-                #         self.support_function(search_direction[2])
-                #         - (
-                #             particle_2.support_function(-search_direction[2])
-                #             + diff_nearest_other
-                #         ),
-                #         self.support_function(search_direction[3])
-                #         - (
-                #             particle_2.support_function(-search_direction[3])
-                #             + diff_nearest_other
-                #         ),
-                #     )
-                #     dist_1 = np.linalg.norm(pt_1)
-                #     dist_2 = np.linalg.norm(pt_2)
-                #     dist_3 = np.linalg.norm(pt_3)
-                #     dist_4 = np.linalg.norm(pt_4)
-                #     # dist_1 = (
-                #     #     pt_1.dot(perp_1) / np.linalg.norm(pt_1) / np.linalg.norm(perp_1)
-                #     # )
-                #     # dist_2 = (
-                #     #     pt_2.dot(perp_2) / np.linalg.norm(pt_2) / np.linalg.norm(perp_2)
-                #     # )
-                #     # dist_3 = (
-                #     #     pt_3.dot(perp_3) / np.linalg.norm(pt_3) / np.linalg.norm(perp_3)
-                #     # )
-                #     # dist_4 = (
-                #     #     pt_4.dot(perp_4) / np.linalg.norm(pt_4) / np.linalg.norm(perp_4)
-                #     # )
-                #     print("dist", dist_1, dist_2, dist_3, dist_4)
-                #     min_dist = dist_1  # np.min([dist_1, dist_2, dist_3, dist_4])
-                #     # pdb.set_trace()
-                #     if dist_1 == min_dist:
-                #         print("here_1")
-                #         old_min = simplex[0]
-                #         del simplex[3]
-                #         simplex.append(pt_1)
-                #         all_new_simplex = [pt_1]
-                #         del search_direction[3]
-                #         search_direction.append(perp_1 / np.linalg.norm(perp_1))
-                #     elif dist_2 == min_dist:
-                #         print("here_2")
-                #         old_min = simplex[1]
-                #         del simplex[0]
-                #         simplex.append(pt_2)
-                #         all_new_simplex = [pt_2]
-                #         del search_direction[0]
-                #         search_direction.append(perp_2 / np.linalg.norm(perp_2))
-                #     elif dist_3 == min_dist:
-                #         print("here_3")
-                #         old_min = simplex[2]
-                #         del simplex[1]
-                #         simplex.append(pt_3)
-                #         all_new_simplex = [pt_3]
-                #         del search_direction[1]
-                #         search_direction.append(perp_3 / np.linalg.norm(perp_3))
-                #     elif dist_4 == min_dist:
-                #         print("here_4")
-                #         old_min = simplex[3]
-                #         del simplex[2]
-                #         simplex.append(pt_4)
-                #         all_new_simplex = [pt_4]
-                #         del search_direction[2]
-                #         search_direction.append(perp_4 / np.linalg.norm(perp_4))
-                #         print("1st", search_direction)
-                #
-                #
-                #     # overlap_length = minimum[0]
-                #     print("overlap_length", overlap_length)
-                #     break
-                # search_direction_all = []
-                # k_iter = 0
-                # max_k_iter = 50
-                # while True:
-                #     k_iter += 1
-                #     (
-                #         new_mink_diff_point,
-                #         search_direction,
-                #         all_mink_diff_point,
-                #         simplex,
-                #     ) = Particle.nearest_face_to_support(
-                #         self, particle_2, box, search_direction, simplex
-                #     )
-                #     # print(simplex)
-                #     # new_mink_diff_point = self.support_function(
-                #     #     search_direction[-1]
-                #     # ) - (
-                #     #     particle_2.support_function(-search_direction[-1])
-                #     #     + diff_nearest_other
-                #     # )
-                #     all_new_simplex.append(new_mink_diff_point)
-                #     # all_new_simplex = simplex
-                #     # if k_iter == max_k_iter:
-                #     #     all_new_simplex += all_mink_diff_point
-                #     # search_direction_all += search_direction / 10
-                #     print(
-                #         np.linalg.norm(old_min - new_mink_diff_point)
-                #         / np.linalg.norm(new_mink_diff_point),
-                #         tol,
-                #         np.linalg.norm(new_mink_diff_point),
-                #     )
-                #     if (
-                #         # np.linalg.norm(old_min - new_mink_diff_point)
-                #         # / np.linalg.norm(new_mink_diff_point)
-                #         # < tol
-                #         False
-                #         or k_iter > max_k_iter
-                #     ):
-                #         overlap_length = np.linalg.norm(new_mink_diff_point)
-                #         import matplotlib.pyplot as plt
-                #
-                #         all_simplex = np.array(all_simplex)
-                #         all_new_simplex = np.array(all_new_simplex)
-                #         if self.dim == 2:
-                #             plt.scatter(all_simplex[:, 0], all_simplex[:, 1])
-                #             for ind, _ in enumerate(all_simplex[:, 0]):
-                #                 plt.annotate(
-                #                     ind, (all_simplex[ind, 0], all_simplex[ind, 1])
-                #                 )
-                #             plt.scatter(all_new_simplex[:, 0], all_new_simplex[:, 1])
-                #             for ind, _ in enumerate(all_new_simplex[:, 0]):
-                #                 plt.annotate(
-                #                     ind,
-                #                     (all_new_simplex[ind, 0], all_new_simplex[ind, 1]),
-                #                 )
-                #             plt.scatter([0], [0])
-                #             pts = np.array([pt_1, pt_2, pt_3])
-                #             plt.scatter(pts[:, 0], pts[:, 1])
-                #             for ind, _ in enumerate(pts[:, 0]):
-                #                 plt.annotate(ind, (pts[ind, 0], pts[ind, 1]))
-                #             plt.scatter([0], [0])
-                #             plt.show()
-                #         elif self.dim == 3:
-                #             from mpl_toolkits.mplot3d import Axes3D
-                #
-                #             fig = plt.figure()
-                #             ax = fig.add_subplot(111, projection="3d")
-                #
-                #             dist_old = 100000
-                #             k = -1
-                #             k_min = -1
-                #             all_diff = []
-                #             for (i_theta, j_phi) in (
-                #                 (i_theta, j_phi)
-                #                 for i_theta in np.linspace(0, np.pi, num=50)
-                #                 for j_phi in np.linspace(0, 2 * np.pi, num=50)
-                #             ):
-                #                 dir = np.array(
-                #                     [
-                #                         np.sin(i_theta) * np.cos(j_phi),
-                #                         np.sin(i_theta) * np.sin(j_phi),
-                #                         np.cos(i_theta),
-                #                     ]
-                #                 )
-                #                 pt = self.support_function(
-                #                     dir
-                #                 ) - particle_2.support_function(-dir)
-                #                 dist = np.linalg.norm(pt)
-                #                 k += 1
-                #                 if dist < dist_old:
-                #                     k_min = k
-                #                     dist_old = dist
-                #                 all_diff.append(pt)
-                #
-                #             print("dist_old", dist_old)
-                #             all_diff = np.array(all_diff)
-                #             ax.scatter(
-                #                 all_diff[:, 0],
-                #                 all_diff[:, 1],
-                #                 all_diff[:, 2],
-                #                 alpha=0.05,
-                #             )
-                #             ax.scatter(
-                #                 all_diff[k_min, 0],
-                #                 all_diff[k_min, 1],
-                #                 all_diff[k_min, 2],
-                #                 c="r",
-                #             )
-                #             ax.scatter(
-                #                 all_simplex[:, 0], all_simplex[:, 1], all_simplex[:, 2]
-                #             )
-                #             for ind, _ in enumerate(all_simplex[:, 0]):
-                #                 ax.text(
-                #                     all_simplex[ind, 0],
-                #                     all_simplex[ind, 1],
-                #                     all_simplex[ind, 2],
-                #                     "{0[0]:.2f}, {0[1]:.2f}, {0[2]:.2f}".format(
-                #                         all_simplex[ind, :]
-                #                     ),
-                #                 )
-                #             ax.scatter(
-                #                 all_new_simplex[:, 0],
-                #                 all_new_simplex[:, 1],
-                #                 all_new_simplex[:, 2],
-                #             )
-                #             for ind, _ in enumerate(all_new_simplex[:, 0]):
-                #                 ax.text(
-                #                     all_new_simplex[ind, 0],
-                #                     all_new_simplex[ind, 1],
-                #                     all_new_simplex[ind, 2],
-                #                     "{1}. {0[0]:.2f}, {0[1]:.2f}, {0[2]:.2f}".format(
-                #                         all_new_simplex[ind, :], ind
-                #                     ),
-                #                 )
-                #             ax.scatter([0], [0], [0])
-                #             pts = np.array([pt_1, pt_2, pt_3, pt_4])
-                #             ax.scatter(pts[:, 0], pts[:, 1], pts[:, 2], c="k")
-                #             for ind, _ in enumerate(pts[:, 0]):
-                #                 ax.text(
-                #                     pts[ind, 0],
-                #                     pts[ind, 1],
-                #                     pts[ind, 2],
-                #                     ind,
-                #                 )
-                #             search_direction_all = np.array(search_direction) / 10
-                #             # ax.scatter(
-                #             #     search_direction_all[:, 0],
-                #             #     search_direction_all[:, 1],
-                #             #     search_direction_all[:, 2],
-                #             #     c="k",
-                #             # )
-                #             # for ind, _ in enumerate(search_direction_all[:, 0]):
-                #             #     ax.text(
-                #             #         search_direction_all[ind, 0],
-                #             #         search_direction_all[ind, 1],
-                #             #         search_direction_all[ind, 2],
-                #             #         "{1}. {0[0]:.2f}, {0[1]:.2f}, {0[2]:.2f}".format(
-                #             #             search_direction_all[ind, :], ind
-                #             #         ),
-                #             #     )
-                #             ax.scatter([0], [0], [0])
-                #             plt.show()
-                #         break
-                #     old_min = new_mink_diff_point
-                #     # simplex.append(new_mink_diff_point)
-                #     # print("simplex", simplex)
-                #     # simplex, search_direction = self.nearest_simplex(
-                #     #     simplex, search_direction, inside=self.dim
-                #     # )
 
-                # break
-
-        return intersection, overlap_length
+        return intersection, overlap_length, minimum_dist_rem
 
     @staticmethod
-    def dist(search_direction_unit, particle_1, particle_2, box):
-        i_theta, j_phi = search_direction_unit
-        search_direction = np.array(
-            [
-                np.sin(i_theta) * np.cos(j_phi),
-                np.sin(i_theta) * np.sin(j_phi),
-                np.cos(i_theta),
-            ]
+    def minimum_dist_to_diff_sup(search_direction_unit, particle_1, particle_2, box):
+        """Distance from the origin to the suppport function of the Minkowski difference.
+
+        Gives the distance along the search direction of the corresponding point in the
+        support function of the Minkowski difference of the two particles.
+        The *search_direction_unit* contains the angles necessary to define a unit vector.
+
+
+        Parameters
+        ---------
+        search_direction: np.array
+            Array containing the angles defining the unit vector, using polar coordinates
+            for 2D and spherical coordinates for 3D.
+
+        particle_1: `.Particle`
+            Particle
+
+        particle_2: `.Particle`
+            Particle
+
+        box: list(float)
+            Dimension of the simulation box in each direction.
+
+        Returns
+        -------
+        dist: float
+            Distance from the origin to the point on the support function of the Minkowski
+            difference of the two particles corresponding to the search direction.
+        """
+        diff_in_box = particle_1.position_center - particle_2.position_center
+        # Difference vector between the center of the two particles
+        diff_nearest_other = box * np.round(diff_in_box / box)
+        # Vector from the position of the other ellipse to its nearest image to the current
+        # ellipse
+        # diff = diff_in_box + diff_nearest_other
+        if particle_1.dim == 3:
+            i_theta, j_phi = search_direction_unit
+            search_direction = np.array(
+                [
+                    np.sin(i_theta) * np.cos(j_phi),
+                    np.sin(i_theta) * np.sin(j_phi),
+                    np.cos(i_theta),
+                ]
+            )
+        elif particle_1.dim == 2:
+            diff_nearest_other = np.append(diff_nearest_other, [0])
+            i_theta = search_direction_unit[0]
+            search_direction = np.array([np.cos(i_theta), np.sin(i_theta), 0])
+
+        mink_diff_point = particle_1.support_function(search_direction) - (
+            particle_2.support_function(-search_direction) + diff_nearest_other
         )
-        mink_diff_point = particle_1.support_function(
-            search_direction
-        ) - Particle.nearest_periodic_image(
-            particle_2.support_function(-search_direction),
-            particle_1.position_center,
-            box,
-        )
-        return mink_diff_point.dot(search_direction)
+        dist = mink_diff_point.dot(search_direction)
+        # diff / np.linalg.norm(diff))
+        return dist
 
     @staticmethod
-    def nearest_face_to_support(particle_1, particle_2, box, search_direction, simplex):
-        dim = particle_1.dim
-        min_dist = 1e6
-        # vec_to_origin = -simplex[3]
-        # vec_1 = simplex[0] - simplex[3]
-        # vec_2 = simplex[1] - simplex[3]
-        # vec_3 = simplex[2] - simplex[3]
-        # edge_vecs = [vec_1, vec_2, vec_3]
-        mink_diff_point = []
-        print("search_direction", search_direction)
-        for i_direction_ind in list(range(dim)):
-            face_direction = np.array(search_direction[dim])
-            for j_direction_ind in range(dim - 1):
-                face_direction += np.array(
-                    search_direction[np.mod(i_direction_ind + j_direction_ind, dim)]
-                )
-            # face_direction = np.cross(
-            #     edge_vecs[np.mod(i_direction_ind, dim)],
-            #     edge_vecs[np.mod(i_direction_ind + 1, dim)],
-            # )
-            mink_diff_point.append(
-                particle_1.support_function(face_direction)
-                - Particle.nearest_periodic_image(
-                    particle_2.support_function(-face_direction),
-                    particle_1.position_center,
-                    box,
-                )
-            )
-            new_dist = mink_diff_point[-1].dot(face_direction) / np.linalg.norm(
-                face_direction
-            )
-            cos = (
-                mink_diff_point[-1].dot(face_direction)
-                / np.linalg.norm(face_direction)
-                / np.linalg.norm(mink_diff_point)
-            )
-            # / np.linalg.norm(mink_diff_point)
-
-            # .dot(mink_diff_point[-1])
-            print(
-                "mink_diff_point[-1]",
-                mink_diff_point[-1],
-                new_dist,
-                cos,
-                face_direction,
-            )
-            if new_dist < min_dist:
-                min_dist = new_dist
-                min_dir = i_direction_ind
-                new_mink_diff_point = mink_diff_point[-1]
-                new_search_dir = list(face_direction)
-        print(min_dist, min_dir, new_search_dir)
-        search_direction.append(new_search_dir / np.linalg.norm(new_search_dir))
-        print("search_direction_2", search_direction)
-        del search_direction[np.mod(min_dir + 2, dim)]
-        simplex.append(new_mink_diff_point)
-        del simplex[np.mod(min_dir + 2, dim)]
-        print("search_direction_2", search_direction)
-        print("simplex", simplex)
-
-        return new_mink_diff_point, search_direction, mink_diff_point, simplex
-
-    @staticmethod
-    def nearest_simplex(simplex, search_direction, inside=0):
+    def nearest_simplex(simplex):
         """
         Get the nearest simplex to the origin and the corresponding search direction.
 
@@ -625,204 +293,51 @@ class Particle(abc.ABC):
         closest simplex to the origin.
         """
 
-        def order_anticlockwise_3_pts(simplex, search_direction):
-            vec_1 = simplex[0] - simplex[3]
-            vec_2 = simplex[1] - simplex[3]
-            vec_3 = simplex[2] - simplex[3]
-            if vec_3.dot(np.cross(vec_1, vec_2)) < 0:
-                return [simplex[0], simplex[1], simplex[2], simplex[3]], [
-                    search_direction[0],
-                    search_direction[1],
-                    search_direction[2],
-                    search_direction[3],
-                ]
-
-            return [simplex[0], simplex[2], simplex[1], simplex[3]], [
-                search_direction[0],
-                search_direction[2],
-                search_direction[1],
-                search_direction[3],
-            ]
-
-        def nearest_face_inside(
-            vec_to_origin, vec_1, vec_2, vec_3, simplex, search_direction
-        ):
-            biss = (
-                vec_1 / np.linalg.norm(vec_1)
-                + vec_2 / np.linalg.norm(vec_2)
-                + vec_3 / np.linalg.norm(vec_3)
-            )
-            print("biss", biss)
-            perp_1 = np.cross(biss, vec_2)
-            perp_2 = np.cross(biss, vec_1)
-            perp_3 = np.cross(biss, vec_3)
-            print(
-                "perp",
-                perp_1.dot(vec_to_origin),
-                perp_2.dot(vec_to_origin),
-                perp_3.dot(vec_to_origin),
-            )
-            if perp_2.dot(vec_to_origin) < 0 < perp_3.dot(vec_to_origin):
-                print("here_1\n\n", simplex[0])
-                del simplex[0]
-                search_direction.append(
-                    search_direction[3] / np.linalg.norm(search_direction[3])
-                    + search_direction[2] / np.linalg.norm(search_direction[2])
-                    + search_direction[1] / np.linalg.norm(search_direction[1])
-                )
-                del search_direction[0]
-                # if perp_1.dot(vec_to_origin) > 0:
-                #     del simplex[0]
-                #     search_direction = -(
-                #         vec_last_to_origin
-                #         - vec_2.dot(vec_last_to_origin) * vec_2 / vec_2.dot(vec_2)
-                #     )
-                # else:
-                #     del simplex[1]
-                #     search_direction = -(
-                #         vec_last_to_origin
-                #         - vec_3.dot(vec_last_to_origin) * vec_3 / vec_3.dot(vec_3)
-                #     )
-            elif perp_1.dot(vec_to_origin) < 0 < perp_2.dot(vec_to_origin):
-                print("here_2\n\n")
-                del simplex[1]
-                search_direction.append(
-                    search_direction[3] / np.linalg.norm(search_direction[3])
-                    + search_direction[2] / np.linalg.norm(search_direction[2])
-                    + search_direction[0] / np.linalg.norm(search_direction[0])
-                )
-                del search_direction[1]
-                # if perp_2.dot(vec_to_origin) > 0:
-                #     del simplex[1]
-                #     search_direction = -(
-                #         vec_last_to_origin
-                #         - vec_3.dot(vec_last_to_origin) * vec_3 / vec_3.dot(vec_3)
-                #     )
-                # else:
-                #     del simplex[2]
-                #     search_direction = -(
-                #         vec_last_to_origin
-                #         - vec_1.dot(vec_last_to_origin) * vec_1 / vec_1.dot(vec_1)
-                #     )
-            elif perp_3.dot(vec_to_origin) < 0 < perp_1.dot(vec_to_origin):
-                print("here_3\n\n", simplex[2])
-                del simplex[2]
-                search_direction.append(
-                    search_direction[3] / np.linalg.norm(search_direction[3])
-                    + search_direction[0] / np.linalg.norm(search_direction[0])
-                    + search_direction[1] / np.linalg.norm(search_direction[1])
-                )
-                del search_direction[2]
-                # if perp_3.dot(vec_to_origin) > 0:
-                #     del simplex[2]
-                #     search_direction = -(
-                #         vec_last_to_origin
-                #         - vec_3.dot(vec_last_to_origin) * vec_3 / vec_3.dot(vec_3)
-                #     )
-                # else:
-                #     del simplex[3]
-                #     search_direction = -(
-                #         vec_last_to_origin
-                #         - vec_2.dot(vec_last_to_origin) * vec_2 / vec_2.dot(vec_2)
-                #     )
-                # -vec_to_origin + (vec_2 + vec_3) / 3
-
-            # if perp_3.dot(vec_to_origin) < 0 < perp_1.dot(vec_to_origin):
-            #     del simplex[1]
-            #     search_direction = np.cross(vec_3, vec_1)
-            #     # -vec_to_origin + (vec_3 + vec_1) / 3
-            # elif perp_1.dot(vec_to_origin) < 0 < perp_2.dot(vec_to_origin):
-            #     del simplex[2]
-            #     search_direction = np.cross(vec_1, vec_2)
-            #     # -vec_to_origin + (vec_1 + vec_2) / 3
-            # elif perp_2.dot(vec_to_origin) < 0 < perp_3.dot(vec_to_origin):
-            #     del simplex[0]
-            #     search_direction = np.cross(vec_2, vec_3)
-            #     # -vec_to_origin + (vec_2 + vec_3) / 3
-
-            return simplex, search_direction
-
-        def nearest_triangle(
-            vec_to_origin, vec_1, vec_2, sub_simplex, sub_search_direction, inside=0
-        ):
+        def nearest_triangle(vec_to_origin, vec_1, vec_2, sub_simplex):
 
             normal_tri = np.cross(vec_1, vec_2)
-            if inside == 2:
-                biss = vec_1 / np.linalg.norm(vec_1) + vec_2 / np.linalg.norm(vec_2)
-                print("biss", biss)
-                perp_1 = vec_1 - vec_1.dot(biss) * biss / biss.dot(biss)
-                if perp_1.dot(vec_to_origin) > 0:
+            if np.cross(vec_1, normal_tri).dot(vec_to_origin) > 0:
+                if vec_1.dot(vec_to_origin) > 0:
                     del sub_simplex[1]
-                    del sub_search_direction[1]
-                    sub_search_direction.append(
-                        -np.cross(
-                            vec_1,
-                            np.cross(vec_to_origin, vec_1),
-                        )
+                    search_direction = np.cross(
+                        vec_1,
+                        np.cross(vec_to_origin, vec_1),
                     )
-                else:
+                elif vec_2.dot(vec_to_origin) > 0:
                     del sub_simplex[0]
-                    del sub_search_direction[0]
-                    sub_search_direction.append(
-                        -np.cross(
-                            vec_2,
-                            np.cross(vec_to_origin, vec_2),
-                        )
+                    search_direction = np.cross(
+                        vec_2,
+                        np.cross(vec_to_origin, vec_2),
                     )
-            else:
-                if np.cross(vec_1, normal_tri).dot(vec_to_origin) > 0:
-                    if vec_1.dot(vec_to_origin) > 0:
-                        del sub_simplex[1]
-                        del sub_search_direction[1]
-                        sub_search_direction.append(
-                            np.cross(
-                                vec_1,
-                                np.cross(vec_to_origin, vec_1),
-                            )
-                        )
-                    elif vec_2.dot(vec_to_origin) > 0:
-                        del sub_simplex[0]
-                        del sub_search_direction[0]
-                        sub_search_direction.append(
-                            np.cross(
-                                vec_2,
-                                np.cross(vec_to_origin, vec_2),
-                            )
-                        )
-                    else:
-                        del sub_simplex[0:2]
-                        del sub_search_direction[0:2]
-                        sub_search_direction.append(vec_to_origin)
-                elif np.cross(normal_tri, vec_2).dot(vec_to_origin) > 0:
-                    if vec_2.dot(vec_to_origin) > 0:
-                        del sub_simplex[0]
-                        del sub_search_direction[0]
-                        sub_search_direction.append(
-                            np.cross(
-                                vec_2,
-                                np.cross(vec_to_origin, vec_2),
-                            )
-                        )
-                    else:
-                        del sub_simplex[0:2]
-                        del sub_search_direction[0:2]
-                        sub_search_direction.append(vec_to_origin)
                 else:
+                    del sub_simplex[0:2]
+                    search_direction = vec_to_origin
+            elif np.cross(normal_tri, vec_2).dot(vec_to_origin) > 0:
+                if vec_2.dot(vec_to_origin) > 0:
+                    del sub_simplex[0]
+                    search_direction = np.cross(
+                        vec_2,
+                        np.cross(vec_to_origin, vec_2),
+                    )
+                else:
+                    del sub_simplex[0:2]
+                    search_direction = vec_to_origin
+            else:
 
-                    if normal_tri.dot(vec_last_to_origin) > 0:
-                        sub_search_direction.append(normal_tri)
-                        sub_simplex.reverse()
-                    else:
-                        sub_search_direction.append(-normal_tri)
+                if normal_tri.dot(vec_last_to_origin) > 0:
+                    search_direction = normal_tri
+                    sub_simplex.reverse()
+                else:
+                    search_direction = -normal_tri
 
-            return sub_simplex, sub_search_direction
+            return sub_simplex, search_direction
 
         if len(simplex) == 2:
 
             vec_last_to_previous = simplex[0] - simplex[1]
             vec_last_to_origin = -simplex[1]
             if vec_last_to_previous.dot(vec_last_to_origin) > 0:
-                search_direction.append(
+                search_direction = (
                     vec_last_to_origin
                     - vec_last_to_previous.dot(vec_last_to_origin)
                     * vec_last_to_previous
@@ -832,8 +347,7 @@ class Particle(abc.ABC):
                 #     - vec_last_to_previous.dot(vec_last_to_origin) * vec_last_to_origin
                 # )
             else:
-                del search_direction[0]
-                search_direction.append(simplex[1])
+                search_direction = simplex[1]
                 del simplex[0]
         elif len(simplex) == 3:
 
@@ -845,18 +359,9 @@ class Particle(abc.ABC):
                 vec_last_to_previous_1,
                 vec_last_to_previous_2,
                 [simplex[0], simplex[1], simplex[2]],
-                [search_direction[0], search_direction[1], search_direction[2]],
-                inside=inside,
             )
 
         elif len(simplex) == 4:
-            print("here_boss")
-            if inside == 3:
-                print(simplex)
-                simplex, search_direction = order_anticlockwise_3_pts(
-                    simplex, search_direction
-                )
-                print("simplex", simplex)
             vec_last_to_origin = -simplex[3]
             vec_last_to_previous_1 = simplex[0] - simplex[3]
             vec_last_to_previous_2 = simplex[1] - simplex[3]
@@ -865,58 +370,31 @@ class Particle(abc.ABC):
             normal_tri_23 = np.cross(vec_last_to_previous_2, vec_last_to_previous_3)
             normal_tri_31 = np.cross(vec_last_to_previous_3, vec_last_to_previous_1)
             # Outward normals
-            if inside == 3:
-
-                simplex, search_direction = nearest_face_inside(
+            if normal_tri_12.dot(vec_last_to_origin) < 0:
+                simplex, search_direction = nearest_triangle(
                     vec_last_to_origin,
                     vec_last_to_previous_1,
                     vec_last_to_previous_2,
+                    [simplex[0], simplex[1], simplex[3]],
+                )
+
+            elif normal_tri_23.dot(vec_last_to_origin) < 0:
+                simplex, search_direction = nearest_triangle(
+                    vec_last_to_origin,
+                    vec_last_to_previous_2,
                     vec_last_to_previous_3,
-                    simplex,
-                    search_direction,
+                    [simplex[1], simplex[2], simplex[3]],
+                )
+            elif normal_tri_31.dot(vec_last_to_origin) < 0:
+                simplex, search_direction = nearest_triangle(
+                    vec_last_to_origin,
+                    vec_last_to_previous_3,
+                    vec_last_to_previous_1,
+                    [simplex[2], simplex[0], simplex[3]],
                 )
             else:
-                if normal_tri_12.dot(vec_last_to_origin) < 0:
-                    simplex, search_direction = nearest_triangle(
-                        vec_last_to_origin,
-                        vec_last_to_previous_1,
-                        vec_last_to_previous_2,
-                        [simplex[0], simplex[1], simplex[3]],
-                        [search_direction[0], search_direction[1], search_direction[3]],
-                    )
+                search_direction = np.array([0, 0, 0])
 
-                elif normal_tri_23.dot(vec_last_to_origin) < 0:
-                    simplex, search_direction = nearest_triangle(
-                        vec_last_to_origin,
-                        vec_last_to_previous_2,
-                        vec_last_to_previous_3,
-                        [simplex[1], simplex[2], simplex[3]],
-                        [search_direction[1], search_direction[2], search_direction[3]],
-                    )
-                elif normal_tri_31.dot(vec_last_to_origin) < 0:
-                    simplex, search_direction = nearest_triangle(
-                        vec_last_to_origin,
-                        vec_last_to_previous_3,
-                        vec_last_to_previous_1,
-                        [simplex[2], simplex[0], simplex[3]],
-                        [search_direction[2], search_direction[0], search_direction[3]],
-                    )
-                else:
-                    pass
-                    # d_12 = vec_last_to_origin.dot(
-                    #     normal_tri_12 / np.linalg.norm(normal_tri_12)
-                    # )
-                    # d_23 = vec_last_to_origin.dot(
-                    #     normal_tri_23 / np.linalg.norm(normal_tri_23)
-                    # )
-                    # d_31 = vec_last_to_origin.dot(
-                    #     normal_tri_31 / np.linalg.norm(normal_tri_31)
-                    # )
-                    # search_direction = np.min(np.abs([d_12, d_23, d_31])) * np.array(
-                    #     [1, 0, 0]
-                    # )
-
-        print("search_direction", search_direction)
         return simplex, search_direction
 
     def intersection_vector(self, other_particle, box):
@@ -957,7 +435,7 @@ class Particle(abc.ABC):
         """Compute the interesection area/volume between two particles."""
 
     @abc.abstractmethod
-    def intersection_length(self, other_particle, box) -> float:
+    def intersection_length(self, other_particle, box) -> tuple[float, np.array]:
         """Compute the interesection length between two particles."""
 
     @abc.abstractmethod
@@ -995,11 +473,6 @@ class Particle(abc.ABC):
             else:
                 points_in.append(0)
             current_std = np.std(points_in)
-            print(
-                np.mean(points_in) * self.volume,
-                2 * current_std / np.sqrt(len(points_in)),
-                len(points_in),
-            )
             if len(points_in) > min_it:
                 if (
                     (self.volume / other_particle.volume)
@@ -1013,13 +486,6 @@ class Particle(abc.ABC):
                     overlap_area = np.mean(points_in) * self.volume
                     error_estimate = (
                         2 * current_std / np.sqrt(len(points_in)) * self.volume
-                    )
-                    print(
-                        "len",
-                        len(points_in),
-                        2 * current_std / np.sqrt(len(points_in)),
-                        error_estimate,
-                        self.volume,
                     )
                     break
 
@@ -1044,6 +510,42 @@ class Particle(abc.ABC):
             raise ValueError("Unsupported option for the particle mass.")
 
         return mass
+
+    def force_spring(self, other_particle, box, degree=2, tol=1e-8):
+        """Compute force due to non-linear spring at the intersection of degree *degree*."""
+        disp, unit_vector = self.intersection_length(other_particle, box, tol=tol)
+        dist = self.radius + other_particle.radius - disp
+        # Distance between the current sphere and the nearest image of the other sphere
+        diff_center = self.position_center - other_particle.position_center
+        diff_center = diff_center - box * np.round(diff_center / box)
+        # Vector from the current disk to the nearest image of the other disk
+        r_min = (
+            self.radius
+            if self.radius < other_particle.radius
+            else other_particle.radius
+        )
+        r_max = (
+            other_particle.radius
+            if other_particle.radius > self.radius
+            else self.radius
+        )
+        if disp <= 0:
+            force = 0
+        elif disp >= r_min + r_max:
+            force = r_min
+        else:
+            force = r_min * (1 - (dist / (r_max + r_min)) ** degree)
+        return force, unit_vector
+
+    @property
+    def volume_circ(self):
+        """Volme of the corresponding circumscribed spheres/disk."""
+        if self.dim == 2:
+            volume = np.pi * self.radius ** 2
+        elif self.dim == 3:
+            volume = 4 / 3 * np.pi * self.radius ** 3
+
+        return volume
 
 
 class Ellipse(Particle):
@@ -1683,7 +1185,9 @@ class Ellipse(Particle):
     def generate_point_inside(self):
         return self.uniform_sample_ellipse()
 
-    def intersection_length(self, other_particle: Particle, box: list) -> float:
+    def intersection_length(
+        self, other_particle: Particle, box: list, tol: float = 1e-8
+    ) -> tuple[float, np.array]:
         """
         Compute the intersection length between the Ellipse and the other particle.
 
@@ -1691,17 +1195,38 @@ class Ellipse(Particle):
         ----------
         other_particle: `.Particle`
             Other particle
+
+        Returns
+        -------
+        intersection_length: float
+            Minimum distance allowing for the removal of the intersection.
+
+        unit_vector: np.array
+            Direction of the minimum displacement allowing for the removal of the
+            intersection.
         """
-        if isinstance(other_particle, Ellipse):
-            # The other particle is also a Ellipse
-            _, intersection_length = self.intersection_length_ellipse_ellipse(
-                other_particle, box
+        if True:
+            intersection, overlap_length, unit_vector = self.intersection_gjk(
+                other_particle, box, tol=tol
             )
+            # unit_vector_norm = self.intersection_vector(other_particle, box)
+            # if unit_vector_norm.dot(unit_vector) <= 0:
+            #     unit_vector *= -1
+            intersection_length = overlap_length if intersection else 0
+        elif isinstance(other_particle, Ellipse):
+            # The other particle is also a Ellipse
+            (
+                _,
+                intersection_length,
+            ) = self.intersection_length_ellipse_ellipse(other_particle, box)
+            unit_vector = self.intersection_vector(other_particle, box)
             # Computing the intersection length
         else:
-            intersection, overlap_length = self.intersection_gjk(other_particle, box)
+            intersection, overlap_length, unit_vector = self.intersection_gjk(
+                other_particle, box, tol=tol
+            )
             intersection_length = overlap_length if intersection else 0
-        return intersection_length
+        return intersection_length, unit_vector
         # Returning the intersection length
 
     def intersection_length_ellipse_ellipse(
@@ -1790,7 +1315,13 @@ class Ellipse(Particle):
                     ),
                 )
                 # Midpoint between the first two intersection points in the other ellipse
-            intersection_length = np.linalg.norm(midpoint_2 - midpoint_1)
+            opts = [
+                midpoint_2 - midpoint_1,
+                intersect_pts_ord[0] - intersect_pts_ord[1],
+            ]
+            intersection_arg = np.minarg([np.linalg.norm(vec) for vec in opts])
+            intersection_length = np.linalg.norm(opts[intersection_arg])
+            unit_vector = opts[intersection_arg]
             intersection = True
         elif len(intersect_pts) == 3:
             intersection_length = 0
@@ -1858,7 +1389,7 @@ class Ellipse(Particle):
                     ),
                 )
                 # Midpoint between t
-            intersection_length = np.max(
+            intersection_length = np.min(
                 [
                     np.linalg.norm(midpoint_2 - midpoint_1),
                     np.linalg.norm(midpoint_3 - midpoint_4),
@@ -1866,11 +1397,11 @@ class Ellipse(Particle):
             )
             intersection = True
 
-        return intersection, intersection_length
+        return intersection, intersection_length, unit_vector
 
     def support_function(self, direction: np.array) -> np.array:
         """Support funciton for the ellipse."""
-        dir_local = self.rot_mat.T.dot(direction)
+        dir_local = self.rot_mat.dot(direction[0:2])
         dir_normal = np.array(
             [
                 dir_local[0] * (self.semi_major_axis ** 2),
@@ -1886,9 +1417,9 @@ class Ellipse(Particle):
         )
         point_on_ellipse_loc = rescale_factor * dir_normal
         point_on_ellipse_glob = (
-            self.rot_mat.dot(point_on_ellipse_loc) + self.position_center
+            self.rot_mat.T.dot(point_on_ellipse_loc) + self.position_center
         )
-        return point_on_ellipse_glob
+        return np.append(point_on_ellipse_glob, [0])
 
 
 class Disk(Ellipse):
@@ -2047,6 +1578,72 @@ class Disk(Ellipse):
         return intersection_area
         # Returning the intersection area
 
+    def intersection_sqrt(self, other_sphere, box):
+        """
+        Compute the intersection volume between two Spheres.
+
+        Parameters
+        ----------
+        other_sphere: `.Sphere`
+            Other sphere whose intersection volume with the current sphere we want to know
+        """
+        diff_center = self.position_center - other_sphere.position_center
+        diff_center = diff_center - box * np.round(diff_center / box)
+        # Computing the difference vector between the centers of the current sphere and
+        # the nearest image of the other sphere
+        d = np.linalg.norm(diff_center)
+        # Distance between the current sphere and the nearest image of the other sphere
+        if self.radius >= other_sphere.radius:
+            # The radius of the self is larger than the radius of the other sphere
+            r_1 = self.radius
+            # Sphere 1 is the sphere with the larger radius
+            r_2 = other_sphere.radius
+            # Sphere 2 is the sphere with the smaller radius
+        else:
+            # The radius of the other sphere is larger than the radius of the self
+            r_1 = other_sphere.radius
+            # Sphere 1 is the sphere with the larger radius
+            r_2 = self.radius
+            # Sphere 2 is the sphere with the smaller radius
+        if d >= (r_1 + r_2):
+            # The spheres intersect at most at one point
+            intersection_volume = 0
+            # The intersection area of the spheres is zero
+        elif d <= r_1 - r_2:
+            # Sphere 2 is interely contained within Sphere 1
+            # intersection_volume = r_1 + r_2  # 4 / 3 * np.pi * r_2 ** 3
+            # intersection_volume = 4 / 3 * np.pi * r_2 ** 3
+            intersection_volume = r_2
+            # The intersection area is equal to the area of the smaller sphere, Sphere 2
+        else:
+            d_1 = (r_1 ** 2 - r_2 ** 2 + d ** 2) / (2 * d)
+            # x coordinate of the intersection point of the two disks if the the origin is
+            # at disk 1 and the x axis goes through the center of both disks
+            d_2 = d - d_1
+            # Distance in the x axis from the intersection point to disk 2
+            intersection_volume = r_2 * (
+                1 - (d) ** 2 / (r_1 + r_2) ** 2
+            )  # / (2 * r_2) * 4 / 3 * np.pi * r_2 ** 3
+            # intersection_volume = (
+            #     r_1 ** 3
+            #     / 3
+            #     * 2
+            #     * np.pi
+            #     * (1 - d_1 / r_1)  # Volume of spherical sector (Sphere 1)
+            #     - d_1 * (r_1 ** 2 - d_1 ** 2) * np.pi / 3  # Volume of cone (Sphere 1)
+            #     + r_2 ** 3
+            #     / 3
+            #     * 2
+            #     * np.pi
+            #     * (1 - d_2 / r_2)  # Volume of shperical sector (Sphere 2)
+            #     - d_2 * (r_2 ** 2 - d_2 ** 2) * np.pi / 3
+            # )  # Volume of cone (Sphere 2)
+            # Computing the intersection area as the sum of the spherical caps minus the
+            # corresponding cones
+            # intersection_volume = 0.01
+        return intersection_volume
+        # Returning the intersection area
+
     def intersection(self, other_particle: Particle, box: list) -> bool:
         """Check if the Disk intersects the other_particle.
 
@@ -2105,7 +1702,9 @@ class Disk(Ellipse):
         return np.append(self.position_center + radius_vec, [0])
         # GJK algorithm is written for 3D
 
-    def intersection_length(self, other_particle: Particle, box: list) -> float:
+    def intersection_length(
+        self, other_particle: Particle, box: list, tol: float = 1e-8
+    ) -> tuple[float, np.array]:
         """
         Compute the intersection length between the Disk and the other particle.
 
@@ -2113,12 +1712,22 @@ class Disk(Ellipse):
         ----------
         other_particle: `.Particle`
             Other particle
+
+        Returns
+        -------
+        intersection_length: float
+            Minimum distance allowing for the removal of the intersection.
+
+        unit_vector: np.array
+            Direction of the minimum displacement allowing for the removal of the
+            intersection.
         """
         if isinstance(other_particle, Disk):
             # The other particle is also a Disk
-            intersection_length = self.intersection_length_sphere_sphere(
+            intersection_length = self.intersection_length_disk_disk(
                 other_particle, box
             )
+            unit_vector = self.intersection_vector(other_particle, box)
             # Computing the intersection length
         elif isinstance(other_particle, Ellipse):
             # The other particle is a ellipse
@@ -2126,10 +1735,13 @@ class Disk(Ellipse):
             _, intersection_length = other_particle.intersection_ellipse_ellipse(
                 other_particle, box
             )
+            unit_vector = self.intersection_vector(other_particle, box)
         else:
-            intersection, overlap_length = self.intersection_gjk(other_particle, box)
+            intersection, overlap_length, unit_vector = self.intersection_gjk(
+                other_particle, box, tol=tol
+            )
             intersection_length = overlap_length if intersection else 0
-        return intersection_length
+        return intersection_length, unit_vector
         # Returning the intersection length
 
     def intersection_length_disk_disk(self, other_disk: Disk, box: list) -> float:
@@ -2325,6 +1937,16 @@ class Ellipsoid(Particle):
             "vf",
         },
         {
+            "axis_1",
+            "ratio_12",
+            "ratio_13",
+            "rot_axis_comp_x",
+            "rot_axis_comp_y",
+            "rot_axis_comp_z",
+            "angle",
+            "vf",
+        },
+        {
             "vf",
             "n",
             "ratio_12",
@@ -2378,6 +2000,14 @@ class Ellipsoid(Particle):
                 * 8
                 / (np.pi * 4 / 3)
             )
+            axis_2 = axis_1 / descriptors["ratio_12"]
+            axis_3 = axis_1 / descriptors["ratio_13"]
+        if (
+            "ratio_12" in descriptors
+            and "ratio_13" in descriptors
+            and "axis_1" in descriptors
+        ):
+            axis_1 = descriptors["axis_1"]
             axis_2 = axis_1 / descriptors["ratio_12"]
             axis_3 = axis_1 / descriptors["ratio_13"]
         if "angle" in descriptors:
@@ -3030,10 +2660,14 @@ class Ellipsoid(Particle):
         )
         return point_on_ellipsoid_glob
 
-    def intersection_length(self, other_particle: Particle, box: list) -> float:
+    def intersection_length(
+        self, other_particle: Particle, box: list, tol: float = 1e-8
+    ) -> tuple[float, np.array]:
         """Intersection length between *self* and *other_particle* on *box*."""
-        _, intersection_length = self.intersection_gjk(other_particle, box)
-        return intersection_length
+        _, intersection_length, unit_vector = self.intersection_gjk(
+            other_particle, box, tol=tol
+        )
+        return intersection_length, unit_vector
 
 
 class Sphere(Ellipsoid):
@@ -3173,7 +2807,6 @@ class Sphere(Ellipsoid):
             # The intersection area of the spheres is zero
         elif d <= r_1 - r_2:
             # Sphere 2 is interely contained within Sphere 1
-            # intersection_volume = r_1 + r_2  # 4 / 3 * np.pi * r_2 ** 3
             intersection_volume = 4 / 3 * np.pi * r_2 ** 3
             # The intersection area is equal to the area of the smaller sphere, Sphere 2
         else:
@@ -3182,9 +2815,6 @@ class Sphere(Ellipsoid):
             # at disk 1 and the x axis goes through the center of both disks
             d_2 = d - d_1
             # Distance in the x axis from the intersection point to disk 2
-            # intersection_volume = (r_1 + r_2 - d) ** 2 / (
-            #     r_1 + r_2
-            # )  # / (2 * r_2) * 4 / 3 * np.pi * r_2 ** 3
             intersection_volume = (
                 r_1 ** 3
                 / 3
@@ -3199,6 +2829,72 @@ class Sphere(Ellipsoid):
                 * (1 - d_2 / r_2)  # Volume of shperical sector (Sphere 2)
                 - d_2 * (r_2 ** 2 - d_2 ** 2) * np.pi / 3
             )  # Volume of cone (Sphere 2)
+            # Computing the intersection area as the sum of the spherical caps minus the
+            # corresponding cones
+            # intersection_volume = 0.01
+        return intersection_volume
+        # Returning the intersection area
+
+    def intersection_sqrt(self, other_sphere, box):
+        """
+        Compute the intersection volume between two Spheres.
+
+        Parameters
+        ----------
+        other_sphere: `.Sphere`
+            Other sphere whose intersection volume with the current sphere we want to know
+        """
+        diff_center = self.position_center - other_sphere.position_center
+        diff_center = diff_center - box * np.round(diff_center / box)
+        # Computing the difference vector between the centers of the current sphere and
+        # the nearest image of the other sphere
+        d = np.linalg.norm(diff_center)
+        # Distance between the current sphere and the nearest image of the other sphere
+        if self.radius >= other_sphere.radius:
+            # The radius of the self is larger than the radius of the other sphere
+            r_1 = self.radius
+            # Sphere 1 is the sphere with the larger radius
+            r_2 = other_sphere.radius
+            # Sphere 2 is the sphere with the smaller radius
+        else:
+            # The radius of the other sphere is larger than the radius of the self
+            r_1 = other_sphere.radius
+            # Sphere 1 is the sphere with the larger radius
+            r_2 = self.radius
+            # Sphere 2 is the sphere with the smaller radius
+        if d >= (r_1 + r_2):
+            # The spheres intersect at most at one point
+            intersection_volume = 0
+            # The intersection area of the spheres is zero
+        elif d <= r_1 - r_2:
+            # Sphere 2 is interely contained within Sphere 1
+            # intersection_volume = r_1 + r_2  # 4 / 3 * np.pi * r_2 ** 3
+            # intersection_volume = 4 / 3 * np.pi * r_2 ** 3
+            intersection_volume = r_2
+            # The intersection area is equal to the area of the smaller sphere, Sphere 2
+        else:
+            d_1 = (r_1 ** 2 - r_2 ** 2 + d ** 2) / (2 * d)
+            # x coordinate of the intersection point of the two disks if the the origin is
+            # at disk 1 and the x axis goes through the center of both disks
+            d_2 = d - d_1
+            # Distance in the x axis from the intersection point to disk 2
+            intersection_volume = r_2 * (
+                1 - (d) ** 2 / (r_1 + r_2) ** 2
+            )  # / (2 * r_2) * 4 / 3 * np.pi * r_2 ** 3
+            # intersection_volume = (
+            #     r_1 ** 3
+            #     / 3
+            #     * 2
+            #     * np.pi
+            #     * (1 - d_1 / r_1)  # Volume of spherical sector (Sphere 1)
+            #     - d_1 * (r_1 ** 2 - d_1 ** 2) * np.pi / 3  # Volume of cone (Sphere 1)
+            #     + r_2 ** 3
+            #     / 3
+            #     * 2
+            #     * np.pi
+            #     * (1 - d_2 / r_2)  # Volume of shperical sector (Sphere 2)
+            #     - d_2 * (r_2 ** 2 - d_2 ** 2) * np.pi / 3
+            # )  # Volume of cone (Sphere 2)
             # Computing the intersection area as the sum of the spherical caps minus the
             # corresponding cones
             # intersection_volume = 0.01
@@ -3308,8 +3004,12 @@ class Sphere(Ellipsoid):
                 np.sum((self.position_center - cylinder_position_center_pbc) ** 2)
                 - dist_on_axis ** 2
             )
-            if L < np.sqrt(
-                self.radius ** 2 - (dist_on_axis - cylinder.length / 2) ** 2
+            if (
+                L
+                < np.sqrt(
+                    self.radius ** 2 - (np.abs(dist_on_axis) - cylinder.length / 2) ** 2
+                )
+                + cylinder.r_cyl
             ):
                 if np.abs(L) < cylinder.r_cyl:
                     intersection = True
@@ -3335,11 +3035,17 @@ class Sphere(Ellipsoid):
                     return intersection, overlap_length
 
                 intersection = False
-                overlap_length = None
+                overlap_length = 0
 
                 return intersection, overlap_length
+        intersection = False
+        overlap_length = 0
 
-    def intersection_length(self, other_particle: Particle, box: list) -> float:
+        return intersection, overlap_length
+
+    def intersection_length(
+        self, other_particle: Particle, box: list, tol: float = 1e-8
+    ) -> tuple[float, np.array]:
         """
         Compute the intersection length between the Sphere and the other particle.
 
@@ -3353,17 +3059,21 @@ class Sphere(Ellipsoid):
             intersection_length = self.intersection_length_sphere_sphere(
                 other_particle, box
             )
+            unit_vector = self.intersection_vector(other_particle, box)
             # Computing the intersection length
-        elif isinstance(other_particle, Cylinder):
-            # The other particle is a cylinder
-            other_particle: Cylinder
-            _, intersection_length = self.intersection_sphere_cylinder(
-                other_particle, box
-            )
+        # elif isinstance(other_particle, Cylinder):
+        #     # The other particle is a cylinder
+        #     other_particle: Cylinder
+        #     _, intersection_length = self.intersection_sphere_cylinder(
+        #         other_particle, box
+        #     )
+        #     unit_vector = self.intersection_vector(other_particle, box)
         else:
-            intersection, overlap_length = self.intersection_gjk(other_particle, box)
+            intersection, overlap_length, unit_vector = self.intersection_gjk(
+                other_particle, box, tol=tol
+            )
             intersection_length = overlap_length if intersection else 0
-        return intersection_length
+        return intersection_length, unit_vector
         # Returning the intersection area
 
     def intersection_length_sphere_sphere(
@@ -3607,23 +3317,44 @@ class Cylinder(Particle):
         intersection_volume = self.intersection_area_monte_carlo(other_particle, box)
         return intersection_volume
 
-    def intersection_length(self, other_particle, box):
-        """Compute the intersection length between *self* and *other_particle* in *box*."""
+    def intersection_length(
+        self, other_particle: Particle, box: list, tol: float = 1e-8
+    ) -> tuple[float, np.array]:
+        """Compute the intersection length between *self* and *other_particle* in *box*.
+
+        Parameters
+        ----------
+        other_particle: `.Particle`
+            Other particle
+
+        Returns
+        -------
+        intersection_length: float
+            Minimum distance allowing for the removal of the intersection.
+
+        unit_vector: np.array
+            Direction of the minimum displacement allowing for the removal of the
+            intersection.
+        """
 
         if isinstance(other_particle, Cylinder):
             other_particle: Cylinder
             _, intersection_length = self.intersection_cylinder_cylinder(
                 other_particle, box
             )
+            unit_vector = self.intersection_vector(other_particle, box)
         elif isinstance(other_particle, Sphere):
             other_particle: Sphere
             _, intersection_length = other_particle.intersection_sphere_cylinder(
                 self, box
             )
+            unit_vector = self.intersection_vector(other_particle, box)
         else:
-            _, intersection_length = self.intersection_gjk(other_particle, box)
+            _, intersection_length, unit_vector = self.intersection_gjk(
+                other_particle, box
+            )
 
-        return intersection_length
+        return intersection_length, unit_vector
 
     def support_function(self, direction: np.array) -> np.array:
 
@@ -3688,7 +3419,8 @@ class Cylinder(Particle):
         )
         normal = (
             np.cross(self.sym_axis_unit_vec, other_cylinder.sym_axis_unit_vec)
-            if self.sym_axis_unit_vec.dot(other_cylinder.sym_axis_unit_vec) != 1
+            if np.abs(self.sym_axis_unit_vec.dot(other_cylinder.sym_axis_unit_vec) - 1)
+            > 1e-4
             else np.cross(self.sym_axis_unit_vec, np.array([1, 0, 0]))
         )
         normal_unit = normal / np.linalg.norm(normal)
@@ -3830,7 +3562,7 @@ class Cylinder(Particle):
                     # d2
             else:
                 intersection = False
-                overlap_length = None
+                overlap_length = 0
             return intersection, overlap_length
 
         other_position_center_pbc = Particle.nearest_periodic_image(
@@ -3882,7 +3614,7 @@ class Cylinder(Particle):
             return intersection, overlap_length
 
         intersection = False
-        overlap_length = None
+        overlap_length = 0
         return intersection, overlap_length
 
     def intersection_top_disk_lateral_cylinder(
@@ -3975,6 +3707,8 @@ class Cylinder(Particle):
                         )
                     )
                     # cd1
+                else:
+                    overlap_length = 0
             elif np.linalg.norm(intrsct_pt_axis_disk - pos_d) < r_d:
                 intersection = True
                 overlap_length = 2 * r_c
@@ -4033,6 +3767,10 @@ class Cylinder(Particle):
         if intersection is True:
             return intersection, overlap_length
 
+        intersection = False
+        overlap_length = 0
+        return intersection, overlap_length
+
     def point_inside(self, point: np.array) -> bool:
         """Check if *point* is inside *self*."""
         dist_on_axis = self.sym_axis_unit_vec.dot(self.position_center - point)
@@ -4086,7 +3824,7 @@ class Matrix(Particle):
 
 
 def intersection_points_ellipses(
-    A1, B1, center_1, angle_1, A2, B2, center_2, angle_2, tol=1e-8
+    A1, B1, center_1, angle_1, A2, B2, center_2, angle_2, tol=1e-10
 ):
     """
     Return the y coordinates of the intersection points between two ellipses.
@@ -4185,12 +3923,17 @@ def intersection_points_ellipses(
         if np.abs(np.imag(i_root)) < tol:
             # if the root is real, then it is the y-coordinate of an intersection point
             y_pt = np.real(i_root)
-            if (
+            disc = 1 - y_pt ** 2 / B1 ** 2
+            if disc < -1e-4:
+                continue
+            if np.abs((np.abs(y_pt) - B1) / B1) < 1e-4:
+                intersect_pts.append(rot_mat_back.dot(np.array([0, y_pt])) + center_1)
+            elif (
                 not np.any(np.isclose(y_pt * np.ones(len(y_pts)), y_pts))
                 or len(y_pts) == 0
             ):
+                x_pt = A1 * np.sqrt(disc)
                 y_pts.append(y_pt)
-                x_pt = A1 * np.sqrt(1 - y_pt ** 2 / B1 ** 2)
                 # (x_pt, y_pt) and (-x_pt,y_pt) are the coordinates of the potential
                 # intersection points obtained assuming that they are on ellipse 1
                 on_ellipse_2_1 = (
@@ -4235,4 +3978,5 @@ def intersection_points_ellipses(
                     # coordinate system
                 # if on_ellipse_2_1 and on_ellipse_2_2 and np.abs(x_pt)<0.05:
                 #     intersect_pts.pop()
+
     return intersect_pts

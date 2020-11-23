@@ -550,45 +550,29 @@ class MolecularDynamicsSimulation(GenerationMethod):
         # they are added sequentially as each pair is considered
         for i_particle_index, i_particle in enumerate(particles):
             # Running though all the particles
-            for j_particle_index in self.speed_up_scheme.particle_list[
-                i_particle_index
-            ]:
+            for j_particle_index in set(
+                self.speed_up_scheme.particle_list[i_particle_index]
+            ):
                 if j_particle_index is None:
                     continue
                 j_particle = particles[j_particle_index]
                 if j_particle_index > i_particle_index:
                     # Running through the particle pairs that have not been considered yet
-                    intersection_area = getattr(i_particle, self.force_option)(
-                        j_particle, self.box
-                    )
+                    intersection_area, unit_vector_i_j = getattr(
+                        i_particle, self.force_option
+                    )(j_particle, self.box, tol=1e-12)
                     self.particle_overlap_areas_dict.setdefault(
                         (i_particle_index, j_particle_index),
                         [0 for _ in range(self.step - 1)],
                     )
                     self.particle_overlap_areas_dict[
                         (i_particle_index, j_particle_index)
-                    ] += [
-                        0
-                        for _ in range(
-                            len(
-                                self.particle_overlap_areas_dict[
-                                    (i_particle_index, j_particle_index)
-                                ]
-                            ),
-                            self.step - 1,
-                        )
-                    ] + [
-                        intersection_area
-                    ]
+                    ] += [intersection_area]
                     # Intersection area between particle i and j
                     self.particle_overlap_areas[i_particle_index] += intersection_area
                     self.particle_overlap_areas[j_particle_index] += intersection_area
                     self.total_overlap += intersection_area
                     # Updating the overlap area
-                    unit_vector_i_j = i_particle.intersection_vector(
-                        j_particle, self.box
-                    )
-                    # Unit vector from particle i to particle j
                     force_i_j = -intersection_area * unit_vector_i_j
                     # Computing the force on particle_i due to particle_j proportional to
                     # their intersection area/volume
@@ -732,7 +716,16 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 self.position_center_history[i_particle_index].append(
                     new_position.flatten()
                 )
-            # putSystemAtRest(particles)
+            # all_vel = np.sum(
+            #     [
+            #         i_particle.mass(option=self.particle_mass_opt) * i_particle_vel
+            #         for i_particle, i_particle_vel in zip(
+            #             particles, self.particle_velocities
+            #         )
+            #     ]
+            # )
+            # for particle_vel in self.particle_velocities:
+            #     particle_vel = particle_vel - all_vel
             # Putting the systemas a whole at rest
 
     def compute_relative_energy(self):
