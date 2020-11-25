@@ -61,6 +61,131 @@ class TestEllipsoid(unittest.TestCase):
         furthest_point_3 = ellip.support_function(direction_3)
 
 
+class TestIntersectionInside(unittest.TestCase):
+    """Test relating to the intersection of the surface of the particles"""
+
+    def test_ellipsoids(self):
+        rve_dims = [1.0, 1.0, 1.0]
+
+        ellipsoid_1 = Ellipsoid(
+            "1",
+            {
+                "axis_1": 0.2,
+                "axis_2": 0.2,
+                "axis_3": 0.2,
+                "rot_axis_comp_x": np.sqrt(3) / 3,
+                "rot_axis_comp_y": np.sqrt(3) / 3,
+                "rot_axis_comp_z": np.sqrt(3) / 3,
+                "angle": 0,
+            },
+            rve_dims,
+        )
+        ellipsoid_1.position_center = np.array([0.5, 0.5, 0.5])
+
+        ellipsoid_2 = Ellipsoid(
+            "1",
+            {
+                "axis_1": 0.3,
+                "axis_2": 0.3,
+                "axis_3": 0.3,
+                "rot_axis_comp_x": 0,
+                "rot_axis_comp_y": 0,
+                "rot_axis_comp_z": 1.0,
+                "angle": 0,
+            },
+            rve_dims,
+        )
+        ellipsoid_2.position_center = np.array([0.5, 0.52, 0.51])
+
+        intersection, *_ = ellipsoid_1.intersection_gjk(
+            ellipsoid_2, rve_dims, inside=False
+        )
+        self.assertTrue(not intersection)
+
+        ellipsoid_1.position_center = np.array([0.5, 0.5, 0.7])
+        ellipsoid_2.position_center = np.array([0.5, 0.52, 0.51])
+
+        intersection, *_ = ellipsoid_1.intersection_gjk(
+            ellipsoid_2, rve_dims, inside=False
+        )
+        self.assertTrue(intersection)
+
+    def test_ellipses(self):
+
+        rve_dims = [1.0, 1.0]
+
+        ellipse_1 = Ellipse(
+            "1", {"major_axis": 0.35, "minor_axis": 0.15, "angle": 0}, rve_dims
+        )
+        ellipse_1.position_center = np.array([0.5, 0.5])
+        ellipse_2 = Ellipse(
+            "1",
+            {"major_axis": 0.4, "minor_axis": 0.2, "angle": 0},
+            rve_dims,
+        )
+        ellipse_2.position_center = np.array([0.5, 0.51])
+
+        intersection, overlap_length, unit_vector = ellipse_1.intersection_gjk(
+            ellipse_2, rve_dims, inside=False
+        )
+        # self.assertTrue(not intersection)
+
+        # ellipse_1.position_center -= overlap_length * unit_vector
+        ellipse_1.position_center = np.array([0.5, 0.5])
+        ellipse_2.position_center = np.array([0.5, 0.55])
+
+        intersection, *_ = ellipse_1.intersection_gjk(ellipse_2, rve_dims, inside=False)
+        # self.assertTrue(intersection)
+
+    def test_ellipses_2(self):
+
+        rve_dims = [1.0, 1.0]
+
+        ellipse_1 = Ellipse(
+            "1", {"major_axis": 0.2, "minor_axis": 0.15, "angle": 0}, rve_dims
+        )
+        ellipse_1.position_center = np.array([0.5, 0.5])
+        ellipse_2 = Ellipse(
+            "1",
+            {"major_axis": 0.4, "minor_axis": 0.2, "angle": np.pi / 3},
+            rve_dims,
+        )
+        ellipse_2.position_center = np.array([0.5, 0.51])
+
+        intersection, overlap_length, unit_vector = ellipse_1.intersection_gjk(
+            ellipse_2, rve_dims, inside=False
+        )
+        self.assertTrue(not intersection)
+
+        ellipse_1.position_center = np.array([0.5, 0.5])
+        ellipse_2.position_center = np.array([0.5, 0.55])
+
+        intersection, *_ = ellipse_1.intersection_gjk(ellipse_2, rve_dims, inside=False)
+        self.assertTrue(intersection)
+
+    def test_disks(self):
+
+        rve_dims = [1.0, 1.0]
+
+        disk_1 = Disk("1", {"r": 0.2}, rve_dims)
+        disk_1.position_center = np.array([0.5, 0.53])
+        disk_2 = Disk(
+            "1",
+            {"r": 0.25},
+            rve_dims,
+        )
+        disk_2.position_center = np.array([0.5, 0.5])
+
+        intersection, *_ = disk_1.intersection_gjk(disk_2, rve_dims, inside=False)
+        self.assertTrue(not intersection)
+
+        disk_1.position_center = np.array([0.5, 0.5])
+        disk_2.position_center = np.array([0.5, 0.56])
+
+        intersection, *_ = disk_1.intersection_gjk(disk_2, rve_dims, inside=False)
+        self.assertTrue(intersection)
+
+
 class EllipsoidTestPartiallyIntersecting(unittest.TestCase):
     """Tests for the Ellipsoid class."""
 
@@ -182,6 +307,24 @@ class EllipsoidTestPartiallyIntersecting(unittest.TestCase):
                 trouble_pair[1], [1, 1, 1]
             )
             self.assertTrue(intersection)
+        # with open(previous_mic_path, "rb") as mic:
+        #     info_previous_sample = pickle.load(mic)
+        #     # No need to generate a new microstructure. Using a previous microstructure.
+        #     current_sample = info_previous_sample["microstructure"]
+        #     current_mic_generator = info_previous_sample["generation_method"]
+        #     trouble_pair = []
+        #     for i_particle in current_sample.particles:
+        #         if (
+        #             i_particle.position_center[0] < 0.25
+        #             and 0.25 < i_particle.position_center[1] < 0.75
+        #             and i_particle.position_center[2] > 0.75
+        #         ):
+        #             trouble_pair.append(i_particle)
+        #             # print(vars(i_particle))
+        #     intersection, overlap_length, _ = trouble_pair[0].intersection_gjk(
+        #         trouble_pair[1], [1, 1, 1]
+        #     )
+        #     self.assertTrue(intersection)
 
 
 class EllipseTestPartiallyIntersecting_1(unittest.TestCase):
@@ -218,7 +361,7 @@ class EllipseTestPartiallyIntersecting_1(unittest.TestCase):
         points = self.ellipse_1.uniform_sample_ellipse(n_samples=n_samples)
         k_uniform = 0
         for i_point in points:
-            point_in = self.ellipse_2.point_inside(i_point - diff_nearest_other)
+            point_in = self.ellipse_2.point_inside(i_point - diff_nearest_other, box)
             if point_in:
                 # plt.scatter(x, y, c="r", s=1)
                 k_uniform += 1
@@ -229,7 +372,7 @@ class EllipseTestPartiallyIntersecting_1(unittest.TestCase):
         points = self.ellipse_1.regular_sample_ellipse(n_samples=n_samples)
         k_reg = 0
         for i_point in points:
-            point_in = self.ellipse_2.point_inside(i_point - diff_nearest_other)
+            point_in = self.ellipse_2.point_inside(i_point - diff_nearest_other, box)
             if point_in:
                 # plt.scatter(x[i_point], y[i_point], c="b", s=1)
                 k_reg += 1
@@ -242,7 +385,8 @@ class EllipseTestPartiallyIntersecting_1(unittest.TestCase):
 
         def pointsInside(x, y):
             pointIn = self.ellipse_2.point_inside(
-                self.ellipse_1.rot_mat.dot([x, y]) + self.ellipse_1.position_center
+                self.ellipse_1.rot_mat.dot([x, y]) + self.ellipse_1.position_center,
+                self.rve_dims,
             )
             if pointIn:
                 value = 1
@@ -306,7 +450,7 @@ class EllipseTestPartiallyIntersecting_2(unittest.TestCase):
         points = self.ellipse_1.uniform_sample_ellipse(n_samples=n_samples)
         k_uniform = 0
         for i_point in points:
-            point_in = self.ellipse_2.point_inside(i_point - diff_nearest_other)
+            point_in = self.ellipse_2.point_inside(i_point - diff_nearest_other, box)
             if point_in:
                 # plt.scatter(x, y, c="r", s=1)
                 k_uniform += 1
@@ -317,7 +461,7 @@ class EllipseTestPartiallyIntersecting_2(unittest.TestCase):
         points = self.ellipse_1.regular_sample_ellipse(n_samples=n_samples)
         k_reg = 0
         for i_point in points:
-            point_in = self.ellipse_2.point_inside(i_point - diff_nearest_other)
+            point_in = self.ellipse_2.point_inside(i_point - diff_nearest_other, box)
             if point_in:
                 # plt.scatter(x[i_point], y[i_point], c="b", s=1)
                 k_reg += 1
@@ -330,7 +474,7 @@ class EllipseTestPartiallyIntersecting_2(unittest.TestCase):
 
         def pointsInside(x, y):
             pointIn = self.ellipse_2.point_inside(
-                self.ellipse_1.rot_mat.dot([x, y]) + self.ellipse_1.position_center
+                self.ellipse_1.rot_mat.dot([x, y]) + self.ellipse_1.position_center, box
             )
             if pointIn:
                 value = 1
@@ -394,7 +538,7 @@ class EllipseTestPartiallyIntersecting_3(unittest.TestCase):
         points = self.ellipse_1.uniform_sample_ellipse(n_samples=n_samples)
         k_uniform = 0
         for i_point in points:
-            point_in = self.ellipse_2.point_inside(i_point - diff_nearest_other)
+            point_in = self.ellipse_2.point_inside(i_point - diff_nearest_other, box)
             if point_in:
                 # plt.scatter(x, y, c="r", s=1)
                 k_uniform += 1
@@ -405,7 +549,7 @@ class EllipseTestPartiallyIntersecting_3(unittest.TestCase):
         points = self.ellipse_1.regular_sample_ellipse(n_samples=n_samples)
         k_reg = 0
         for i_point in points:
-            point_in = self.ellipse_2.point_inside(i_point - diff_nearest_other)
+            point_in = self.ellipse_2.point_inside(i_point - diff_nearest_other, box)
             if point_in:
                 # plt.scatter(x[i_point], y[i_point], c="b", s=1)
                 k_reg += 1
@@ -418,7 +562,7 @@ class EllipseTestPartiallyIntersecting_3(unittest.TestCase):
 
         def pointsInside(x, y):
             pointIn = self.ellipse_2.point_inside(
-                self.ellipse_1.rot_mat.dot([x, y]) + self.ellipse_1.position_center
+                self.ellipse_1.rot_mat.dot([x, y]) + self.ellipse_1.position_center, box
             )
             if pointIn:
                 value = 1
@@ -482,7 +626,7 @@ class EllipseTestPartiallyIntersecting_4(unittest.TestCase):
         points = self.ellipse_1.uniform_sample_ellipse(n_samples=n_samples)
         k_uniform = 0
         for i_point in points:
-            point_in = self.ellipse_2.point_inside(i_point - diff_nearest_other)
+            point_in = self.ellipse_2.point_inside(i_point - diff_nearest_other, box)
             if point_in:
                 # plt.scatter(x, y, c="r", s=1)
                 k_uniform += 1
@@ -493,7 +637,7 @@ class EllipseTestPartiallyIntersecting_4(unittest.TestCase):
         points = self.ellipse_1.regular_sample_ellipse(n_samples=n_samples)
         k_reg = 0
         for i_point in points:
-            point_in = self.ellipse_2.point_inside(i_point - diff_nearest_other)
+            point_in = self.ellipse_2.point_inside(i_point - diff_nearest_other, box)
             if point_in:
                 # plt.scatter(x[i_point], y[i_point], c="b", s=1)
                 k_reg += 1
@@ -506,7 +650,7 @@ class EllipseTestPartiallyIntersecting_4(unittest.TestCase):
 
         def pointsInside(x, y):
             pointIn = self.ellipse_2.point_inside(
-                self.ellipse_1.rot_mat.dot([x, y]) + self.ellipse_1.position_center
+                self.ellipse_1.rot_mat.dot([x, y]) + self.ellipse_1.position_center, box
             )
             if pointIn:
                 value = 1
@@ -663,27 +807,21 @@ class EllipseTestIntersectionLength(unittest.TestCase):
             unit_vector,
         ) = self.ellipse_1.intersection_gjk(self.ellipse_2, self.rve_dims)
         time_2 = time.time() - start_2
-        print(time_1, time_2)
-        plot_particles_2d(
-            [self.ellipse_1, self.ellipse_2], self.rve_dims, "", show=True, save=False
-        )
+        # print(time_1, time_2)
         self.assertTrue(intersection)
         self.ellipse_1.position_center += intersection_length * unit_vector
-        print(
-            intersection_length_1,
-            intersection_length,
-            np.linalg.norm(unit_vector),
-            unit_vector,
-            intersection_length * unit_vector,
-        )
+        # print(
+        #     intersection_length_1,
+        #     intersection_length,
+        #     np.linalg.norm(unit_vector),
+        #     unit_vector,
+        #     intersection_length * unit_vector,
+        # )
         (
             intersection,
             intersection_length,
             unit_vector,
         ) = self.ellipse_1.intersection_gjk(self.ellipse_2, self.rve_dims)
-        plot_particles_2d(
-            [self.ellipse_1, self.ellipse_2], self.rve_dims, "", show=True, save=False
-        )
         self.assertTrue(not intersection)
 
     def test_support_ellipse(self):
@@ -700,9 +838,9 @@ class EllipseTestIntersectionLength(unittest.TestCase):
         for i_theta in np.linspace(0, 2 * np.pi, 10):
             search_dir = np.array([np.cos(i_theta), np.sin(i_theta)])
             pt_1 = self.ellipse_1.support_function(search_dir)
-            self.assertTrue(self.ellipse_1.point_inside(pt_1[0:2]))
+            self.assertTrue(self.ellipse_1.point_inside(pt_1[0:2], self.rve_dims))
             pt_2 = self.ellipse_2.support_function(search_dir)
-            self.assertTrue(self.ellipse_2.point_inside(pt_2[0:2]))
+            self.assertTrue(self.ellipse_2.point_inside(pt_2[0:2], self.rve_dims))
 
     def test_ellipse_intersection_inside(self):
         self.ellipse_2 = Ellipse(
@@ -712,10 +850,10 @@ class EllipseTestIntersectionLength(unittest.TestCase):
         )
         self.ellipse_1.position_center = np.array([0.5, 0.5])
         self.ellipse_2.position_center = np.array([0.5, 0.5])
-        intersection_length, _ = self.ellipse_1.intersection_length(
+        intersection_length, unit_vector = self.ellipse_1.intersection_length(
             self.ellipse_2, self.rve_dims
         )
-        self.assertTrue(np.abs(intersection_length - 0.05) < 1e-4)
+        self.assertTrue(np.abs(intersection_length - 0.075) < 1e-4)
 
 
 class TestCylinder(unittest.TestCase):
@@ -920,9 +1058,6 @@ class TestCylinder(unittest.TestCase):
             cyl_2, rve_dims
         )
         intersection_1, overlap_length_1, _ = cyl_1.intersection_gjk(cyl_2, rve_dims)
-        print(overlap_length, overlap_length_1)
-        plot_particles_3d([cyl_1], rve_dims, "/home/jose/Documents/code/3d/part1")
-        plot_particles_3d([cyl_2], rve_dims, "/home/jose/Documents/code/3d/part2")
 
         self.assertTrue(intersection)
 
@@ -1486,11 +1621,15 @@ class TestPointInsideCylinder(unittest.TestCase):
         self.cylinder.position_center = np.array([0.5, 0.5, 0.5])
 
     def test_point_inside_in(self):
-        point_inside = self.cylinder.point_inside(np.array([0.5, 0.5, 0.5]))
+        point_inside = self.cylinder.point_inside(
+            np.array([0.5, 0.5, 0.5]), self.rve_dims
+        )
         self.assertTrue(point_inside)
 
     def test_point_inside_out(self):
-        point_inside = self.cylinder.point_inside(np.array([0.75, 0.5, 0.5]))
+        point_inside = self.cylinder.point_inside(
+            np.array([0.75, 0.5, 0.5]), self.rve_dims
+        )
         self.assertTrue(not point_inside)
 
 

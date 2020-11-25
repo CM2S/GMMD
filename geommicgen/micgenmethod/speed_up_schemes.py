@@ -347,6 +347,7 @@ class VerletList(CellList):
             if i_particle.intersection(
                 self.verlet_neighboorhoods[i_particle_index],
                 self.molecular_dynamics_sim.box,
+                inside=False,
             ):
                 # Checking if the displacement takes the particle out of its neighboorhood
                 self.new_verlet_list = True
@@ -354,6 +355,15 @@ class VerletList(CellList):
                 # There is a need to compute a new verlet list
         if self.new_verlet_list:
             self.new_verlet_list = False
+            # old_verlet_fac = self.verlet_factor
+            # self.verlet_factor = np.max([1.05, old_verlet_fac * 0.95])
+            # print(self.verlet_factor, "verlet\n\n")
+            # if old_verlet_fac != self.verlet_factor:
+            #     for i_particle_index, i_particle in enumerate(particles):
+            #         self.verlet_neighboorhoods[i_particle_index].contract(
+            #             (old_verlet_fac - self.verlet_factor)
+            #             * particles[i_particle_index].radius
+            #         )
             super().new_list(particles)
             # Creating the cell list used to compute the Verlet list
             particle_list_from_cell_list = self.particle_list
@@ -366,6 +376,8 @@ class VerletList(CellList):
                 ].position_center = i_particle.position_center
                 # Updating the position of all the Verlet neighboorhoods to coincide with
                 # the particles current position
+            for i_particle_index, i_particle in enumerate(particles):
+                # Running though all the particles
                 for j_particle_index in particle_list_from_cell_list[i_particle_index]:
                     # Running through all the particles in the neighboring cell
                     if self.verlet_neighboorhoods[i_particle_index].intersection(
