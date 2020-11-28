@@ -61,10 +61,21 @@ def create_figure(
         Number of rows in the a4 page.
 
     """
-    matplotlib.rcParams["mathtext.fontset"] = "stix"
-    matplotlib.rcParams["font.family"] = "Adobe Caslon Pro"
-    matplotlib.rcParams["text.usetex"] = True
-    matplotlib.rcParams["text.latex.unicode"] = True
+    # Set LaTeX option
+    LaTeX_option = 1
+    # Set LaTeX font
+    if LaTeX_option == 1:
+        # Default LaTeX Computer Modern Roman
+        plt.rc("text", usetex=True)
+        plt.rc("font", **{"family": "serif", "serif": ["Computer Modern Roman"]})
+    else:
+        # LaTeX Fourier
+        plt.rc("text", usetex=True)
+        plt.rc(
+            "text.latex",
+            preamble=r"\usepackage[widespace]{fourier} \usepackage{amsmath} \usepackage{amssymb}",
+        )
+    #
     if "w" not in kwargs:
         w = (latex_textwidth - 0.2 * (ncols - 1)) / ncols
     else:
@@ -76,6 +87,24 @@ def create_figure(
     fig, axs = plt.subplots(
         figsize=(w, h), nrows=nrows_sub, ncols=ncols_sub, sharey=sharey, sharex=sharex
     )
+
+    #     # Set axes labels
+    #     if x_label != None:
+    #         axes.set_xlabel(x_label, fontsize=12, labelpad=10)
+    #     if y_label != None:
+    #         axes.set_ylabel(y_label, fontsize=12, labelpad=10)
+    # 15h56
+    #     # Configure ticks appearance
+    #     axes.tick_params(which='major', width=1.0, length=10, labelcolor='0.0', labelsize=12)
+    #     axes.tick_params(which='minor', width=1.0, length=5, labelsize=12)
+    #     # Configure grid
+    #     axes.grid(linestyle='-', linewidth=0.5, color='0.5', zorder=0)
+    # 15h56
+    #     # Set line width
+    #     line_width = 2
+    #     # Set marker size and frequency
+    #     marker_size = 5
+
     return [fig, axs, (w, h)]
 
 
@@ -244,8 +273,12 @@ def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
     mesh_generator.phase_dim_tag = {
         phase_name: [] for phase_name in {i_particle.phase for i_particle in particles}
     }
+    print("here")
+    offset = mesh_generator.compute_rve_offset(particles, rve_dims)
     for i_particle in particles:
-        mesh_generator.add_particle_pbc_to_model(i_particle, rve_dims)
+        mesh_generator.add_particle_pbc_to_model(
+            i_particle, rve_dims, offset=offset
+        )  # [0, 0, 0])
 
     out_dim_tag, _ = factory.intersect(
         [(dim, mesh_generator.box_tag)],
@@ -309,56 +342,52 @@ def plot_overlap_history(
     show=False,
     **kwargs
 ):
-    def moving_average(vec, ind, n=5):
-        if ind > n // 2 and ind < len(vec) - n // 2:
-            value = np.sum(vec[ind - n // 2 : ind + n // 2 + 1]) / (2 * (n // 2) + 1)
-        else:
-            value = None
-        return value
-
+    """Plot the overlap history as a function of the iteration step."""
+    # Plot to a given axes or to a new figure
     if "axes" in kwargs:
         ax = kwargs["axes"]
         plt.sca(ax)
     else:
         plt.figure()
+    # Plot temperature changes
     if temp_change and "temp_change_steps" in kwargs:
         for line in kwargs["temp_change_steps"]:
             plt.axvline(line, linewidth=0.01, linestyle="--", color="k")
+    # Plotting the maximum residue if it is larger than 0
     if max_residue != 0:
         plt.semilogy([0, len(total_overlap_history)], [max_residue, max_residue])
+    # Plot the overlap history in a semilogy plot
     graph_overlap_history = plt.semilogy(
         range(len(total_overlap_history)),
         total_overlap_history,
         color=kwargs.get("color", (68 / 255, 119 / 255, 170 / 255, 1)),
     )
-    # for i_window in [2, 5, 10, 20, 50]:
-    #     smooth_rolling_ave = [
-    #         moving_average(total_overlap_history, ind, n=i_window)
-    #         for ind, _ in enumerate(total_overlap_history)
-    #     ]
-    #     plt.semilogy(range(len(total_overlap_history)), smooth_rolling_ave)
+
     if "overlap_ratio" in kwargs:
         _ = plt.twinx(plt.gca())
-        artist_ratio = plt.semilogy([None, None] + kwargs["overlap_ratio"])
-        # artist_ratio = plot_ratio_new_old_overlap(
-        #     kwargs["overlap_pairs_history"],
-        #     kwargs["len_sim"],
-        #     "",
-        #     axes=ax_2,
-        # )
-        for artist in artist_ratio:
+        graph_ratio = plt.semilogy([None, None] + kwargs["overlap_ratio"])
+        for artist in graph_ratio:
             artist.set_linestyle(":")
         plt.axhline(1, linewidth=0.01, linestyle="-", color="k")
-    plt.grid()
+
+    # Save and/or show if no axes was supplied
     if "axes" not in kwargs:
         if save:
-            plt.savefig(os.path.join(results_dir, "relative_energy.pdf"))
+            plt.savefig(
+                os.path.join(
+                    results_dir,
+                    "{0}.pdf".format(kwargs.get("fig_name", "relative_energy")),
+                )
+            )
 
         if show:
             plt.show()
         plt.close()
     else:
-        return graph_overlap_history
+        if "overlap_ratio" in kwargs:
+            return graph_overlap_history, graph_ratio
+        else:
+            return graph_overlap_history
 
 
 def plot_paths(particles, box, position_center_history, motion_results_dir):

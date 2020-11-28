@@ -20,6 +20,8 @@ from microstructure.particle_classes import (
     Sphere,
     CylindricalFiber,
     Cylinder,
+    Point,
+    Line,
 )
 
 # Importing the particle class
@@ -371,6 +373,225 @@ class FEMMeshGenerator(MeshGenerator):
 
         return meshfile
 
+    def compute_rve_offset(self, particles, rve_dims):
+        def min_dist_to_part(offset, particles, rve_dims):
+
+            offset_array = np.array(offset)
+            dim = particles[0].dim
+            all_dist = []
+            if dim == 2:
+                point_offset = Point(dim, "1")
+                point_offset.position_center = offset_array[0:dim]
+                for i_particle in particles:
+                    if (
+                        np.linalg.norm(offset_array[:dim] - i_particle.position_center)
+                        < i_particle.radius
+                    ):
+                        if i_particle.point_inside(offset_array[:dim], rve_dims):
+                            _, dist, _ = i_particle.intersection_gjk(
+                                point_offset, rve_dims, out_dist=True
+                            )
+                            all_dist = [dist]
+                            break
+                        else:
+                            _, dist, _ = i_particle.intersection_gjk(
+                                point_offset, rve_dims, out_dist=True
+                            )
+                            all_dist.append(dist)
+            elif dim == 3:
+                edge_1 = Line("1", 0)
+                edge_2 = Line("1", 1)
+                edge_3 = Line("1", 2)
+                edge_1.position_center = offset_array
+                edge_2.position_center = offset_array
+                edge_3.position_center = offset_array
+                edges = [edge_1, edge_2, edge_3]
+                for j_ind_edge, j_edge in enumerate(edges):
+                    indices = [0, 1, 2].remove(j_ind_edge)
+                    for i_particle in particles:
+                        if (
+                            np.linalg.norm(
+                                offset_array[indices]
+                                - i_particle.position_center[indices]
+                            )
+                            < i_particle.radius
+                        ) or True:
+                            intersection, overlap, _ = i_particle.intersection_gjk(
+                                j_edge, rve_dims, out_dist=True
+                            )
+                            if overlap < 0:
+                                print(
+                                    intersection,
+                                    j_ind_edge,
+                                    vars(j_edge),
+                                    vars(i_particle),
+                                )
+                            all_dist.append(overlap)
+            # print(all_dist, len(all_dist) > 0)
+            min_dist = np.min(all_dist) if len(all_dist) > 0 else rve_dims[0]
+            print("min_dist", min_dist)
+            return min_dist
+
+        self.mesh_size_min = self.mesh_size
+        import matplotlib.pyplot as plt
+        from postproc.plotfuncs.plotting_functions import plot_particles_2d
+
+        fig = plt.figure()
+        ax = plt.gca()
+        offset = [0, 0, 0]
+        all_lim_sort = [[], [], []]
+        dist = [0, 0, 0]
+        sort_max = [0, 0, 0]
+        for i_dim in range(particles[0].dim):
+            dir_axis = np.array([0, 0, 0])
+            dir_axis[i_dim] = 1
+            all_lim = []
+            for i_particle in particles:
+                # if i_particle.radius - self.mesh_size < i_particle.position_center[1] < i_particle.radius + self.mesh_size:
+                #     offset.append(i_particle.position_center[1])
+                # all_y_lim += [
+                #     i_particle.radius + i_particle.position_center[i_dim],
+                #     -i_particle.radius + i_particle.position_center[i_dim],
+                # ]
+                all_lim += [
+                    i_particle.support_function(dir_axis)[i_dim],
+                    i_particle.support_function(-dir_axis)[i_dim],
+                ]
+                if np.floor(all_lim[-1] / rve_dims[i_dim]) != 0:
+                    all_lim.append(
+                        all_lim[-1]
+                        - rve_dims[i_dim] * np.floor(all_lim[-1] / rve_dims[i_dim])
+                    )
+                if np.floor(all_lim[-2] / rve_dims[i_dim]) != 0:
+                    all_lim.append(
+                        all_lim[-2]
+                        - rve_dims[i_dim] * np.floor(all_lim[-2] / rve_dims[i_dim])
+                    )
+            all_lim_sort[i_dim] = np.sort(all_lim)
+            dist[i_dim] = all_lim_sort[i_dim][1:] - all_lim_sort[i_dim][:-1]
+            sort_max[i_dim] = np.argsort(dist[i_dim])
+            for y in all_lim:
+                if i_dim == 0:
+                    plt.axvline(y)
+                elif i_dim == 1:
+                    plt.axhline(y)
+            # print(dist[sort_max[-1]])
+
+        # import pdb
+        #
+        # pdb.set_trace()
+        k = [1, 1, 1]
+        while True:
+            for i_dim in range(particles[0].dim):
+                while True:
+                    offset[i_dim] = (
+                        all_lim_sort[i_dim][sort_max[i_dim][-k[i_dim]]]
+                        + all_lim_sort[i_dim][sort_max[i_dim][-k[i_dim]] + 1]
+                    ) / 2
+                    # print(
+                    #     "offset",
+                    #     offset,
+                    #     k[i_dim],
+                    #     all_lim_sort[i_dim][sort_max[-k[i_dim]] + 1],
+                    #     sort_max[-k[i_dim]] + 1,
+                    #     sort_max[-k[i_dim]],
+                    #     -k[i_dim],
+                    #     sor,
+                    # )
+                    if 0 < offset[i_dim] < rve_dims[i_dim]:
+                        break
+                    k[i_dim] += 1
+            min_dist = min_dist_to_part(offset, particles, rve_dims)
+
+            print(
+                min_dist,
+                [
+                    dist[i_dim][sort_max[i_dim][-k[i_dim]]]
+                    for i_dim in range(particles[0].dim)
+                ],
+            )
+            if (
+                min_dist
+                > np.min(
+                    [
+                        dist[i_dim][sort_max[i_dim][-k[i_dim]]]
+                        for i_dim in range(particles[0].dim)
+                    ]
+                )
+                / 2
+            ):
+                self.mesh_size_min = (
+                    np.min(
+                        [self.mesh_size_min, min_dist]
+                        + [
+                            dist[i_dim][sort_max[i_dim][-k[i_dim]]]
+                            for i_dim in range(particles[0].dim)
+                        ]
+                    )
+                    / 2
+                )
+                break
+            else:
+                ind_inc = np.argmax(
+                    [
+                        dist[i_dim][sort_max[i_dim][-k[i_dim]]]
+                        for i_dim in range(particles[0].dim)
+                    ]
+                )
+                k[ind_inc] += 1
+                print(k)
+            # offset[i_dim] = bound - rve_dims[i_dim] * np.floor(bound / rve_dims[i_dim])
+            # for i_ind in np.flip(sort_max):
+            #     bound = (all_y_lim_sort[i_ind] + all_y_lim_sort[i_ind + 1]) / 2
+            #     bound_pbc = bound - rve_dims[i_dim] * np.floor(bound / rve_dims[i_dim])
+            #     upper = bound_pbc - all_y_lim_sort[i_ind]
+            #     lower = all_y_lim_sort[i_ind + 1] - bound_pbc
+            #     if np.min([upper, lower]) > min[i_dim]:
+            #         min_bound[i_dim] = bound_pbc
+            #         min[i_dim] = np.min([upper, lower])
+            #     if upper > self.mesh_size and lower > self.mesh_size:
+            #         offset[i_dim] = bound_pbc
+            #         print(offset)
+            #     break
+            #     # if bound > 0.5:
+            #     #     other_bound = rve_dims[1] - bound
+            #     #     k_min = 0
+            #     #     k_max = len(all_y_lim)
+            #     #     for j_ind, _ in enumerate(all_y_lim_sort):
+            #     #         k = (k_min + k_max) // 2
+            #     #         if all_y_lim_sort[k] < other_bound:
+            #     #             k_min = k
+            #     #         elif all_y_lim_sort[k - 1] > other_bound:
+            #     #             k_max = k
+            #     #         else:
+            #     #             # print(
+            #     #             #     all_y_lim_sort[k - 1],
+            #     #             #     other_bound,
+            #     #             #     all_y_lim_sort[k],
+            #     #             # )
+            #     #             print(
+            #     #                 other_bound - all_y_lim_sort[k - 1],
+            #     #                 all_y_lim_sort[k] - other_bound,
+            #     #             )
+            #     #             if (
+            #     #                 other_bound - all_y_lim_sort[k - 1] > self.mesh_size
+            #     #                 and all_y_lim_sort[k] - other_bound > self.mesh_size
+            #     #             ):
+            #     #                 offset[1] = bound
+            #     #             break
+            #     if offset[i_dim] is not None:
+            #         break
+            # if offset[i_dim] is None:
+            #     print(min)
+            #     offset[i_dim] = min_bound[i_dim]
+            #     # self.mesh_size = min[i_dim]
+        print("offset", offset, self.mesh_size, "\n\n")
+        plt.axhline(offset[1], c="r")
+        plt.axvline(offset[0], c="r")
+        plt.show()
+        # plot_particles_2d(particles, rve_dims, "", show=True, save=False, ax=ax)
+        return offset
+
     def generate_mesh_gmsh(
         self,
         microstructure_sample,
@@ -398,8 +619,16 @@ class FEMMeshGenerator(MeshGenerator):
         particles = microstructure_sample.particles
         dim = len(rve_dims)
 
+        offset = self.compute_rve_offset(particles, rve_dims)
+        print(offset)
         if dim == 2:
-            self.box_tag = factory.addRectangle(0, 0, 0, rve_dims[0], rve_dims[1])
+            self.box_tag = factory.addRectangle(
+                0,
+                0,
+                0,
+                rve_dims[0],
+                rve_dims[1],
+            )
         elif dim == 3:
             self.box_tag = factory.addBox(
                 0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2]
@@ -412,7 +641,7 @@ class FEMMeshGenerator(MeshGenerator):
         }
         for i_particle in particles:
             # Running through all the particles
-            self.add_particle_pbc_to_model(i_particle, rve_dims)
+            self.add_particle_pbc_to_model(i_particle, rve_dims, offset=offset)
 
         out_dim_tag, _ = factory.intersect(
             [(dim, self.box_tag)],
@@ -456,8 +685,9 @@ class FEMMeshGenerator(MeshGenerator):
 
         self.enforce_pbc(rve_dims)
 
-        gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
+        # gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
         gmsh.option.setNumber("Mesh.CharacteristicLengthMax", self.mesh_size)
+        gmsh.option.setNumber("Mesh.CharacteristicLengthMin", self.mesh_size_min)
 
         # Generate a 3D mesh
         model.mesh.generate(dim)
@@ -467,7 +697,7 @@ class FEMMeshGenerator(MeshGenerator):
         self.enforce_pbc(rve_dims)
         # Repeated becaused gmsh sometines behaves unpredictably
 
-    def add_particle_pbc_to_model(self, i_particle, rve_dims):
+    def add_particle_pbc_to_model(self, i_particle, rve_dims, offset=[0, 0, 0]):
         """
         Add to the gmsh model the particle "i_particle" and its periodic images.
 
@@ -486,8 +716,8 @@ class FEMMeshGenerator(MeshGenerator):
             (j_pbc, p_pbc) for j_pbc in range(-1, 2) for p_pbc in range(-1, 2)
         ]:
             if i_particle.dim == 2:
-                x_c = i_particle.position_center[0] + rve_dims[0] * j_pbc
-                y_c = i_particle.position_center[1] + rve_dims[1] * p_pbc
+                x_c = i_particle.position_center[0] + rve_dims[0] * j_pbc - offset[0]
+                y_c = i_particle.position_center[1] + rve_dims[1] * p_pbc - offset[1]
                 z_c = 0
                 r_x = i_particle.semi_major_axis
                 r_y = i_particle.semi_minor_axis
@@ -558,9 +788,15 @@ class FEMMeshGenerator(MeshGenerator):
             elif i_particle.dim == 3:
                 for l_pbc in range(-1, 2):
                     # Particle is a Sphere
-                    x_c = i_particle.position_center[0] + rve_dims[0] * j_pbc
-                    y_c = i_particle.position_center[1] + rve_dims[1] * p_pbc
-                    z_c = i_particle.position_center[2] + rve_dims[2] * l_pbc
+                    x_c = (
+                        i_particle.position_center[0] + rve_dims[0] * j_pbc - offset[0]
+                    )
+                    y_c = (
+                        i_particle.position_center[1] + rve_dims[1] * p_pbc - offset[1]
+                    )
+                    z_c = (
+                        i_particle.position_center[2] + rve_dims[2] * l_pbc - offset[2]
+                    )
                     r = i_particle.radius
                     # Saving the properties of the particles
                     if (
