@@ -1122,105 +1122,101 @@ class RegularGridMeshGenerator(MeshGenerator):
         """
         rve_dims = np.array(microstructure_sample.rve_dims)
         pixel_dims = rve_dims / self.n_voxels_dims
-        # Dimension of the pixels
-        if len(microstructure_sample.rve_dims) == 2:
-            # This is a 2D dimnensional problem
+        dim = len(rve_dims)
+
+        if dim == 2:
             regular_grid = np.full(
                 (self.n_voxels_dims[0], self.n_voxels_dims[1]),
                 int(microstructure_sample.matrix_phase),
                 dtype=int,
             )
             # Initializing the regular grid
-            for (i_row, j_column) in [
-                (i, j)
-                for i in range(self.n_voxels_dims[0])
-                for j in range(self.n_voxels_dims[1])
-            ]:
-                # Running through the pixels from left to right, bottom to top, front to
-                # back
-                center_pixel_i_j = np.array(
-                    [
-                        (i_row + 0.5) * pixel_dims[0],
-                        (j_column + 0.5) * pixel_dims[1],
-                    ]
-                )
-                # Center of the pixel corresponding to row i_row, column j_column and
-                # layer k_layer
-                for l_particle in microstructure_sample.particles:
-                    # Running through all the particles
-                    diff_in_box = l_particle.position_center - center_pixel_i_j
-                    # Difference vector between the center of the two ellipses
-                    diff_nearest_other = rve_dims * np.round(diff_in_box / rve_dims)
-                    # Vector from the particle whose center is in the RVE to the nearest
-                    # image
-                    if l_particle.point_inside(center_pixel_i_j + diff_nearest_other):
+            for l_particle in microstructure_sample.particles:
+                lim_x = [
+                    l_particle.support_function(np.array([-1, 0, 0]))[0],
+                    l_particle.support_function(np.array([1, 0, 0]))[0],
+                ]
+                lim_y = [
+                    l_particle.support_function(np.array([0, -1, 0]))[1],
+                    l_particle.support_function(np.array([0, 1, 0]))[1],
+                ]
+                # Furthest point in each coordingate, both positve and negative
+                lim_rows = [lim_x[0] // pixel_dims[0], lim_x[1] // pixel_dims[0] + 1]
+                lim_columns = [lim_y[0] // pixel_dims[1], lim_y[1] // pixel_dims[1] + 1]
+                # Corresponding pixel to the furthest points
+                for (i_row, j_column) in (
+                    (i_row, j_column)
+                    for i_row in range(int(lim_rows[0]), int(lim_rows[1] + 1))
+                    for j_column in range(int(lim_columns[0]), int(lim_columns[1] + 1))
+                ):
+                    # Running through all the pixels in the bounding rectange for the
+                    # particle
+                    center_pixel_i_j = np.array(
+                        [
+                            (i_row + 0.5) * pixel_dims[0],
+                            (j_column + 0.5) * pixel_dims[1],
+                        ]
+                    )
+                    if l_particle.point_inside(center_pixel_i_j, rve_dims):
                         # The center of the pixel is inside particle k_particle
-                        regular_grid[i_row, j_column] = l_particle.phase
+
+                        regular_grid[
+                            np.mod(i_row, self.n_voxels_dims[0]),
+                            np.mod(j_column, self.n_voxels_dims[1]),
+                        ] = l_particle.phase
                         # Setting pixel [i_row, j_column, k_layer] as belong to the
                         # phase of particle k_particle
-
             filename = "{0[0]}_{0[1]}".format(self.n_voxels_dims)
-
-        elif len(microstructure_sample.rve_dims) == 3:
-            # This is a 2D dimnensional problem
+        elif dim == 3:
             regular_grid = np.full(
                 (self.n_voxels_dims[0], self.n_voxels_dims[1], self.n_voxels_dims[2]),
                 int(microstructure_sample.matrix_phase),
                 dtype=int,
             )
             # Initializing the regular grid
-            for (i_row, j_column, k_layer) in [
-                (i, j, k)
-                for i in range(self.n_voxels_dims[0])
-                for j in range(self.n_voxels_dims[1])
-                for k in range(self.n_voxels_dims[2])
-            ]:
-                # Running through the pixels from left to right, bottom to top, front to
-                # back
-                center_pixel_i_j_k = np.array(
-                    [
-                        (i_row + 0.5) * pixel_dims[0],
-                        (j_column + 0.5) * pixel_dims[1],
-                        (k_layer + 0.5) * pixel_dims[2],
-                    ]
-                )
-                # Center of the pixel corresponding to row i_row, column j_column and
-                # layer k_layer
-                for l_particle in microstructure_sample.particles:
-                    if l_particle.__class__.__name__ == "CylindricalFiber":
-                        box_indices = [0, 1, 2]
-                        box_indices.remove(l_particle.direction_fibers)
-                        # Running through all the particles
-                        diff_in_box = (
-                            l_particle.position_center - center_pixel_i_j_k[box_indices]
-                        )
-                        # Difference vector between the center of the two ellipses
-                        diff_nearest_other = rve_dims[box_indices] * np.round(
-                            diff_in_box / rve_dims[box_indices]
-                        )
-                        # Vector from the particle whose center is in the RVE to the nearest
-                        # image
-                        if l_particle.point_inside(
-                            center_pixel_i_j_k[box_indices] + diff_nearest_other
-                        ):
-                            # The center of the pixel is inside particle k_particle
-                            regular_grid[i_row, j_column, k_layer] = l_particle.phase
-                            # Setting pixel [i_row, j_column, k_layer] as belong to the
-                            # phase of particle k_particle
-                    else:
-                        # Running through all the particles
-                        diff_in_box = l_particle.position_center - center_pixel_i_j_k
-                        # Difference vector between the center of the two ellipses
-                        diff_nearest_other = rve_dims * np.round(diff_in_box / rve_dims)
-                        # Vector from the particle whose center is in the RVE to the nearest
-                        # image
-                        if l_particle.point_inside(
-                            center_pixel_i_j_k + diff_nearest_other
-                        ):
-                            # The center of the pixel is inside particle k_particle
-                            regular_grid[i_row, j_column, k_layer] = l_particle.phase
-                            # Setting pixel [i_row, j_column, k_layer] as belong to the
-                            # phase of particle k_particle
+            for l_particle in microstructure_sample.particles:
+                lim_x = [
+                    l_particle.support_function(np.array([-1, 0, 0]))[0],
+                    l_particle.support_function(np.array([1, 0, 0]))[0],
+                ]
+                lim_y = [
+                    l_particle.support_function(np.array([0, -1, 0]))[1],
+                    l_particle.support_function(np.array([0, 1, 0]))[1],
+                ]
+                lim_z = [
+                    l_particle.support_function(np.array([0, 0, -1]))[2],
+                    l_particle.support_function(np.array([0, 0, 1]))[2],
+                ]
+                # Furthest point in each coordinate, both positve and negative
+                lim_rows = [lim_x[0] // pixel_dims[0], lim_x[1] // pixel_dims[0] + 1]
+                lim_columns = [lim_y[0] // pixel_dims[1], lim_y[1] // pixel_dims[1] + 1]
+                lim_layers = [lim_z[0] // pixel_dims[2], lim_z[1] // pixel_dims[2] + 1]
+                # Corresponding voxel to the furthest points
+                for (i_row, j_column, k_layer) in (
+                    (i_row, j_column, k_layer)
+                    for i_row in range(int(lim_rows[0]), int(lim_rows[1] + 1))
+                    for j_column in range(int(lim_columns[0]), int(lim_columns[1] + 1))
+                    for k_layer in range(int(lim_layers[0]), int(lim_layers[1] + 1))
+                ):
+                    # Running through all the voxels in the bounding box for the
+                    # particle
+                    center_pixel_i_j = np.array(
+                        [
+                            (i_row + 0.5) * pixel_dims[0],
+                            (j_column + 0.5) * pixel_dims[1],
+                            (k_layer + 0.5) * pixel_dims[2],
+                        ]
+                    )
+                    if l_particle.point_inside(center_pixel_i_j, rve_dims):
+                        # The center of the pixel is inside particle k_particle
+
+                        regular_grid[
+                            np.mod(i_row, self.n_voxels_dims[0]),
+                            np.mod(j_column, self.n_voxels_dims[1]),
+                            np.mod(k_layer, self.n_voxels_dims[2]),
+                        ] = l_particle.phase
+                        # Setting pixel [i_row, j_column, k_layer] as belong to the
+                        # phase of particle k_particle
 
             filename = "{0[0]}_{0[1]}_{0[2]}".format(self.n_voxels_dims)
 
@@ -1235,27 +1231,20 @@ class RegularGridMeshGenerator(MeshGenerator):
             regular_grid,
         )
 
-        from postproc.plotfuncs.plotting_functions import plot_pixels, plot_voxels
+        if False:
+            from postproc.plotfuncs.plotting_functions import plot_pixels, plot_voxels
 
-        if len(microstructure_sample.rve_dims) == 2:
-            plot_pixels(
-                regular_grid,
-                os.path.join(result_dir, filename + ".pdf"),
-                show=False,
-            )
-        elif len(microstructure_sample.rve_dims) == 3:
-            plot_voxels(
-                regular_grid,
-                microstructure_sample.matrix_phase,
-                list(microstructure_sample.phases.keys()),
-                os.path.join(result_dir, filename + ".pdf"),
-                show=False,
-            )
-
-        print_rgmsh_output(
-            os.path.join(
-                result_dir,
-                filename + ".rgmsh",
-            )
-        )
-        # Ploting the regular grid
+            if len(microstructure_sample.rve_dims) == 2:
+                plot_pixels(
+                    regular_grid,
+                    os.path.join(result_dir, filename + ".pdf"),
+                    show=False,
+                )
+            elif len(microstructure_sample.rve_dims) == 3:
+                plot_voxels(
+                    regular_grid,
+                    microstructure_sample.matrix_phase,
+                    list(microstructure_sample.phases.keys()),
+                    os.path.join(result_dir, filename + ".pdf"),
+                    show=False,
+                )
