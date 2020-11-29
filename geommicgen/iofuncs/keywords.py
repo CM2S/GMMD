@@ -566,6 +566,11 @@ top_level_reader.addTopLevelKeyword(
         default_value=False,
         type="bool",
     ),
+    KeywordTypeB(
+        "final_config",
+        default_value=False,
+        type="bool",
+    ),
 )
 # General keywords
 

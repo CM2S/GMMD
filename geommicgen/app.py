@@ -294,10 +294,12 @@ def run_program():
                 # Saving the RVE properties
 
             try:
-                plot_particles(current_sample.particles, rve_dims, sample_dir)
                 for mesh_generator in mesh_generators:
                     mesh_generator.generate_mesh(current_sample, sample_dir)
                     # Generate corresponding mesh
+                if "final_config" in top_level_reader.all_options:
+                    # Plot and save the final configuration
+                    plot_particles(current_sample.particles, rve_dims, sample_dir)
                 if "motion_analysis" in top_level_reader.all_options:
                     motion_analysis.doMotionAnalysis(
                         current_sample.particles,
