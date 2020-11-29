@@ -10,7 +10,7 @@ import pickle
 import numpy as np
 
 from micgenmethod.speed_up_schemes import SpeedUpScheme, CellList, VerletList
-from microstructure.particle_classes import Ellipse
+from microstructure.particle_classes import Ellipse, Disk
 
 from micgenmethod.microstructure_gen_method import (
     GenerationMethod,
@@ -387,8 +387,44 @@ class TestVerlet(unittest.TestCase):
         self.assertTrue(verlet_list.particle_list[0] == [1, 2])
         self.assertTrue(verlet_list.particle_list[1] == [2])
         self.assertTrue(verlet_list.particle_list[2] == [])
-        # previous_mic_path = "/home/jose/Documents/code/test_runs/2D/ellipses_vf_50_n_10_delta_t_sqrt_/mic_0/mic.mic"
-        #
+
+    def test_intersection_issue_small_large_3(self):
+
+        rve_dims = [1, 1]
+
+        disk_1 = Disk(
+            "1",
+            {"r": 0.05},
+            rve_dims,
+        )
+        disk_1.position_center = np.array([0.5, 0.5])
+
+        particles = [disk_1]
+
+        verlet_list = VerletList(1.5)
+        molecular_dynamics_sim = MolecularDynamicsSimulation(
+            0, 500, 0, 0.01, 0, "random", True
+        )
+        molecular_dynamics_sim.box = rve_dims
+        molecular_dynamics_sim.set_speed_up_scheme(verlet_list)
+
+        verlet_list.new_list(particles)
+        molecular_dynamics_sim.speed_up_scheme.verlet_neighboorhoods[
+            0
+        ].position_center = np.array([0.7, 0.7])
+
+        verlet_list.new_list(particles)
+        self.assertTrue(
+            np.all(
+                molecular_dynamics_sim.speed_up_scheme.verlet_neighboorhoods[
+                    0
+                ].position_center
+                == np.array([0.5, 0.5])
+            )
+        )
+
+        # previous_mic_path = "/home/jose/Documents/code/test_runs/2D/ellipses_vf_50_n_10_delta_t_sqrt__14/mic_0/mic.mic"
+
         # with open(previous_mic_path, "rb") as mic:
         #     info_previous_sample = pickle.load(mic)
         #     # No need to generate a new microstructure. Using a previous microstructure.
@@ -398,32 +434,31 @@ class TestVerlet(unittest.TestCase):
         #     trouble_pair_ind = []
         #     for i_part_ind, i_particle in enumerate(current_sample.particles):
         #         if (
-        #             i_particle.position_center[0] < 0.15
-        #             or i_particle.position_center[0] > 0.85
-        #         ) and 0.05 < i_particle.position_center[1] < 0.15:
+        #             0.55 < i_particle.position_center[0] < 0.65
+        #         ) and 0.05 < i_particle.position_center[1] < 0.25:
         #             trouble_pair.append(i_particle)
         #             trouble_pair_ind.append(i_part_ind)
         #             print(vars(i_particle), i_particle.position_center)
         #
-        #     intersection, overlap_length, _ = trouble_pair[0].intersection_gjk(
-        #         trouble_pair[1], [1, 1]
-        #     )
-        #     self.assertTrue(intersection)
-        #     intersection, overlap_length, _ = trouble_pair[0].intersection_gjk(
-        #         trouble_pair[2], [1, 1]
-        #     )
-        #     self.assertTrue(intersection)
-        #     print(
-        #         current_mic_generator.speed_up_scheme.particle_list[
-        #             trouble_pair_ind[0]
-        #         ],
-        #         current_mic_generator.speed_up_scheme.particle_list[
-        #             trouble_pair_ind[1]
-        #         ],
-        #         current_mic_generator.speed_up_scheme.particle_list[
-        #             trouble_pair_ind[2]
-        #         ],
-        #     )
+        #     # intersection, overlap_length, _ = trouble_pair[0].intersection_gjk(
+        #     #     trouble_pair[1], [1, 1]
+        #     # )
+        #     # self.assertTrue(intersection)
+        #     # intersection, overlap_length, _ = trouble_pair[0].intersection_gjk(
+        #     #     trouble_pair[2], [1, 1]
+        #     # )
+        #     # self.assertTrue(intersection)
+        #     # print(
+        #     #     current_mic_generator.speed_up_scheme.particle_list[
+        #     #         trouble_pair_ind[0]
+        #     #     ],
+        #     #     current_mic_generator.speed_up_scheme.particle_list[
+        #     #         trouble_pair_ind[1]
+        #     #     ],
+        #     #     current_mic_generator.speed_up_scheme.particle_list[
+        #     #         trouble_pair_ind[2]
+        #     #     ],
+        #     # )
         #     plot_particles_2d(
         #         trouble_pair
         #         + [
@@ -435,7 +470,7 @@ class TestVerlet(unittest.TestCase):
         #         show=True,
         #         save=False,
         #     )
-        #     current_mic_generator.speed_up_scheme.new_verlet_list = True
+        #     # current_mic_generator.speed_up_scheme.new_verlet_list = True
         #     current_mic_generator.speed_up_scheme.new_list(current_sample.particles)
         #     print(
         #         current_mic_generator.speed_up_scheme.particle_list[
@@ -443,9 +478,6 @@ class TestVerlet(unittest.TestCase):
         #         ],
         #         current_mic_generator.speed_up_scheme.particle_list[
         #             trouble_pair_ind[1]
-        #         ],
-        #         current_mic_generator.speed_up_scheme.particle_list[
-        #             trouble_pair_ind[2]
         #         ],
         #     )
         #     print(trouble_pair_ind)

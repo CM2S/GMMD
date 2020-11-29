@@ -344,10 +344,15 @@ class VerletList(CellList):
             # Initializing the displacement_last_verlet
         for i_particle_index, i_particle in enumerate(particles):
             # Computing the displacement of the center of the particle
-            if i_particle.intersection(
-                self.verlet_neighboorhoods[i_particle_index],
-                self.molecular_dynamics_sim.box,
-                inside=False,
+            if (
+                i_particle.intersection(
+                    self.verlet_neighboorhoods[i_particle_index],
+                    self.molecular_dynamics_sim.box,
+                    inside=False,
+                )
+                or not self.verlet_neighboorhoods[i_particle_index].point_inside(
+                    i_particle.position_center, self.molecular_dynamics_sim.box
+                )
             ):
                 # Checking if the displacement takes the particle out of its neighboorhood
                 self.new_verlet_list = True
