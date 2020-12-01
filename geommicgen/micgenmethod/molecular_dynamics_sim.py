@@ -178,6 +178,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.force_option = kwargs.get("force_option", "intersection_area")
         self.force_rescale = kwargs.get("force_rescale", False)
         self.dt_adapt = kwargs.get("dt_adapt", "const")
+        self.offset = kwargs.get("offset", True)
         self.force_rescale_coeff = 1
 
     def generate_microstructure(self, microstructure_sample):
@@ -394,6 +395,12 @@ class MolecularDynamicsSimulation(GenerationMethod):
                         i_particle.position_center.flatten()
                     )
                     # Saving the final configuration
+            if self.offset:
+                offset = self.compute_rve_offset(particles, self.box)
+                for i_particle in particles:
+                    # Running through all the particles
+                    i_particle.position_center -= np.array(offset)[: len(self.box)]
+                    # Applying the offset to the particles
 
     def run_molecular_dynamics_simulation(self, particles):
         """

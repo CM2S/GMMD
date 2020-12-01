@@ -556,6 +556,12 @@ top_level_reader.addTopLevelKeyword(
         default_value=1 / 4,
         type="float",
     ),
+    KeywordTypeA(
+        "offset",
+        "Mic_Gen_Parameters",
+        default_value=True,
+        type="bool",
+    ),
     KeywordTypeA("Dir_Previous_Mic", "Mic_Gen_Parameters", type="str"),
     KeywordTypeA("RVE_Dimensions", "Mic_Gen_Parameters", type="float"),
 )

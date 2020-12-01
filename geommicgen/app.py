@@ -181,6 +181,7 @@ def run_program():
                     "force_option",
                     "force_rescale",
                     "dt_adapt",
+                    "offset",
                 }
                 md_kwargs = {
                     key: value

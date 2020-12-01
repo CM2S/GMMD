@@ -273,12 +273,9 @@ def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
     mesh_generator.phase_dim_tag = {
         phase_name: [] for phase_name in {i_particle.phase for i_particle in particles}
     }
-    print("here")
-    offset = mesh_generator.compute_rve_offset(particles, rve_dims)
+
     for i_particle in particles:
-        mesh_generator.add_particle_pbc_to_model(
-            i_particle, rve_dims, offset=offset
-        )  # [0, 0, 0])
+        mesh_generator.add_particle_pbc_to_model(i_particle, rve_dims)  # [0, 0, 0])
 
     out_dim_tag, _ = factory.intersect(
         [(dim, mesh_generator.box_tag)],
