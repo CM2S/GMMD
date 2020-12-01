@@ -77,11 +77,15 @@ class Keyword(object):
                     final_val = int(value_str[0])
                 else:
                     value_str = " ".join(value_str)
-                    value_str = value_str.split(", ")
-                    value_str[0] = value_str[0][1:]
-                    value_str[-1] = value_str[-1][:-1]
-                    # Remove squre brackets from vector
-                    final_val = np.array([int(val) for val in value_str])
+                    final_val = []
+                    str_lists = value_str.split("]")[:-1]
+                    for i_str_list in str_lists:
+                        i_str_list = i_str_list.replace("[", " ")
+                        i_str_list = i_str_list.replace("]", " ")
+                        i_str_list = i_str_list.split(",")
+                        final_val.append(
+                            ([int(val) for val in i_str_list if val != " "])
+                        )
             elif self.type == "bool":
                 value_str = line.split()[1]
                 if value_str == "True":

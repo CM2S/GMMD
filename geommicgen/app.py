@@ -69,12 +69,13 @@ def run_program():
                     rgmsh_options = top_level_reader.all_options["mesh_options"][
                         "rgmsh"
                     ]
-                    mesh_generators.add(
-                        RegularGridMeshGenerator(
-                            rgmsh_options["n_voxels_dims"],
-                            rve_dims,
+                    for i_n_voxel_dims in rgmsh_options["n_voxels_dims"]:
+                        mesh_generators.add(
+                            RegularGridMeshGenerator(
+                                i_n_voxel_dims,
+                                rve_dims,
+                            )
                         )
-                    )
                 else:
                     raise ValueError(
                         "Specified mesh {0} is not supported.".format(disc_ext)
@@ -156,12 +157,13 @@ def run_program():
                         rgmsh_options = top_level_reader.all_options["mesh_options"][
                             "rgmsh"
                         ]
-                        mesh_generators.add(
-                            RegularGridMeshGenerator(
-                                rgmsh_options["n_voxels_dims"],
-                                rve_dims,
+                        for i_n_voxel_dims in rgmsh_options["n_voxels_dims"]:
+                            mesh_generators.add(
+                                RegularGridMeshGenerator(
+                                    i_n_voxel_dims,
+                                    rve_dims,
+                                )
                             )
-                        )
                     else:
                         raise ValueError(
                             "Specified mesh {0} is not supported.".format(disc_ext)
