@@ -1,4 +1,4 @@
-from particle_classes import (
+from microstructure.particle_classes import (
     Particle,
     Disk,
     Ellipse,
@@ -7,7 +7,7 @@ from particle_classes import (
     CylindricalFiber,
 )
 
-from plotting_functions import (
+from postproc.plotfuncs.plotting_functions import (
     plotVoronoi2D,
     plotVoronoi2DwithIMTs,
     plotVoronoi3D,
@@ -20,6 +20,8 @@ from scipy.spatial import Voronoi
 from scipy.special import sph_harm
 
 import numpy as np
+
+import os
 
 
 class Polygon:
