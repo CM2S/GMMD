@@ -128,7 +128,7 @@ def pos_vec(phi, coeffs):
 #
 
 
-class setVoronoi:
+class Set2DVoronoi:
     """Class for the set Voronoi.
 
     Attributes
@@ -151,7 +151,7 @@ class setVoronoi:
     """
 
     def __init__(self, construction_voronoi, particles, rve_dims, n_surf_points):
-        """Initialize an instance of the `.setVoronoi`class.
+        """Initialize an instance of the `.Set2DVoronoi`class.
 
         A set Voronoi is constructed from an appropriate auxiliar standard Voronoi. The
         auxiliar Voronoi is built using as seed points uniformly distributed points on the
@@ -171,13 +171,39 @@ class setVoronoi:
         n_surf_points: int
             Number of surface points per particle used to generate the construction voronoi.
         """
-        self.points = []
-        new_regions_unordered = []
-        removed_vertices = set()
-        curr_aux_pt = 0
-
-        # Constructing the set Voronoi regions (unorder)
+        # Removing all ridges between surface points on the same particle
         # ----------------------------------------------------------------------------------
+        # removed_vertices = set()
+        # dont_remove = set()
+        self.ridge_points = []
+        self.ridge_vertices = []
+        self.regions = [set() for _ in range(3 ** 2 * len(particles))]
+        for i_ridge_ind, (i_vert_ind_1, i_vert_ind_2) in enumerate(
+            construction_voronoi.ridge_points
+        ):
+            if i_vert_ind_1 // n_surf_points != i_vert_ind_2 // n_surf_points:
+                # for j_vert in construction_voronoi.ridge_vertices[i_ridge_ind]:
+                #     dont_remove.add(j_vert)
+                part_ind_1 = i_vert_ind_1 // n_surf_points
+                part_ind_2 = i_vert_ind_2 // n_surf_points
+                self.ridge_points.append([part_ind_1, part_ind_2])
+                self.ridge_vertices.append(
+                    construction_voronoi.ridge_vertices[i_ridge_ind]
+                )
+                self.regions[part_ind_1] = self.regions[part_ind_1].union(
+                    construction_voronoi.ridge_vertices[i_ridge_ind]
+                )
+                self.regions[part_ind_2] = self.regions[part_ind_2].union(
+                    construction_voronoi.ridge_vertices[i_ridge_ind]
+                )
+
+        # removed_vertices = set(range(len(construction_voronoi.vertices))).difference(
+        #     dont_remove
+        # )
+
+        # Adding the center points for the set Voronoi
+        # ----------------------------------------------------------------------------------
+        self.points = []
         for i_particle in particles:
             for (j_pbc, k_pbc) in (
                 (j_pbc, k_pbc) for k_pbc in range(-1, 2) for j_pbc in range(-1, 2)
@@ -187,82 +213,17 @@ class setVoronoi:
                     i_particle.position_center + rve_dims * np.array([j_pbc, k_pbc])
                 )
 
-                # Collecting all the vertices corresponding to the current particle
-                # using the knowledge that the auxiliary points for the same particle
-                # are stored one after the other
-                all_vert_region = []
-                for l_aux_pt in range(curr_aux_pt, curr_aux_pt + n_surf_points):
-                    all_vert_region += construction_voronoi.regions[
-                        construction_voronoi.point_region[l_aux_pt]
-                    ]
-                curr_aux_pt += n_surf_points
-
-                # Saving the vertices of the auxiliary regions that are inside the particle
-                # and thus must be removed
-                for j_vertex in all_vert_region:
-                    if (
-                        np.linalg.norm(
-                            construction_voronoi.vertices[j_vertex]
-                            - (
-                                i_particle.position_center
-                                + rve_dims * np.array([j_pbc, k_pbc])
-                            )
-                        )
-                        < i_particle.minor_axis / 2 * 0.9
-                    ):
-                        removed_vertices.add(j_vertex)
-
-                # Cleaning the new region of removed vertices
-                region_no_int_vert = [
-                    ind_vert
-                    for ind_vert in all_vert_region
-                    if ind_vert not in removed_vertices
-                ]
-
-                # If the region is large enough, remove the repeated indices and append it
-                # to the list of new regions
-                if len(region_no_int_vert) > n_surf_points:
-                    list_vert_reg = list(set(region_no_int_vert))
-                    new_regions_unordered.append(list_vert_reg)
-
-        # Cleaning the ridges from removed vertices
-        # ----------------------------------------------------------------------------------
-        removed_vertices = list(removed_vertices)
-        old_ridge_vertices = list(construction_voronoi.ridge_vertices)
-        for i_ridge in construction_voronoi.ridge_vertices:
-            if any(
-                [
-                    (removed_vertex in i_ridge or -1 in i_ridge)
-                    for removed_vertex in removed_vertices
-                ]
-            ):
-                old_ridge_vertices.remove(i_ridge)
-
-        # Ordered the regions in either clock or anti-clockwise and remove regions not
-        # containing a single vertex in the simulation box.
-        # ----------------------------------------------------------------------------------
-        for i_ind_region, i_region in enumerate(new_regions_unordered):
+        self.vertices = construction_voronoi.vertices
+        for i_ind_region, i_region in enumerate(self.regions):
             for j_ind_pt in i_region:
                 if all(
                     (0 < coord < 1 for coord in construction_voronoi.vertices[j_ind_pt])
                 ):
-                    new_regions_unordered[i_ind_region] = vert_sort(
-                        i_region, old_ridge_vertices
+                    self.regions[i_ind_region] = vert_sort(
+                        i_region, self.ridge_vertices
                     )
                     break
-                new_regions_unordered[i_ind_region] = []
-
-        # Assigning the final values to the Voronoi attributes, minding the new indices due
-        # to removed vertices
-        # ----------------------------------------------------------------------------------
-        self.vertices = np.delete(construction_voronoi.vertices, removed_vertices, 0)
-        self.ridge_vertices = [
-            update_indices(i_ridge, removed_vertices) for i_ridge in old_ridge_vertices
-        ]
-        self.regions = [
-            update_indices(i_region, removed_vertices)
-            for i_region in new_regions_unordered
-        ]
+                self.regions[i_ind_region] = []
         self.points = np.array(self.points)
         self.point_region = list(range(len(self.points)))
 
@@ -290,7 +251,7 @@ class Set3DVoronoi:
     """
 
     def __init__(self, construction_voronoi, particles, rve_dims, n_surf_points):
-        """Initialize an instance of the `.setVoronoi`class.
+        """Initialize an instance of the `.Set2DVoronoi`class.
 
         A set Voronoi is constructed from an appropriate auxiliar standard Voronoi. The
         auxiliar Voronoi is built using as seed points uniformly distributed points on the
@@ -367,7 +328,6 @@ def vert_sort(region_to_sort, all_ridges):
     # Ignore regions containing vertices outside the Voronoi
     # --------------------------------------------------------------------------------------
     if -1 in region_to_sort:
-        print("remove")
         return region_to_sort
 
     # Collecting all the ridges of this region
@@ -777,7 +737,7 @@ def compute2DSetVoronoi(particles, rve_dims, voronoi_results_dir, n_surf_points=
 
     Returns
     -------
-    set_voronoi: `.SetVoronoi`
+    set_voronoi: `.Set2DVoronoi`
         Set voronoi of the particles.
     """
     global_crit_ero_thick = computeGlobalCriticalErosionThickness(particles)
@@ -824,7 +784,7 @@ def compute2DSetVoronoi(particles, rve_dims, voronoi_results_dir, n_surf_points=
     plotVoronoi2D(
         particles, rve_dims, auxiliar_voronoi, voronoi_results_dir, "standard"
     )
-    set_voronoi = setVoronoi(auxiliar_voronoi, particles, rve_dims, n_surf_points)
+    set_voronoi = Set2DVoronoi(auxiliar_voronoi, particles, rve_dims, n_surf_points)
     # Computing the set voronoi of the particles
     return set_voronoi
 
@@ -881,7 +841,7 @@ def compute3DSetVoronoi(particles, rve_dims, voronoi_results_dir, n_surf_points=
 
     Returns
     -------
-    set_voronoi: `.SetVoronoi`
+    set_voronoi: `.Set2DVoronoi`
         Set voronoi of the particles.
     """
     global_crit_ero_thick = computeGlobalCriticalErosionThickness(particles)
