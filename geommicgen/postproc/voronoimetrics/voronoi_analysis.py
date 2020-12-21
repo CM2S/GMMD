@@ -23,6 +23,8 @@ import numpy as np
 
 import os
 
+import time
+
 
 class Polygon:
     def __init__(self, vertices, region):
@@ -266,95 +268,182 @@ class setVoronoi:
 
 
 class set3DVoronoi:
-    def __init__(self, construction_voronoi, particles):
-        old_regions = []
+    def __init__(self, construction_voronoi, particles, rve_dims, n_surf_points):
         self.points = []
-        removed_vertices = []
-        point_region = []
-        region_counter = 0
+        new_regions_unordered = []
+        removed_vertices = set()
+        removed_vertices_2 = set()
+        curr_aux_pt = 0
+        vert_to_write = set()
+        # for i_particle in particles:
+        #     # Running through all the particles
+        #     i_particle.contract(i_particle.radius * 0.05)
+        #     # Dilate i_particle
+        #
+        dont_remove = set()
+        ridge_to_remove = set()
+        new_ridge_points = []
+        new_ridge_vertices = []
+        self.regions = [set() for _ in range(3 ** 3 * len(particles))]
+        for i_ridge_ind, (i_vert_ind_1, i_vert_ind_2) in enumerate(
+            construction_voronoi.ridge_points
+        ):
+            if i_vert_ind_1 // n_surf_points != i_vert_ind_2 // n_surf_points:
+                for j_vert in construction_voronoi.ridge_vertices[i_ridge_ind]:
+                    dont_remove.add(j_vert)
+                part_ind_1 = i_vert_ind_1 // n_surf_points
+                part_ind_2 = i_vert_ind_2 // n_surf_points
+                new_ridge_points.append([part_ind_1, part_ind_2])
+                new_ridge_vertices.append(
+                    construction_voronoi.ridge_vertices[i_ridge_ind]
+                )
+                self.regions[part_ind_1] = self.regions[part_ind_1].union(
+                    construction_voronoi.ridge_vertices[i_ridge_ind]
+                )
+                self.regions[part_ind_2] = self.regions[part_ind_2].union(
+                    construction_voronoi.ridge_vertices[i_ridge_ind]
+                )
+
+        self.ridge_points = new_ridge_points
+        self.ridge_vertices = new_ridge_vertices
+        removed_vertices = set(range(len(construction_voronoi.vertices))).difference(
+            dont_remove
+        )
+        print(len(construction_voronoi.vertices), len(removed_vertices), "\n\n")
+
+        # # Constructing the set Voronoi regions (unorder)
+        # # ----------------------------------------------------------------------------------
         for i_particle in particles:
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    for l in range(-1, 2):
-                        # Running through all the paricles and their periodic images
-                        point_region.append(region_counter)
-                        region_counter += 1
-                        all_regions = []
-                        current_removed = []
-                        self.points.append(
-                            i_particle.position_center + rve_dims * np.array([j, k, l])
-                        )
-                        # Saving the center points of the particles
-                        for j_vertex in range(len(construction_voronoi.vertices)):
-                            # Going through all the vertices of the construction voronoi
-                            if i_particle.point_inside(
-                                construction_voronoi.vertices[j_vertex]
-                                - rve_dims * np.array([j, k, l])
-                            ):
-                                # If the vertex is inside a particle it is removed
-                                removed_vertices.append(j_vertex)
-                                # Appending the vertex to the list of all removed vertices
-                                current_removed.append(j_vertex)
-                                # Appending the vertex to the list of vertices removed
-                                # while analyising this particle
-                        for region in construction_voronoi.regions:
-                            # Running through all the regions in the construction voronoi
-                            if any(
-                                [
-                                    removed_vertex in region
-                                    for removed_vertex in current_removed
-                                ]
-                            ):
-                                # If the region contains one of the removed vertices
-                                # corresponding to the current particle
-                                region_no_int_vert = [
-                                    ind_vert
-                                    for ind_vert in region
-                                    if ind_vert not in removed_vertices
-                                ]
-                                # Obtaining the region without the removed vertices
-                                all_regions += region_no_int_vert
-                                # Adding the vertices of the current region to the variable
-                                # containing the vertices of the region corresponding to
-                                # the current particle
-                        if len(all_regions) > 0:
-                            # If the region is not empty
-                            list_vert_reg = list(set(all_regions))
-                            # Remove repeated vertices
-                            old_regions.append(list_vert_reg)
-                            # Appending the region corresponding to the current particle to
-                            # the list of all particle regions
-                        else:
-                            old_regions.append([-1])
-
-        old_ridge_vertices = list(construction_voronoi.ridge_vertices)
-        # Saving the list of the ridge vertices of the construction voronoi
-        for ridge in construction_voronoi.ridge_vertices:
-            # Running through all the ridges of the construction voronoi
-            if any(
-                [
-                    (removed_vertex in ridge or -1 in ridge)
-                    for removed_vertex in removed_vertices
-                ]
+            for (j_pbc, k_pbc, l_pbc) in (
+                (j_pbc, k_pbc, l_pbc)
+                for l_pbc in range(-1, 2)
+                for k_pbc in range(-1, 2)
+                for j_pbc in range(-1, 2)
             ):
-                # If there is a removed vertex in the ridge or a vertice out of boundary (-1)
-                # remove it
-                old_ridge_vertices.remove(ridge)
+                print("\033[F\033[K", end="")
+                print(len(construction_voronoi.points), curr_aux_pt)
+                # Adding center point of particle as a Voronoi seed
+                self.points.append(
+                    i_particle.position_center
+                    + rve_dims * np.array([j_pbc, k_pbc, l_pbc])
+                )
+        #
+        #         # Collecting all the vertices corresponding to the current particle
+        #         # using the knowledge that the auxiliary points for the same particle
+        #         # are stored one after the other
+        #         all_vert_region = []
+        #         for l_aux_pt in range(curr_aux_pt, curr_aux_pt + n_surf_points):
+        #             all_vert_region += construction_voronoi.regions[
+        #                 construction_voronoi.point_region[l_aux_pt]
+        #             ]
+        #         curr_aux_pt += n_surf_points
+        #
+        #         # Saving the vertices of the auxiliary regions that are inside the particle
+        #         # and thus must be removed
+        #         for j_vertex in all_vert_region:
+        #             if (
+        #                 i_particle.point_inside(
+        #                     construction_voronoi.vertices[j_vertex],
+        #                     rve_dims,
+        #                 )
+        #                 and j_vertex != -1
+        #             ):
+        #                 removed_vertices_2.add(j_vertex)
+        #                 if j_pbc == 0 and k_pbc == 0 and l_pbc == 0:
+        #                     vert_to_write.add(j_vertex)
+        #
+        #         # Cleaning the new region of removed vertices
+        #         region_no_int_vert = [
+        #             ind_vert
+        #             for ind_vert in all_vert_region
+        #             if ind_vert not in removed_vertices
+        #         ]
+        #
+        #         # If the region is large enough, remove the repeated indices and append it
+        #         # to the list of new regions
+        #         if len(region_no_int_vert) > n_surf_points:
+        #             list_vert_reg = list(set(region_no_int_vert))
+        #             new_regions_unordered.append(list_vert_reg)
 
-        self.vertices = np.delete(construction_voronoi.vertices, removed_vertices, 0)
-        # Delete the removed vertices and save the remaining vertices
-        self.ridge_vertices = [
-            update_indices(i_ridge, removed_vertices) for i_ridge in old_ridge_vertices
-        ]
-        # Save the ridge vertices changing the indices to account for the removed vertices
-        self.regions = [
-            update_indices(i_region, removed_vertices) for i_region in old_regions
-        ]
-        # Save the regions changing the indices to account for the removed vertices
+        print(len(new_regions_unordered), len(self.points))
+        print(len(removed_vertices_2), "\n\n")
+
+        with open(
+            os.path.join("", "mic_step_rem.vtk"),
+            "a",
+        ) as msh_vtk:
+            msh_vtk.write("# vtk DataFile Version 2.0")
+            msh_vtk.write("\n3D triangulation data")
+            msh_vtk.write("\nASCII")
+            msh_vtk.write("\n\nDATASET POLYDATA")
+            msh_vtk.write("\nPOINTS {0} {1}".format(len(removed_vertices), "float"))
+            for rem in removed_vertices:
+                msh_vtk.write(
+                    "\n{0[0]} {0[1]} {0[2]}".format(construction_voronoi.vertices[rem])
+                )
+
+        # Cleaning the ridges from removed vertices
+        # ----------------------------------------------------------------------------------
+        # old_ridge_vertices = list(construction_voronoi.ridge_vertices)
+        # print("Cleaning the ridges from removed vertices:")
+        # for i_ind_ridge, i_ridge in enumerate(construction_voronoi.ridge_vertices):
+        #     print(i_ind_ridge, len(construction_voronoi.ridge_vertices))
+        #     print("\033[F\033[K", end="")
+        #     if -1 in i_ridge or any(
+        #         [vert_ridge in removed_vertices for vert_ridge in i_ridge]
+        #     ):
+        #         # if i_ind_ridge in ridge_to_remove:
+        #         old_ridge_vertices.remove(i_ridge)
+        #
+        # print("")
+
+        # Assigning the final values to the Voronoi attributes, minding the new indices due
+        # to removed vertices
+        # ----------------------------------------------------------------------------------
+        # removed_vertices = list(removed_vertices)
+        # self.vertices = np.delete(construction_voronoi.vertices, removed_vertices, 0)
+        # print("here1")
+        # # self.ridge_vertices = list(old_ridge_vertices)
+        # all_ind_update = update_indices(
+        #     list(range(len(construction_voronoi.vertices))), removed_vertices
+        # )
+        # for i_ind_ridge, i_ridge in enumerate(self.ridge_vertices):
+        #     # print("\033[F\033[K", end="")
+        #     for j_ind_pt in i_ridge:
+        #         if any(
+        #             (0 < coord < 1 for coord in construction_voronoi.vertices[j_ind_pt])
+        #         ):
+        #             self.ridge_vertices[i_ind_ridge] = [
+        #                 all_ind_update[i_vert_ind] for i_vert_ind in i_ridge
+        #             ]
+        #
+        #             break
+        #
+        # # self.regions = list(new_regions_unordered)
+        # for i_ind_region, i_region in enumerate(self.regions):
+        #     # print("\033[F\033[K", end="")
+        #     for j_ind_pt in i_region:
+        #         if any(
+        #             (0 < coord < 1 for coord in construction_voronoi.vertices[j_ind_pt])
+        #         ):
+        #             self.regions[i_ind_region] = [
+        #                 all_ind_update[i_vert_ind] for i_vert_ind in i_region
+        #             ]
+        #
+        #             break
+
+        self.vertices = construction_voronoi.vertices
+        # print(self.regions)
+        # print(self.ridge_vertices)
+        print("here2")
+        # self.regions = [
+        #     update_indices(i_region, removed_vertices)
+        #     for i_region in new_regions_unordered
+        # ]
+        print("here3")
         self.points = np.array(self.points)
-        # Saving the center of the particles and their periodic images as an array
-        self.point_region = point_region
-        # Saving the indices relating each point to its corresponding region
+        print("here4")
+        self.point_region = list(range(len(self.points)))
 
 
 def vert_sort(region_to_sort, all_ridges):
@@ -411,12 +500,29 @@ def vert_sort(region_to_sort, all_ridges):
 
 
 def update_indices(ind_vec, removed_ind):
-    """Update the indices according to the removed indices."""
-    new_ind_vec = []
-    for i_ind in ind_vec:
-        step = [rem_ind < i_ind for rem_ind in removed_ind].count(True)
-        new_ind_vec.append(i_ind - step)
-    return new_ind_vec
+    """Update the indices according to the sorted removed indices."""
+    # st_1 = time.time()
+    # new_ind_vec = []
+    # for i_ind in ind_vec:
+    #     step = [rem_ind < i_ind for rem_ind in removed_ind].count(True)
+    #     new_ind_vec.append(i_ind - step)
+    # time_1 = time.time() - st_1
+    # st_2 = time.time()
+    removed_ind = list(removed_ind)
+    removed_ind.sort()
+    new_ind_vec_2 = [None for _ in range(len(ind_vec))]
+    k_counter = 0
+    for i_ind_array, i_ind in enumerate(ind_vec):
+        while k_counter < len(removed_ind) and i_ind >= removed_ind[k_counter]:
+            k_counter += 1
+        new_ind_vec_2[i_ind_array] = i_ind - k_counter
+
+    # time_2 = time.time() - st_2
+    # print(time_1, time_2)
+    # if any((i_ind != j_ind for (i_ind, j_ind) in zip(new_ind_vec, new_ind_vec_2))):
+    #     print(new_ind_vec, new_ind_vec_2)
+    #     raise ValueError()
+    return new_ind_vec_2
 
 
 def computeGlobalCriticalErosionThickness(particles):
@@ -592,8 +698,6 @@ def compute3DIrreducibleMinkowskiTensors(voronoi):
             area_ridge.append(areaFace(voronoi.vertices[ridge]))
             normal_ridge.append(outNormalFace(voronoi.vertices[ridge], center_point))
             angles_normal_ridge.append(unitVectorToSphCoord(normal_ridge[-1]))
-            print(i_particle)
-        print(area_ridge, normal_ridge)
 
         A_total = np.sum(area_ridge)
         print(
@@ -689,6 +793,16 @@ def areaFace(vertices):
     """Compute the area of the polygon defined by *vertices*."""
     center_gravity = 1 / len(vertices) * np.sum(vertices, axis=0)
     # Computing the center of the polygon
+    ref_vec_x = vertices[0] - center_gravity
+    ref_vec_y = (vertices[1] - center_gravity) - np.dot(
+        vertices[1] - center_gravity, ref_vec_x
+    ) / np.dot(ref_vec_x, ref_vec_x) * ref_vec_x
+    angles = []
+    for i_vertex in vertices:
+        i_ref_vec = i_vertex - center_gravity
+        angles.append(np.arctan2(i_ref_vec.dot(ref_vec_y), i_ref_vec.dot(ref_vec_x)))
+
+    sorted_vertices = vertices[np.argsort(angles)]
     area = (
         1
         / 2
@@ -696,11 +810,12 @@ def areaFace(vertices):
             [
                 np.linalg.norm(
                     np.cross(
-                        vertices[k_vertex] - center_gravity,
-                        vertices[np.mod(k_vertex + 1, len(vertices))] - center_gravity,
+                        sorted_vertices[k_vertex] - center_gravity,
+                        sorted_vertices[np.mod(k_vertex + 1, len(sorted_vertices))]
+                        - center_gravity,
                     )
                 )
-                for k_vertex, _ in enumerate(vertices)
+                for k_vertex, _ in enumerate(sorted_vertices)
             ]
         )
     )
@@ -837,7 +952,7 @@ def compute2DWeigthedVoronoi(particles):
     return weighted_voronoi
 
 
-def compute3DSetVoronoi(particles, n_surf_points=5):
+def compute3DSetVoronoi(particles, rve_dims, voronoi_results_dir, n_surf_points=10):
     """
     Compute the set Voronoi of the *particles*.
 
@@ -882,11 +997,41 @@ def compute3DSetVoronoi(particles, n_surf_points=5):
                             axis=0,
                         )
                     # Sampling points on the surface of each eroded particle and collecing then
-            part_counter += 1
-            # Updating the counter
+                    part_counter += 1
+                    # Updating the counter
+
+    print(particle_surf)
+    with open(
+        os.path.join("", "mic_step.vtk"),
+        "a",
+    ) as msh_vtk:
+        msh_vtk.write("# vtk DataFile Version 2.0")
+        msh_vtk.write("\n3D triangulation data")
+        msh_vtk.write("\nASCII")
+        msh_vtk.write("\n\nDATASET POLYDATA")
+        msh_vtk.write(
+            "\nPOINTS {0} {1}".format(len(n_surf_points ** 2 * particles), "float")
+        )
+        p = 0
+        for i_part_ind, i_particle in enumerate(particles):
+            for j in range(-1, 2):
+                for k in range(-1, 2):
+                    for l in range(-1, 2):
+                        for _ in range(n_surf_points ** 2):
+                            if j == 0 and k == 0 and l == 0:
+                                msh_vtk.write(
+                                    "\n{0[0]} {0[1]} {0[2]}".format(particle_surf[p])
+                                )
+                            p += 1
+    print(len(particle_surf), part_counter, p, "\n\n\n")
     auxiliar_voronoi = Voronoi(particle_surf)
     # Obraining the auxiliar voronoi for the construction of the set voronoi
-    set_voronoi = set3DVoronoi(auxiliar_voronoi, particles)
+    # plotVoronoi3D(
+    #     particles, auxiliar_voronoi, rve_dims, voronoi_results_dir, "standard"
+    # )
+    set_voronoi = set3DVoronoi(
+        auxiliar_voronoi, particles, rve_dims, n_surf_points ** 2
+    )
     # Computing the set voronoi of the particles
     return set_voronoi
 
@@ -931,7 +1076,7 @@ def compute2DStandardVoronoi(particles, rve_dims):
     return std_voronoi
 
 
-def compute3DStandardVoronoi(particles):
+def compute3DStandardVoronoi(particles, rve_dims):
     """
     Compute the standard Voronoi of the *particles*.
 
@@ -1054,9 +1199,9 @@ def doVoronoiAnalysis(
     elif particles[0].dim == 3:
         # if voronoi_type == 'standard':
         if voronoi_type == "set":
-            voronoi = compute3DSetVoronoi(particles)
+            voronoi = compute3DSetVoronoi(particles, rve_dims, voronoi_results_dir)
         if voronoi_type == "standard":
-            voronoi = compute3DStandardVoronoi(particles)
+            voronoi = compute3DStandardVoronoi(particles, rve_dims)
         if plot_voronoi:
             # print(voronoi.ridge_vertices)
             # Saving the irreducible Minkowski tensors of the voronoi cells associated with
@@ -1067,6 +1212,7 @@ def doVoronoiAnalysis(
         if plot_IMTs:
             IMTs = compute3DIrreducibleMinkowskiTensors(voronoi)
             Particle.IMTs = np.array(IMTs)
+            print(IMTs)
             plotVoronoi3DwithIMTs(
                 particles, voronoi, rve_dims, IMTs, voronoi_results_dir, voronoi_type
             )
