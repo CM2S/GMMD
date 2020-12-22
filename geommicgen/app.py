@@ -3,13 +3,16 @@
 import os
 
 # pylint: disable=import-error
-import postproc.voronoimetrics.motion_analysis as motion_analysis
+# import postproc.voronoimetrics.motion_analysis as motion_analysis
+# import postproc.voronoimetrics.stat_analysis as stat_analysis
 
 import iofuncs.printing as print_funcs
 
-from postproc.plotfuncs.plotting_functions import plot_particles
+# from postproc.plotfuncs.plotting_functions import plot_particles
 
 from postproc.mshgen.meshing_interface import FEMMeshGenerator, RegularGridMeshGenerator
+
+from postproc.postproc import post_proc
 
 import iofuncs.file_handling as fileio
 from iofuncs.keywords import top_level_reader
@@ -80,36 +83,19 @@ def run_program():
                     raise ValueError(
                         "Specified mesh {0} is not supported.".format(disc_ext)
                     )
-            try:
-                print_funcs.print_output_header()
-                for mesh_generator in mesh_generators:
-                    mesh_generator.generate_mesh(current_sample, results_folder)
-                    # Generate corresponding mesh
-                plot_particles(current_sample.particles, rve_dims, results_folder)
-                if "motion_analysis" in top_level_reader.all_options:
-                    motion_analysis.doMotionAnalysis(
-                        current_sample.particles,
-                        rve_dims,
-                        results_folder,
-                        position_center_history=current_mic_generator.position_center_history,
-                        total_overlap_history=current_mic_generator.total_overlap_history,
-                        max_residue=current_mic_generator.max_residue,
-                        kinetic_energy_history=current_mic_generator.kinetic_energy_history,
-                    )
-                    # Do analysis of the motion of the particles
-                if "voronoi_metrics" in top_level_reader.all_options:
-                    pass
-                    # FIXME: doVoronoiAnalysis(particles, rve_dims, Particle.file_path)
+        try:
+            print_funcs.print_output_header()
+            post_proc(
+                mesh_generators,
+                current_sample,
+                current_mic_generator,
+                results_folder,
+                top_level_reader.all_options["post_proc"],
+            )
+        finally:
 
-                    # voronoi_type = options.get("voronoi_type", "standard")
-                    # doVoronoiAnalysis(
-                    # particles, rve_dims, Particle.file_path, voronoi_type=voronoi_type
-                    # )
-                    # Do a voronoi analysis
-            finally:
-
-                os.replace("temp.screen", os.path.join(results_folder + "mic.screen"))
-                # Moving the screnn of this sample to the respective directory
+            os.replace("temp.screen", os.path.join(results_folder, "mic.screen"))
+            # Moving the screnn of this sample to the respective directory
 
         # Initializing the mesh generators
     else:
@@ -182,6 +168,7 @@ def run_program():
                     "force_rescale",
                     "dt_adapt",
                     "offset",
+                    "fixed_seed",
                 }
                 md_kwargs = {
                     key: value
@@ -297,36 +284,63 @@ def run_program():
                 # Saving the RVE properties
 
             try:
-                for mesh_generator in mesh_generators:
-                    mesh_generator.generate_mesh(current_sample, sample_dir)
-                    # Generate corresponding mesh
-                if "final_config" in top_level_reader.all_options:
-                    # Plot and save the final configuration
-                    plot_particles(current_sample.particles, rve_dims, sample_dir)
-                if "motion_analysis" in top_level_reader.all_options:
-                    motion_analysis.doMotionAnalysis(
-                        current_sample.particles,
-                        rve_dims,
-                        sample_dir,
-                        position_center_history=current_mic_generator.position_center_history,
-                        total_overlap_history=current_mic_generator.total_overlap_history,
-                        max_residue=current_mic_generator.max_residue,
-                        kinetic_energy_history=current_mic_generator.kinetic_energy_history,
-                        temp_change_steps=current_mic_generator.thermostat.temp_change_steps,
-                        temp_change=True,
-                        overlap_ratio=current_mic_generator.thermostat.ratio,
-                        len_sim=current_mic_generator.step,
-                    )
-                    # Do analysis of the motion of the particles
-                if "voronoi_metrics" in top_level_reader.all_options:
-                    pass
-                    # FIXME: doVoronoiAnalysis(particles, rve_dims, Particle.file_path)
-
-                    # voronoi_type = options.get("voronoi_type", "standard")
-                    # doVoronoiAnalysis(
-                    # particles, rve_dims, Particle.file_path, voronoi_type=voronoi_type
-                    # )
-                    # Do a voronoi analysis
+                post_proc(
+                    mesh_generators,
+                    current_sample,
+                    current_mic_generator,
+                    sample_dir,
+                    top_level_reader.all_options["post_proc"],
+                )
+                # for mesh_generator in mesh_generators:
+                #     mesh_generator.generate_mesh(current_sample, sample_dir)
+                #     # Generate corresponding mesh
+                # if top_level_reader.all_options["final_config"]:
+                #     # Plot and save the final configuration
+                #     plot_particles(current_sample.particles, rve_dims, sample_dir)
+                # if "motion_analysis" in top_level_reader.all_options:
+                #     motion_analysis.doMotionAnalysis(
+                #         current_sample.particles,
+                #         rve_dims,
+                #         sample_dir,
+                #         position_center_history=current_mic_generator.position_center_history,
+                #         total_overlap_history=current_mic_generator.total_overlap_history,
+                #         max_residue=current_mic_generator.max_residue,
+                #         kinetic_energy_history=current_mic_generator.kinetic_energy_history,
+                #         temp_change_steps=current_mic_generator.thermostat.temp_change_steps,
+                #         temp_change=True,
+                #         overlap_ratio=current_mic_generator.thermostat.ratio,
+                #         len_sim=current_mic_generator.step,
+                #     )
+                #     # Do analysis of the motion of the particles
+                #
+                # # Voronoi analysis
+                # # --------------------------------------------------------------------------
+                # if "voronoi_metrics" in top_level_reader.all_options:
+                #     pass
+                #     # FIXME: do_voronoi_analysis(particles, rve_dims, Particle.file_path)
+                #
+                #     # voronoi_type = options.get("voronoi_type", "standard")
+                #     # do_voronoi_analysis(
+                #     # particles, rve_dims, Particle.file_path, voronoi_type=voronoi_type
+                #     # )
+                #     # Do a voronoi analysis
+                #
+                # # Statistical analysis
+                # # --------------------------------------------------------------------------
+                # all_stat_options = {
+                #     "stat_nearest_neighbor",
+                #     "stat_ripleys_k",
+                #     "stat_two_pt_corr",
+                # }
+                # stat_options_req = {
+                #     i_stat_opt
+                #     for i_stat_opt in all_stat_options
+                #     if i_stat_opt in top_level_reader.all_options
+                # }
+                # if len(stat_options_req) > 0:
+                #     stat_analysis.do_stat_analysis(
+                #         current_sample, sample_dir, stat_options_req
+                #     )
             finally:
 
                 os.replace("temp.screen", sample_file_path + ".screen")
