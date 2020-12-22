@@ -305,10 +305,9 @@ class Particle(abc.ABC):
                         pt_1 = self.support_function(-minimum_dist_rem)
                         pt_2 = particle_2.support_function(-minimum_dist_rem)
                         # Points from each shape closest to each other
-                        if (pt_1 - pt_2)[: self.dim].dot(minimum_dist_rem) < 0:
-                            intersection = True
-                        else:
-                            intersection = False
+                        intersection = (pt_1 - pt_2)[: self.dim].dot(
+                            minimum_dist_rem
+                        ) < 0
                 break
 
         return intersection, overlap_length, minimum_dist_rem
@@ -597,9 +596,6 @@ class Particle(abc.ABC):
         disp, unit_vector = self.intersection_length(other_particle, box, tol=tol)
         dist = self.radius + other_particle.radius - disp
         # Distance between the current sphere and the nearest image of the other sphere
-        diff_center = self.position_center - other_particle.position_center
-        diff_center = diff_center - box * np.round(diff_center / box)
-        # Vector from the current disk to the nearest image of the other disk
         r_min = (
             self.radius
             if self.radius < other_particle.radius
@@ -612,10 +608,10 @@ class Particle(abc.ABC):
         )
         if disp <= 0:
             force = 0
-        elif disp >= r_min + r_max:
-            force = r_min
+        elif disp >= 2 * r_min:
+            force = 2 * r_min
         else:
-            force = r_min * (1 - (dist / (r_max + r_min)) ** degree)
+            force = 2 * r_min * (1 - (dist / (r_max + r_min)) ** degree)
         return force, unit_vector
 
     @property
