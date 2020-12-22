@@ -77,6 +77,7 @@ def run_program():
                             RegularGridMeshGenerator(
                                 i_n_voxel_dims,
                                 rve_dims,
+                                slice_dir=rgmsh_options.get("slice_dir", None),
                             )
                         )
                 else:
@@ -144,10 +145,12 @@ def run_program():
                             "rgmsh"
                         ]
                         for i_n_voxel_dims in rgmsh_options["n_voxels_dims"]:
+                            print(rgmsh_options.get("slice_dir", None), "\n\n")
                             mesh_generators.add(
                                 RegularGridMeshGenerator(
                                     i_n_voxel_dims,
                                     rve_dims,
+                                    slice_dir=rgmsh_options.get("slice_dir", None),
                                 )
                             )
                     else:

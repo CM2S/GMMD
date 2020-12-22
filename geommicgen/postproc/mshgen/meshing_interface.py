@@ -867,7 +867,7 @@ class RegularGridMeshGenerator(MeshGenerator):
         Number of voxels in each spatial direction.
     """
 
-    def __init__(self, n_voxels_dims, rve_dims):
+    def __init__(self, n_voxels_dims, rve_dims, **kwargs):
         """
         Initialize a RegularGridMeshGenerator class object.
 
@@ -888,6 +888,7 @@ class RegularGridMeshGenerator(MeshGenerator):
                 "The number of voxels in each direction has to be larger than 1."
             )
         self.n_voxels_dims = np.array(n_voxels_dims)
+        self.slice_dir = kwargs.get("slice_dir", None)
 
     def generate_mesh(self, microstructure_sample, sample_dir):
         """
@@ -1004,15 +1005,27 @@ class RegularGridMeshGenerator(MeshGenerator):
         result_dir = os.path.join(sample_dir, "meshes")
         if not os.path.exists(result_dir):
             os.makedirs(result_dir)
-        np.save(
-            os.path.join(
-                result_dir,
-                filename + ".rgmsh",
-            ),
-            regular_grid,
-        )
+        if dim == 2:
+            np.save(
+                os.path.join(
+                    result_dir,
+                    filename + ".rgmsh",
+                ),
+                regular_grid,
+            )
 
-        if False:
+        elif dim == 3:
+            if self.slice_dir is None:
+
+                np.save(
+                    os.path.join(
+                        result_dir,
+                        filename + ".rgmsh",
+                    ),
+                    regular_grid,
+                )
+
+        if True:
             from postproc.plotfuncs.plotting_functions import plot_pixels, plot_voxels
 
             if len(microstructure_sample.rve_dims) == 2:
@@ -1022,10 +1035,39 @@ class RegularGridMeshGenerator(MeshGenerator):
                     show=False,
                 )
             elif len(microstructure_sample.rve_dims) == 3:
-                plot_voxels(
-                    regular_grid,
-                    microstructure_sample.matrix_phase,
-                    list(microstructure_sample.phases.keys()),
-                    os.path.join(result_dir, filename + ".pdf"),
-                    show=False,
-                )
+                if self.slice_dir is None:
+
+                    plot_voxels(
+                        regular_grid,
+                        microstructure_sample.matrix_phase,
+                        list(microstructure_sample.phases.keys()),
+                        os.path.join(result_dir, filename + ".pdf"),
+                        show=False,
+                    )
+
+                else:
+                    for j_ind_slice in range(self.n_voxels_dims[self.slice_dir]):
+                        lims = [[None, None], [None, None], [None, None]]
+                        lims[self.slice_dir][0] = j_ind_slice
+                        lims[self.slice_dir][1] = j_ind_slice + 1
+                        plot_pixels(
+                            regular_grid[
+                                lims[0][0] : lims[0][1],
+                                lims[1][0] : lims[1][1],
+                                lims[2][0] : lims[2][1],
+                            ]
+                            .reshape(
+                                (
+                                    self.n_voxels_dims[np.mod(self.slice_dir + 1, 3)],
+                                    self.n_voxels_dims[np.mod(self.slice_dir + 1, 3)],
+                                )
+                            )
+                            .T,
+                            os.path.join(
+                                result_dir,
+                                "{0}_{1}_{2}.pdf".format(
+                                    filename, self.slice_dir, j_ind_slice
+                                ),
+                            ),
+                            show=False,
+                        )

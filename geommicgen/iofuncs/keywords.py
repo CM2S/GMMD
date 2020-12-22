@@ -663,6 +663,7 @@ top_level_reader.addTopLevelKeyword(
             Keyword("Element_Type", type="str"),
             Keyword("Mesh_Size", type="float"),
             Keyword("N_Voxels_Dims", type="int"),
+            Keyword("Slice_Dir", type="int"),
         },
     )
 )
