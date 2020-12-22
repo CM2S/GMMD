@@ -8,10 +8,10 @@ from microstructure.particle_classes import (
 )
 
 from postproc.plotfuncs.plotting_functions import (
-    plotVoronoi2D,
-    plotVoronoi2DwithIMTs,
-    plotVoronoi3D,
-    plotVoronoi3DwithIMTs,
+    plot_voronoi_2d,
+    plot_voronoi_2d_with_imts,
+    plot_voronoi_3d,
+    plot_voronoi_3d_with_imts,
     create_figure,
 )
 
@@ -24,6 +24,8 @@ import numpy as np
 import os
 
 import time
+
+import pickle
 
 
 class Polygon:
@@ -414,8 +416,8 @@ def compute_global_critical_erosion_thickness(particles):
 
 def compute_2d_irreducible_minkowski_tensors(voronoi, degree=6):
     """Compute the Irreducible Minkowski Tensors."""
-    IMT_region = []
-    # Initializing the list containing the list of IMTs for each Voronoi cell
+    imt_region = []
+    # Initializing the list containing the list of imts for each Voronoi cell
     region_point = np.zeros((len(voronoi.regions)), dtype=int)
     for point_ind, region_ind in enumerate(voronoi.point_region):
         if point_ind == -1:
@@ -443,8 +445,8 @@ def compute_2d_irreducible_minkowski_tensors(voronoi, degree=6):
         if any([vertex == -1 for vertex in i_region]):
             continue
         # Running through all the cells in the Voronoi
-        IMT_region.append([])
-        # Initializing the list containing the IMTs of the cell
+        imt_region.append([])
+        # Initializing the list containing the imts of the cell
         n_vertices = len(i_region)
         sides = [
             voronoi.vertices[i_region[j_pair]]
@@ -477,8 +479,8 @@ def compute_2d_irreducible_minkowski_tensors(voronoi, degree=6):
         # print('angles', angles)
         # print('lengths', lengths)
         for j_tensor in range(degree + 1):
-            # Computing the 7 first IMTs
-            IMT_region[-1].append(
+            # Computing the 7 first imts
+            imt_region[-1].append(
                 np.sum(
                     [
                         lengths[k_side] * np.exp(1j * j_tensor * angles[k_side])
@@ -487,21 +489,21 @@ def compute_2d_irreducible_minkowski_tensors(voronoi, degree=6):
                 )
             )
 
-    return [IMT_region, in_box]
+    return [imt_region, in_box]
 
 
 def compute_2d_irreducible_minkowski_tensors_polygon(voronoi, degree=6):
     """Compute the Irreducible Minkowski Tensors."""
-    IMT_region = []
-    # Initializing the list containing the list of IMTs for each Voronoi cell
+    imt_region = []
+    # Initializing the list containing the list of imts for each Voronoi cell
     for ind, i_region in enumerate(voronoi.regions):
         if len(i_region) == 0:
             continue
         if any([vertex == -1 for vertex in i_region]):
             continue
         # Running through all the cells in the Voronoi
-        IMT_region.append([])
-        # Initializing the list containing the IMTs of the cell
+        imt_region.append([])
+        # Initializing the list containing the imts of the cell
         n_vertices = len(i_region)
         sides = [
             voronoi.vertices[i_region[j_pair]]
@@ -534,8 +536,8 @@ def compute_2d_irreducible_minkowski_tensors_polygon(voronoi, degree=6):
         print("angles", np.degrees(angles))
         # print('lengths', lengths)
         for j_tensor in range(degree + 1):
-            # Computing the 7 first IMTs
-            IMT_region[-1].append(
+            # Computing the 7 first imts
+            imt_region[-1].append(
                 np.sum(
                     [
                         lengths[k_side] * np.exp(1j * j_tensor * angles[k_side])
@@ -544,21 +546,23 @@ def compute_2d_irreducible_minkowski_tensors_polygon(voronoi, degree=6):
                 )
             )
 
-    return IMT_region
+    return imt_region
 
 
 def compute_3d_irreducible_minkowski_tensors(voronoi):
     """Compute the Irreducible Minkowski Tensors."""
-    IMT_region = []
+    # FIXME: Repeated operations, as values are computed for each region repeating
+    # operations for common ridges. Use ridges instead (voronoi.ridge_points).
+    imt_region = []
     phi_region = []
-    # Initializing the list containing the list of IMTs for each Voronoi cell
+    # Initializing the list containing the list of imts for each Voronoi cell
     for i_particle in range(13, len(voronoi.point_region), 27):
         center_point = voronoi.points[i_particle]
         i_particle_region = voronoi.regions[voronoi.point_region[i_particle]]
         area_ridge = []
         normal_ridge = []
         angles_normal_ridge = []
-        IMT_region.append([])
+        imt_region.append([])
         phi_region.append([])
         phi = np.zeros((7, 13), dtype=complex)
         for ridge in voronoi.ridge_vertices:
@@ -569,19 +573,12 @@ def compute_3d_irreducible_minkowski_tensors(voronoi):
             if any([vertex not in i_particle_region for vertex in ridge]):
                 continue
             # Running through all the cells in the Voronoi
-            # Initializing the list containing the IMTs of the cell
+            # Initializing the list containing the imts of the cell
             area_ridge.append(area_face(voronoi.vertices[ridge]))
             normal_ridge.append(out_normal_face(voronoi.vertices[ridge], center_point))
             angles_normal_ridge.append(unit_vector_to_sph_coord(normal_ridge[-1]))
 
         A_total = np.sum(area_ridge)
-        print(
-            "angles, normal",
-            [
-                (angles_normal_ridge[i], normal_ridge[i])
-                for i in range(len(normal_ridge))
-            ],
-        )
         for order in range(-6, 7):
             for degree in range(7):
                 if np.abs(order) <= degree:
@@ -597,13 +594,12 @@ def compute_3d_irreducible_minkowski_tensors(voronoi):
                             for k_face in range(len(area_ridge))
                         ]
                     )
-        print("phi", phi)
         for degree in range(7):
-            # Computing the 7 first IMTs
+            # Computing the 7 first imts
             if degree == 0:
-                IMT_region[-1].append(A_total)
+                imt_region[-1].append(A_total)
             else:
-                IMT_region[-1].append(
+                imt_region[-1].append(
                     np.sqrt(
                         4
                         * np.pi
@@ -618,18 +614,16 @@ def compute_3d_irreducible_minkowski_tensors(voronoi):
                     )
                 )
         phi_region[-1].append(phi)
-    print(IMT_region)
-    return IMT_region
+    return imt_region
 
 
 def compute_3d_irreducible_minkowski_tensors_polyhedron(unormals, area):
     """Compute the Irreducible Minkowski Tensors."""
 
     phi = np.zeros((7, 13), dtype=complex)
-    IMT_region = []
+    imt_region = []
     angles_normal = [unit_vector_to_sph_coord(unormal) for unormal in unormals]
     A_total = np.sum(area)
-    print("A_total", A_total)
     for order in range(-6, 7):
         for degree in range(7):
             if np.abs(order) <= degree:
@@ -645,10 +639,9 @@ def compute_3d_irreducible_minkowski_tensors_polyhedron(unormals, area):
                         for k_face in range(len(area))
                     ]
                 )
-    print("phi", phi)
     for degree in range(7):
-        # Computing the 7 first IMTs
-        IMT_region.append(
+        # Computing the 7 first imts
+        imt_region.append(
             np.sqrt(
                 4
                 * np.pi
@@ -660,8 +653,7 @@ def compute_3d_irreducible_minkowski_tensors_polyhedron(unormals, area):
                 )
             )
         )
-    print(IMT_region)
-    return [IMT_region, phi]
+    return [imt_region, phi]
 
 
 def area_face(vertices):
@@ -723,7 +715,7 @@ def unit_vector_to_sph_coord(unit_vector):
     return [theta, phi]
 
 
-def compute_2d_set_voronoi(particles, rve_dims, voronoi_results_dir, n_surf_points=10):
+def compute_2d_set_voronoi(particles, rve_dims, n_surf_points=10):
     """
     Compute the set Voronoi of the *particles*.
 
@@ -744,20 +736,10 @@ def compute_2d_set_voronoi(particles, rve_dims, voronoi_results_dir, n_surf_poin
     # Computing the global critical erosion thickness
     part_counter = 0
     # Particle number counte
-    epsilon = 50  # * np.max([i_particle.radius for i_particle in particles])
-    for i_part_ind, i_particle in enumerate(particles):
+    for i_particle in particles:
         for (j_pbc, k_pbc) in (
             (j_pbc, k_pbc) for k_pbc in range(-1, 2) for j_pbc in range(-1, 2)
         ):
-            if not np.all(
-                np.logical_and(
-                    -epsilon * np.array([1, 1])
-                    < i_particle.position_center + rve_dims * np.array([j_pbc, k_pbc]),
-                    i_particle.position_center + rve_dims * np.array([j_pbc, k_pbc])
-                    < rve_dims + epsilon * np.array([1, 1]),
-                )
-            ):
-                continue
             # Running through all the particles and their periodic images
             if part_counter == 0:
                 particle_surf = i_particle.generate_points_on_surface(
@@ -781,9 +763,6 @@ def compute_2d_set_voronoi(particles, rve_dims, voronoi_results_dir, n_surf_poin
             # Updating the counter
     auxiliar_voronoi = Voronoi(particle_surf)
     # Obraining the auxiliar voronoi for the construction of the set voronoi
-    plotVoronoi2D(
-        particles, rve_dims, auxiliar_voronoi, voronoi_results_dir, "standard"
-    )
     set_voronoi = Set2DVoronoi(auxiliar_voronoi, particles, rve_dims, n_surf_points)
     # Computing the set voronoi of the particles
     return set_voronoi
@@ -827,7 +806,7 @@ def compute_2d_weigthed_voronoi(particles):
     return weighted_voronoi
 
 
-def compute_3d_set_voronoi(particles, rve_dims, voronoi_results_dir, n_surf_points=10):
+def compute_3d_set_voronoi(particles, rve_dims, n_surf_points=10):
     """
     Compute the set Voronoi of the *particles*.
 
@@ -848,7 +827,7 @@ def compute_3d_set_voronoi(particles, rve_dims, voronoi_results_dir, n_surf_poin
     # Computing the global critical erosion thickness
     part_counter = 0
     # Particle number counter
-    for i_part_ind, i_particle in enumerate(particles):
+    for i_particle in particles:
         for j in range(-1, 2):
             for k in range(-1, 2):
                 for l in range(-1, 2):
@@ -871,39 +850,13 @@ def compute_3d_set_voronoi(particles, rve_dims, voronoi_results_dir, n_surf_poin
                             ),
                             axis=0,
                         )
-                    # Sampling points on the surface of each eroded particle and collecing then
+                    # Sampling points on the surface of each eroded particle and collecing
+                    # then
                     part_counter += 1
                     # Updating the counter
 
-    print(particle_surf)
-    with open(
-        os.path.join("", "mic_step.vtk"),
-        "a",
-    ) as msh_vtk:
-        msh_vtk.write("# vtk DataFile Version 2.0")
-        msh_vtk.write("\n3D triangulation data")
-        msh_vtk.write("\nASCII")
-        msh_vtk.write("\n\nDATASET POLYDATA")
-        msh_vtk.write(
-            "\nPOINTS {0} {1}".format(len(n_surf_points ** 2 * particles), "float")
-        )
-        p = 0
-        for i_part_ind, i_particle in enumerate(particles):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    for l in range(-1, 2):
-                        for _ in range(n_surf_points ** 2):
-                            if j == 0 and k == 0 and l == 0:
-                                msh_vtk.write(
-                                    "\n{0[0]} {0[1]} {0[2]}".format(particle_surf[p])
-                                )
-                            p += 1
-    print(len(particle_surf), part_counter, p, "\n\n\n")
     auxiliar_voronoi = Voronoi(particle_surf)
     # Obraining the auxiliar voronoi for the construction of the set voronoi
-    # plotVoronoi3D(
-    #     particles, auxiliar_voronoi, rve_dims, voronoi_results_dir, "standard"
-    # )
     set_voronoi = Set3DVoronoi(
         auxiliar_voronoi, particles, rve_dims, n_surf_points ** 2
     )
@@ -920,6 +873,9 @@ def compute_2d_standard_voronoi(particles, rve_dims):
     particles: list(`.Particle`)
         List of particles in the RVE.
 
+    rve_dims: list(float)
+        Dimensions of the RVE.
+
     Returns
     -------
     std_voronoi: `.scipy.Qhull.Voronoi`
@@ -927,20 +883,10 @@ def compute_2d_standard_voronoi(particles, rve_dims):
     """
     particle_centers = []
     # Intializing the list containing the centers of the particles and their images
-    epsilon = 5 * np.max([i_particle.radius for i_particle in particles])
-    for i_part_ind, i_particle in enumerate(particles):
+    for i_particle in particles:
         for (j_pbc, k_pbc) in (
             (j_pbc, k_pbc) for k_pbc in range(-1, 2) for j_pbc in range(-1, 2)
         ):
-            if not np.all(
-                np.logical_and(
-                    -epsilon * np.array([1, 1])
-                    < i_particle.position_center + rve_dims * np.array([j_pbc, k_pbc]),
-                    i_particle.position_center + rve_dims * np.array([j_pbc, k_pbc])
-                    < rve_dims + epsilon * np.array([1, 1]),
-                )
-            ):
-                continue
             # Running through all the particles and their periodic images
             particle_centers.append(
                 i_particle.position_center + rve_dims * np.array([j_pbc, k_pbc])
@@ -960,6 +906,9 @@ def compute_3d_standard_voronoi(particles, rve_dims):
     particles: list(`.Particle`)
         List of particles in the RVE.
 
+    rve_dims: list(float)
+        Dimensions of the RVE.
+
     Returns
     -------
     std_voronoi: `.scipy.Qhull.Voronoi`
@@ -967,7 +916,7 @@ def compute_3d_standard_voronoi(particles, rve_dims):
     """
     particle_centers = []
     # Intializing the list containing the centers of the particles and their images
-    for i_part_ind, i_particle in enumerate(particles):
+    for i_particle in particles:
         for j in range(-1, 2):
             for k in range(-1, 2):
                 for l in range(-1, 2):
@@ -1028,22 +977,40 @@ def do_voronoi_analysis(
     rve_dims,
     sample_dir,
     voronoi_type="standard",
-    plot_voronoi=True,
-    plot_IMTs=True,
+    plot_voronoi=False,
+    plot_imts=False,
+    **kwargs
 ):
     """
     Do a Voronoi analysis on the RVE.
+
+    Saves the Voronoi diagram and the Irreducible Minkowski Tensors computed.
 
     Parameters
     ----------
     particles: list(`.Particle`)
         List of particles inside the RVE.
 
-    voronoi_type: {'set', 'standard', 'weighted'}
+    rve_dims: list(float)
+        Dimensions of the RVE.
+
+    voronoi_type: {'set', 'standard', 'weighted'}, optional
         Type of Voronoi to be computed.
+
+    plot_voronoi: bool, optional
+        Plot the voronoi diagrama of the *particles* in the RVE.
+
+    plot_imts: bool, optional
+        Plot the voronoi with the cell colored according to the Minkowski structure metrics
+        as well as the corresponding histograms.
+
+    Keyword Parameters
+    ------------------
+    n_surf_points: int
+        Number of surface points used to generate the set Voronoi diagram.
+
     """
     voronoi_results_dir = os.path.join(sample_dir, "voronoi_analysis_results")
-    print(voronoi_results_dir)
     os.makedirs(voronoi_results_dir)
     # Creating a directory for the results
 
@@ -1051,7 +1018,7 @@ def do_voronoi_analysis(
         # 2D problem
         if voronoi_type == "set":
             # The required Voronoi is a set Voronoi
-            voronoi = compute_2d_set_voronoi(particles, rve_dims, voronoi_results_dir)
+            voronoi = compute_2d_set_voronoi(particles, rve_dims, **kwargs)
         elif voronoi_type == "standard":
             # The required Voronoi is a standard Voronoi
             voronoi = compute_2d_standard_voronoi(particles, rve_dims)
@@ -1059,38 +1026,40 @@ def do_voronoi_analysis(
             # The required Voronoi is a weighted Voronoi
             voronoi = compute_2d_standard_voronoi(particles, rve_dims)
         if plot_voronoi:
-            plotVoronoi2D(
+            plot_voronoi_2d(
                 particles, rve_dims, voronoi, voronoi_results_dir, voronoi_type
             )
-        if plot_IMTs:
-            IMTs, in_box = compute_2d_irreducible_minkowski_tensors(voronoi)
-            # Computing the irreducible Minkowski tensors for the current microsturcture
-            # Particle.IMTs = np.array(IMTs)[in_box, :]
-            # Saving the irreducible Minkowski tensors of the voronoi cells associated with
-            # particles inside the box
-            plotVoronoi2DwithIMTs(
-                particles, rve_dims, voronoi, IMTs, voronoi_results_dir, voronoi_type
+        imts, in_box = compute_2d_irreducible_minkowski_tensors(voronoi)
+        # Computing the irreducible Minkowski tensors for the current microsturcture
+        imts_in_box = np.array(imts)[in_box, :]
+        # Saving the irreducible Minkowski tensors of the voronoi cells associated with
+        # particles inside the box
+        if plot_imts:
+            plot_voronoi_2d_with_imts(
+                particles, rve_dims, voronoi, imts, voronoi_results_dir, voronoi_type
             )
     elif particles[0].dim == 3:
         # if voronoi_type == 'standard':
         if voronoi_type == "set":
-            voronoi = compute_3d_set_voronoi(particles, rve_dims, voronoi_results_dir)
+            voronoi = compute_3d_set_voronoi(particles, rve_dims, **kwargs)
         if voronoi_type == "standard":
             voronoi = compute_3d_standard_voronoi(particles, rve_dims)
         if plot_voronoi:
-            # print(voronoi.ridge_vertices)
             # Saving the irreducible Minkowski tensors of the voronoi cells associated with
             # particles inside the box
-            plotVoronoi3D(
-                particles, voronoi, rve_dims, voronoi_results_dir, voronoi_type
+            plot_voronoi_3d(particles, voronoi, rve_dims, voronoi_results_dir)
+        imts = compute_3d_irreducible_minkowski_tensors(voronoi)
+        imts_in_box = np.array(imts)
+        if plot_imts:
+            plot_voronoi_3d_with_imts(
+                particles, voronoi, rve_dims, imts, voronoi_results_dir
             )
-        if plot_IMTs:
-            IMTs = compute_3d_irreducible_minkowski_tensors(voronoi)
-            Particle.IMTs = np.array(IMTs)
-            print(IMTs)
-            plotVoronoi3DwithIMTs(
-                particles, voronoi, rve_dims, IMTs, voronoi_results_dir, voronoi_type
-            )
+    # Saving the results
+    # --------------------------------------------------------------------------------------
+    pickle.dump(
+        [voronoi, imts_in_box],
+        open(os.path.join(voronoi_results_dir, "voronoi_results.vor"), "wb"),
+    )
 
 
 # def plotMetrics
@@ -1227,13 +1196,13 @@ if __name__ == "__main__":
         from matplotlib import cm
 
         print(np.angle(coeffs))
-        IMTs = np.abs(coeffs) / np.abs(coeffs[0])
-        colors = cm.Blues(IMTs[2:])
+        imts = np.abs(coeffs) / np.abs(coeffs[0])
+        colors = cm.Blues(imts[2:])
         _, axis, (w_fig, h_fig) = create_figure(nrows=4, ncols=3)
         # plt.polar(phi, np.real(norm_dens), color='k')
         rects = plt.barh(
             range(5),
-            IMTs[2:],
+            imts[2:],
             height=1,
             tick_label=["$q_2$", "$q_3$", "$q_4$", "$q_5$", "$q_6$"],
             color=colors,
@@ -1246,7 +1215,7 @@ if __name__ == "__main__":
             # converting width to int type
             width = rect.get_width()
 
-            rankStr = str(np.round(IMTs[2 + ind], decimals=3))
+            rankStr = str(np.round(imts[2 + ind], decimals=3))
             # The bars aren't wide enough to print the ranking inside
             if width < 0.5:
                 # Shift the text to the right side of the right edge
@@ -1292,10 +1261,10 @@ if __name__ == "__main__":
     # region = [[4, 3, 2, 1, 0]]
     # test_pol = Polygon(vertices, region)
     #
-    # IMTs = computeIrreducibleMinkowskiTensors(test_pol)[0]
-    # print(np.abs(IMTs[0]))
-    # print(np.abs(IMTs[2]/IMTs[0]))
-    # print(np.abs(IMTs[3]/IMTs[0]))
-    # print(np.abs(IMTs[4]/IMTs[0]))
-    # print(np.abs(IMTs[5]/IMTs[0]))
-    # print(np.abs(IMTs[6]/IMTs[0]))
+    # imts = computeIrreducibleMinkowskiTensors(test_pol)[0]
+    # print(np.abs(imts[0]))
+    # print(np.abs(imts[2]/imts[0]))
+    # print(np.abs(imts[3]/imts[0]))
+    # print(np.abs(imts[4]/imts[0]))
+    # print(np.abs(imts[5]/imts[0]))
+    # print(np.abs(imts[6]/imts[0]))

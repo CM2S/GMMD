@@ -132,7 +132,6 @@ def create_legend(artists, labels, axes, to_fig=False, fig_h=4, ncols=3):
         frame.set_edgecolor("k")
         plt.tight_layout(rect=(0, 0, 1, 0.9))
     else:
-        print("h_fig", fig_h)
         lw_common = axes.spines["bottom"].get_linewidth()
         plt.legend(
             handles=artists,
@@ -652,7 +651,7 @@ def plot_voxels(voxel_grid, matrix_phase, list_phase, dir, show=True, save=True)
         plt.show()
 
 
-def plotVoronoi2D(
+def plot_voronoi_2d(
     particles, rve_dims, voronoi, dir, voronoi_type, save=True, show=False
 ):
     """Plot the Voronoi for circular particles."""
@@ -698,10 +697,13 @@ def plotVoronoi2D(
     # print("here2")
     # voronoi_type = "standard"
     if voronoi_type == "set":
-        set_voronoi_plot_2d(voronoi, ax=plt.gca(), show_vertices=False, point_size=1)
+        set_voronoi_plot_2d(
+            voronoi, ax=plt.gca(), show_vertices=False, point_size=0, line_width=0.1
+        )
     elif voronoi_type == "standard":
-        print("here2")
-        voronoi_plot_2d(voronoi, ax=plt.gca(), show_vertices=False, point_size=1)
+        voronoi_plot_2d(
+            voronoi, ax=plt.gca(), show_vertices=False, point_size=0, line_width=0.1
+        )
 
     plt.axis([0, rve_dims[0], 0, rve_dims[1]])
 
@@ -709,7 +711,7 @@ def plotVoronoi2D(
     plt.yticks([])
 
     if save:
-        plt.savefig(dir + "_voronoi" + ".pdf")
+        plt.savefig(os.path.join(dir, "voronoi.pdf"))
 
     if show:
         plt.show()
@@ -763,7 +765,7 @@ def set_voronoi_plot_2d(vor, ax=None, **kw):
         raise ValueError("Voronoi diagram is not 2-D")
 
     if kw.get("show_points", True):
-        ax.plot(vor.points[:, 0], vor.points[:, 1], ".")
+        ax.plot(vor.points[:, 0], vor.points[:, 1], ".", ms=kw.get("point_size", 0.1))
     if kw.get("show_vertices", True):
         ax.plot(vor.vertices[:, 0], vor.vertices[:, 1], "o")
         # for ind_vert, vert in enumerate(vor.vertices):
@@ -818,8 +820,8 @@ def set_voronoi_plot_2d(vor, ax=None, **kw):
     return ax.figure
 
 
-def plotVoronoi2DwithIMTs(
-    particles, rve_dims, voronoi, IMTs, dir, voronoi_type, save=True, show=False
+def plot_voronoi_2d_with_imts(
+    particles, rve_dims, voronoi, imts, dir, voronoi_type, save=True, show=False
 ):
     """Plot the Voronoi for circular particles."""
     import matplotlib.pyplot as plt
@@ -828,8 +830,6 @@ def plotVoronoi2DwithIMTs(
     from scipy.spatial import voronoi_plot_2d
 
     N = len(particles)
-    # for i in range(N):
-    #     print(particles[i].position_center[0], particles[i].position_center[1])
 
     for i_order in range(7):
 
@@ -859,22 +859,28 @@ def plotVoronoi2DwithIMTs(
                     i_particle.major_axis,
                     i_particle.minor_axis,
                     angle=180 / np.pi * i_particle.angle,
-                    alpha=0.8,
-                    edgecolor=None,
-                    facecolor=phase_colors[i_particle.phase],
+                    alpha=0.5,
+                    edgecolor="k",
+                    linewidth=0.1,
+                    linestyle="--",
+                    facecolor=None,  # phase_colors[i_particle.phase],
                 )
                 ax.add_artist(ellip)
                 # plt.annotate(str(k), tuple(i_particle.position_center))
 
         if voronoi_type == "set":
-            set_voronoi_plot_2d(voronoi, ax=plt.gca(), show_vertices=False)
+            set_voronoi_plot_2d(
+                voronoi, ax=plt.gca(), show_vertices=False, point_size=0, line_width=0.1
+            )
         elif voronoi_type == "standard":
-            voronoi_plot_2d(voronoi, ax=plt.gca(), show_vertices=False)
+            voronoi_plot_2d(
+                voronoi, ax=plt.gca(), show_vertices=False, point_size=0, line_width=0.1
+            )
 
         plt.axis([0, rve_dims[0], 0, rve_dims[1]])
 
-        cmap = matplotlib.cm.get_cmap("Blues")
-        # Initializing the list containing the list of IMTs for each Voronoi cell
+        cmap = matplotlib.cm.get_cmap("jet")
+        # Initializing the list containing the list of imts for each Voronoi cell
         k_cell = 0
         for ind, i_region in enumerate(voronoi.regions):
             if len(i_region) == 0:
@@ -884,12 +890,12 @@ def plotVoronoi2DwithIMTs(
             # Running through all the cells in the Voronoi
             # plt.sca(ax)
             if i_order > 0:
-                color = cmap(np.abs(IMTs[k_cell][i_order]) / np.abs(IMTs[k_cell][0]))
+                color = cmap(np.abs(imts[k_cell][i_order]) / np.abs(imts[k_cell][0]))
             else:
-                color = cmap(np.abs(IMTs[k_cell][0]))
+                color = cmap(np.abs(imts[k_cell][0]))
             x = [voronoi.vertices[i_vertex][0] for i_vertex in i_region]
             y = [voronoi.vertices[i_vertex][1] for i_vertex in i_region]
-            current_cell = plt.fill(x, y)
+            current_cell = plt.fill(x, y, edgecolor=None, linewidth=0)
             current_cell[0].set_color(color)
             k_cell += 1
 
@@ -932,13 +938,10 @@ def plotVoronoi2DwithIMTs(
             continue
         if any([vertex == -1 for vertex in i_region]):
             continue
-        print(region_point[ind])
         pos_center = voronoi.points[region_point[ind]]
         if 0 < pos_center[0] < 1 and 0 < pos_center[1] < 1:
             in_box.append(k_used_region)
         k_used_region += 1
-
-    print(len(in_box))
 
     for i_order in range(7):
 
@@ -950,22 +953,22 @@ def plotVoronoi2DwithIMTs(
 
         if i_order == 0:
             plt.hist(
-                np.abs(np.array(IMTs)[in_box, i_order]),
+                np.abs(np.array(imts)[in_box, i_order]),
                 color=(68 / 255, 119 / 255, 170 / 255, 1),
             )
             ax.set_xlabel(r"Perimeter")
         else:
             plt.hist(
-                np.abs(np.array(IMTs)[in_box, i_order])
-                / np.real(np.array(IMTs)[in_box, 0]),
+                np.abs(np.array(imts)[in_box, i_order])
+                / np.real(np.array(imts)[in_box, 0]),
                 color=(68 / 255, 119 / 255, 170 / 255, 1),
                 range=(0, 1),
                 bins=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
             )
             plt.axvline(
                 np.mean(
-                    np.abs(np.array(IMTs)[in_box, i_order])
-                    / np.real(np.array(IMTs)[in_box, 0])
+                    np.abs(np.array(imts)[in_box, i_order])
+                    / np.real(np.array(imts)[in_box, 0])
                 ),
                 color="k",
                 linestyle="--",
@@ -1251,8 +1254,6 @@ def plotVoronoi3Dpbc(
             )
         curveLoopTag = factory.addCurveLoop(edgeFaceTags)
 
-        print(edgeFaceTags)
-        print(curveLoopTag)
         planeSurfaceTags.append(factory.addPlaneSurface([curveLoopTag]))
 
     factory.synchronize
@@ -1347,9 +1348,7 @@ def plotVoronoi3Dpbc(
     os.remove(meshfile_temp)
 
 
-def plotVoronoi3D(
-    particles, voronoi, rve_dims, sample_dir, voronoi_type, save=True, show=True
-):
+def plot_voronoi_3d(particles, voronoi, rve_dims, sample_dir, save=True, show=True):
     """Plot the Voronoi for circular particles."""
     dim = len(rve_dims)
     mesh_generator = FEMMeshGenerator(particles[0].radius / 5, "tetra4", rve_dims)
@@ -1400,7 +1399,6 @@ def plotVoronoi3D(
             continue
         points.add(ridge_pt_1)
         points.add(ridge_pt_2)
-        print("ridge_ind", ridge_ind, len(edgeTags))
         ridge_out_phase = ridge[-1:] + ridge[0:-1]
         for vertex_1, vertex_2 in zip(ridge, ridge_out_phase):
             if (vertex_1, vertex_2) not in edgeTags and (
@@ -1412,42 +1410,24 @@ def plotVoronoi3D(
                 )
                 edge_point[(vertex_1, vertex_2)] = {ridge_pt_1, ridge_pt_2}
             elif (vertex_1, vertex_2) in edgeTags:
-                print(
-                    "here",
-                    edge_point[(vertex_1, vertex_2)],
-                    ridge_pt_1,
-                    ridge_pt_2,
-                    edge_point[(vertex_1, vertex_2)]
-                    == {
-                        ridge_pt_1,
-                        ridge_pt_2,
-                    },
-                )
                 if edge_point[(vertex_1, vertex_2)] == {
                     ridge_pt_1,
                     ridge_pt_2,
                 }:
-                    print("here")
                     del edgeTags[(vertex_1, vertex_2)]
             elif (vertex_2, vertex_1) in edgeTags:
-                print("here", edge_point[(vertex_2, vertex_1)], ridge_pt_1, ridge_pt_2)
                 if edge_point[(vertex_2, vertex_1)] == {
                     ridge_pt_1,
                     ridge_pt_2,
                 }:
-                    print("here")
                     del edgeTags[(vertex_2, vertex_1)]
-        # print(edgeTags)
 
-    print(edgeTags, "\n\n")
-    print(points, list(range(13, 3 ** 3 * len(particles), 27)))
     factory.synchronize()
     # all_voronoi_lines = list(set([voronoi_line[1] for voronoi_line in voronoi_lines] + [edgeTag[1] for edgeTag in out_dim_tag4]))
     voronoiWires = model.addPhysicalGroup(
         1, list(edgeTags.values())
     )  # [(1, all_voronoi_line) for all_voronoi_line in all_voronoi_lines])
     model.setPhysicalName(2, voronoiWires, "Voronoi")
-    print("wires", voronoiWires, list(edgeTags.values()))
     # voronoiWires = model.addPhysicalGroup(1, [tag[1] for tag in out_dim_tag_3]) #[(1, all_voronoi_line) for all_voronoi_line in all_voronoi_lines])
     # model.setPhysicalName(1, voronoiWires, "Voronoi")
 
@@ -1701,7 +1681,6 @@ def plotVoronoi3DwithIMTspbc(
             save = True
             continue
         if save:
-            print(line.rstrip("\n"))
             element_cell.append(line.rstrip("\n"))
 
     fin.close()
@@ -1716,8 +1695,8 @@ def plotVoronoi3DwithIMTspbc(
             msh_vtk.write("\n{0}".format(colors[int(cell_id) - 1]))
 
 
-def plotVoronoi3DwithIMTs(
-    particles, voronoi, rve_dims, IMTs, dir, voronoi_type, save=True, show=True
+def plot_voronoi_3d_with_imts(
+    particles, voronoi, rve_dims, imts, dir, save=True, show=False
 ):
     """Plot the Voronoi for circular particles."""
     # ======================================================================================
@@ -1822,7 +1801,7 @@ def plotVoronoi3DwithIMTs(
     # ==========================================================================================
     # Define model name
 
-    title = dir + "voronoi_wIMTs"
+    title = os.path.join(dir, "voronoi_wIMTs")
     model.add(title)
 
     boxTag = factory.addBox(
@@ -1881,20 +1860,6 @@ def plotVoronoi3DwithIMTs(
                         (vertex_1, vertex_2), edgeTags.get((vertex_2, vertex_1))
                     )
                 )
-            print(edgeFaceTags, ridge, "\n\n")
-            with open(
-                os.path.join("", "region.vtk"),
-                "a",
-            ) as msh_vtk:
-                msh_vtk.write("# vtk DataFile Version 2.0")
-                msh_vtk.write("\n3D triangulation data")
-                msh_vtk.write("\nASCII")
-                msh_vtk.write("\n\nDATASET POLYDATA")
-                msh_vtk.write("\nPOINTS {0} {1}".format(len(ridge), "float"))
-                for vert_ind in ridge:
-                    msh_vtk.write(
-                        "\n{0[0]} {0[1]} {0[2]}".format(voronoi.vertices[vert_ind])
-                    )
             curveLoopTag = factory.addCurveLoop(edgeFaceTags)
 
             planeSurfaceTags.append(factory.addPlaneSurface([curveLoopTag]))
@@ -1925,7 +1890,6 @@ def plotVoronoi3DwithIMTs(
         volumeCell = factory.addVolume([surfaceLoop])
         factory.synchronize()
         xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(3, volumeCell)
-        print(volumeCell)
         cellCheckTags.append(volumeCell)
         i_voronoi_cell = gmsh.model.getEntitiesInBoundingBox(
             xmin - eps,
@@ -1936,14 +1900,12 @@ def plotVoronoi3DwithIMTs(
             zmax + eps,
             dim=3,
         )
-        print(i_voronoi_cell)
         factory.synchronize()
         material_tag = model.addPhysicalGroup(
             3, [cell[1] for cell in i_voronoi_cell if cell[0] == 3]
         )
         model.setPhysicalName(3, material_tag, "Cell " + str(number_cells))
         number_cells += 1
-    print(gmsh.model.getEntities(3))
     gmsh.model.removeEntities([(3, tag) for tag in cellCheckTags])
 
     # factory.synchronize()
@@ -2032,7 +1994,7 @@ def plotVoronoi3DwithIMTs(
             msh_vtk.write("\n\nSCALARS {0} {1} {2}".format(dataName, dataType, numComp))
             msh_vtk.write("\nLOOKUP_TABLE default")
             for cell_id in element_cell[2:]:
-                msh_vtk.write("\n{0}".format(IMTs[int(cell_id) - 1][i_IMT]))
+                msh_vtk.write("\n{0}".format(imts[int(cell_id) - 1][i_IMT]))
 
     for i_order in range(7):
 
@@ -2044,19 +2006,19 @@ def plotVoronoi3DwithIMTs(
 
         if i_order == 0:
             plt.hist(
-                np.abs(np.array(IMTs)[:, i_order]),
+                np.abs(np.array(imts)[:, i_order]),
                 color=(68 / 255, 119 / 255, 170 / 255, 1),
             )
             ax.set_xlabel(r"Surface Area")
         else:
             plt.hist(
-                np.abs(np.array(IMTs)[:, i_order]),
+                np.abs(np.array(imts)[:, i_order]),
                 color=(68 / 255, 119 / 255, 170 / 255, 1),
                 range=(0, 1),
                 bins=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
             )
             plt.axvline(
-                np.mean(np.abs(np.array(IMTs)[:, i_order])), color="k", linestyle="--"
+                np.mean(np.abs(np.array(imts)[:, i_order])), color="k", linestyle="--"
             )
             ax.set_xlabel(r"$q_{0}$".format(str(i_order)))
             plt.xlim([0, 1])
