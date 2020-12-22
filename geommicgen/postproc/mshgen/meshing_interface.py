@@ -477,7 +477,7 @@ class FEMMeshGenerator(MeshGenerator):
         self.enforce_pbc(rve_dims)
         # Repeated becaused gmsh sometines behaves unpredictably
 
-    def add_particle_pbc_to_model(self, i_particle, rve_dims):
+    def add_particle_pbc_to_model(self, i_particle, rve_dims, add_pbc_images=True):
         """
         Add to the gmsh model the particle "i_particle" and its periodic images.
 
@@ -492,8 +492,15 @@ class FEMMeshGenerator(MeshGenerator):
         model = gmsh.model
         factory = gmsh.model.occ
         eps = 0
+
+        # Periodic images considered
+        if add_pbc_images:
+            pbc_images = [-1, 0, 1]
+        else:
+            pbc_images = [0]
+
         for (j_pbc, p_pbc) in [
-            (j_pbc, p_pbc) for j_pbc in range(-1, 2) for p_pbc in range(-1, 2)
+            (j_pbc, p_pbc) for j_pbc in pbc_images for p_pbc in pbc_images
         ]:
             if i_particle.dim == 2:
                 x_c = i_particle.position_center[0] + rve_dims[0] * j_pbc
@@ -566,7 +573,7 @@ class FEMMeshGenerator(MeshGenerator):
                         (2, self.particle_tags[-1])
                     )
             elif i_particle.dim == 3:
-                for l_pbc in range(-1, 2):
+                for l_pbc in pbc_images:
                     # Particle is a Sphere
                     x_c = i_particle.position_center[0] + rve_dims[0] * j_pbc
                     y_c = i_particle.position_center[1] + rve_dims[1] * p_pbc
