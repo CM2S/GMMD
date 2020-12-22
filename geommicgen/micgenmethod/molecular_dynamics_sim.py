@@ -665,22 +665,54 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 * particles[0].dim
                 * self.microstructure_sample.volume_fraction
             )
-            self.dt = 2 * (
-                np.min([1.2, adim_mean_path])
-                * (
-                    np.sqrt(
-                        harm_m
-                        / (
-                            2
-                            * (2 * harm_r - self.dt * max_vel)
-                            * harm_r
-                            / (2 * harm_r) ** 2
+            print("adim_mean_path", adim_mean_path)
+            if self.force_option == "force_spring":
+                self.dt = 2 * (
+                    np.min([1.2, adim_mean_path])
+                    * (
+                        np.sqrt(
+                            harm_m
+                            / (
+                                4
+                                * (2 * harm_r - self.dt * max_vel)
+                                * harm_r
+                                / (2 * harm_r) ** 2
+                            )
                         )
+                        if max_vel != 0 and 2 * harm_r > self.dt * max_vel
+                        else 0.05
                     )
-                    if max_vel != 0 and 2 * harm_r > self.dt * max_vel
-                    else 0.05
                 )
+            elif self.force_option == "intersection_length":
+                self.dt = 2 * (np.min([1, adim_mean_path]) * (np.sqrt(harm_m)))
+            print(
+                self.dt,
+                harm_r / max_vel,
+                2 * (adim_mean_path * (np.sqrt(harm_m))),
+                adim_mean_path,
+                "\n\n\n",
             )
+            # print(
+            #     2
+            #     * (
+            #         np.min([1.2, adim_mean_path])
+            #         * (
+            #             np.sqrt(
+            #                 harm_m
+            #                 / (
+            #                     2
+            #                     * (2 * harm_r - self.dt * max_vel)
+            #                     * harm_r
+            #                     / (2 * harm_r) ** 2
+            #                 )
+            #             )
+            #             if max_vel != 0 and 2 * harm_r > self.dt * max_vel
+            #             else 0.05
+            #         )
+            #     ),
+            #     2 * (np.min([2, adim_mean_path]) * (np.sqrt(harm_m * 2))),
+            #     "\n\n\n",
+            # )
         for i_particle_index, i_particle in enumerate(particles):
             # Running through all the particles
             if False:  # self.integration_scheme == "newmark":
