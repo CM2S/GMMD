@@ -562,25 +562,84 @@ top_level_reader.addTopLevelKeyword(
         default_value=True,
         type="bool",
     ),
+    KeywordTypeA(
+        "fixed_seed",
+        "Mic_Gen_Parameters",
+        default_value=None,
+        type="int",
+    ),
     KeywordTypeA("Dir_Previous_Mic", "Mic_Gen_Parameters", type="str"),
     KeywordTypeA("RVE_Dimensions", "Mic_Gen_Parameters", type="float"),
 )
 # Generation parameters
 
+top_level_reader.addTopLevelKeyword(
+    KeywordTypeA(
+        "Motion_Analysis",
+        "post_proc",
+        default_value=False,
+        type="bool",
+    ),
+    KeywordTypeA(
+        "final_config",
+        "post_proc",
+        default_value=False,
+        type="bool",
+    ),
+    KeywordTypeA(
+        "stat_nearest_neighbor",
+        "post_proc",
+        default_value=False,
+        type="bool",
+    ),
+    KeywordTypeA(
+        "stat_ripleys_k",
+        "post_proc",
+        default_value=False,
+        type="bool",
+    ),
+    KeywordTypeA(
+        "stat_two_pt_corr",
+        "post_proc",
+        default_value=False,
+        type="bool",
+    ),
+    KeywordTypeA(
+        "voronoi_analysis",
+        "post_proc",
+        default_value=False,
+        type="bool",
+    ),
+    KeywordTypeA(
+        "voronoi_type",
+        "post_proc",
+        default_value="standard",
+        type="str",
+    ),
+    KeywordTypeA(
+        "n_surf_points",
+        "post_proc",
+        default_value=10,
+        type="int",
+    ),
+    KeywordTypeA(
+        "plot_voronoi",
+        "post_proc",
+        default_value=False,
+        type="bool",
+    ),
+    KeywordTypeA(
+        "plot_imts",
+        "post_proc",
+        default_value=False,
+        type="bool",
+    ),
+)
+
 
 top_level_reader.addTopLevelKeyword(
     KeywordTypeB("Problem_Type", type="int"),
     KeywordTypeB("N_DP_Samples", type="int"),
-    KeywordTypeB(
-        "Motion_Analysis",
-        default_value=False,
-        type="bool",
-    ),
-    KeywordTypeB(
-        "final_config",
-        default_value=False,
-        type="bool",
-    ),
 )
 # General keywords
 
