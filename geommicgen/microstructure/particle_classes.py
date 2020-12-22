@@ -2674,7 +2674,7 @@ class Ellipsoid(Particle):
 
     def generate_points_on_surface(self, n_points, erosion_thick=0):
         """Generate *n_points* on the surface of the ellipse."""
-        theta = np.linspace(0, np.pi, n_points)
+        theta = np.linspace(np.pi / (n_points + 1), np.pi, n_points, endpoint=False)
         phi = np.linspace(0, 2 * np.pi, n_points, endpoint=False)
         # Using the convention from physics for the angles
         points_loc = []
@@ -3447,7 +3447,7 @@ class Cylinder(Particle):
         return radius
 
     def intersection(self, other_particle, box, inside=True):
-        intersection, _ = self.intersection_gjk(other_particle, box, inside=inside)
+        intersection, *_ = self.intersection_gjk(other_particle, box, inside=inside)
         return intersection
 
     def intersection_area(self, other_particle, box):
@@ -3969,6 +3969,9 @@ class Matrix(Particle):
 
 
 class Point(Particle):
+
+    radius = 0
+
     def intersection(self, other_particle, box) -> bool:
         """Check if the two particles intersect."""
 
@@ -3987,8 +3990,9 @@ class Point(Particle):
             else np.append(self.position_center, 0)
         )
 
-    def point_inside(self, point: np.array) -> bool:
+    def point_inside(self, point: np.array, box: list) -> bool:
         """Check if some point is inside the particle."""
+        return False
 
     def generate_point_inside(self):
         """Generate a random point inside the particle."""
