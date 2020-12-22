@@ -686,6 +686,7 @@ class Ellipse(Particle):
         {"minor_axis", "angle", "n", "vf"},
         {"ratio", "angle", "n", "vf"},
         {"major_axis", "ratio", "angle", "vf"},
+        {"major_axis", "ratio", "angle", "n"},
     ]
     dim = 2
     # List of acceptable collections of parameters
@@ -741,11 +742,7 @@ class Ellipse(Particle):
             )
             minor_axis = np.sqrt(volume_part / (np.pi * descriptors["ratio"] * 1 / 4))
             major_axis = descriptors["ratio"] * minor_axis
-        elif (
-            "ratio" in descriptors
-            and "major_axis" in descriptors
-            and "vf" in descriptors
-        ):
+        elif "ratio" in descriptors and "major_axis" in descriptors:
             # Ratio and major axis were supplied
             major_axis = descriptors["major_axis"]
             minor_axis = major_axis / descriptors["ratio"]
