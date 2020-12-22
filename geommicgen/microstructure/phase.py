@@ -146,6 +146,10 @@ class Phase:
                     self.descriptors[descriptor] = FixedValue(
                         descriptor, phase_descriptors[descriptor]
                     )
+                elif descriptor_distribution == "specified":
+                    self.descriptors[descriptor] = SpecifiedValue(
+                        descriptor, phase_descriptors[descriptor]
+                    )
                 else:
                     raise ValueError(
                         "The distribution supplied for {0} in Phase {1} is not supported".format(
@@ -253,6 +257,52 @@ class PhaseDescriptor(abc.ABC):
 
     def generate_sample(self, n_samples):
         """Generate a sample."""
+
+
+class SpecifiedValue(PhaseDescriptor):
+    """
+    This is the class for phase descriptors with a fixed value.
+
+    Attributes
+    ----------
+    value: object
+        Specified value of the descriptor.
+
+    real_value: object
+        Real value of the descriptor. Used when a given descriptor cannot be exactly
+        satisfied.
+
+    Class Attributes
+    ----------------
+    parameters: set
+        Parameters of the statistical distribution.
+    """
+
+    parameters = {"mean", "sigma"}
+
+    def __init__(self, name, vals):
+        """
+        Initialize for the FixedValue class object.
+
+        Parameters
+        ----------
+        name: str
+            Name of the descriptor
+
+        value: object
+            Specified value of the descriptor.
+        """
+        self.mean = np.mean(vals)
+        self.sigma = np.std(vals)
+        self.array_vals = vals
+        self.current_val = 0
+        super().__init__(name)
+
+    def generate_sample(self, n_samples=1):
+        """Return the specified value of the descriptor."""
+        val = self.array_vals[self.current_val]
+        self.current_val += 1
+        return self.array_vals
 
 
 class FixedValue(PhaseDescriptor):
@@ -439,6 +489,12 @@ class DiscreteDistribution(PhaseDescriptor):
 
         self.values = values
         self.probabilities = probabilities
+        DiscreteDistribution.parameters = []
+        for i_ind, (i_val, i_prob) in enumerate(zip(self.values, self.probabilities)):
+            setattr(self, "value_{0}".format(i_ind + 1), i_val)
+            DiscreteDistribution.parameters.append("value_{0}".format(i_ind + 1))
+            setattr(self, "prob_{0}".format(i_ind + 1), i_prob)
+            DiscreteDistribution.parameters.append("prob_{0}".format(i_ind + 1))
 
         super().__init__(name)
 
