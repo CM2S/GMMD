@@ -52,7 +52,7 @@ class FEMMeshGenerator(MeshGenerator):
         Element type.
 
     descriptors_element_type: dict
-        Descriptors of the elements used to mesh the microstucutre.
+        Descriptors of the elements used to mesh the microstructure.
 
     output_term: {0, 1}
         Flag for the gmsh output.
@@ -69,7 +69,7 @@ class FEMMeshGenerator(MeshGenerator):
     enforce_pbc_flag: bool
         Flag for the enforcement of periodic boundary conditions. By defalut True. Only set
         to  False if there are Ellipsoids or CylindricalFibers in the microstructure. Gmsh
-        has not been able to produce  microstucutres containing Ellipsoids or
+        has not been able to produce  microstructures containing Ellipsoids or
         CylindricalFibers and with pbcs.
 
     Class Attributes
@@ -200,7 +200,7 @@ class FEMMeshGenerator(MeshGenerator):
             Element type.
 
         rve_dims: list(float)
-            Dimensions of the microstucutre in each spatial direciton.
+            Dimensions of the microstructure in each spatial direciton.
 
         Keyword Arguments
         -----------------
@@ -870,7 +870,7 @@ class RegularGridMeshGenerator(MeshGenerator):
             Number of voxels in each spatial direction.
 
         rve_dims: list(float)
-            Dimensions of the microstucutre in each spatial direction.
+            Dimensions of the microstructure in each spatial direction.
         """
         if len(n_voxels_dims) != len(rve_dims):
             raise ValueError(

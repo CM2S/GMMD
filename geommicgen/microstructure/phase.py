@@ -37,7 +37,7 @@ class Phase:
         Dictionary containing as keys the names of the descriptors and as values the
         descriptor class objects.
 
-    microstucutre: `.Microstructure`
+    microstructure: `.Microstructure`
         Microstructure containing the phase.
 
     particles: list(`.Particles`)
@@ -81,7 +81,7 @@ class Phase:
         ValueError:
             If the distribution specified for one of the descriptors is not supported.
         """
-        self.microstucutre = None
+        self.microstructure = None
         self.name = name
         # Name of the phase
         self.type = Phase.phase_types[phase_descriptors["phase_type"]]

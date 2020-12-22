@@ -20,7 +20,7 @@ class Particle(abc.ABC):
     """
     This is the class for particles.
 
-    Each particle in the microstucutre is an instance of this class.
+    Each particle in the microstructure is an instance of this class.
 
     Attributes
     ----------
@@ -1197,7 +1197,7 @@ class Ellipse(Particle):
             other_ellipse.angle,
         )
         if len(y_inter_sect) > 0:
-            # There are intersection points betweeen the two neighboorhoods
+            # There are intersection points betweeen the two neighborhoods
             intersection_bool = True
         else:
             if inside:
