@@ -65,6 +65,7 @@ class IsokineticThermostat(Thermostat):
         self.force_coeff = None
         # Thermostat force coefficient
         self.temp_change_steps = [0]
+        self.ratio = []
 
     def apply_thermostat(self, particle_velocities, kin_energy):
         """
