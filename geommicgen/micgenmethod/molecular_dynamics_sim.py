@@ -179,13 +179,14 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.force_rescale = kwargs.get("force_rescale", False)
         self.dt_adapt = kwargs.get("dt_adapt", "const")
         self.offset = kwargs.get("offset", True)
+        self.fixed_seed = kwargs.get("fixed_seed", None)
         self.force_rescale_coeff = 1
 
     def generate_microstructure(self, microstructure_sample):
         """
         Generate the microstructure for the sample supplied.
 
-        Generate the microstructure for microstructure_sample using the microstucutre
+        Generate the microstructure for microstructure_sample using the microstructure
         generation method *self*.
 
         Parameters
@@ -193,7 +194,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         microstructure_sample: `.Microstructure`
             Microstructure sample to be generated
         """
-        self.microstucutre_sample = microstructure_sample
+        self.microstructure_sample = microstructure_sample
         for phase in microstructure_sample.phases.values():
             if phase.type is not Matrix:
                 phase.generate_particles(microstructure_sample.rve_dims)
@@ -235,7 +236,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
             List of particles in the simulation.
 
         rve_dims: list(floats)
-            Dimensions of the microstucutre in each spatial direction.
+            Dimensions of the microstructure in each spatial direction.
         """
         if any(
             [
@@ -274,7 +275,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.particle_velocities = [None for _ in particles]
         if self.type_init_conf == "random":
             # Random configuration for the particle centers and the zero velocity
-            # np.random.seed(42)
+            if self.fixed_seed is not None:
+                np.random.seed(self.fixed_seed)
+                # Generating the same initial configuration in different runs.
             for i_ind, i_particle in enumerate(particles):
                 # Running through all the particles
                 i_particle.position_center = self.box * np.random.uniform(
@@ -660,7 +663,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
             adim_mean_path = 1 / (
                 np.sqrt(2)
                 * particles[0].dim
-                * self.microstucutre_sample.volume_fraction
+                * self.microstructure_sample.volume_fraction
             )
             self.dt = 2 * (
                 np.min([1.2, adim_mean_path])
