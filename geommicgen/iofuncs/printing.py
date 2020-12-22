@@ -3,7 +3,7 @@ import os
 
 def print_initial_message():
     print_to_file("\n")
-    print_to_file("Geometrical microstucutre generation")
+    print_to_file("Geometrical microstructure generation")
     print_to_file("=" * 80)
     print_to_file("Computational Multi-Scale Modelling of".rjust(80))
     print_to_file("Solids and Structures Research Group".rjust(80))
@@ -12,7 +12,7 @@ def print_initial_message():
 
 def print_analysis_previous(input_file_path, previous_mic_path):
     print_to_file("Input file: {0}".format(input_file_path))
-    print_to_file("Previous microstucutre: {0}".format(previous_mic_path))
+    print_to_file("Previous microstructure: {0}".format(previous_mic_path))
     print_to_file("\n")
 
 
@@ -49,7 +49,7 @@ def print_final_message(time, total_overlap, number_iterations, max_overlap):
 
 
 def print_to_file(message, end="\n"):
-    """Print to the screen file of corresponding to the current microstucutre sample."""
+    """Print to the screen file of corresponding to the current microstructure sample."""
 
     if os.path.exists("temp.screen"):
         action = "a"
@@ -81,12 +81,12 @@ def print_to_terminal_refresh(
         # print("Kinetic Energy: {:.2e}".format(kin_energy))
 
 
-def print_microstructure_info(microstucutre):
+def print_microstructure_info(microstructure):
 
     print_to_file("Microstructure descriptors")
     print_to_file("=" * 80 + "\n")
 
-    for i_phase_name, i_phase in microstucutre.phases.items():
+    for i_phase_name, i_phase in microstructure.phases.items():
         print_to_file("Phase {0}: ({1})".format(i_phase_name, i_phase.type.__name__))
         if i_phase.type.__name__ == "Matrix":
             print_to_file("")
