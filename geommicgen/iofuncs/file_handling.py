@@ -4,6 +4,8 @@ import pickle
 
 from .printing import print_output
 
+from micgenmethod.mic_from_imagej import generate_microstructure_from_csv
+
 
 def create_sample_results_directory(dp_dir):
     """
@@ -94,21 +96,27 @@ def get_arguments_from_command_line():
     previous_mic_path = None
     if len(sys.argv) == 3:
         _, ext = os.path.splitext(os.path.basename(sys.argv[2]))
-        if ext == ".mic":
+        if ext in {".mic", ".csv"}:
             previous_mic_path = sys.argv[2]
         else:
             raise ValueError(
-                "Wrong extension for the previous microstucutre file: {0}".format(ext)
+                "Wrong extension for the previous microstructure file: {0}".format(ext)
             )
     return input_file_path, input_file_dir, input_file_name, ext, previous_mic_path
 
 
 def load_previous_sample(previous_mic_path):
-    info_previous_sample = pickle.load(open(previous_mic_path, "rb"))
-    # No need to generate a new microstructure. Using a previous microstructure.
-    current_sample = info_previous_sample["microstructure"]
-    current_mic_generator = info_previous_sample["generation_method"]
-    # Reconstructing the relevant Particle attributes that could not be pickled
+    """Load a microstructure sample."""
+    _, ext = os.path.splitext(os.path.basename(previous_mic_path))
+    if ext == ".mic":
+        info_previous_sample = pickle.load(open(previous_mic_path, "rb"))
+        # No need to generate a new microstructure. Using a previous microstructure.
+        current_sample = info_previous_sample["microstructure"]
+        current_mic_generator = info_previous_sample["generation_method"]
+        # Reconstructing the relevant Particle attributes that could not be pickled
+    elif ext == ".csv":
+        current_sample = generate_microstructure_from_csv(previous_mic_path)
+        current_mic_generator = None
     return current_sample, current_mic_generator
 
 
