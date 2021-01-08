@@ -614,7 +614,7 @@ def compute_3d_irreducible_minkowski_tensors(voronoi):
                     )
                 )
         phi_region[-1].append(phi)
-    return imt_region
+    return imt_region, phi
 
 
 def compute_3d_irreducible_minkowski_tensors_polyhedron(unormals, area):
@@ -1048,8 +1048,9 @@ def do_voronoi_analysis(
             # Saving the irreducible Minkowski tensors of the voronoi cells associated with
             # particles inside the box
             plot_voronoi_3d(particles, voronoi, rve_dims, voronoi_results_dir)
-        imts = compute_3d_irreducible_minkowski_tensors(voronoi)
+        imts, phi = compute_3d_irreducible_minkowski_tensors(voronoi)
         imts_in_box = np.array(imts)
+        print(imts, phi)
         if plot_imts:
             plot_voronoi_3d_with_imts(
                 particles, voronoi, rve_dims, imts, voronoi_results_dir
