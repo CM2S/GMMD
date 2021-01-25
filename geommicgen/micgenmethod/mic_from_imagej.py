@@ -419,12 +419,11 @@ def compute_weights(sample, vis_vars):
     return weight
 
 
-def generate_sobol_samples(n_sobol_samples, vis_vars):
+def generate_sobol_samples(n_sobol_samples, vis_vars, sobol_sequence):
 
     r_max = 1
     weights = []
     sobol_samples = []
-    sobol_sequence = qp.Sobol(3)
     k_sample = 0
     n_need = 1
     while len(weights) < n_sobol_samples:
@@ -471,7 +470,8 @@ def expct_log_likelihood(curr_param_estimates, weights, sobol_samples):
         mu, sigma, a_1, b_1, a_2, b_2 = curr_param_estimates
 
         samples_z_u = []
-        while True:
+        k_iter = 0
+        while k_iter < 200:
             p_3_sample = np.arcsin(np.random.rand())
             p_2_sample = np.arcsin(
                 np.cos(p_3_sample) * np.sin(np.pi * np.random.rand() / 2)
@@ -490,8 +490,9 @@ def expct_log_likelihood(curr_param_estimates, weights, sobol_samples):
             mean_z_u = np.mean(samples_z_u)
             if len(samples_z_u) > 1:
                 std_z_u = 1 / np.sqrt(len(samples_z_u)) * np.std(samples_z_u)
-                if std_z_u < 1e-2:
+                if std_z_u < 1e-3:
                     break
+            k_iter += 1
 
         # lognomal r_3
         expect_z_u = (mu + sigma ** 2 / 2) + np.log(mean_z_u)
@@ -500,10 +501,6 @@ def expct_log_likelihood(curr_param_estimates, weights, sobol_samples):
 
         return expect_z_u
 
-    normalized_weights = (
-        weights
-        / np.array([np.sum(weights, axis=1) for _ in enumerate(weights[0, :])]).T
-    )
     # print("curr_param_estimates", curr_param_estimates, len(curr_param_estimates))
     pdf = np.full(sobol_samples.shape, 0.0)
     n_particles = sobol_samples.shape[0]
@@ -521,7 +518,7 @@ def expct_log_likelihood(curr_param_estimates, weights, sobol_samples):
 
     log_expected_val_z_u = expected_val_z_u_m_c(curr_param_estimates)
     expct_log_likelihood_val = (
-        np.sum(normalized_weights * np.log(pdf)) - n_particles * log_expected_val_z_u
+        np.sum(weights * np.log(pdf)) - n_particles * log_expected_val_z_u
     )
 
     # print(curr_param_estimates, expct_log_likelihood_val)
@@ -538,7 +535,7 @@ def expct_log_likelihood_vec(curr_param_estimates_vec, weights, sobol_samples):
 
 
 def qmc_em_size_param_estimation(
-    visible_vars, init_param_estimates, max_iter=50, tol=0.015, n_sobol_samples=256
+    visible_vars, init_param_estimates, max_iter=50, tol=1e-12, n_sobol_samples=1024
 ):
 
     n_particles = len(visible_vars)
@@ -547,50 +544,80 @@ def qmc_em_size_param_estimation(
 
     # Generate Sobol samples
     # --------------------------------------------------------------------------------------
+    sobol_sequence = qp.Sobol(3)
     for i_part in range(n_particles):
         # Generate Sobol samples \(\pmb h_i^{(s)}\) until \(S\) samples with nonzero weights
         # are obtained
         print(i_part)
         is_weights[i_part, :], sobol_samples[i_part, :] = generate_sobol_samples(
-            n_sobol_samples, visible_vars[i_part]
+            n_sobol_samples, visible_vars[i_part], sobol_sequence
         )
 
-    weights = np.array(is_weights)
     curr_param_estimates = list(init_param_estimates)
     # EM algorithm
     # --------------------------------------------------------------------------------------
     bounds = ([-5, 0, 0, 0, 0, 0], [5, 1, 25, 10, 25, 10])
     options = {"c1": 0.5, "c2": 0.3, "w": 0.9}
+
+    weights = np.array(is_weights)
+    for (i_part, s_sample) in (
+        (i_part, s_sample)
+        for i_part in range(n_particles)
+        for s_sample in range(n_sobol_samples)
+    ):
+        # Calculate the weights for the qmc integration
+        r_3 = sobol_samples[i_part, s_sample][2]
+        r_2 = r_3 * sobol_samples[i_part, s_sample][1]
+        r_1 = r_2 * sobol_samples[i_part, s_sample][0]
+        weights[i_part, s_sample] *= param_dist(
+            [-3.5, np.sqrt(0.5), 15, 3, 20, 6], [r_1, r_2, r_3]
+        )
+    # Maximization step
+    normalized_weights = (
+        weights
+        / np.array([np.sum(weights, axis=1) for _ in enumerate(weights[0, :])]).T
+    )
+    print(
+        "max",
+        [-3.5, np.sqrt(0.5), 15, 3, 20, 6],
+        expct_log_likelihood(
+            [-3.5, np.sqrt(0.5), 15, 3, 20, 6], normalized_weights, sobol_samples
+        ),
+    )
     optmizer = ps.single.GlobalBestPSO(
         n_particles=10, dimensions=6, options=options, bounds=bounds
     )
-    for k_iter in range(max_iter):
+    for k_iter in range(15):  # range(max_iter):
         # Estimation step
-        if k_iter > 0:
-            for (i_part, s_sample) in (
-                (i_part, s_sample)
-                for i_part in range(n_particles)
-                for s_sample in range(n_sobol_samples)
-            ):
-                # Calculate the weights for the qmc integration
-                r_3 = sobol_samples[i_part, s_sample][2]
-                r_2 = r_3 * sobol_samples[i_part, s_sample][1]
-                r_1 = r_2 * sobol_samples[i_part, s_sample][0]
-                weights[i_part, s_sample] *= param_dist(
-                    curr_param_estimates, [r_1, r_2, r_3]
-                )
-        # print("weights", weights)
+        weights = np.array(is_weights)
+        for (i_part, s_sample) in (
+            (i_part, s_sample)
+            for i_part in range(n_particles)
+            for s_sample in range(n_sobol_samples)
+        ):
+            # Calculate the weights for the qmc integration
+            r_3 = sobol_samples[i_part, s_sample][2]
+            r_2 = r_3 * sobol_samples[i_part, s_sample][1]
+            r_1 = r_2 * sobol_samples[i_part, s_sample][0]
+            weights[i_part, s_sample] *= param_dist(
+                curr_param_estimates, [r_1, r_2, r_3]
+            )
         # Maximization step
-        old_param_estimates = curr_param_estimates
+        old_param_estimates = list(curr_param_estimates)
+        # curr_param_estimates += np.full(6, 0.25) - 0.5 * np.random.rand(6)
+
         _, curr_param_estimates = optmizer.optimize(
-            expct_log_likelihood_vec, 10, weights=weights, sobol_samples=sobol_samples
+            expct_log_likelihood_vec,
+            10,
+            weights=normalized_weights,
+            sobol_samples=sobol_samples,
         )
         # Stopping criterion
-        print(old_param_estimates)
-        print(curr_param_estimates)
-        print(
-            np.max((old_param_estimates - curr_param_estimates) / curr_param_estimates)
-        )
+        # print(old_param_estimates)
+        # print(curr_param_estimates)
+        # print(
+        #     np.max((old_param_estimates - curr_param_estimates) / curr_param_estimates)
+        # )
         if (
             np.max((old_param_estimates - curr_param_estimates) / curr_param_estimates)
             < tol
@@ -612,7 +639,7 @@ def generating_samples():
 
     # Sample sizes
     # --------------------------------------------------------------------------------------
-    n_sample_size = 200
+    n_sample_size = 600
     n_particles = 1000
 
     # Sample vals
