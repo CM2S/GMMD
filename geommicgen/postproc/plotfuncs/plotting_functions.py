@@ -206,6 +206,7 @@ def plot_particles(particles, rve_dims, sample_dir, **kwargs):
     if len(rve_dims) == 2:
         plot_particles_2d(particles, rve_dims, sample_dir)
     elif len(rve_dims) == 3:
+        # plot_particles_3d_one_by_one(particles, rve_dims, sample_dir)
         plot_particles_3d(particles, rve_dims, sample_dir)
 
 
@@ -313,6 +314,69 @@ def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
     model.mesh.generate(2)
 
     _ = mesh_generator.write_mesh_gmsh(sample_dir, "final_config")
+
+
+def plot_particles_3d_one_by_one(particles, rve_dims, sample_dir, **kwargs):
+
+    for i_ind, i_particle in enumerate(particles):
+        dim = len(rve_dims)
+        mesh_generator = FEMMeshGenerator(particles[0].radius / 2, "tetra10", rve_dims)
+
+        mesh_generator.init_gmsh_model()
+
+        model = gmsh.model
+        factory = model.occ
+        # occ - OpenCASCADE CAD (more advanced)
+
+        model.add(sample_dir)
+
+        mesh_generator.box_tag = factory.addBox(
+            0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2]
+        )
+
+        mesh_generator.phase_dim_tag = {
+            phase_name: []
+            for phase_name in {i_particle.phase for i_particle in particles}
+        }
+
+        mesh_generator.add_particle_pbc_to_model(i_particle, rve_dims)  # [0, 0, 0])
+
+        out_dim_tag, _ = factory.intersect(
+            [(dim, mesh_generator.box_tag)],
+            [(dim, particle_tag) for particle_tag in mesh_generator.particle_tags],
+            removeObject=True,
+            removeTool=True,
+        )
+
+        temp = set(out_dim_tag)
+        for i_phase in mesh_generator.phase_dim_tag:
+            mesh_generator.phase_dim_tag[i_phase] = [
+                value
+                for value in mesh_generator.phase_dim_tag[i_phase]
+                if value in temp
+            ]
+
+        # Set the mesh size on the geometry points
+        # Synchronize the CAD engine (always needed before generating the mesh)
+        # It may also be useful for some intermidate operations, like checking the tags of
+        # entities
+        factory.synchronize()
+
+        for i_phase, i_dim_tags in mesh_generator.phase_dim_tag.items():
+            bound_dim_tags = model.getBoundary([(3, tag) for _, tag in i_dim_tags])
+            material_tag = model.addPhysicalGroup(
+                2, [tag for dim, tag in bound_dim_tags if dim == 2]
+            )
+            model.setPhysicalName(2, material_tag, "Phase {0}".format(i_phase))
+
+        # model.mesh.setSize(points, mesh_size)
+        gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
+        gmsh.option.setNumber("Mesh.CharacteristicLengthMax", mesh_generator.mesh_size)
+
+        # Generate a 3D mesh
+        model.mesh.generate(2)
+
+        _ = mesh_generator.write_mesh_gmsh(sample_dir, "final_config_{0}".format(i_ind))
 
 
 def plot_kinetic_energy_history(
