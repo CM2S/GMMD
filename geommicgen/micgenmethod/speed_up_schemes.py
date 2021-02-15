@@ -48,6 +48,7 @@ class CellList(SpeedUpScheme):
         self.max_radius = None
         # Saving the maximum radius of the circunscribing disk/sphere
         self.particle_list = None
+        self.cell_particle_list = None
         self.cell_list = None
         self.pos_cell_list = []
 
@@ -99,7 +100,7 @@ class CellList(SpeedUpScheme):
             )
         n_cells = np.prod(np.array(self.n_cell_dim))
         self.cell_list = [set() for i in range(n_cells)]
-        self.particle_list = [[] for _ in particles]
+        self.particle_list = [set() for _ in particles]
         self.pos_cell_list = [None for _ in particles]
         for i_index, i_particle in enumerate(particles):
             # Running through all the particles
@@ -142,11 +143,124 @@ class CellList(SpeedUpScheme):
                 )
                 # Computing the index of the neighbor cell
                 for j_particle_index in self.cell_list[pos_neighbor_cell]:
-                    if j_particle_index > i_particle_index:
+                    # if j_particle_index > i_particle_index:
+                    # Running through all the particles in the neighboring cell
+                    # If the neighborhoods of the particles intersect
+                    self.particle_list[i_particle_index].add(j_particle_index)
+                    # Add the particle j_particle to i_particle's Verlet list
+
+    def new_list_partial(self, particles, lists_to_recalc):
+        """
+        Compute a new cell list for particles.
+
+        Parameters
+        ----------
+        particles: list(`.Particle`)
+            Particles in the simulatin box, whose cell list is to be computed.
+        """
+        # Initialization
+        # ----------------------------------------------------------------------------------
+        dim = particles[0].dim
+
+        if self.max_radius is None:
+            self.max_radius = np.max(
+                np.array([particle.radius for particle in particles])
+            )
+        n_cells = np.prod(np.array(self.n_cell_dim))
+        if self.cell_list is None:
+            self.cell_list = [set() for i in range(n_cells)]
+            self.cell_particle_list = [set() for _ in particles]
+            self.pos_cell_list = [None for _ in particles]
+        pos_cell_list_old = list(self.pos_cell_list)
+
+        # Obtaining the cell position of the particle lists to recalculate
+        # ----------------------------------------------------------------------------------
+        for i_index, i_particle in enumerate(particles):
+            if i_particle not in lists_to_recalc:
+                continue
+            # Running through all the particles
+            pos_cell_list_dim = []
+            # Initializing the list containing the position of the cell in each direction
+            # with the origin at the top left
+            for j_dim in range(dim):
+                # Running through all the dimensions
+                pos_cell_list_dim.append(
+                    int(
+                        i_particle.position_center[j_dim]
+                        // self.cell_side_length[j_dim]
+                    )
+                )
+                # j_dim-position of the particle in the grid
+            if dim == 2:
+                # 2D problem
+                pos_cell_list = (
+                    pos_cell_list_dim[0] + pos_cell_list_dim[1] * self.n_cell_dim[0]
+                )
+                # Saving the position in the cell list of particle i_particle
+            if dim == 3:
+                # 3D problem
+                pos_cell_list = (
+                    pos_cell_list_dim[0]
+                    + pos_cell_list_dim[1] * self.n_cell_dim[0]
+                    + pos_cell_list_dim[2] * self.n_cell_dim[0] * self.n_cell_dim[1]
+                )
+                # Saving the position in the cell list of particle i_particle
+            if self.pos_cell_list[i_index] is not None:
+                self.cell_list[self.pos_cell_list[i_index]].remove(i_index)
+
+            self.pos_cell_list[i_index] = pos_cell_list
+            self.cell_list[pos_cell_list].add(i_index)
+
+        # Updating the particle list
+        # ----------------------------------------------------------------------------------
+        already_rem = set()
+        for i_particle_index, i_particle in enumerate(particles):
+            if (
+                self.pos_cell_list[i_particle_index]
+                == pos_cell_list_old[i_particle_index]
+                or i_particle not in lists_to_recalc
+            ):
+                # No update needed
+                continue
+            already_rem.add(i_particle_index)
+            if pos_cell_list_old[i_particle_index] is not None:
+                # Removing old
+                for k_neighbor_cell in range(3 ** dim):
+                    # Running through the neighbor cells
+                    pos_neighbor_cell = self.neighbor_cell(
+                        pos_cell_list_old[i_particle_index],
+                        k_neighbor_cell,
+                        dim,
+                        self.n_cell_dim,
+                    )
+                    # Computing the index of the neighbor cell
+                    for j_particle_index in self.cell_list[pos_neighbor_cell]:
+                        if (
+                            i_particle_index > j_particle_index
+                            or i_particle_index
+                            in self.cell_particle_list[j_particle_index]
+                        ) and j_particle_index not in already_rem:
+                            self.cell_particle_list[j_particle_index].remove(
+                                i_particle_index
+                            )
+            # Adding new
+            for k_neighbor_cell in range(3 ** dim):
+                # Running through the neighbor cells
+                pos_neighbor_cell = self.neighbor_cell(
+                    self.pos_cell_list[i_particle_index],
+                    k_neighbor_cell,
+                    dim,
+                    self.n_cell_dim,
+                )
+                # Computing the index of the neighbor cell
+                for j_particle_index in self.cell_list[pos_neighbor_cell]:
+                    if j_particle_index > i_particle_index or True:
                         # Running through all the particles in the neighboring cell
                         # If the neighborhoods of the particles intersect
-                        self.particle_list[i_particle_index].append(j_particle_index)
+                        self.cell_particle_list[i_particle_index].add(j_particle_index)
                         # Add the particle j_particle to i_particle's Verlet list
+                    if i_particle_index > j_particle_index or True:
+                        self.cell_particle_list[j_particle_index].add(i_particle_index)
 
     def neighbor_cell(self, pos_current_cell, local_pos_neighbor_cell, dim, n_cells):
         """
@@ -352,18 +466,24 @@ class VerletList(CellList):
                 self.verlet_neighborhoods[i_particle_index].dilate(
                     (self.verlet_factor - 1) * particles[i_particle_index].radius
                 )
+            self.verlet_neighborhoods_move = deepcopy(particles)
+            for i_particle_index, i_particle in enumerate(particles):
+                self.verlet_neighborhoods_move[i_particle_index].contract(
+                    (2 - self.verlet_factor) * particles[i_particle_index].radius
+                )
             # Initializing the displacement_last_verlet
         for i_particle_index, i_particle in enumerate(particles):
             # Computing the displacement of the center of the particle
-            if (
-                i_particle.intersection(
-                    self.verlet_neighborhoods[i_particle_index],
-                    self.box,
-                    inside=False,
-                )
-                or not self.verlet_neighborhoods[i_particle_index].point_inside(
-                    i_particle.position_center, self.box
-                )
+            # if i_particle.intersection(
+            #     self.verlet_neighborhoods[i_particle_index],
+            #     self.box,
+            #     inside=False,
+            #         or not self.verlet_neighborhoods[i_particle_index].point_inside(
+            #             i_particle.position_center, self.box
+            #         )
+            #     ):
+            if not self.verlet_neighborhoods_move[i_particle_index].point_inside(
+                i_particle.position_center, self.box
             ):
                 # Checking if the displacement takes the particle out of its neighborhood
                 self.new_verlet_list = True
@@ -382,7 +502,7 @@ class VerletList(CellList):
             #         )
             super().new_list(particles)
             # Creating the cell list used to compute the Verlet list
-            particle_list_from_cell_list = self.particle_list
+            self.cell_particle_list = list(self.particle_list)
             self.particle_list = [[] for _ in particles]
             # Resetting the Verlet list of
             for i_particle_index, i_particle in enumerate(particles):
@@ -390,11 +510,14 @@ class VerletList(CellList):
                 self.verlet_neighborhoods[
                     i_particle_index
                 ].position_center = i_particle.position_center
+                self.verlet_neighborhoods_move[
+                    i_particle_index
+                ].position_center = i_particle.position_center
                 # Updating the position of all the Verlet neighborhoods to coincide with
                 # the particles current position
             for i_particle_index, i_particle in enumerate(particles):
                 # Running though all the particles
-                for j_particle_index in particle_list_from_cell_list[i_particle_index]:
+                for j_particle_index in self.cell_particle_list[i_particle_index]:
                     # Running through all the particles in the neighboring cell
                     if self.verlet_neighborhoods[i_particle_index].intersection(
                         self.verlet_neighborhoods[j_particle_index],
@@ -403,6 +526,111 @@ class VerletList(CellList):
                         # If the neighborhoods of the particles intersect
                         self.particle_list[i_particle_index].append(j_particle_index)
                         # Add the particle j_particle to i_particle's Verlet list
+            # self.molecular_dynamics_sim.coord_number = (
+            #     np.mean([len(list) for list in self.particle_list]) - 1
+            # )
+        # print("list", self.molecular_dynamics_sim.coord_number, "\n\n\n")
+
+
+class VerletList2(VerletList):
+    def new_list(self, particles):
+        """
+        Compute a new verlet list for particles.
+
+        Parameters
+        ----------
+        particles: list(`.Particle`)
+            Particles in the simulatin box, whose cell list is to be computed.
+        """
+        if self.verlet_neighborhoods is None:
+            self.new_verlet_list = True
+            self.verlet_neighborhoods = deepcopy(particles)
+            self.particle_list = [[] for _ in particles]
+            # Resetting the Verlet list of
+            for i_particle_index, i_particle in enumerate(particles):
+                self.verlet_neighborhoods[i_particle_index].dilate(
+                    (self.verlet_factor - 1) * particles[i_particle_index].radius
+                )
+            self.verlet_neighborhoods_move = deepcopy(particles)
+            for i_particle_index, i_particle in enumerate(particles):
+                self.verlet_neighborhoods_move[i_particle_index].contract(
+                    (2 - self.verlet_factor) * particles[i_particle_index].radius
+                )
+            lists_to_recalc = set(particles)
+            lists_to_recalc_ind = set(range(len(particles)))
+            # Initializing the displacement_last_verlet
+        else:
+            lists_to_recalc = set()
+            lists_to_recalc_ind = set()
+            # Possible Verlet lists to recalculate
+            for i_particle_index, i_particle in enumerate(particles):
+                # Computing the displacement of the center of the particle
+                if not self.verlet_neighborhoods_move[i_particle_index].point_inside(
+                    i_particle.position_center, self.box
+                ):
+                    # if (
+                    #     i_particle.intersection(
+                    #         self.verlet_neighborhoods[i_particle_index],
+                    #         self.box,
+                    #         inside=False,
+                    #     )
+                    #     or not self.verlet_neighborhoods[i_particle_index].point_inside(
+                    #         i_particle.position_center, self.box
+                    #     )
+                    # ):
+                    # Checking if the displacement takes the particle out of its
+                    # neighborhood
+                    self.new_verlet_list = True
+                    # There is a need to compute a new verlet list
+                    lists_to_recalc.add(i_particle)
+                    lists_to_recalc_ind.add(i_particle_index)
+        if self.new_verlet_list:
+            self.new_verlet_list = False
+            # old_verlet_fac = self.verlet_factor
+            # self.verlet_factor = np.max([1.05, old_verlet_fac * 0.95])
+            # print(self.verlet_factor, "verlet\n\n")
+            # if old_verlet_fac != self.verlet_factor:
+            #     for i_particle_index, i_particle in enumerate(particles):
+            #         self.verlet_neighborhoods[i_particle_index].contract(
+            #             (old_verlet_fac - self.verlet_factor)
+            #             * particles[i_particle_index].radius
+            #         )
+
+            for i_particle_index, i_particle in enumerate(particles):
+                if i_particle not in lists_to_recalc:
+                    continue
+                # Running though all the particles
+                self.verlet_neighborhoods[
+                    i_particle_index
+                ].position_center = i_particle.position_center
+                self.verlet_neighborhoods_move[
+                    i_particle_index
+                ].position_center = i_particle.position_center
+                # Updating the position of all the Verlet neighborhoods to coincide with
+                # the particles current position
+            super().new_list_partial(particles, lists_to_recalc)
+            # print(self.cell_particle_list)
+            # import pdb
+
+            # pdb.set_trace()
+            # Creating the cell list used to compute the Verlet list
+            for i_particle_index, i_particle in enumerate(particles):
+                # Running though all the particles
+                if i_particle not in lists_to_recalc:
+                    continue
+                self.particle_list[i_particle_index] = []
+                for j_particle_index in self.cell_particle_list[i_particle_index]:
+                    # Running through all the particles in the neighboring cell
+                    if self.verlet_neighborhoods[i_particle_index].intersection(
+                        self.verlet_neighborhoods[j_particle_index],
+                        self.box,
+                    ):
+                        # If the neighborhoods of the particles intersect
+                        self.particle_list[i_particle_index].append(j_particle_index)
+                        self.particle_list[j_particle_index].append(i_particle_index)
+                        # Add the particle j_particle to i_particle's Verlet list
+                    elif i_particle_index in self.particle_list[j_particle_index]:
+                        self.particle_list[j_particle_index].remove(i_particle_index)
 
 
 class Naive(SpeedUpScheme):

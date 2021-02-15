@@ -26,7 +26,7 @@ from micgenmethod.thermostats import (
     MicroCanonicalEnsemble,
     BerendsenForceThermostat,
 )
-from micgenmethod.speed_up_schemes import CellList, VerletList, Naive
+from micgenmethod.speed_up_schemes import CellList, VerletList, VerletList2, Naive
 
 
 def run_program():
@@ -253,6 +253,10 @@ def run_program():
                         current_speed_up_scheme = CellList()
                     elif mic_gen_parameters.get("speed_up_scheme") == "Verlet":
                         current_speed_up_scheme = VerletList(
+                            mic_gen_parameters["verlet_factor"]
+                        )
+                    elif mic_gen_parameters.get("speed_up_scheme") == "Verlet2":
+                        current_speed_up_scheme = VerletList2(
                             mic_gen_parameters["verlet_factor"]
                         )
                     elif mic_gen_parameters["speed_up_scheme"] == "Naive":
