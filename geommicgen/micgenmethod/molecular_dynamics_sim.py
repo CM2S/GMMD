@@ -293,9 +293,10 @@ class MolecularDynamicsSimulation(GenerationMethod):
             # number of cells in each direction and a total number of cells larger than the
             # number of particles
             if particles[0].dim == 3:
-                n_cells_side = np.int(np.ceil(np.cbrt(len(particles))))
+                # n_cells_side = np.int(np.ceil(np.cbrt(len(particles))))
+                n_cells_side = 6
                 # Number of cells in each direction
-                cell_length = self.box / n_cells_side
+                cell_length = np.array(self.box) / n_cells_side
                 # Length of the cells in each direction
                 k_counter = 0
                 # Initializing the counter
@@ -358,6 +359,120 @@ class MolecularDynamicsSimulation(GenerationMethod):
                             ] = particles[grid_places[k_counter]].position_center
                         # # Saving particle history
                         k_counter += 1
+        elif self.type_init_conf == "bcc":
+            step = self.box[0] / 4
+            ind_part = 0
+            for k_layer in range(8):
+                if np.mod(k_layer, 2) == 0:
+                    for (i_row, j_column) in (
+                        (i_row, j_column) for i_row in range(4) for j_column in range(4)
+                    ):
+                        particles[ind_part].position_center = step * np.array(
+                            [i_row, j_column, k_layer * 0.5]
+                        )
+                        self.particle_velocities[ind_part] = np.zeros(particles[0].dim)
+                        self.position_center_history[ind_part][0] = particles[
+                            ind_part
+                        ].position_center
+                        ind_part += 1
+                else:
+                    for (i_row, j_column) in (
+                        (i_row, j_column) for i_row in range(4) for j_column in range(4)
+                    ):
+                        particles[ind_part].position_center = step * np.array(
+                            [0.5, 0.5, 0]
+                        ) + step * np.array(
+                            [
+                                i_row,
+                                j_column,
+                                k_layer * 0.5,
+                            ]
+                        )
+                        self.particle_velocities[ind_part] = np.zeros(particles[0].dim)
+                        self.position_center_history[ind_part][0] = particles[
+                            ind_part
+                        ].position_center
+                        # Saving initial configuration
+                        ind_part += 1
+            print(ind_part, "\n\n\n")
+
+        elif self.type_init_conf == "fcc":
+            step = self.box[0] / 4
+            ind_part = 0
+            for k_layer in range(8):
+                if np.mod(k_layer, 2) == 0:
+                    for (i_row, j_column) in (
+                        (i_row, j_column) for i_row in range(4) for j_column in range(4)
+                    ):
+                        particles[ind_part].position_center = step * np.array(
+                            [i_row, j_column, k_layer * 0.5]
+                        )
+                        self.particle_velocities[ind_part] = np.zeros(particles[0].dim)
+                        self.position_center_history[ind_part][0] = particles[
+                            ind_part
+                        ].position_center
+                        ind_part += 1
+                    for (i_row, j_column) in (
+                        (i_row, j_column)
+                        for i_row in range(1, 5)
+                        for j_column in range(4)
+                    ):
+                        particles[ind_part].position_center = step * np.array(
+                            [0.5, 0.5, 0]
+                        ) + step * np.array(
+                            [
+                                i_row,
+                                j_column,
+                                k_layer * 0.5,
+                            ]
+                        )
+                        self.particle_velocities[ind_part] = np.zeros(particles[0].dim)
+                        self.position_center_history[ind_part][0] = particles[
+                            ind_part
+                        ].position_center
+                        # Saving initial configuration
+                        ind_part += 1
+                else:
+                    for (i_row, j_column) in (
+                        (i_row, j_column)
+                        for i_row in range(1, 5)
+                        for j_column in range(4)
+                    ):
+                        particles[ind_part].position_center = step * np.array(
+                            [-0.5, 0, 0]
+                        ) + step * np.array(
+                            [
+                                i_row,
+                                j_column,
+                                k_layer * 0.5,
+                            ]
+                        )
+                        self.particle_velocities[ind_part] = np.zeros(particles[0].dim)
+                        self.position_center_history[ind_part][0] = particles[
+                            ind_part
+                        ].position_center
+                        # Saving initial configuration
+                        ind_part += 1
+                    for (i_row, j_column) in (
+                        (i_row, j_column)
+                        for i_row in range(4)
+                        for j_column in range(1, 5)
+                    ):
+                        particles[ind_part].position_center = step * np.array(
+                            [0, -0.5, 0]
+                        ) + step * np.array(
+                            [
+                                i_row,
+                                j_column,
+                                k_layer * 0.5,
+                            ]
+                        )
+                        self.particle_velocities[ind_part] = np.zeros(particles[0].dim)
+                        self.position_center_history[ind_part][0] = particles[
+                            ind_part
+                        ].position_center
+                        # Saving initial configuration
+                        ind_part += 1
         else:
             try:
                 raise errors.UnsupportedInitialConfigurationType(self.type_init_conf)
