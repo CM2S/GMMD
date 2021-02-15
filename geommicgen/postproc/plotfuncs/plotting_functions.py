@@ -893,6 +893,12 @@ def plot_voronoi_2d_with_imts(
     import matplotlib
     from scipy.spatial import voronoi_plot_2d
 
+    plt.rc("text", usetex=True)
+    plt.rc(
+        "text.latex",
+        preamble=r"\usepackage[widespace]{fourier} \usepackage{amsmath} \usepackage{amssymb}",
+    )
+
     N = len(particles)
 
     for i_order in range(7):
@@ -926,8 +932,8 @@ def plot_voronoi_2d_with_imts(
                     alpha=0.5,
                     edgecolor="k",
                     linewidth=0.1,
-                    linestyle="--",
-                    facecolor=None,  # phase_colors[i_particle.phase],
+                    linestyle="-.",
+                    facecolor="None",  # phase_colors[i_particle.phase],
                 )
                 ax.add_artist(ellip)
                 # plt.annotate(str(k), tuple(i_particle.position_center))
@@ -943,7 +949,8 @@ def plot_voronoi_2d_with_imts(
 
         plt.axis([0, rve_dims[0], 0, rve_dims[1]])
 
-        cmap = matplotlib.cm.get_cmap("jet")
+        # cmap = matplotlib.cm.get_cmap("jet")
+        cmap = matplotlib.cm.get_cmap("Blues")
         # Initializing the list containing the list of imts for each Voronoi cell
         k_cell = 0
         for ind, i_region in enumerate(voronoi.regions):
@@ -954,7 +961,12 @@ def plot_voronoi_2d_with_imts(
             # Running through all the cells in the Voronoi
             # plt.sca(ax)
             if i_order > 0:
-                color = cmap(np.abs(imts[k_cell][i_order]) / np.abs(imts[k_cell][0]))
+                color = cmap(
+                    np.ceil(
+                        10 * np.abs(imts[k_cell][i_order]) / np.abs(imts[k_cell][0])
+                    )
+                    / 10
+                )
             else:
                 color = cmap(np.abs(imts[k_cell][0]))
             x = [voronoi.vertices[i_vertex][0] for i_vertex in i_region]
@@ -980,6 +992,7 @@ def plot_voronoi_2d_with_imts(
             plt.colorbar(
                 matplotlib.cm.ScalarMappable(cmap=cmap),
                 label=r"$q_{0}$".format(str(i_order)),
+                boundaries=np.linspace(0, 1, 11),
             )
         if save:
             plt.savefig(
@@ -1027,7 +1040,7 @@ def plot_voronoi_2d_with_imts(
                 / np.real(np.array(imts)[in_box, 0]),
                 color=(68 / 255, 119 / 255, 170 / 255, 1),
                 range=(0, 1),
-                bins=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+                bins=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
             )
             plt.axvline(
                 np.mean(
@@ -1412,7 +1425,7 @@ def plotVoronoi3Dpbc(
     os.remove(meshfile_temp)
 
 
-def plot_voronoi_3d(particles, voronoi, rve_dims, sample_dir, save=True, show=True):
+def plot_voronoi_3d(particles, voronoi, rve_dims, sample_dir, save=True, show=False):
     """Plot the Voronoi for circular particles."""
     dim = len(rve_dims)
     mesh_generator = FEMMeshGenerator(particles[0].radius / 5, "tetra4", rve_dims)
@@ -2079,7 +2092,7 @@ def plot_voronoi_3d_with_imts(
                 np.abs(np.array(imts)[:, i_order]),
                 color=(68 / 255, 119 / 255, 170 / 255, 1),
                 range=(0, 1),
-                bins=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+                bins=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
             )
             plt.axvline(
                 np.mean(np.abs(np.array(imts)[:, i_order])), color="k", linestyle="--"
