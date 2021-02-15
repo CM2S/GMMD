@@ -7,6 +7,8 @@ Disk, CylindricalFiber, Ellipsoid and Shpere classes.
 from __future__ import annotations
 
 import abc
+import time
+
 
 from itertools import cycle
 
@@ -185,6 +187,12 @@ class Particle(abc.ABC):
         search_direction = -simplex[0]
         k_iter = 0
         while True:
+            if k_iter == 100:
+                print("div")
+                intersection = True
+                overlap_length = 1e-10
+                minimum_dist_rem = self.intersection_vector(particle_2, box)
+                break
             k_iter += 1
             new_mink_diff_point = self.support_function(search_direction) - (
                 particle_2.support_function(-search_direction) + diff_nearest_other
@@ -199,115 +207,53 @@ class Particle(abc.ABC):
                 old_min = simplex[-1]
                 if not out_dist:
                     break
-                else:
-                    pass
-                    # all = []
-                    # for (i_theta, j_phi) in (
-                    #     (i_theta, j_phi)
-                    #     for i_theta in np.linspace(0, np.pi, 120)
-                    #     for j_phi in np.linspace(0, 2 * np.pi, 120)
-                    # ):
-                    #     search_direction = np.array(
-                    #         [
-                    #             np.sin(i_theta) * np.cos(j_phi),
-                    #             np.sin(i_theta) * np.sin(j_phi),
-                    #             np.cos(i_theta),
-                    #         ]
-                    #     )
-                    #     mink_diff_point = self.support_function(search_direction) - (
-                    #         particle_2.support_function(-search_direction)
-                    #         + diff_nearest_other
-                    #     )
-                    #     all.append(mink_diff_point.dot(search_direction))
-                    # print(np.min(all), np.max(all))
-                    # overlap_length = -np.min(all)
-                    # reminimum_dist_rem = search_direction
-                    # break
             # We've gone past the origin
             simplex.append(new_mink_diff_point)
             # search_direction_old = search_direction
             simplex, search_direction = self.nearest_simplex(simplex)
-            if intersection is not None:
-
-                if (
-                    np.linalg.norm(simplex[-1] - old_min) / np.linalg.norm(simplex[-1])
-                    < 1e-8
-                ) or k_iter > 100:
-                    # minimum_dist_rem = search_direction_old / np.linalg.norm(
-                    #     search_direction_old
-                    minimum_dist_rem = (
-                        search_direction / np.linalg.norm(search_direction)
-                    )[0 : self.dim]
-                    overlap_length = np.abs(minimum_dist_rem.dot(simplex[-1]))
-                    break
-                old_min = simplex[-1]
+            # if intersection is not None:
+            #
+            #     if (
+            #         np.linalg.norm(simplex[-1] - old_min) / np.linalg.norm(simplex[-1])
+            #         < 1e-8
+            #     ) or k_iter > 100:
+            #         # minimum_dist_rem = search_direction_old / np.linalg.norm(
+            #         #     search_direction_old
+            #         minimum_dist_rem = (
+            #             search_direction / np.linalg.norm(search_direction)
+            #         )[0 : self.dim]
+            #         overlap_length = np.abs(minimum_dist_rem.dot(simplex[-1]))
+            #         break
+            #     old_min = simplex[-1]
 
             if len(simplex) == self.dim + 1:  # or intersection is False:
                 # We have found a simplex of the hightest dimension of the problem
                 # containing the origin
                 unit_vector = self.intersection_vector(particle_2, box)
-                if intersection is False:
-                    unit_vector *= -1
-                if self.dim == 2:
-                    first_guess = np.array([np.arctan2(unit_vector[1], unit_vector[0])])
-                elif self.dim == 3:
-                    first_guess = np.array(
-                        [
-                            np.arctan2(unit_vector[1], unit_vector[0]),
-                            np.arctan2(
-                                np.sqrt(unit_vector[0] ** 2 + unit_vector[1] ** 2),
-                                unit_vector[2],
-                            ),
-                        ]
-                    )
-                # Using the unit vector of the straight line going throught the center of
-                # the particles as a first guess.
-                # The search for the minimum distance is done on the space of the polar and
-                # spherical coordinates
-                search_direction_angles, overlap_length, *_ = fmin(
-                    Particle.minimum_dist_to_diff_sup,
-                    first_guess[0 : self.dim - 1],
-                    args=(self, particle_2, box),
-                    ftol=tol,
-                    # xtol=1e-8,
-                    maxiter=1000,
-                    full_output=1,
-                    disp=0,
-                )
-                if self.dim == 2:
-                    i_theta = search_direction_angles[0]
-                    minimum_dist_rem = np.array([np.cos(i_theta), np.sin(i_theta)])
 
-                elif self.dim == 3:
-                    i_theta, j_phi = search_direction_angles
-                    minimum_dist_rem = np.array(
-                        [
-                            np.sin(i_theta) * np.cos(j_phi),
-                            np.sin(i_theta) * np.sin(j_phi),
-                            np.cos(i_theta),
-                        ]
-                    )
+                mink_diff_point = self.support_function(unit_vector) - (
+                    particle_2.support_function(-unit_vector) + diff_nearest_other
+                )
+                overlap_length = mink_diff_point[0 : self.dim].dot(unit_vector)
+                minimum_dist_rem = unit_vector
+
                 # if overlap_length < 0:
                 #     mink_diff_point = self.support_function(-minimum_dist_rem) - (
                 #         particle_2.support_function(minimum_dist_rem)
                 #         + diff_nearest_other
                 #     )
-                #     # print("dist", dist)
+                #     # # print("dist", dist)
                 #     overlap_length = mink_diff_point.dot(-minimum_dist_rem)
-                if intersection is False:
-                    overlap_length *= -1
-                    # minimum_dist_rem *= -1
-                if intersection is not False:
-                    if inside:
-                        # and intersection is None:
-                        intersection = True
-                    else:
-                        pt_1 = self.support_function(-minimum_dist_rem)
-                        pt_2 = particle_2.support_function(-minimum_dist_rem)
-                        # Points from each shape closest to each other
-                        intersection = (pt_1 - pt_2)[: self.dim].dot(
-                            minimum_dist_rem
-                        ) < 0
+                if inside:
+                    # and intersection is None:
+                    intersection = True
+                else:
+                    pt_1 = self.support_function(-minimum_dist_rem)
+                    pt_2 = particle_2.support_function(-minimum_dist_rem)
+                    # Points from each shape closest to each other
+                    intersection = (pt_2 - pt_1)[: self.dim].dot(minimum_dist_rem) < 0
+                    print("intersection", intersection, "\n\n")
+                    print("here")
                 break
 
         return intersection, overlap_length, minimum_dist_rem
@@ -1318,13 +1264,59 @@ class Ellipse(Particle):
             #     unit_vector *= -1
             intersection_length = overlap_length if intersection else 0
         elif isinstance(other_particle, Ellipse):
+            start = time.time()
             # The other particle is also a Ellipse
-            (
-                _,
-                intersection_length,
-            ) = self.intersection_length_ellipse_ellipse(other_particle, box)
+            # (
+            #     _,
+            #     intersection_length,
+            # ) = self.intersection_length_ellipse_ellipse(other_particle, box)
+            intersection = self.intersection(other_particle, box)
             unit_vector = self.intersection_vector(other_particle, box)
             # Computing the intersection length
+            if intersection:
+                # There is overlap
+                # overlap_volume = self.intersection_volume_ellipsoid_other(
+                #     other_particle, box, max_it=50, seq_size=100
+                # )
+                diff_in_box = self.position_center - other_particle.position_center
+                # Difference vector between the center of the two particles
+                diff_nearest_other = box * np.round(diff_in_box / box)
+                # Vector from the position of the other ellipse to its nearest image to the current
+                # ellipse
+                search_direction = self.intersection_vector(other_particle, box)
+                mink_diff_point = self.support_function(search_direction)[0:2] - (
+                    other_particle.support_function(-search_direction)[0:2]
+                    + diff_nearest_other
+                )
+                intersection_length = mink_diff_point.dot(search_direction)
+                # _, intersection_length_2, unit_vector_2 = self.intersection_gjk(
+                #     other_particle, box, tol=tol
+                # )
+                unit_vector = search_direction
+                if intersection_length < 0:
+                    intersection_length = 0
+                    unit_vector = np.array([0.0, 0.0])
+                # Computing the intersection area
+            else:
+                # There is no overlap
+                intersection_length = 0
+                unit_vector = np.array([0.0, 0.0])
+            time_1 = time.time() - start
+            start = time.time()
+            _, intersection_length_2, unit_vector_2 = self.intersection_gjk(
+                other_particle, box, tol=tol
+            )
+            time_2 = time.time() - start
+            # print(time_1, time_2)
+            # print(
+            #     "error",
+            #     intersection_length_2,
+            #     intersection_length,
+            #     np.abs(intersection_length_2 - intersection_length)
+            #     / intersection_length_2
+            #     * 100,
+            # )
+
         else:
             intersection, overlap_length, unit_vector = self.intersection_gjk(
                 other_particle, box, tol=tol
@@ -2822,12 +2814,14 @@ class Ellipsoid(Particle):
         intersection: bool
             True if the particles intersect.
         """
-        if isinstance(other_particle, (Sphere, Ellipsoid)):
+        if isinstance(other_particle, (Sphere, Ellipsoid)) and inside:
             other_particle: Ellipsoid
             # The other particle is also an Ellipsoid or subclass
             intersection = self.intersection_ellipsoid_ellipsoid(other_particle, box)
-        elif isinstance(other_particle, Cylinder):
-            intersection, _ = self.intersection_gjk(other_particle, box, inside=inside)
+        elif isinstance(other_particle, Cylinder) or not inside:
+            intersection, _, _ = self.intersection_gjk(
+                other_particle, box, inside=inside
+            )
         else:
             raise ValueError("Incompatible particles.")
         return intersection
@@ -2860,9 +2854,49 @@ class Ellipsoid(Particle):
         self, other_particle: Particle, box: list, tol: float = 1e-8
     ) -> tuple[float, np.array]:
         """Intersection length between *self* and *other_particle* on *box*."""
-        _, intersection_length, unit_vector = self.intersection_gjk(
-            other_particle, box, tol=tol
-        )
+        if isinstance(other_particle, Ellipsoid) and False:
+            # start = time.time()
+            intersection = self.intersection_ellipsoid_ellipsoid(other_particle, box)
+            # Saving the class name of the other particle as a string
+            if intersection:
+                # There is overlap
+                # overlap_volume = self.intersection_volume_ellipsoid_other(
+                #     other_particle, box, max_it=50, seq_size=100
+                # )
+                diff_in_box = self.position_center - other_particle.position_center
+                # Difference vector between the center of the two particles
+                diff_nearest_other = box * np.round(diff_in_box / box)
+                # Vector from the position of the other ellipse to its nearest image to the current
+                # ellipse
+                search_direction = self.intersection_vector(other_particle, box)
+                mink_diff_point = self.support_function(search_direction) - (
+                    other_particle.support_function(-search_direction)
+                    + diff_nearest_other
+                )
+                intersection_length = mink_diff_point.dot(search_direction)
+                # _, intersection_length_2, unit_vector_2 = self.intersection_gjk(
+                #     other_particle, box, tol=tol
+                # )
+                unit_vector = search_direction
+                if intersection_length < 0:
+                    intersection_length = 0
+                    unit_vector = np.array([0.0, 0.0, 0.0])
+                # Computing the intersection area
+            else:
+                # There is no overlap
+                intersection_length = 0
+                unit_vector = np.array([0.0, 0.0, 0.0])
+            # time_1 = time.time() - start
+            # start = time.time()
+            # _, intersection_length, unit_vector = self.intersection_gjk(
+            #     other_particle, box, tol=tol
+            # )
+            # time_2 = time.time() - start
+            # # print(time_1, time_2)
+        elif isinstance(other_particle, (Cylinder, Ellipsoid)):
+            _, intersection_length, unit_vector = self.intersection_gjk(
+                other_particle, box, tol=tol
+            )
         return intersection_length, unit_vector
 
 
@@ -3132,9 +3166,7 @@ class Sphere(Ellipsoid):
             intersection = other_particle.intersection(self, box)
         elif isinstance(other_particle, Cylinder):
             other_particle: Cylinder
-            intersection, _ = other_particle.intersection_sphere_cylinder(
-                other_particle, box
-            )
+            intersection, _ = self.intersection_sphere_cylinder(other_particle, box)
         else:
             intersection, _ = self.intersection_gjk(other_particle, box)
 
