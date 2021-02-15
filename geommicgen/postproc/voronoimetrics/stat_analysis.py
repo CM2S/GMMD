@@ -426,9 +426,9 @@ def ripleys_k_func(microstructure, max_radius=10, n_points=20):
 
     from postproc.plotfuncs.plotting_functions import plot_particles_2d
 
-    plot_particles_2d(rem_particles, adj_rve_dims, "", save=False)
+    plot_particles_2d(rem_particles, adj_rve_dims, "", save=False, show=False)
 
-    plt.show()
+    # plt.show()
     radius = np.mean([i_particle.radius for i_particle in rem_particles])
     n_part = len(rem_particles)
     # dist_part = [0 for _ in np.arange(np.ceil(n_part * (n_part - 1) / 2))]
@@ -455,12 +455,12 @@ def ripleys_k_func(microstructure, max_radius=10, n_points=20):
             # print("correction", correction[k_pair])
             k_pair += 1
     k_ripleys_func_vals = np.array([0.0 for _ in range(n_points * max_radius)])
-    print(any(dist_part < radius))
-    import matplotlib.pyplot as plt
-
-    plt.figure()
-    plt.hist(dist_part / radius)
-    plt.show()
+    # print(any(dist_part < radius))
+    # import matplotlib.pyplot as plt
+    #
+    # plt.figure()
+    # plt.hist(dist_part / radius)
+    # plt.show()
     for i_ind_length, i_length in enumerate(np.arange(0, max_radius, 1 / n_points)):
         # for _ in range(1):
         #     i_ind_length = 0
@@ -565,7 +565,9 @@ def do_stat_analysis(microstructure, sample_dir, stat_options):
         )
 
     if "stat_two_pt_corr" in stat_options:
-        two_point_correlation_vals, radii_vec = two_point_correlation(microstructure)
+        two_point_correlation_vals, radii_vec = two_point_correlation(
+            microstructure, max_radius=2, n_points=100
+        )
         stat_results["stat_two_pt_corr"] = [two_point_correlation_vals, radii_vec]
         plot_two_point_correlation(
             two_point_correlation_vals, radii_vec, results_dir=stat_anal_results_dir
@@ -584,7 +586,8 @@ if __name__ == "__main__":
     filename, ext = os.path.splitext(os.path.basename(sys.argv[1]))
     if ext == ".png":
         print("here")
-        current_mic = MicrostructureImage([1, 1], sys.argv[1], 0.052582841614906825 / 2)
+        # current_mic = MicrostructureImage([1, 1], sys.argv[1], 0.052582841614906825 / 2)
+        current_mic = MicrostructureImage([1, 1], sys.argv[1], 0.3474627652491758 / 2)
         results_folder = create_design_point_results_directory(
             os.path.dirname(sys.argv[1]), filename
         )
