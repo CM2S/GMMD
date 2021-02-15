@@ -489,7 +489,7 @@ def compute_2d_irreducible_minkowski_tensors(voronoi, degree=6):
                 )
             )
 
-    return [imt_region, in_box]
+    return [imt_region, in_box, angles]
 
 
 def compute_2d_irreducible_minkowski_tensors_polygon(voronoi, degree=6):
@@ -1029,7 +1029,7 @@ def do_voronoi_analysis(
             plot_voronoi_2d(
                 particles, rve_dims, voronoi, voronoi_results_dir, voronoi_type
             )
-        imts, in_box = compute_2d_irreducible_minkowski_tensors(voronoi)
+        imts, in_box, angles = compute_2d_irreducible_minkowski_tensors(voronoi)
         # Computing the irreducible Minkowski tensors for the current microsturcture
         imts_in_box = np.array(imts)[in_box, :]
         # Saving the irreducible Minkowski tensors of the voronoi cells associated with
@@ -1038,6 +1038,12 @@ def do_voronoi_analysis(
             plot_voronoi_2d_with_imts(
                 particles, rve_dims, voronoi, imts, voronoi_results_dir, voronoi_type
             )
+        # Saving the results
+        # --------------------------------------------------------------------------------------
+        pickle.dump(
+            [voronoi, imts, angles, in_box],
+            open(os.path.join(voronoi_results_dir, "voronoi_results.vor"), "wb"),
+        )
     elif particles[0].dim == 3:
         # if voronoi_type == 'standard':
         if voronoi_type == "set":
@@ -1055,12 +1061,12 @@ def do_voronoi_analysis(
             plot_voronoi_3d_with_imts(
                 particles, voronoi, rve_dims, imts, voronoi_results_dir
             )
-    # Saving the results
-    # --------------------------------------------------------------------------------------
-    pickle.dump(
-        [voronoi, imts_in_box],
-        open(os.path.join(voronoi_results_dir, "voronoi_results.vor"), "wb"),
-    )
+        # Saving the results
+        # --------------------------------------------------------------------------------------
+        pickle.dump(
+            [voronoi, imts, phi],
+            open(os.path.join(voronoi_results_dir, "voronoi_results.vor"), "wb"),
+        )
 
 
 # def plotMetrics
