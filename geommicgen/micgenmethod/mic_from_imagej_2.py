@@ -4,214 +4,17 @@ import os
 
 # Quasi monte carlo integration
 import qmcpy as qp
-from scipy.optimize import newton_krylov, root
-from scipy.stats import lognorm, beta, norm
+from scipy.optimize import newton_krylov, root, minimize
+from scipy.stats import lognorm, beta, norm, vonmises
 import pyswarms as ps
 import multiprocessing as mp
+from geneticalgorithm import geneticalgorithm as ga
 
 
 # pylint: disable=import-error
 import iofuncs.printing as print_funcs
 from microstructure.phase import Phase
 from microstructure.microstructure import Microstructure
-
-
-def generate_microstructure_from_csv(file_path):
-    """
-    Generate the microstructure for the sample supplied.
-
-    Generate the microstructure for microstructure_sample using the microstructure
-    generation method *self*.
-
-    Parameters
-    ----------
-    file_path: str
-        File path of the form "shape_xdim_ydim_vf".
-    """
-    mic_info = np.genfromtxt(file_path, delimiter=",", skip_header=1)
-    # Loading the microstructure info. Assumed to be
-    # N,Area,Mean,Min,Max,XM,YM,Major,Minor,Angle
-
-    # Getting info from file name
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    file_name = os.path.basename(file_path)
-    try:
-        shape, x_dim, y_dim, _ = file_name.split("_")
-    except ValueError as error:
-        raise ValueError(
-            "Filename is not of the form 'shape_xdim_ydim_vf': {0}".format(file_name)
-        ) from error
-    try:
-        x_dim = float(x_dim)
-        y_dim = float(y_dim)
-
-    except ValueError as error:
-        raise ValueError(
-            """The values in the filename for x_dim or y_dim are not numbers.': {0},
-            {1}.""".format(
-                x_dim, y_dim
-            )
-        ) from error
-
-    box = [x_dim / np.max([x_dim, y_dim]), y_dim / np.max([x_dim, y_dim])]
-
-    microstructure_sample = Microstructure(box)
-
-    # Building descriptors
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    if shape == "disks":
-        n_particles = len(mic_info)
-        area_vals = []
-        positions = []
-        for i_particle_info in mic_info:
-            area_vals.append(i_particle_info[1] / (x_dim * y_dim))
-            positions.append(
-                np.array(
-                    [
-                        i_particle_info[5] / np.max([x_dim, y_dim]),
-                        box[1] - i_particle_info[6] / np.max([x_dim, y_dim]),
-                    ]
-                )
-            )
-            descriptors = {
-                "phase_type": 2,
-                "n": n_particles,
-                "area": area_vals,
-                "area_distribution": "specified",
-            }
-    else:
-        n_particles = len(mic_info)
-        major_axis_vals = []
-        minor_axis_vals = []
-        area_vals = []
-        angle_vals = []
-        positions = []
-        for i_particle_info in mic_info:
-            major_axis_vals.append(i_particle_info[7])
-            minor_axis_vals.append(i_particle_info[8])
-            angle_vals.append(i_particle_info[9] / 180 * np.pi)
-            positions.append(
-                np.array(
-                    [
-                        i_particle_info[5] / np.max([x_dim, y_dim]),
-                        box[1] - i_particle_info[6] / np.max([x_dim, y_dim]),
-                    ]
-                )
-            )
-        major_axis_vals = np.array(major_axis_vals) / np.max([x_dim, y_dim])
-        minor_axis_vals = np.array(minor_axis_vals) / np.max([x_dim, y_dim])
-        ratio_vals = major_axis_vals / minor_axis_vals
-        descriptors = {
-            "phase_type": 3,
-            "n": n_particles,
-            "major_axis": major_axis_vals,
-            "major_axis_distribution": "specified",
-            # "minor_axis": minor_axis_vals,
-            # "minor_axis_distribution": "specified",
-            "ratio": ratio_vals,
-            "ratio_distribution": "specified",
-            "angle": angle_vals,
-            "angle_distribution": "specified",
-        }
-    # Generating phases and particles
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # microstructure_sample.add_phase(Phase("1", {"phase_type": 1}))
-    microstructure_sample.add_phase(Phase("2", descriptors))
-    for phase in microstructure_sample.phases.values():
-        phase.generate_particles(microstructure_sample.rve_dims)
-    # if microstructure_sample.volume_fraction > 1:
-    #     raise ValueError(
-    #         "The volume fraction goes over 1: {0}".format(
-    #             microstructure_sample.volume_fraction
-    #         )
-    #     )
-    # Setting the position of the particles
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    for i_particle_ind, i_particle in enumerate(microstructure_sample.particles):
-        i_particle.position_center = positions[i_particle_ind]
-        print(positions[i_particle_ind])
-
-    print_funcs.print_microstructure_info(microstructure_sample)
-
-    return microstructure_sample
-
-
-def d_1_func(r_1, r_2, r_3, z_c, p_1, p_2, p_3):
-    d_1 = np.sqrt(
-        (
-            8
-            * (
-                1
-                - (z_c ** 2)
-                / (
-                    r_1 ** 2 * np.sin(p_1) ** 2
-                    + r_2 ** 2 * np.sin(p_2) ** 2
-                    + r_3 ** 2 * np.sin(p_3) ** 2
-                )
-            )
-        )
-        / (
-            (
-                np.cos(p_1) ** 2 / r_1 ** 2
-                + np.cos(p_2) ** 2 / r_2 ** 2
-                + np.cos(p_3) ** 2 / r_3 ** 2
-            )
-            + np.sqrt(
-                (
-                    np.cos(p_1) ** 2 / r_1 ** 2
-                    + np.cos(p_2) ** 2 / r_2 ** 2
-                    + np.cos(p_3) ** 2 / r_3 ** 2
-                )
-                ** 2
-                - 4
-                * (
-                    np.sin(p_1) ** 2 / r_2 ** 2 / r_3 ** 2
-                    + np.sin(p_2) ** 2 / r_1 ** 2 / r_3 ** 2
-                    + np.sin(p_3) ** 2 / r_1 ** 2 / r_2 ** 2
-                )
-            )
-        )
-    )
-    return d_1
-
-
-def d_2_func(r_1, r_2, r_3, z_c, p_1, p_2, p_3):
-    d_2 = np.sqrt(
-        (
-            8
-            * (
-                1
-                - (z_c ** 2)
-                / (
-                    r_1 ** 2 * np.sin(p_1) ** 2
-                    + r_2 ** 2 * np.sin(p_2) ** 2
-                    + r_3 ** 2 * np.sin(p_3) ** 2
-                )
-            )
-        )
-        / (
-            (
-                np.cos(p_1) ** 2 / r_1 ** 2
-                + np.cos(p_2) ** 2 / r_2 ** 2
-                + np.cos(p_3) ** 2 / r_3 ** 2
-            )
-            - np.sqrt(
-                (
-                    np.cos(p_1) ** 2 / r_1 ** 2
-                    + np.cos(p_2) ** 2 / r_2 ** 2
-                    + np.cos(p_3) ** 2 / r_3 ** 2
-                )
-                ** 2
-                - 4
-                * (
-                    np.sin(p_1) ** 2 / r_2 ** 2 / r_3 ** 2
-                    + np.sin(p_2) ** 2 / r_1 ** 2 / r_3 ** 2
-                    + np.sin(p_3) ** 2 / r_1 ** 2 / r_2 ** 2
-                )
-            )
-        )
-    )
-    return d_2
 
 
 def ellip_func(r_1, r_2, r_3, p_3, d_1, d_2):
@@ -301,6 +104,84 @@ def ellip_func(r_1, r_2, r_3, p_3, d_1, d_2):
     return func
 
 
+def d_1_func(r_1, r_2, r_3, z_c, p_1, p_2, p_3):
+    d_1 = np.sqrt(
+        (
+            8
+            * (
+                1
+                - (z_c ** 2)
+                / (
+                    r_1 ** 2 * np.sin(p_1) ** 2
+                    + r_2 ** 2 * np.sin(p_2) ** 2
+                    + r_3 ** 2 * np.sin(p_3) ** 2
+                )
+            )
+        )
+        / (
+            (
+                np.cos(p_1) ** 2 / r_1 ** 2
+                + np.cos(p_2) ** 2 / r_2 ** 2
+                + np.cos(p_3) ** 2 / r_3 ** 2
+            )
+            + np.sqrt(
+                (
+                    np.cos(p_1) ** 2 / r_1 ** 2
+                    + np.cos(p_2) ** 2 / r_2 ** 2
+                    + np.cos(p_3) ** 2 / r_3 ** 2
+                )
+                ** 2
+                - 4
+                * (
+                    np.sin(p_1) ** 2 / r_2 ** 2 / r_3 ** 2
+                    + np.sin(p_2) ** 2 / r_1 ** 2 / r_3 ** 2
+                    + np.sin(p_3) ** 2 / r_1 ** 2 / r_2 ** 2
+                )
+            )
+        )
+    )
+    return d_1
+
+
+def d_2_func(r_1, r_2, r_3, z_c, p_1, p_2, p_3):
+    d_2 = np.sqrt(
+        (
+            8
+            * (
+                1
+                - (z_c ** 2)
+                / (
+                    r_1 ** 2 * np.sin(p_1) ** 2
+                    + r_2 ** 2 * np.sin(p_2) ** 2
+                    + r_3 ** 2 * np.sin(p_3) ** 2
+                )
+            )
+        )
+        / (
+            (
+                np.cos(p_1) ** 2 / r_1 ** 2
+                + np.cos(p_2) ** 2 / r_2 ** 2
+                + np.cos(p_3) ** 2 / r_3 ** 2
+            )
+            - np.sqrt(
+                (
+                    np.cos(p_1) ** 2 / r_1 ** 2
+                    + np.cos(p_2) ** 2 / r_2 ** 2
+                    + np.cos(p_3) ** 2 / r_3 ** 2
+                )
+                ** 2
+                - 4
+                * (
+                    np.sin(p_1) ** 2 / r_2 ** 2 / r_3 ** 2
+                    + np.sin(p_2) ** 2 / r_1 ** 2 / r_3 ** 2
+                    + np.sin(p_3) ** 2 / r_1 ** 2 / r_2 ** 2
+                )
+            )
+        )
+    )
+    return d_2
+
+
 def compute_weights(sample, vis_vars):
     def jacobian(r_1, r_2, r_3, p_1, p_2, p_3, z_c, d_1, d_2):
         c_1 = (
@@ -373,11 +254,13 @@ def compute_weights(sample, vis_vars):
     #     - (r_3 ** 2 - r_2 ** 2) * np.sin(p_3) ** 2
     #     - r_2 ** 2
     # )
-    roots = np.roots([coeff_2, coeff_1, coeff_0])
-    if 1 / r_2 ** 2 + 1 / r_3 ** 2 <= roots[0] <= 1 / r_1 ** 2 + 1 / r_2 ** 2:
-        C_2 = roots[0]
-    elif 1 / r_2 ** 2 + 1 / r_3 ** 2 <= roots[1] <= 1 / r_1 ** 2 + 1 / r_2 ** 2:
-        C_2 = roots[1]
+    C_2 = (1 / r_2 ** 2 - 1 / r_3 ** 2) * np.sin(p_3) ** 2 + (
+        1 / r_1 ** 2 + 1 / r_3 ** 2
+    )
+    if 1 / r_2 ** 2 + 1 / r_3 ** 2 <= C_2 <= 1 / r_1 ** 2 + 1 / r_2 ** 2:
+        pass
+    elif 1 / r_2 ** 2 + 1 / r_3 ** 2 <= C_2 <= 1 / r_1 ** 2 + 1 / r_2 ** 2:
+        pass
     else:
         C_2 = np.nan
 
@@ -393,15 +276,28 @@ def compute_weights(sample, vis_vars):
     # C_1 = r_1 ** 2 * r_2 ** 2 * r_3 ** 2 / 4 * C_2 + r_1 ** 2 * r_2 ** 2 * r_3 ** 2 * (
     #     d_1 ** 2 - d_2 ** 2
     # ) ** 2 * C_2 ** 2 / (4 * (d_1 ** 2 + d_2 ** 2) ** 2)
-    p_1 = np.arcsin(
-        np.sqrt(
-            (C_1 - r_2 ** 2 - (r_3 ** 2 - r_2 ** 2) * np.sin(p_3) ** 2)
-            / (r_1 ** 2 - r_2 ** 2)
-        )
-    )
-    p_2 = np.arcsin(np.sqrt(1 - np.sin(p_1) ** 2 - np.sin(p_3) ** 2))
     z_c = np.sqrt((1 - np.sqrt(C_1) * d_1 * d_2 / (4 * r_1 * r_2 * r_3)) * C_1)
-
+    p_1 = 0
+    # p_2 =
+    # p_1 = np.arcsin(
+    #     np.sqrt(
+    #         (C_1 - r_2 ** 2 - (r_3 ** 2 - r_2 ** 2) * np.sin(p_3) ** 2)
+    #         / (r_1 ** 2 - r_2 ** 2)
+    #     )
+    # )
+    p_2 = np.arcsin(np.sqrt(1 - np.sin(p_1) ** 2 - np.sin(p_3) ** 2))
+    # C_1_p = (
+    #     r_1 ** 2 * np.sin(p_1) ** 2
+    #     + r_2 ** 2 * np.sin(p_2) ** 2
+    #     + r_3 ** 2 * np.sin(p_3) ** 2
+    # )
+    # C_2_p = (
+    #     1 / r_1 ** 2 * np.cos(p_1) ** 2
+    #     + 1 / r_2 ** 2 * np.cos(p_2) ** 2
+    #     + 1 / r_3 ** 2 * np.cos(p_3) ** 2
+    # )
+    # print("C_1", C_1, C_1_p)
+    # print("C_2", C_2, C_2_p)
     if C_2 == np.nan:  # sol.success:
         # sol_p_1, sol_p_2, sol_z_c = sol.x
         # p_1 = angle_to_0_half_pi(sol_p_1)
@@ -409,36 +305,47 @@ def compute_weights(sample, vis_vars):
         # z_c = np.abs(sol_z_c)
         weight = 0
     else:
-        weight = (
-            2
-            / np.pi
-            * np.cos(p_1)
-            / np.sin(p_2)
-            * np.abs(jacobian(r_1, r_2, r_3, p_1, p_2, p_3, z_c, d_1, d_2)) ** (-1)
-        )
-
+        # print(p_1, p_2, p_3, d_1_func(r_1, r_2, r_3, z_c, p_1, p_2, p_3), d_1)
+        # print(p_1, p_2, p_3, d_2_func(r_1, r_2, r_3, z_c, p_1, p_2, p_3), d_2)
+        # weight = (
+        #     2
+        #     / np.pi
+        #     * np.cos(p_1)
+        #     / np.sin(p_2)
+        #     * np.abs(jacobian(r_1, r_2, r_3, p_1, p_2, p_3, z_c, d_1, d_2)) ** (-1)
+        # )
+        C_3 = C_2 + np.sqrt(C_2 ** 2 - 4 * C_1 / (r_1 ** 2 * r_2 ** 2 * r_3 ** 2))
+        weight = np.abs(-16 * z_c / C_1 / (2 * d_1 * C_3)) ** (-1)
+        # print(weight)
     return weight
 
 
-def generate_sobol_samples(n_sobol_samples, vis_vars, sobol_sequence):
+def generate_sobol_samples(n_sobol_samples, vis_vars, sobol_sequence, curr_k):
 
-    r_max = 1
+    r_max = 2
     weights = []
     sobol_samples = []
-    k_sample = 0
+    k_sample = curr_k
     n_need = 1
     while len(weights) < n_sobol_samples:
         if k_sample == n_need:
             n_need *= 2
+        # sobol_sample_try = (
+        #     np.array([0, vis_vars[1] / 2])
+        #     + np.array([1, r_max - vis_vars[1] / 2]) * sobol_sequence[k_sample]
+        # )
+        # np.insert(sobol_sample_try, 0, 0)
         sobol_sample_try = (
-            np.array([0, 0, vis_vars[1] / 2])
-            + np.array([1, 1, r_max - vis_vars[1] / 2])
-            * sobol_sequence.gen_samples(n=n_need)[k_sample]
+            np.array([-np.pi, 0, vis_vars[1] / 2])
+            + np.array([2 * np.pi, 1, r_max - vis_vars[1] / 2])
+            * sobol_sequence[k_sample]
         )
         r_3 = sobol_sample_try[2]
         r_2 = r_3 * sobol_sample_try[1]
-        r_1 = r_2 * sobol_sample_try[0]
-        p_3_sample = np.arcsin(np.random.rand())
+        # r_1 = r_2 * sobol_sample_try[0]
+        r_1 = r_3 * sobol_sample_try[1]
+        # p_3_sample = np.arcsin(np.random.rand())
+        p_3_sample = sobol_sample_try[0]
         # print(r_3, r_2, r_1)
         weight = compute_weights([r_1, r_2, r_3, p_3_sample], vis_vars)
         if np.abs(weight) > 1e-4:
@@ -447,51 +354,53 @@ def generate_sobol_samples(n_sobol_samples, vis_vars, sobol_sequence):
             # print(len(weights), n_sobol_samples)
         k_sample += 1
 
-    return weights, sobol_samples
+    return weights, sobol_samples, curr_k
 
 
-def param_dist(curr_param_estimates, r_samples):
-    r_1, r_2, r_3 = r_samples
-    mu, sigma, alpha_1, beta_1, alpha_2, beta_2 = curr_param_estimates
+def param_dist(curr_param_estimates, samples):
+    p_3, r_1, r_3 = samples
+    mu, sigma, mu_ratio, sigma_ratio, mu_dir, sigma_dir = curr_param_estimates
     term_1 = lognorm.pdf(r_3, sigma, scale=np.exp(mu))
     # term_1 = norm.pdf(r_3, loc=mu, scale=sigma)
-    term_2 = beta.pdf(r_1 / r_2, alpha_1, beta_1)
-    term_3 = beta.pdf(r_2 / r_3, alpha_2, beta_2)
+    # term_2 = beta.pdf(r_1 / r_2, alpha_1, beta_1)
+    # term_3 = beta.pdf(r_2 / r_3, alpha_2, beta_2)
+    term_2 = norm.pdf(r_1 / r_3, loc=mu_ratio, scale=sigma_ratio)
+    # term_3 = norm.pdf(p_3, loc=mu_dir, scale=sigma_dir)
+    term_3 = vonmises.pdf(p_3, loc=mu_dir, kappa=sigma_dir)
 
     complete_pdf = term_1 * term_2 * term_3
     # print(complete_pdf, term_1, term_2, term_3)
-    # print("r", r_3, r_1 / r_2, r_2 / r_3)
-    # print("param", mu, sigma, alpha_1, beta_1, alpha_2, beta_2)
+    # print("r", r_3, r_1 / r_3)
+    # print("param", mu, sigma)
     return complete_pdf
 
 
 def expct_log_likelihood(curr_param_estimates, weights, sobol_samples):
     def expected_val_z_u_m_c(curr_param_estimates):
 
-        mu, sigma, a_1, b_1, a_2, b_2 = curr_param_estimates
-
+        mu, sigma, mu_ratio, sigma_ratio, mu_dir, sigma_dir = curr_param_estimates
         samples_z_u = []
         k_iter = 0
-        while k_iter < 200:
-            p_3_sample = np.arcsin(np.random.rand())
-            p_2_sample = np.arcsin(
-                np.cos(p_3_sample) * np.sin(np.pi * np.random.rand() / 2)
-            )
-            r_1_r_2_ratio_sample = beta.rvs(a_1, b_1)
-            r_2_r_3_ratio_sample = beta.rvs(a_2, b_2)
+        while k_iter < 10000:
+            # p_3_sample = np.arcsin(np.random.rand())
+            # p_2_sample = np.arcsin(
+            #     np.cos(p_3_sample) * np.sin(np.pi * np.random.rand() / 2)
+            # )
+            # r_1_r_2_ratio_sample = beta.rvs(a_1, b_1)
+            # r_2_r_3_ratio_sample = beta.rvs(a_2, b_2)
+            r_2_r_3_ratio_sample = norm.rvs(loc=mu_ratio, scale=sigma_ratio)
+            # p_3_sample = norm.rvs(loc=mu_dir, scale=sigma_dir)
+            p_3_sample = vonmises.rvs(loc=mu_dir, kappa=sigma_dir)
             samples_z_u.append(
                 np.sqrt(
-                    np.sin(p_3_sample) ** 2
-                    + r_2_r_3_ratio_sample ** 2 * np.sin(p_2_sample) ** 2
+                    (1 - r_2_r_3_ratio_sample ** 2) * np.sin(p_3_sample) ** 2
                     + r_2_r_3_ratio_sample ** 2
-                    * r_1_r_2_ratio_sample ** 2
-                    * (1 - np.sin(p_3_sample) ** 2 - np.sin(p_2_sample) ** 2)
                 )
             )
             mean_z_u = np.mean(samples_z_u)
             if len(samples_z_u) > 1:
                 std_z_u = 1 / np.sqrt(len(samples_z_u)) * np.std(samples_z_u)
-                if std_z_u < 1e-3:
+                if std_z_u < 1e-4:
                     break
             k_iter += 1
 
@@ -514,14 +423,48 @@ def expct_log_likelihood(curr_param_estimates, weights, sobol_samples):
     ):
         # Calculate the weights for the qmc integration
         r_3 = sobol_samples[i_part, s_sample][2]
+        # print(r_3)
         r_2 = r_3 * sobol_samples[i_part, s_sample][1]
-        r_1 = r_2 * sobol_samples[i_part, s_sample][0]
-        pdf[i_part, s_sample] = param_dist(curr_param_estimates, [r_1, r_2, r_3])
+        p_3 = sobol_samples[i_part, s_sample][0]
+        pdf[i_part, s_sample] = param_dist(curr_param_estimates, [p_3, r_2, r_3])
+
+    # pool = mp.Pool(mp.cpu_count() - 2)
+    # result_async = [
+    #     # pool.apply_async(expct_log_likelihood, args=(i_param, weights, sobol_samples))
+    #     # for i_param in curr_param_estimates_vec
+    #     pool.apply_async(
+    #         param_dist,
+    #         args=(
+    #             curr_param_estimates,
+    #             [
+    #                 sobol_samples[i_part, s_sample][0],
+    #                 sobol_samples[i_part, s_sample][1]
+    #                 * sobol_samples[i_part, s_sample][2],
+    #                 sobol_samples[i_part, s_sample][2],
+    #             ],
+    #         ),
+    #     )
+    #     for (i_part, s_sample) in (
+    #         (i_part, s_sample)
+    #         for i_part in range(n_particles)
+    #         for s_sample in range(n_sobol_samples)
+    #     )
+    # ]
+    # for k_val, (i_part, s_sample) in enumerate(
+    #     (i_part, s_sample)
+    #     for i_part in range(n_particles)
+    #     for s_sample in range(n_sobol_samples)
+    # ):
+    #     pdf[i_part, s_sample] = result_async[k_val].get()
+    #
+    # pool.close()
 
     log_expected_val_z_u = expected_val_z_u_m_c(curr_param_estimates)
     expct_log_likelihood_val = (
         np.sum(weights * np.log(pdf)) - n_particles * log_expected_val_z_u
     )
+    # print(np.sum(weights * np.log(pdf)), n_particles * log_expected_val_z_u)
+    # print(curr_param_estimates, expct_log_likelihood_val)
 
     # print(curr_param_estimates, expct_log_likelihood_val)
     return np.min([1e12, -1 * expct_log_likelihood_val])
@@ -529,23 +472,32 @@ def expct_log_likelihood(curr_param_estimates, weights, sobol_samples):
 
 def expct_log_likelihood_vec(curr_param_estimates_vec, weights, sobol_samples):
 
-    # res = []
+    res = []
+    for i_param in curr_param_estimates_vec:
+        res.append(expct_log_likelihood(i_param, weights, sobol_samples))
     # for i_param in curr_param_estimates_vec:
-    #     res.append(expct_log_likelihood(i_param, weights, sobol_samples))
-    # for i_param in curr_param_estimates_vec:
-    pool = mp.Pool(mp.cpu_count())
-    result_async = [
-        pool.apply_async(expct_log_likelihood, args=(i_param, weights, sobol_samples))
-        for i_param in curr_param_estimates_vec
-    ]
-    res = [r.get() for r in result_async]
-
-    pool.close()
+    # pool = mp.Pool(mp.cpu_count() - 2)
+    # result_async = [
+    #     pool.apply_async(expct_log_likelihood, args=(i_param, weights, sobol_samples))
+    #     for i_param in curr_param_estimates_vec
+    # ]
+    # res = [r.get() for r in result_async]
+    #
+    # pool.close()
     return np.array(res)
 
 
+def expct_log_likelihood_no_aux(weights, sobol_samples):
+    def func(curr_param_estimates):
+        val = expct_log_likelihood(curr_param_estimates, weights, sobol_samples)
+
+        return val
+
+    return func
+
+
 def qmc_em_size_param_estimation(
-    visible_vars, init_param_estimates, max_iter=50, tol=0.015, n_sobol_samples=16384
+    visible_vars, init_param_estimates, max_iter=50, tol=0.015, n_sobol_samples=500
 ):
 
     n_particles = len(visible_vars)
@@ -554,20 +506,27 @@ def qmc_em_size_param_estimation(
 
     # Generate Sobol samples
     # --------------------------------------------------------------------------------------
-    sobol_sequence = qp.Sobol(3)
+    sobol_sequence_obj = qp.Sobol(2)
+    n_samp_pt_needed = 2 ** np.ceil(np.log2(n_sobol_samples * n_particles * 10))
+    sobol_sequence = sobol_sequence_obj.gen_samples(n_samp_pt_needed)
+    curr_k = 0
     for i_part in range(n_particles):
         # Generate Sobol samples \(\pmb h_i^{(s)}\) until \(S\) samples with nonzero weights
         # are obtained
         print(i_part)
-        is_weights[i_part, :], sobol_samples[i_part, :] = generate_sobol_samples(
-            n_sobol_samples, visible_vars[i_part], sobol_sequence
+        (
+            is_weights[i_part, :],
+            sobol_samples[i_part, :],
+            curr_k,
+        ) = generate_sobol_samples(
+            n_sobol_samples, visible_vars[i_part], sobol_sequence, curr_k
         )
 
     curr_param_estimates = list(init_param_estimates)
     # EM algorithm
     # --------------------------------------------------------------------------------------
-    bounds = ([-5, 0, 0, 0, 0, 0], [5, 1, 25, 10, 25, 10])
-    options = {"c1": 0.5, "c2": 0.3, "w": 0.9}
+    bounds = ([-10, 0, 0, 0, -1, 0], [0, 5, 1, 1, 1, 1])
+    options = {"c1": 2.025, "c2": 2.025, "w": 0.6}
 
     weights = np.array(is_weights)
     for (i_part, s_sample) in (
@@ -578,9 +537,9 @@ def qmc_em_size_param_estimation(
         # Calculate the weights for the qmc integration
         r_3 = sobol_samples[i_part, s_sample][2]
         r_2 = r_3 * sobol_samples[i_part, s_sample][1]
-        r_1 = r_2 * sobol_samples[i_part, s_sample][0]
+        p_3 = sobol_samples[i_part, s_sample][0]
         weights[i_part, s_sample] *= param_dist(
-            [-3.5, np.sqrt(0.5), 15, 3, 20, 6], [r_1, r_2, r_3]
+            [-3, 1, 0.6666, 0.1, 0, 0.2], [p_3, r_2, r_3]
         )
     # Maximization step
     normalized_weights = (
@@ -589,13 +548,10 @@ def qmc_em_size_param_estimation(
     )
     print(
         "max",
-        [-3.5, np.sqrt(0.5), 15, 3, 20, 6],
+        [-3, 1, 0.6666, 0.1, 0, 0.2],
         expct_log_likelihood(
-            [-3.5, np.sqrt(0.5), 15, 3, 20, 6], normalized_weights, sobol_samples
+            [-3, 1, 0.6666, 0.1, 0, 0.2], normalized_weights, sobol_samples
         ),
-    )
-    optmizer = ps.single.GlobalBestPSO(
-        n_particles=10, dimensions=6, options=options, bounds=bounds
     )
     for k_iter in range(15):  # range(max_iter):
         # Estimation step
@@ -608,26 +564,85 @@ def qmc_em_size_param_estimation(
             # Calculate the weights for the qmc integration
             r_3 = sobol_samples[i_part, s_sample][2]
             r_2 = r_3 * sobol_samples[i_part, s_sample][1]
-            r_1 = r_2 * sobol_samples[i_part, s_sample][0]
+            p_3 = sobol_samples[i_part, s_sample][0]
             weights[i_part, s_sample] *= param_dist(
-                curr_param_estimates, [r_1, r_2, r_3]
+                curr_param_estimates, [p_3, r_2, r_3]
             )
+        normalized_weights = (
+            weights
+            / np.array([np.sum(weights, axis=1) for _ in enumerate(weights[0, :])]).T
+        )
         # Maximization step
         old_param_estimates = list(curr_param_estimates)
         # curr_param_estimates += np.full(6, 0.25) - 0.5 * np.random.rand(6)
 
+        optmizer = ps.single.GlobalBestPSO(
+            n_particles=50,
+            dimensions=6,
+            options=options,
+            bounds=bounds,
+        )
         _, curr_param_estimates = optmizer.optimize(
             expct_log_likelihood_vec,
-            10,
+            40,
             weights=normalized_weights,
             sobol_samples=sobol_samples,
+            n_processes=15,
         )
+
+        # algorithm_param = {
+        #     "max_num_iteration": 3000,
+        #     "population_size": 20,
+        #     "mutation_probability": 0.1,
+        #     "elit_ratio": 0.01,
+        #     "crossover_probability": 0.5,
+        #     "parents_portion": 0.3,
+        #     "crossover_type": "uniform",
+        #     "max_iteration_without_improv": None,
+        # }
+        #
+        # variable_boundaries = np.array(
+        #     [[-10, 0], [0, 5], [0, 1], [0, 1], [-1, 1], [0, 1]]
+        # )
+        # expct_log_likelihood_curr = expct_log_likelihood_no_aux(
+        #     normalized_weights, sobol_samples
+        # )
+        # model = ga(
+        #     function=expct_log_likelihood_curr,
+        #     dimension=6,
+        #     variable_type="real",
+        #     variable_boundaries=variable_boundaries,
+        #     function_timeout=100,
+        #     algorithm_parameters=algorithm_param,
+        # )
+        # model.run()
+        # print(model.report)
+        # solution = model.output_dict
+        # curr_param_estimates = solution["variable"]
+
+        # res = minimize(
+        #     expct_log_likelihood,
+        #     x0=np.array(old_param_estimates_1),
+        #     args=(normalized_weights, sobol_samples),
+        #     method="Powell",
+        #     options={
+        #         "disp": True,
+        #         "maxiter": 100,
+        #         "ftol": 0.1,
+        #         "xtol": 0.1,
+        #         # "direc": np.diag([1, 1, 1, 1, 1, 1]),
+        #     },
+        #     bounds=[(-10, 0), (0, 5), (0, 1), (0, 1), (-1, 1), (0, 1)]
+        #     # [-10, 0, 0, 0, -1, 0], [0, 5, 1, 1, 1, 1]-1
+        # )
         # Stopping criterion
         # print(old_param_estimates)
         # print(curr_param_estimates)
         # print(
         #     np.max((old_param_estimates - curr_param_estimates) / curr_param_estimates)
         # )
+        # print(res)
+        # curr_param_estimates = res.x
         if (
             np.max(
                 np.abs(old_param_estimates - curr_param_estimates)
@@ -643,34 +658,49 @@ def qmc_em_size_param_estimation(
 def generating_samples():
     # Statiscal distribution parameters
     # --------------------------------------------------------------------------------------
-    mu = -3.5
-    sigma = np.sqrt(0.5)
-    alpha_1 = 15
-    beta_1 = 3
-    alpha_2 = 20
-    beta_2 = 6
+    mu = -3
+    sigma = 1
+    mu_ratio = 0.66
+    sigma_ratio = 0.1
+    mu_dir = 0
+    sigma_dir = 0.2
 
     # Sample sizes
     # --------------------------------------------------------------------------------------
-    n_sample_size = 200
+    n_sample_size = 100
     n_particles = 1000
 
     # Sample vals
     # --------------------------------------------------------------------------------------
 
+    # r_3_sample_vals = lognorm.rvs(sigma, scale=np.exp(mu), size=n_particles)
+    # r_2_r_3_sample_vals = beta.rvs(alpha_1, beta_1, size=n_particles)
+    # r_2_sample_vals = r_3_sample_vals * r_2_r_3_sample_vals
+    # r_1_r_2_sample_vals = beta.rvs(alpha_2, beta_2, size=n_particles)
+    # r_1_sample_vals = r_2_sample_vals * r_1_r_2_sample_vals
+    # p_3_sample_vals = np.arcsin(np.random.rand(n_particles))
+    # p_2_sample_vals = np.arcsin(
+    #     np.cos(p_3_sample_vals) * np.sin(np.pi * np.random.rand(n_particles) / 2)
+    # )
+    # p_1_sample_vals = np.arcsin(
+    #     np.sqrt(1 - np.sin(p_2_sample_vals) ** 2 - np.sin(p_3_sample_vals) ** 2)
+    # )
+    # r_3_sample_vals = norm.rvs(loc=mu, scale=sigma, size=n_particles)
     r_3_sample_vals = lognorm.rvs(sigma, scale=np.exp(mu), size=n_particles)
-    r_2_r_3_sample_vals = beta.rvs(alpha_1, beta_1, size=n_particles)
+    print(r_3_sample_vals)
+    r_2_r_3_sample_vals = norm.rvs(loc=mu_ratio, scale=sigma_ratio, size=n_particles)
     r_2_sample_vals = r_3_sample_vals * r_2_r_3_sample_vals
-    r_1_r_2_sample_vals = beta.rvs(alpha_2, beta_2, size=n_particles)
-    r_1_sample_vals = r_2_sample_vals * r_1_r_2_sample_vals
-    p_3_sample_vals = np.arcsin(np.random.rand(n_particles))
+    r_1_sample_vals = r_2_sample_vals
+    # p_3_sample_vals = norm.rvs(loc=mu_dir, scale=sigma_dir, size=n_particles)
+    p_3_sample_vals = np.full(
+        (n_particles), 0
+    )  # vonmises.rvs(loc=mu_dir, kappa=sigma_dir, size=n_particles)
     p_2_sample_vals = np.arcsin(
         np.cos(p_3_sample_vals) * np.sin(np.pi * np.random.rand(n_particles) / 2)
     )
     p_1_sample_vals = np.arcsin(
         np.sqrt(1 - np.sin(p_2_sample_vals) ** 2 - np.sin(p_3_sample_vals) ** 2)
     )
-
     z_u = np.sqrt(
         r_1_sample_vals ** 2 * np.sin(p_1_sample_vals) ** 2
         + r_2_sample_vals ** 2 * np.sin(p_2_sample_vals) ** 2

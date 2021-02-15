@@ -5,11 +5,12 @@ from unittest.mock import sentinel, Mock, patch
 
 import numpy as np
 from scipy.optimize import newton_krylov, anderson, root
-from micgenmethod.mic_from_imagej import (
+from micgenmethod.mic_from_imagej_3 import (
     qmc_em_size_param_estimation,
     ellip_func,
     generating_samples,
 )
+from scipy.stats import lognorm, norm, vonmises
 
 
 class TestMainFunction(unittest.TestCase):
@@ -245,14 +246,55 @@ class TestMainFunction(unittest.TestCase):
         print(b)
 
     def test_2(self):
-        file_path = "/home/jose/Documents/code/try_stat/PC_ABS_S30_V10_R1_5_3/mic_0/meshes/Results(1).csv"
+        file_path = (
+            "/home/jose/Documents/code/paper_results/stat_analysis/3D/Results.csv"
+        )
         info = np.genfromtxt(file_path, delimiter=",", skip_header=1)
-        visible_vars = info[:, 7:9] / 500
+        visible_vars = info[:, 7:9] / 795
         print(visible_vars)
+        angles = info[:, -2] * np.pi / 180
+        # for i_ind, i_angle in angles:
+        #     if i_angle > n
         visible_vars = np.array([visible_vars[:, 1], visible_vars[:, 0]]).T
-        print(visible_vars)
-        b = qmc_em_size_param_estimation(visible_vars, [0.08, 0.1, 10, 3, 10, 3])
+        val = np.abs(np.sum([np.exp(1j * i_angle) for i_angle in angles])) / len(angles)
+        angle_av = np.angle(np.sum([np.exp(1j * i_angle) for i_angle in angles]))
+        print(angle_av, val, np.sqrt(-2 * np.log(val)))
+        print(angles)
+        import matplotlib.pyplot as plt
+
+        kappa, loc, scale = vonmises.fit(angles, fscale=1 / 2)
+        print(kappa, loc, scale)
+        x = np.linspace(
+            0,
+            np.pi,
+            100,
+        )
+        vals = vonmises.pdf(x, kappa, loc=loc, scale=scale)
+        print(x)
+        print(vals)
+        plt.plot(x, vals)
+        plt.hist(angles, density=True)
+        plt.show()
+
+        plt.hist(visible_vars[:, 1], density=True)
+        sigma, loc, scale = lognorm.fit(visible_vars[:, 1], floc=0)
+        print("lgonorm_param", sigma, loc, scale)
+        x = np.linspace(0, np.max(visible_vars[:, 1]), 50)
+        vals = lognorm.pdf(x, sigma, loc=loc, scale=scale)
+        plt.plot(x, vals)
+        print(lognorm.rvs(sigma, loc=loc, scale=scale, size=20))
+
+        plt.show()
+
+        plt.hist(visible_vars[:, 0] / visible_vars[:, 1], density=True)
+        loc, scale = norm.fit(visible_vars[:, 0] / visible_vars[:, 1])
+        print(loc, scale)
+        x = np.linspace(0, 1, 50)
+        vals = norm.pdf(x, loc=loc, scale=scale)
+        plt.plot(x, vals)
+        plt.show()
+        # b = qmc_em_size_param_estimation(visible_vars, [-2, 0.01, 0.5, 0.1, 1, 0.1])
 
     def test_3(self):
         visible_vars = generating_samples()
-        b = qmc_em_size_param_estimation(visible_vars, [-2, 0.2, 10, 2, 15, 4])
+        b = qmc_em_size_param_estimation(visible_vars, [-2, 0.1, 0.5, 0.4])
