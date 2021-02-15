@@ -553,68 +553,65 @@ def compute_3d_irreducible_minkowski_tensors(voronoi):
     """Compute the Irreducible Minkowski Tensors."""
     # FIXME: Repeated operations, as values are computed for each region repeating
     # operations for common ridges. Use ridges instead (voronoi.ridge_points).
-    imt_region = []
-    phi_region = []
     # Initializing the list containing the list of imts for each Voronoi cell
-    for i_particle in range(13, len(voronoi.point_region), 27):
-        center_point = voronoi.points[i_particle]
-        i_particle_region = voronoi.regions[voronoi.point_region[i_particle]]
-        area_ridge = []
-        normal_ridge = []
-        angles_normal_ridge = []
-        imt_region.append([])
-        phi_region.append([])
-        phi = np.zeros((7, 13), dtype=complex)
-        for ridge in voronoi.ridge_vertices:
-            if len(i_particle_region) == 0:
-                continue
-            if any([vertex == -1 for vertex in i_particle_region]):
-                continue
-            if any([vertex not in i_particle_region for vertex in ridge]):
-                continue
+
+    p = 0
+    particle_inds = list(range(13, len(voronoi.point_region), 27))
+    n_particles = len(voronoi.point_region)
+    all_imt = [[] for _ in range(len(particle_inds))]
+    all_phi = [np.zeros((7, 13), dtype=complex) for _ in range(n_particles)]
+    all_area = [0 for _ in range(n_particles)]
+    for ridge, points in zip(voronoi.ridge_vertices, voronoi.ridge_points):
+        inds_to_consider = []
+        if points[0] in particle_inds:
+            inds_to_consider.append(points[0])
+        if points[1] in particle_inds:
+            inds_to_consider.append(points[1])
             # Running through all the cells in the Voronoi
             # Initializing the list containing the imts of the cell
-            area_ridge.append(area_face(voronoi.vertices[ridge]))
-            normal_ridge.append(out_normal_face(voronoi.vertices[ridge], center_point))
-            angles_normal_ridge.append(unit_vector_to_sph_coord(normal_ridge[-1]))
-
-        A_total = np.sum(area_ridge)
-        for order in range(-6, 7):
-            for degree in range(7):
-                if np.abs(order) <= degree:
-                    phi[degree, order + 6] = np.sum(
-                        [
-                            area_ridge[k_face]
-                            * sph_harm(
+        if len(inds_to_consider) != 0:
+            area_ridge = area_face(voronoi.vertices[ridge])
+            for i_particle in inds_to_consider:
+                center_point = voronoi.points[i_particle]
+                normal_ridge = out_normal_face(voronoi.vertices[ridge], center_point)
+                angles_normal_ridge = unit_vector_to_sph_coord(normal_ridge)
+                all_area[i_particle] += area_ridge
+                for order in range(-6, 7):
+                    for degree in range(7):
+                        if np.abs(order) <= degree:
+                            all_phi[i_particle][
+                                degree, order + 6
+                            ] += area_ridge * sph_harm(
                                 order,
                                 degree,
-                                angles_normal_ridge[k_face][0],
-                                angles_normal_ridge[k_face][1],
+                                angles_normal_ridge[0],
+                                angles_normal_ridge[1],
                             )
-                            for k_face in range(len(area_ridge))
-                        ]
-                    )
+
+        p += 1
+    all_phi = [all_phi[i] for i in particle_inds]
+    all_area = [all_area[i] for i in particle_inds]
+    for i_ind, (i_phi, i_area) in enumerate(zip(all_phi, all_area)):
         for degree in range(7):
             # Computing the 7 first imts
             if degree == 0:
-                imt_region[-1].append(A_total)
+                all_imt[i_ind].append(i_area)
             else:
-                imt_region[-1].append(
+                all_imt[i_ind].append(
                     np.sqrt(
                         4
                         * np.pi
                         / (2 * degree + 1)
-                        / (A_total ** 2)
+                        / (i_area ** 2)
                         * np.sum(
                             [
-                                np.abs(phi[degree, order + 6]) ** 2
+                                np.abs(i_phi[degree, order + 6]) ** 2
                                 for order in range(-6, 7)
                             ]
                         )
                     )
                 )
-        phi_region[-1].append(phi)
-    return imt_region, phi
+    return all_imt, all_phi
 
 
 def compute_3d_irreducible_minkowski_tensors_polyhedron(unormals, area):
