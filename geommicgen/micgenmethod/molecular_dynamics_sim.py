@@ -603,7 +603,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 self.thermostat.apply_thermostat(
                     self.particle_velocities, self.kinetic_energy
                 )
-                if self.total_overlap <= self.max_residue:
+                if self.total_overlap <= self.max_residue + 1e-12:
                     # If the configuration has an overlap area smaller than the tolerance
                     n_steps_relax += 1
                 else:
@@ -624,13 +624,51 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     )
                     / np.array(self.total_overlap_history[-500 - 1 : -1])
                     * 100
-                    < 1e-5
+                    < 1e-2
+                ):
+                    # if self.step > 50:
+                    #     print(
+                    #         np.log10(
+                    #             np.abs(
+                    #                 np.array(self.total_overlap_history[-50])
+                    #                 / np.array(self.total_overlap_history[-1])
+                    #             )
+                    #         ),
+                    #         "\n\n",
+                    #     )
+                    # if self.step > step_rep + 150 and (
+                    #     np.log10(
+                    #         np.abs(
+                    #             np.array(self.total_overlap_history[-50])
+                    #             / np.array(self.total_overlap_history[-1])
+                    #         )
+                    #     )
+                    #     < 0.5
+                    # ):
                     # If after 500 iterations all the iterations produced a relative change
                     # smaller than 1e-5% assume it is not possible to find a legal
                     # configuration
-                ):
                     print_funcs.print_to_file("Failed sample")
                     break
+                    # self.thermostat.reference_temp *= 10 ** 4
+                    # step_rep += 150
+                    # # import pdb
+                    # #
+                    # # pdb.set_trace()
+            self.total_overlap = 0
+            for i_particle_index, i_particle in enumerate(particles):
+                # Running though all the particles
+                for j_particle_index, j_particle in enumerate(particles):
+                    if j_particle_index is None:
+                        continue
+                    j_particle = particles[j_particle_index]
+                    if j_particle_index > i_particle_index:
+                        # Running through the particle pairs that have not been considered yet
+                        intersection_area, unit_vector_i_j = getattr(
+                            i_particle, self.force_option
+                        )(j_particle, self.box)
+                        self.total_overlap += intersection_area
+                        # Updating the overlap area
 
     def compute_forces(self, particles):
         """
@@ -687,7 +725,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     # Running through the particle pairs that have not been considered yet
                     intersection_area, unit_vector_i_j = getattr(
                         i_particle, self.force_option
-                    )(j_particle, self.box, tol=1e-12)
+                    )(j_particle, self.box)
                     self.particle_overlap_areas_dict.setdefault(
                         (i_particle_index, j_particle_index),
                         [0 for _ in range(self.step - 1)],
