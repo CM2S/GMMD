@@ -181,6 +181,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.offset = kwargs.get("offset", True)
         self.fixed_seed = kwargs.get("fixed_seed", None)
         self.force_rescale_coeff = 1
+        self.coord_number = None
 
     def generate_microstructure(self, microstructure_sample):
         """
@@ -558,6 +559,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.particle_overlap_areas = [0 for _ in particles]
         # Setting all the overlap areas to zero at the beginning of the iteration as
         # they are added sequentially as each pair is considered
+        coord_number_list = [0 for _ in particles]
         for i_particle_index, i_particle in enumerate(particles):
             # Running though all the particles
             for j_particle_index in set(
@@ -592,6 +594,16 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     self.particle_forces[j_particle_index] -= force_i_j
                     # Adding the force due to the interaction between particle 1 and 2 to
                     # the total force acting on particle 2
+                    if self.dt_adapt == "sqrt":
+                        # Computing the number of particles effectively touching
+                        if any(np.abs(force_i_j) > 0):
+                            coord_number_list[i_particle_index] += 1
+                            coord_number_list[j_particle_index] += 1
+
+        if self.dt_adapt == "sqrt":
+            # Computing the mean coordination number
+            self.coord_number = np.mean(coord_number_list)
+        # print(np.sum(coord_number_list), np.sum(times), len(times), "\n\n")
         self.total_overlap_history.append(self.total_overlap)
 
     def compute_forces_thermostat(self, particles):
@@ -650,48 +662,90 @@ class MolecularDynamicsSimulation(GenerationMethod):
         elif self.dt_adapt == "const":
             pass
         elif self.dt_adapt == "sqrt":
-            max_vel = np.max(
-                [
-                    np.linalg.norm(i_particle_vel)
-                    for i_particle_vel in self.particle_velocities
-                ]
-            )
+            # max_vel = np.max(
+            #     [
+            #         np.linalg.norm(i_particle_vel)
+            #         for i_particle_vel in self.particle_velocities
+            #     ]
+            # )
             harm_r = hmean([particle.radius for particle in particles])
-            harm_m = hmean(
-                [particle.mass(option=self.particle_mass_opt) for particle in particles]
-            )
-            adim_mean_path = 1 / (
-                np.sqrt(2)
-                * particles[0].dim
-                * self.microstructure_sample.volume_fraction
-            )
-            print("adim_mean_path", adim_mean_path)
+            # adim_mean_path = 1 / (
+            #     np.sqrt(2)
+            #     * particles[0].dim
+            #     * self.microstructure_sample.volume_fraction
+            # )
+            # print("adim_mean_path", adim_mean_path)
             if self.force_option == "force_spring":
-                self.dt = 2 * (
-                    np.min([1.2, adim_mean_path])
-                    * (
-                        np.sqrt(
-                            harm_m
-                            / (
-                                4
-                                * (2 * harm_r - self.dt * max_vel)
-                                * harm_r
-                                / (2 * harm_r) ** 2
-                            )
-                        )
-                        if max_vel != 0 and 2 * harm_r > self.dt * max_vel
-                        else 0.05
-                    )
+                # self.dt = 2 * (
+                #     np.min([1.2, adim_mean_path])
+                #     * (
+                #         np.sqrt(
+                #             harm_m
+                #             / (
+                #                 4
+                #                 * (2 * harm_r - self.dt * max_vel)
+                #                 * harm_r
+                #                 / (2 * harm_r) ** 2
+                #             )
+                #         )
+                #         if max_vel != 0 and 2 * harm_r > self.dt * max_vel
+                #         else 0.05
+                #     )
+                # )
+                max_vel = np.max(
+                    [
+                        np.linalg.norm(i_particle_vel)
+                        for i_particle_vel in self.particle_velocities
+                    ]
                 )
+                k_eff = (
+                    2 * (2 * harm_r - max_vel * self.dt) / (2 * harm_r)
+                    if max_vel != 0 and 2 * harm_r > self.dt * max_vel
+                    else 1
+                )
+                self.dt = np.sqrt(2 / max(1, self.coord_number)) * np.sqrt(
+                    harm_r / k_eff
+                )
+
             elif self.force_option == "intersection_length":
-                self.dt = 2 * (np.min([1, adim_mean_path]) * (np.sqrt(harm_m)))
-            print(
-                self.dt,
-                harm_r / max_vel,
-                2 * (adim_mean_path * (np.sqrt(harm_m))),
-                adim_mean_path,
-                "\n\n\n",
-            )
+                # dt_2 = 2 * (np.min([1, adim_mean_path]) * (np.sqrt(harm_m)))
+                # self.dt = np.sqrt(adim_mean_path) * (np.sqrt(harm_r))
+                # self.dt = 0.005
+                # if self.step == 0:
+                #     self.max_vel = 0
+                # else:
+                #     pass
+                # self.max_vel = max(self.max_vel, max_vel)
+                # self.dt = (
+                #     np.min(
+                #         [
+                #             1
+                #             / 2
+                #             / np.sqrt(2)
+                #             * np.sqrt(adim_mean_path * np.sqrt(harm_r) / self.max_vel),
+                #             np.sqrt(2),
+                #         ]
+                #     )
+                #     * (np.sqrt(harm_m))
+                #     if self.max_vel != 0 and 2 * harm_r > self.dt * self.max_vel
+                #     else 0.05
+                # )
+                # print(self.coord_number, "\n\n")
+                self.dt = np.sqrt(2 / max(1, self.coord_number)) * np.sqrt(harm_r)
+                # print(self.dt, dt_2, self.coord_number, "\n\n")
+                # self.dt = np.sqrt(harm_r)
+                # print(
+                #     self.dt,
+                #     np.sqrt(adim_mean_path) * (np.sqrt(harm_m)),
+                #     4
+                #     * np.sqrt(2)
+                #     * (adim_mean_path * harm_r * np.sqrt(harm_r) / self.max_vel) ** -1,
+                #     2 * (adim_mean_path) ** -1,
+                #     adim_mean_path,
+                #     self.max_vel * np.sqrt(harm_r),
+                #     harm_r,
+                #     "\n\n\n",
+                # )
             # print(
             #     2
             #     * (
