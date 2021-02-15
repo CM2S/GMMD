@@ -2014,6 +2014,7 @@ class Ellipsoid(Particle):
     possible_parameters = {
         **{
             "axis_1": ("Axis 1", "float"),
+            "semi_axis_1": ("Semi-Axis 1", "float"),
             "axis_2": ("Axis 2", "float"),
             "axis_3": ("Axis 3", "float"),
             "rot_axis_comp_x": ("x-component rotation axis", "float"),
@@ -2021,7 +2022,12 @@ class Ellipsoid(Particle):
             "rot_axis_comp_z": ("z-component rotation axis", "float"),
             "angle": ("Rotation angle", "float"),
             "ratio_12": ("Ratio a1/a2", "float"),
+            "ratio_21": ("Ratio a2/a1", "float"),
             "ratio_13": ("Ratio a1/a3", "float"),
+            "ratio_32": ("Ratio a3/a2", "float"),
+            "ratio_321": ("Ratio a3/a1 and a2/a1", "float"),
+            "p_3": ("Angle a1 makes with XY", "float"),
+            "phi_z": ("Angle that the projection of a1 in XY makes with Y", "float"),
         },
         **Particle.possible_parameters,
     }
@@ -2067,6 +2073,10 @@ class Ellipsoid(Particle):
             "rot_axis_comp_z",
             "angle",
         },
+        {"vf", "semi_axis_1", "ratio_321", "p_3", "phi_z"},
+        {"vf", "semi_axis_1", "ratio_32", "ratio_21", "p_3", "phi_z"},
+        {"vf", "axis_2", "ratio_32", "ratio_21", "p_3", "phi_z"},
+        {"vf", "axis_1", "ratio_321", "p_3", "phi_z"},
     ]
     # List of acceptable collections of parameters
     dim = 3
@@ -2121,6 +2131,44 @@ class Ellipsoid(Particle):
             axis_1 = descriptors["axis_1"]
             axis_2 = axis_1 / descriptors["ratio_12"]
             axis_3 = axis_1 / descriptors["ratio_13"]
+        if "ratio_321" in descriptors and "semi_axis_1" in descriptors:
+            axis_1 = 2 * descriptors["semi_axis_1"]
+            axis_2 = descriptors["ratio_321"] * axis_1
+            axis_3 = descriptors["ratio_321"] * axis_1
+        if "ratio_321" in descriptors and "axis_1" in descriptors:
+            axis_1 = descriptors["axis_1"]
+            axis_2 = descriptors["ratio_321"] * axis_1
+            axis_3 = descriptors["ratio_321"] * axis_1
+        if (
+            "ratio_32" in descriptors
+            and "ratio_21" in descriptors
+            and "semi_axis_1" in descriptors
+        ):
+            axis_1 = 2 * descriptors["semi_axis_1"]
+            axis_2 = descriptors["ratio_21"] * axis_1
+            axis_3 = descriptors["ratio_32"] * axis_2
+        if (
+            "ratio_32" in descriptors
+            and "ratio_21" in descriptors
+            and "axis_2" in descriptors
+        ):
+            # axis_2 = min(descriptors["axis_2"], 0.2)
+            file_path = (
+                "/home/jose/Documents/code/paper_results/stat_analysis/3D/Results.csv"
+            )
+            info = np.genfromtxt(file_path, delimiter=",", skip_header=1)
+            visible_vars = info[:, 7:9] / 795
+            # print(visible_vars)
+            angles = info[:, -2] * np.pi / 180
+            # for i_ind, i_angle in angles:
+            #     if i_angle > n
+            visible_vars = np.array([visible_vars[:, 1], visible_vars[:, 0]]).T
+            ind = np.random.choice(np.arange(len(visible_vars[:, 1])))
+            axis_2 = visible_vars[:, 1][ind]
+            axis_3 = visible_vars[:, 0][ind]
+            print(axis_2)
+            axis_1 = axis_2 / max(min(descriptors["ratio_21"], 1), 0.4)
+            # axis_3 = max(min(descriptors["ratio_32"], 1), 0.4) * axis_2
         if "angle" in descriptors:
             angle = descriptors["angle"]
         if (
@@ -2132,10 +2180,38 @@ class Ellipsoid(Particle):
             rot_axis_comp_x = descriptors["rot_axis_comp_x"]
             rot_axis_comp_y = descriptors["rot_axis_comp_y"]
             rot_axis_comp_z = descriptors["rot_axis_comp_z"]
+        if "p_3" in descriptors and "phi_z" in descriptors:
+            p_3 = descriptors["p_3"]
+            # phi_z = descriptors["phi_z"]
+            phi_z = angles[ind]
 
-        self.axis_1 = axis_1
-        self.axis_2 = axis_2
-        self.axis_3 = axis_3
+            rot_mat_y = np.array(
+                [
+                    [np.cos(p_3), 0, -np.sin(p_3)],
+                    [
+                        0,
+                        1,
+                        0,
+                    ],
+                    [np.sin(p_3), 0, np.cos(p_3)],
+                ],
+            )
+            rot_mat_z = np.array(
+                [
+                    [np.cos(phi_z), -np.sin(phi_z), 0],
+                    [np.sin(phi_z), np.cos(phi_z), 0],
+                    [0, 0, 1],
+                ],
+            )
+            complete_rot_mat = rot_mat_z.dot(rot_mat_y)
+            rot_axis_comp_x = complete_rot_mat[2, 1] - complete_rot_mat[1, 2]
+            rot_axis_comp_y = complete_rot_mat[0, 2] - complete_rot_mat[2, 0]
+            rot_axis_comp_z = complete_rot_mat[1, 0] - complete_rot_mat[0, 1]
+            angle = np.arccos((np.trace(complete_rot_mat) - 1) / 2)
+
+        self.axis_1 = np.abs(axis_1)
+        self.axis_2 = np.abs(axis_2)
+        self.axis_3 = np.abs(axis_3)
         self.rotation_axis = np.array(
             [rot_axis_comp_x, rot_axis_comp_y, rot_axis_comp_z]
         ) / np.linalg.norm(
