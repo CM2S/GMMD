@@ -10,6 +10,8 @@ import abc
 
 import numpy as np
 
+from scipy.stats import vonmises, lognorm
+
 from .particle_classes import (
     Matrix,
     Disk,
@@ -115,6 +117,19 @@ class Phase:
                         descriptor,
                         phase_descriptors[descriptor + "_mean"],
                         phase_descriptors[descriptor + "_sigma"],
+                    )
+                elif descriptor_distribution == "lognormal":
+                    self.descriptors[descriptor] = LogNormalDistribution(
+                        descriptor,
+                        phase_descriptors[descriptor + "_mean"],
+                        phase_descriptors[descriptor + "_sigma"],
+                    )
+                elif descriptor_distribution == "vonmises":
+                    self.descriptors[descriptor] = VonMisesDistribution(
+                        descriptor,
+                        phase_descriptors[descriptor + "_kappa"],
+                        phase_descriptors[descriptor + "_loc"],
+                        phase_descriptors[descriptor + "_scale"],
                     )
                 elif descriptor_distribution == "discrete":
                     # Recovering the pairs value/probability, specified as
@@ -392,6 +407,52 @@ class NormalDistribution(PhaseDescriptor):
         return sample if len(sample) > 1 else sample[0]
 
 
+class LogNormalDistribution(PhaseDescriptor):
+    """
+    This is the class for phase descriptors with a lognormal distribution.
+
+    Attributes
+    ----------
+    mean: float
+        Mean of the normal distribution, such that exp(X) = Y
+
+    sigma: float
+        Standard deviation of the normal distribution.
+
+    Class Attributes
+    ----------------
+    parameters: set
+        Parameters of the statistical distribution.
+    """
+
+    parameters = {"mean", "sigma"}
+
+    def __init__(self, name, mean, sigma):
+        """
+        Initialize a LogNormalDistribution class object.
+
+        Parameters
+        ----------
+        name: str
+            Name of the descriptor
+
+        mean: float
+            Mean of the normal distribution.
+
+        sigma: float
+            Standard deviation of the normal distribution.
+        """
+        self.mean = mean
+        self.sigma = sigma
+        super().__init__(name)
+
+    def generate_sample(self, n_samples=1):
+        """Generate sample from a normal distribution."""
+        # sample = np.random.lognormal(mean=self.mean, sigma=self.sigma, size=n_samples)
+        sample = lognorm.rvs(self.sigma, loc=0, scale=self.mean, size=n_samples)
+        return sample if len(sample) > 1 else sample[0]
+
+
 class UniformDistribution(PhaseDescriptor):
     """
     This is the class for phase descriptors with a uniform distribution.
@@ -441,6 +502,56 @@ class UniformDistribution(PhaseDescriptor):
     def generate_sample(self, n_samples=1):
         """Generate sample from a normal distribution."""
         sample = np.random.uniform(low=self.low, high=self.high, size=n_samples)
+        return sample if len(sample) > 1 else sample[0]
+
+
+class VonMisesDistribution(PhaseDescriptor):
+    ## FIXME:  Update docs
+    """
+    This is the class for phase descriptors with a von mises distribution.
+
+    Attributes
+    ----------
+    low: float
+        Lower bound of the uniform distribution.
+
+    high: float
+        Upper bound of the uniform distribution.
+
+    Class Attributes
+    ----------------
+    parameters: set
+        Parameters of the statistical distribution.
+    """
+
+    parameters = {"kappa", "loc", "scale"}
+
+    def __init__(self, name, kappa, loc, scale):
+        """
+        Initialize a NormalDistribution class object.
+
+        Parameters
+        ----------
+        name: str
+            Name of the descriptor
+
+        low: float
+            Lower bound of the uniform distribution.
+
+        high: float
+            Upper bound of the uniform distribution.
+        """
+
+        self.loc = loc
+        self.kappa = kappa
+        self.scale = scale
+        super().__init__(name)
+
+    def generate_sample(self, n_samples=1):
+        """Generate sample from a normal distribution."""
+        sample = vonmises.rvs(
+            self.kappa, loc=self.loc, scale=self.scale, size=n_samples
+        )
         return sample if len(sample) > 1 else sample[0]
 
 
