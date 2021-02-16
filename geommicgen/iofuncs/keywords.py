@@ -649,6 +649,8 @@ top_level_reader.addTopLevelKeyword(
         header_keys={Keyword("Phase")},
         sub_keys={
             Keyword("Phase_Type", type="int"),
+            Keyword("inner_phase", type="bool"),
+            Keyword("outer_phase", type="int"),
             *generateAllPossibleKeywordsFromParticleAttributes(),
         },
     )

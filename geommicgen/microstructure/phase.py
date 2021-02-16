@@ -87,6 +87,9 @@ class Phase:
         self.name = name
         # Name of the phase
         self.type = Phase.phase_types[phase_descriptors["phase_type"]]
+        self.inner_phase = phase_descriptors.get("inner_phase", False)
+        if self.inner_phase:
+            self.outer_phase = phase_descriptors["outer_phase"]
         # Type of the phase
         self.descriptors = {
             possible_descriptor: None

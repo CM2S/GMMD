@@ -6,7 +6,8 @@ import os
 import qmcpy as qp
 from scipy.optimize import newton_krylov, root
 from scipy.stats import lognorm, beta, norm
-import pyswarms as ps
+
+# import pyswarms as ps
 import multiprocessing as mp
 
 

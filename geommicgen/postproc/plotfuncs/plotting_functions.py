@@ -206,8 +206,8 @@ def plot_particles(particles, rve_dims, sample_dir, **kwargs):
     if len(rve_dims) == 2:
         plot_particles_2d(particles, rve_dims, sample_dir)
     elif len(rve_dims) == 3:
-        # plot_particles_3d_one_by_one(particles, rve_dims, sample_dir)
-        plot_particles_3d(particles, rve_dims, sample_dir)
+        plot_particles_3d_one_by_one(particles, rve_dims, sample_dir)
+        # plot_particles_3d(particles, rve_dims, sample_dir)
 
 
 def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
@@ -320,7 +320,14 @@ def plot_particles_3d_one_by_one(particles, rve_dims, sample_dir, **kwargs):
 
     for i_ind, i_particle in enumerate(particles):
         dim = len(rve_dims)
-        mesh_generator = FEMMeshGenerator(particles[0].radius / 2, "tetra10", rve_dims)
+        if i_particle is Sphere:
+            mesh_generator = FEMMeshGenerator(
+                particles[0].radius / 2, "tetra4", rve_dims
+            )
+        else:
+            mesh_generator = FEMMeshGenerator(
+                particles[0].radius / 2, "tetra10", rve_dims
+            )
 
         mesh_generator.init_gmsh_model()
 

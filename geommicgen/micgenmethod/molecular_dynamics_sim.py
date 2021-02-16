@@ -197,7 +197,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         """
         self.microstructure_sample = microstructure_sample
         for phase in microstructure_sample.phases.values():
-            if phase.type is not Matrix:
+            if phase.type is not Matrix and not phase.inner_phase:
                 phase.generate_particles(microstructure_sample.rve_dims)
         if microstructure_sample.volume_fraction > 1:
             raise ValueError(
@@ -214,6 +214,20 @@ class MolecularDynamicsSimulation(GenerationMethod):
             self.run_molecular_dynamics_simulation(microstructure_sample.particles)
             self.time = time.time() - start
             microstructure_sample.total_overlap = self.total_overlap
+            # Placing inner phases
+            # ------------------------------------------------------------------------------
+            for phase in microstructure_sample.phases.values():
+                if phase.inner_phase:
+                    outer_phase = microstructure_sample.phases[str(phase.outer_phase)]
+                    phase.generate_particles(microstructure_sample.rve_dims)
+                    if phase.volume_fraction > outer_phase.volume_fraction:
+                        raise ValueError(
+                            "The volume fraction goes over {0}: {1}".format(
+                                outer_phase.volume_fraction, phase.volume_fraction
+                            )
+                        )
+                    print_funcs.print_microstructure_info(microstructure_sample)
+                    self.place_inner_phase_rsa(phase, outer_phase)
         finally:
             print_funcs.print_final_message(
                 self.time,
@@ -1018,3 +1032,57 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self._kinetic_energy = kinetic_energy
         if self.save_history:
             self.kinetic_energy_history.append(kinetic_energy)
+
+    def place_inner_phase_rsa(self, inner_phase, outer_phase):
+        """Place inner phase."""
+        rve_dims = np.array(inner_phase.microstructure.rve_dims)
+        # Pairing inner phase particles w/ outer phase particles
+        # ----------------------------------------------------------------------------------
+        out_part_in_part = [[] for _ in outer_phase.particles]
+        available_volume = [particle.volume for particle in outer_phase.particles]
+        for i_particle_ind, i_inner_particle in enumerate(inner_phase.particles):
+            while True:
+                outer_particle_ind = np.random.choice(
+                    list(range(len(outer_phase.particles))),
+                    p=[
+                        particle.volume
+                        / (
+                            outer_phase.volume_fraction
+                            * inner_phase.microstructure.volume
+                        )
+                        for particle in outer_phase.particles
+                    ],
+                )
+                if i_inner_particle.volume < 0.5 * available_volume[outer_particle_ind]:
+                    available_volume[outer_particle_ind] -= i_inner_particle.volume
+                    out_part_in_part[outer_particle_ind].append(i_inner_particle)
+                    break
+        # Placing inner phase particles in each outer phase particle 1-by-1
+        # ----------------------------------------------------------------------------------
+        for i_outer_particle, i_list_inner_particles in zip(
+            outer_phase.particles, out_part_in_part
+        ):
+            placed_particles = []
+            for j_inner_particle in i_list_inner_particles:
+                j_inner_particle.dilate(0.01 * j_inner_particle.radius)
+                i_outer_particle.contract(j_inner_particle.radius * 1.05)
+                while True:
+
+                    j_inner_particle.position_center = (
+                        i_outer_particle.generate_point_inside()
+                    )
+                    j_inner_particle.position_center = (
+                        j_inner_particle.position_center
+                        - rve_dims
+                        * np.floor(j_inner_particle.position_center / rve_dims)
+                    )
+                    intersect = False
+                    for k_particle in placed_particles:
+                        if k_particle.intersection(j_inner_particle, rve_dims):
+                            intersect = True
+                            break
+                    if not intersect:
+                        placed_particles.append(j_inner_particle)
+                        break
+                i_outer_particle.dilate(j_inner_particle.radius * 1.05)
+                j_inner_particle.contract(0.01 * j_inner_particle.radius)

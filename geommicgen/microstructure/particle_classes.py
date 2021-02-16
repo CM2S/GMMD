@@ -2144,23 +2144,23 @@ class Ellipsoid(Particle):
             and "ratio_21" in descriptors
             and "axis_2" in descriptors
         ):
-            # axis_2 = min(descriptors["axis_2"], 0.2)
-            file_path = (
-                "/home/jose/Documents/code/paper_results/stat_analysis/3D/Results.csv"
-            )
-            info = np.genfromtxt(file_path, delimiter=",", skip_header=1)
-            visible_vars = info[:, 7:9] / 795
-            # print(visible_vars)
-            angles = info[:, -2] * np.pi / 180
-            # for i_ind, i_angle in angles:
-            #     if i_angle > n
-            visible_vars = np.array([visible_vars[:, 1], visible_vars[:, 0]]).T
-            ind = np.random.choice(np.arange(len(visible_vars[:, 1])))
-            axis_2 = visible_vars[:, 1][ind]
-            axis_3 = visible_vars[:, 0][ind]
-            print(axis_2)
+            # file_path = (
+            #     "/home/jose/Documents/code/paper_results/stat_analysis/3D/Results.csv"
+            # )
+            # info = np.genfromtxt(file_path, delimiter=",", skip_header=1)
+            # visible_vars = info[:, 7:9] / 795
+            # # print(visible_vars)
+            # angles = info[:, -2] * np.pi / 180
+            # # for i_ind, i_angle in angles:
+            # #     if i_angle > n
+            # visible_vars = np.array([visible_vars[:, 1], visible_vars[:, 0]]).T
+            # ind = np.random.choice(np.arange(len(visible_vars[:, 1])))
+            # axis_2 = visible_vars[:, 1][ind]
+            # axis_3 = visible_vars[:, 0][ind]
+
+            axis_2 = min(descriptors["axis_2"], 0.2)
             axis_1 = axis_2 / max(min(descriptors["ratio_21"], 1), 0.4)
-            # axis_3 = max(min(descriptors["ratio_32"], 1), 0.4) * axis_2
+            axis_3 = max(min(descriptors["ratio_32"], 1), 0.4) * axis_2
         if "angle" in descriptors:
             angle = descriptors["angle"]
         if (
@@ -2174,8 +2174,8 @@ class Ellipsoid(Particle):
             rot_axis_comp_z = descriptors["rot_axis_comp_z"]
         if "p_3" in descriptors and "phi_z" in descriptors:
             p_3 = descriptors["p_3"]
-            # phi_z = descriptors["phi_z"]
-            phi_z = angles[ind]
+            phi_z = descriptors["phi_z"]
+            # phi_z = angles[ind]
 
             rot_mat_y = np.array(
                 [
