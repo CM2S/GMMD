@@ -94,7 +94,7 @@ def Newmark(x_0, x_dot_0, f_vec, m_mat, c_mat, k_mat, dt, n_steps, dim):
     return [x_vec[:, 1:], x_dot_vec[:, 1:], x_ddot_vec[:, 1:]]
 
 
-def VerletSync(x_0, x_dot_0, f_vec, m_part, dt, n_steps, dim):
+def VerletSync(x_0, x_dot_0, f_vec, m_part, dt, n_steps, dim, dt_old=None):
     """
     Integrate the equation of motion using the Verlet integration scheme.
 
@@ -103,87 +103,68 @@ def VerletSync(x_0, x_dot_0, f_vec, m_part, dt, n_steps, dim):
     not the usual scheme where the velocity is computed for the previous time step with an
     error O(delta t²^2).
 
-    Parameters:
-        x_0: vector array
-            Initial positions of the DOFs
-        x_dot_0: vector array
-            Initial velocities of the DOFs
-        f_vec: vector array
-            Forves acting on the DOFs at each time instant
-        m_part: float
-            Mass of the particle
-        dt: float
-            Time step
-        n_steps: int
-            Number of time steps to be used
-        dim: int
-            Dimension of the problem
+    Parameters
+    ----------
 
-    Returns:
-        x_vec: vector array
-            Positions
-        x_dot_vec: vector array
-            Velocities
+    x_0: vector array
+        Initial positions of the DOFs
+
+    x_dot_0: vector array
+        Initial velocities of the DOFs
+
+    f_vec: vector array
+        Forves acting on the DOFs at each time instant
+
+    m_part: float
+        Mass of the particle
+
+    dt: float
+        Time step
+
+    n_steps: int
+        Number of time steps to be used
+
+    dim: int
+        Dimension of the problem
+
+    dt_old: float
+        Time step used in the previous iteration
+
+    Returns
+    -------
+
+    x_vec: vector array
+        Positions
+
+    x_dot_vec: vector array
+        Velocities
     """
-    # x_vec = np.zeros((dim, n_steps + 1), dtype="float")
-    # x_vec[:, 0] = x_0
-    # x_dot_vec = np.zeros((dim, n_steps + 1), dtype="float")
-    # x_dot_vec[:, 0] = x_dot_0
-    # # Initializing the array vectors containing the positions, velocities and accelerations
-    # x_vec[:, 1] = (
-    #     x_vec[:, 0] + dt * x_dot_vec[:, 0] + 0.5 * f_vec[:, 0] / m_part * dt ** 2
-    # )
-    # # Computing the next position
-    # x_dot_vec[:, 1] = (x_vec[:, 1] - x_vec[:, 0]) / dt
-    # # Computing the velocitiy
-    # step = 0
-    # # Initializing the step counter
-    # while step < n_steps - 1:
-    #     # Repeat n_steps times
-    #     x_vec[:, step + 2] = (
-    #         2 * x_vec[:, step + 1] - x_vec[:, step] + f_vec[:, step] / m_part * dt ** 2
-    #     )
-    #     # Computing the next position
-    #     x_dot_vec[:, step + 2] = (x_vec[:, step + 2] - x_vec[:, step + 1]) / dt
-    #     # Computing the velocitiy
-    #     step += 1
-    #     # Moving to the next time step
-    # old_x_vec = x_vec[:, 1]
-    # old_x_dot_vec = x_dot_vec[:, 1]
-    # return [x_vec[:, 1:], x_dot_vec[:, 1:]]
-
+    # Setting old dt
+    # --------------------------------------------------------------------------------------
+    if dt_old is None:
+        dt_old = dt
+    # Initializing the method
+    # --------------------------------------------------------------------------------------
+    # Position
     x_vec = np.zeros((dim, n_steps + 2), dtype="float")
-    x_dot_vec = np.zeros((dim, n_steps + 2), dtype="float")
-    x_dot_vec[:, 2] = x_dot_0 + f_vec[:, 0] / m_part * dt
-    x_vec[:, 2] = x_0 + x_dot_vec[:, 2] * dt
-    x_vec = np.zeros((dim, n_steps + 2), dtype="float")
-    x_vec[:, 0] = x_0 - x_dot_0 * dt + 0.5 * f_vec[:, 0] / m_part * dt ** 2
+    x_vec[:, 0] = x_0 - x_dot_0 * dt + 0.5 * f_vec[:, 0] / m_part * dt_old ** 2
+    x_vec[:, 1] = x_0
+    # Velocity
     x_dot_vec = np.zeros((dim, n_steps + 2), dtype="float")
     x_dot_vec[:, 1] = x_dot_0
-    # Initializing the array vectors containing the positions, velocities and accelerations
-    x_vec[:, 1] = x_0
-    # Computing the next position
-    # x_dot_vec[:, 0] = (x_vec[:, 1] - x_vec[:, 0]) / dt
-    # Computing the velocitiy
-    step = 0
     # Initializing the step counter
+    step = 0
     while step < n_steps:
         # Repeat n_steps times
         x_vec[:, step + 2] = (
-            2 * x_vec[:, step + 1] - x_vec[:, step] + f_vec[:, step] / m_part * dt ** 2
+            x_vec[:, step + 1]
+            + (x_vec[:, step + 1] - x_vec[:, step]) * dt / dt_old
+            + f_vec[:, step] / m_part * (dt + dt_old) / 2 * dt
         )
-        # try_1 = (
-        #     x_vec[:, step + 1] - x_dot_0 * dt + 0.5 * f_vec[:, step] / m_part * dt ** 2
-        # )
-        # print(x_vec[:, 2], try_1)
-        # print("here", x_vec[:, step + 1], x_vec[:, step])
-        # Computing the next position
         x_dot_vec[:, step + 2] = (x_vec[:, step + 2] - x_vec[:, step + 1]) / (1 * dt)
         # Computing the velocitiy
         step += 1
         # Moving to the next time step
-    # print("pos", x_vec[:, 2], old_x_vec)
-    # print("vel", x_dot_vec[:, 2], old_x_dot_vec)
     return [x_vec[:, 2:], x_dot_vec[:, 2:]]
 
 
