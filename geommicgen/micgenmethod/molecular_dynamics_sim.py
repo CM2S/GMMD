@@ -19,7 +19,7 @@ import errors.error_classes as errors
 import iofuncs.printing as print_funcs
 from micgenmethod.microstructure_gen_method import GenerationMethod
 from micgenmethod.integration_methods import VerletSync, Newmark
-from microstructure.particle_classes import Matrix
+from microstructure.particle_classes import Matrix, Particle
 
 
 class MolecularDynamicsSimulation(GenerationMethod):
@@ -182,6 +182,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.fixed_seed = kwargs.get("fixed_seed", None)
         self.force_rescale_coeff = 1
         self.coord_number = None
+        self.thermic_enegy_history = []
+        self.dist_met = "dist_approx"
 
     def generate_microstructure(self, microstructure_sample):
         """
@@ -613,10 +615,22 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 self.compute_relative_energy()
                 # Computing the relative energy
                 self.compute_kinetic_energy(particles)
+                self.thermic_enegy_history.append(
+                    1
+                    / 2
+                    * self.thermostat.k_b
+                    * self.thermostat.reference_temp
+                    * particles[0].dim
+                    * len(particles)
+                )
                 # Computing the kinetic energy
                 self.thermostat.apply_thermostat(
                     self.particle_velocities, self.kinetic_energy
                 )
+                Particle.dist_met = self.dist_met
+                # Particle.dist_met = "dist_exact"
+                # print(self.dist_met, "\n\n")
+
                 if self.total_overlap <= self.max_residue + 1e-12:
                     # If the configuration has an overlap area smaller than the tolerance
                     n_steps_relax += 1
