@@ -317,16 +317,17 @@ def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
 
 
 def plot_particles_3d_one_by_one(particles, rve_dims, sample_dir, **kwargs):
-
+    final_config_dir = os.path.join(sample_dir, "final_config")
+    os.makedirs(final_config_dir)
     for i_ind, i_particle in enumerate(particles):
         dim = len(rve_dims)
         if i_particle is Sphere:
             mesh_generator = FEMMeshGenerator(
-                particles[0].radius / 2, "tetra4", rve_dims
+                particles[0].radius / 2, "tetra4", rve_dims, output_term=0
             )
         else:
             mesh_generator = FEMMeshGenerator(
-                particles[0].radius / 2, "tetra10", rve_dims
+                particles[0].radius / 2, "tetra10", rve_dims, output_term=0
             )
 
         mesh_generator.init_gmsh_model()
@@ -383,7 +384,9 @@ def plot_particles_3d_one_by_one(particles, rve_dims, sample_dir, **kwargs):
         # Generate a 3D mesh
         model.mesh.generate(2)
 
-        _ = mesh_generator.write_mesh_gmsh(sample_dir, "final_config_{0}".format(i_ind))
+        _ = mesh_generator.write_mesh_gmsh(
+            final_config_dir, "final_config_{0}".format(i_ind)
+        )
 
 
 def plot_kinetic_energy_history(
