@@ -640,6 +640,7 @@ top_level_reader.addTopLevelKeyword(
 top_level_reader.addTopLevelKeyword(
     KeywordTypeB("Problem_Type", type="int"),
     KeywordTypeB("N_DP_Samples", type="int"),
+    KeywordTypeB("save_min", type="bool", default_value=False),
 )
 # General keywords
 

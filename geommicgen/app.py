@@ -290,7 +290,12 @@ def run_program():
             try:
                 current_mic_generator.generate_microstructure(current_sample)
             finally:
-                fileio.save_mic(sample_file_path, current_sample, current_mic_generator)
+                if top_level_reader.all_options["save_min"]:
+                    fileio.save_mic(sample_file_path, current_sample, None)
+                else:
+                    fileio.save_mic(
+                        sample_file_path, current_sample, current_mic_generator
+                    )
                 # Saving the RVE properties
 
             try:
