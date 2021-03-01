@@ -71,6 +71,7 @@ class Particle(abc.ABC):
         self.phase = phase
         # Phase to which the particle belongs
         self.position_center = None
+        self.delta = 0
 
     @staticmethod
     def nearest_periodic_image(point_1, point_2, box):
@@ -813,20 +814,25 @@ class Ellipse(Particle):
     @property
     def radius(self):
         """Radius of the circumscribed circle to the ellipse."""
-        radius = self.semi_major_axis
+        radius = self.semi_major_axis + self.delta
 
         return radius
 
+    @property
+    def radius_insc(self):
+        """Radius of the inscribed circle to the ellipse."""
+        radius_insc = self.semi_minor_axis
+
+        return radius_insc
+
     def contract(self, distance):
         """Contract the particle."""
-        self.major_axis -= 2 * distance
-        self.minor_axis -= 2 * distance
+        self.delta -= distance
         # Contracting the particle size subracting the minimum distance from the semi-axis
 
     def dilate(self, distance):
         """Dilate the particle."""
-        self.major_axis += 2 * distance
-        self.minor_axis += 2 * distance
+        self.delta += distance
         # Dilating the particle size adding the minimum distance to the semi-axis
 
     def point_inside(self, point, box, tol=1e-4, position="inside"):
@@ -852,6 +858,9 @@ class Ellipse(Particle):
         point_in: bool
             True if the point is inside the ellipse and False otherwise.
         """
+        ## FIXME: new erosion not considered
+        if self.delta != 0:
+            print("WARNING!!!")
         point_nearest_pbc = Particle.nearest_periodic_image(
             point, self.position_center, box
         )
@@ -1272,6 +1281,10 @@ class Ellipse(Particle):
 
     def uniform_sample_ellipse(self, n_samples=1):
         """Generate uniform random sample of points inside an ellipse."""
+        if self.delta != 0:
+            # FIXME: NEW DELTA
+            # print("WARNING!!")
+            pass
         points = []
         for _ in range(n_samples):
             z = np.array([0.0, 0.0])
@@ -1577,7 +1590,8 @@ class Ellipse(Particle):
                 + (dir_normal[1] / self.semi_minor_axis) ** 2
             )
         )
-        point_on_ellipse_loc = rescale_factor * dir_normal
+        dir_nomal_unit = dir_normal / np.linalg.norm(dir_normal)
+        point_on_ellipse_loc = rescale_factor * dir_normal + self.delta * dir_nomal_unit
         point_on_ellipse_glob = (
             self.rot_mat.T.dot(point_on_ellipse_loc) + self.position_center
         )
@@ -2063,6 +2077,12 @@ class Ellipsoid(Particle):
     rotation_mat: array
         Rotation matrix from local to global coordinates
 
+    radius: float
+        Radius of the circumscribed sphere.
+
+    radius_insc: float
+        Radius of the inscribed sphere.
+
     Class Attributes
     ----------------
     possible_parameters: dict
@@ -2326,10 +2346,19 @@ class Ellipsoid(Particle):
     @property
     def radius(self):
         """Radius of the circumscribed sphere to the ellipsoid."""
-        radius = np.max([self.semi_axis_1, self.semi_axis_3, self.semi_axis_3])
+        radius = (
+            np.max([self.semi_axis_1, self.semi_axis_3, self.semi_axis_3]) + self.delta
+        )
         # Radius of the circunscribed sphere
 
         return radius
+
+    @property
+    def radius_insc(self):
+        """Radius of the inscribed circle to the ellipsoid."""
+        radius_insc = np.min([self.semi_axis_1, self.semi_axis_3, self.semi_axis_3])
+
+        return radius_insc
 
     @property
     def semi_axis_1(self):
@@ -2357,16 +2386,18 @@ class Ellipsoid(Particle):
 
     def contract(self, distance):
         """Contract the particle."""
-        self.axis_1 -= 2 * distance
-        self.axis_2 -= 2 * distance
-        self.axis_3 -= 2 * distance
+        # self.axis_1 -= 2 * distance
+        # self.axis_2 -= 2 * distance
+        # self.axis_3 -= 2 * distance
+        self.delta -= distance
         # Contracting the particle size subracting the minimum distance from the semi-axis
 
     def dilate(self, distance):
         """Dilate the particle."""
-        self.axis_1 += 2 * distance
-        self.axis_2 += 2 * distance
-        self.axis_3 += 2 * distance
+        # self.axis_1 += 2 * distance
+        # self.axis_2 += 2 * distance
+        # self.axis_3 += 2 * distance
+        self.delta += distance
         # Dilating the particle size adding the minimum distance to the semi-axis
 
     def M(self):
@@ -2629,6 +2660,10 @@ class Ellipsoid(Particle):
 
     def generate_point_inside(self):
         """Generate a random point inside the ellipsoid."""
+        if self.delta != 0:
+            # FIXME:new delta
+            # print("Warning")
+            pass
         w = np.random.normal(size=3)
         # Generating 3 independent random points from the standard Gaussian distribution
         r = np.random.uniform() ** (1 / 3)
@@ -2636,11 +2671,12 @@ class Ellipsoid(Particle):
         R = np.linalg.norm(w)
         x_loc = np.array(
             [
-                r * self.semi_axis_1 * w[0] / R,
-                r * self.semi_axis_2 * w[1] / R,
-                r * self.semi_axis_3 * w[2] / R,
+                r * (self.semi_axis_1 + self.delta) * w[0] / R,
+                r * (self.semi_axis_2 + self.delta) * w[1] / R,
+                r * (self.semi_axis_3 + self.delta) * w[2] / R,
             ]
         )
+
         x_glob = self.rotation_mat.dot(x_loc) + self.position_center
         return x_glob
 
@@ -2866,7 +2902,7 @@ class Ellipsoid(Particle):
         # Semi-latus rectum
         return erosion_thickness
 
-    def intersection(self, other_particle: Particle, box: list, inside=True) -> bool:
+    def intersection(self, other_particle: Particle, box: list, inside=False) -> bool:
         """
         Check if the Ellipsoid intersects the other particle.
 
@@ -2893,7 +2929,7 @@ class Ellipsoid(Particle):
             intersection = self.intersection_ellipsoid_ellipsoid(other_particle, box)
         elif isinstance(other_particle, Cylinder) or not inside:
             intersection, _, _ = self.intersection_gjk(
-                other_particle, box, inside=inside
+                other_particle, box, inside=inside, int_only=True
             )
         else:
             raise ValueError("Incompatible particles.")
@@ -2917,7 +2953,10 @@ class Ellipsoid(Particle):
                 + (dir_normal[2] / self.semi_axis_3) ** 2
             )
         )
-        point_on_ellipsoid_loc = rescale_factor * dir_normal
+        dir_normal_unit = dir_normal / np.linalg.norm(dir_normal)
+        point_on_ellipsoid_loc = (
+            rescale_factor * dir_normal + self.delta * dir_normal_unit
+        )
         point_on_ellipsoid_glob = (
             self.rotation_mat.dot(point_on_ellipsoid_loc) + self.position_center
         )
@@ -3241,7 +3280,7 @@ class Sphere(Ellipsoid):
             other_particle: Cylinder
             intersection, _ = self.intersection_sphere_cylinder(other_particle, box)
         else:
-            intersection, _ = self.intersection_gjk(other_particle, box)
+            intersection, _ = self.intersection_gjk(other_particle, box, int_only=True)
 
         return intersection
         # Returning the intersection area
@@ -3504,6 +3543,12 @@ class Cylinder(Particle):
     rot_mat: array
         Rotation matrix from local to global coordinates.
 
+    radius: float
+        Radius of the circumscribed sphere.
+
+    radius_insc: float
+        Radius of the inscribed sphere.
+
     Class Attributes
     ----------------
     possible_parameters: dict
@@ -3624,11 +3669,20 @@ class Cylinder(Particle):
 
     @property
     def radius(self):
-        radius = np.sqrt((self.length / 2) ** 2 + self.r_cyl ** 2)
+        radius = np.sqrt((self.length / 2) ** 2 + self.r_cyl ** 2) + self.delta
         return radius
 
+    @property
+    def radius_insc(self):
+        """Radius of the inscribed sphere to the cylinder."""
+        radius_insc = np.min([self.length / 2, self.r_cyl])
+
+        return radius_insc
+
     def intersection(self, other_particle, box, inside=True):
-        intersection, *_ = self.intersection_gjk(other_particle, box, inside=inside)
+        intersection, *_ = self.intersection_gjk(
+            other_particle, box, inside=inside, int_only=True
+        )
         return intersection
 
     def intersection_area(self, other_particle, box):
@@ -3693,19 +3747,29 @@ class Cylinder(Particle):
             if np.linalg.norm(dir_normal_comp) != 0
             else 0
         )
-        point_global = self.position_center + axial_vec_local + trans_vec_local
+
+        dir_unit = direction / np.linalg.norm(direction)
+        point_global = (
+            self.position_center
+            + axial_vec_local
+            + trans_vec_local
+            + self.delta * dir_unit
+        )
+
         return point_global
 
     def contract(self, distance):
         """Contract the particle."""
-        self.r_cyl -= distance
-        self.length -= distance
+        # self.r_cyl -= distance
+        # self.length -= distance
+        self.delta -= distance
         # Contracting the particle size subracting the minimum distance from the semi-axis
 
     def dilate(self, distance):
         """Dilate the particle."""
-        self.r_cyl += distance
-        self.length += distance
+        # self.r_cyl += distance
+        # self.length += distance
+        self.delta += distance
         # Dilating the particle size adding the minimum distance to the semi-axis
 
     def intersection_cylinder_cylinder(

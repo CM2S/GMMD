@@ -511,14 +511,15 @@ class MolecularDynamicsSimulation(GenerationMethod):
         """
         for i_particle in particles:
             # Running through all the particles
-            i_particle.dilate(self.min_distance)
+            i_particle.dilate(self.min_distance / 2)
             # Dilate i_particle
+        print(self.microstructure_sample.volume_fraction, "\n\n\n")
         try:
             yield
         finally:
             for i_particle in particles:
                 # Running through all the particles
-                i_particle.contract(self.min_distance)
+                i_particle.contract(self.min_distance / 2)
                 # contract i_particle
             if self.thermostat.__class__.__name__ == "MultiTemperatureIsokineticScheme":
                 self.thermostat.equilibration_steps.append(self.thermostat.jump_list)
