@@ -39,6 +39,7 @@ def post_proc(
             overlap_ratio=current_mic_generator.thermostat.ratio,
             len_sim=current_mic_generator.step,
             thermic_enegy_history=current_mic_generator.thermic_enegy_history,
+            dt_history=current_mic_generator.all_dt,
         )
         # Do analysis of the motion of the particles
 

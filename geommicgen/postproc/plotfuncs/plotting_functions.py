@@ -403,6 +403,23 @@ def plot_kinetic_energy_history(
         plt.close()
 
 
+def plot_delta_t_history(
+    delta_t_history, results_dir, save=True, show=False, temp_change=0, **kwargs
+):
+    if "axes" in kwargs:
+        plt.sca(kwargs["axes"])
+    else:
+        plt.figure()
+    plt.plot(range(len(delta_t_history)), delta_t_history)
+    if "axes" not in kwargs:
+        if save:
+            plt.savefig(os.path.join(results_dir, "delta_t_history.pdf"))
+
+        if show:
+            plt.show()
+        plt.close()
+
+
 def plot_overlap_history(
     total_overlap_history,
     max_residue,

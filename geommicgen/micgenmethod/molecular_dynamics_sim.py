@@ -184,6 +184,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.coord_number = None
         self.thermic_enegy_history = []
         self.dist_met = "dist_approx"
+        self.all_dt = []
 
     def generate_microstructure(self, microstructure_sample):
         """
@@ -844,6 +845,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         elif self.dt_adapt == "const":
             pass
         elif self.dt_adapt == "sqrt":
+            self.all_dt.append(self.dt)
             # max_vel = np.max(
             #     [
             #         np.linalg.norm(i_particle_vel)

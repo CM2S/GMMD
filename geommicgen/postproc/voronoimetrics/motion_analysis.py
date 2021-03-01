@@ -6,6 +6,7 @@ from postproc.plotfuncs.plotting_functions import (
     plot_overlap_history,
     plot_kinetic_energy_history,
     plot_ratio_new_old_overlap,
+    plot_delta_t_history,
 )
 
 
@@ -32,4 +33,9 @@ def doMotionAnalysis(particles, rve_dims, sample_dir, **kwargs):
             kwargs["thermic_enegy_history"],
             motion_results_dir,
         )
+
+    if "dt_history" in kwargs:
+        plot_delta_t_history(
+            kwargs["dt_history"],
+            motion_results_dir,
         )
