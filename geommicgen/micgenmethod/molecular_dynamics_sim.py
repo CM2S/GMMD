@@ -779,6 +779,17 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     # the total force acting on particle 2
                     if self.dt_adapt == "sqrt":
                         # Computing the number of particles effectively touching
+                        # diff_center = (
+                        #     i_particle.position_center - j_particle.position_center
+                        # )
+                        # diff_center = diff_center - self.box * np.round(
+                        #     diff_center / self.box
+                        # )
+                        # # Vector between the centers of the current disk and the nearest image of the other
+                        # # disk
+                        # distance_spheres = np.sqrt(diff_center.dot(diff_center))
+                        # # Distance between the disks
+                        # if distance_spheres < (i_particle.radius + j_particle.radius):
                         if any(np.abs(force_i_j) > 0):
                             coord_number_list[i_particle_index] += 1
                             coord_number_list[j_particle_index] += 1
@@ -852,12 +863,13 @@ class MolecularDynamicsSimulation(GenerationMethod):
             #         for i_particle_vel in self.particle_velocities
             #     ]
             # )
-            harm_r = hmean([particle.radius for particle in particles])
-            # adim_mean_path = 1 / (
-            #     np.sqrt(2)
-            #     * particles[0].dim
-            #     * self.microstructure_sample.volume_fraction
-            # )
+            harm_r = hmean([particle.radius_insc for particle in particles])
+            harm_r_2 = hmean([particle.radius for particle in particles])
+            adim_mean_path = 1 / (
+                np.sqrt(2)
+                * particles[0].dim
+                * self.microstructure_sample.volume_fraction
+            )
             # print("adim_mean_path", adim_mean_path)
             if self.force_option == "force_spring":
                 # self.dt = 2 * (
@@ -915,7 +927,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 #     else 0.05
                 # )
                 # print(self.coord_number, "\n\n")
-                self.dt = np.sqrt(2 / max(1, self.coord_number)) * np.sqrt(harm_r)
+                self.dt = np.sqrt(2 / max(1, self.coord_number)) * np.sqrt(harm_r_2)
+                # dt_2 = np.sqrt(2 / max(1, self.coord_number)) * np.sqrt(harm_r)
+                # self.dt = 0.05
                 # print(self.dt, dt_2, self.coord_number, "\n\n")
                 # self.dt = np.sqrt(harm_r)
                 # print(
@@ -983,6 +997,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     self.dt,
                     1,
                     dim,
+                    # dt_old=self.dt_old,
                 )
             new_position[:, 0] = new_position[:, 0] - self.box * np.floor(
                 new_position[:, 0] / self.box
