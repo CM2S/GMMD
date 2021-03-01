@@ -486,45 +486,186 @@ def plot_paths(particles, box, position_center_history, motion_results_dir):
     os.makedirs(path_results_dir)
     if particles[0].dim == 2:
         for step in range(len(position_center_history[0])):
-            with open(
-                os.path.join(path_results_dir, "mic_step_{0}.vtk".format(step)),
-                "a",
-            ) as msh_vtk:
-                if particles[0].dim == 2:
-                    msh_vtk.write("# vtk DataFile Version 2.0")
-                    msh_vtk.write("\n3D triangulation data")
-                    msh_vtk.write("\nASCII")
-                    msh_vtk.write("\n\nDATASET POLYDATA")
-                    msh_vtk.write(
-                        "\nPOINTS {0} {1}".format(9 * len(particles), "float")
-                    )
-                    for i_particle_index, i_particle in enumerate(particles):
-                        for j in range(-1, 2):
-                            for k in range(-1, 2):
-                                position = (
-                                    position_center_history[i_particle_index][step]
-                                    + [j, k] * box
-                                )
-                                msh_vtk.write(
-                                    "\n{0} {1} 0".format(position[0], position[1])
-                                )
-                    msh_vtk.write("\n\nPOINT_DATA {0}".format(9 * len(particles)))
-                    msh_vtk.write(
-                        "\nSCALARS {0} {1} {2}".format("radius", "float", "1")
-                    )
-                    msh_vtk.write("\nLOOKUP_TABLE default")
-                    for i_particle in particles:
-                        for j in range(-1, 2):
-                            for k in range(-1, 2):
-                                msh_vtk.write("\n{0}".format(i_particle.radius))
-                    msh_vtk.write("\nSCALARS {0} {1} {2}".format("phase", "float", "1"))
-                    msh_vtk.write("\nLOOKUP_TABLE default")
-                    for i_particle in particles:
-                        for j in range(-1, 2):
-                            for k in range(-1, 2):
-                                msh_vtk.write("\n{0}".format(i_particle.phase))
+            # Updating particle position to current time
+            for i_particle_ind, i_particle in enumerate(particles):
+                i_particle.position_center = position_center_history[i_particle_ind][
+                    step
+                ]
+
+            dim = len(box)
+            mesh_generator = FEMMeshGenerator(particles[0].radius / 5, "tri6", box)
+
+            mesh_generator.init_gmsh_model()
+
+            model = gmsh.model
+            factory = model.occ
+            # occ - OpenCASCADE CAD (more advanced)
+
+            model.add(path_results_dir)
+
+            mesh_generator.box_tag = factory.addRectangle(
+                0,
+                0,
+                0,
+                box[0],
+                box[1],
+            )
+
+            mesh_generator.phase_dim_tag = {
+                phase_name: []
+                for phase_name in {i_particle.phase for i_particle in particles}
+            }
+
+            for i_particle in particles:
+                mesh_generator.add_particle_pbc_to_model(i_particle, box)  # [0, 0, 0])
+
+            out_dim_tag, _ = factory.intersect(
+                [(dim, mesh_generator.box_tag)],
+                [(dim, particle_tag) for particle_tag in mesh_generator.particle_tags],
+                removeObject=True,
+                removeTool=True,
+            )
+
+            temp = set(out_dim_tag)
+            for i_phase in mesh_generator.phase_dim_tag:
+                mesh_generator.phase_dim_tag[i_phase] = [
+                    value
+                    for value in mesh_generator.phase_dim_tag[i_phase]
+                    if value in temp
+                ]
+
+            # Set the mesh size on the geometry points
+            # Synchronize the CAD engine (always needed before generating the mesh)
+            # It may also be useful for some intermidate operations, like checking the tags of
+            # entities
+            factory.synchronize()
+
+            for i_phase, i_dim_tags in mesh_generator.phase_dim_tag.items():
+                bound_dim_tags = model.getBoundary([(1, tag) for _, tag in i_dim_tags])
+                material_tag = model.addPhysicalGroup(
+                    1, [tag for dim, tag in bound_dim_tags if dim == 1]
+                )
+                model.setPhysicalName(1, material_tag, "Phase {0}".format(i_phase))
+
+            # model.mesh.setSize(points, mesh_size)
+            gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
+            gmsh.option.setNumber(
+                "Mesh.CharacteristicLengthMax", mesh_generator.mesh_size
+            )
+
+            # Generate a 3D mesh
+            model.mesh.generate(2)
+
+            _ = mesh_generator.write_mesh_gmsh(
+                path_results_dir, "mic_step_{0}".format(step)
+            )
+            # with open(
+            #     os.path.join(path_results_dir, "mic_step_{0}.vtk".format(step)),
+            #     "a",
+            # ) as msh_vtk:
+            #     if particles[0].dim == 2:
+            #         msh_vtk.write("# vtk DataFile Version 2.0")
+            #         msh_vtk.write("\n3D triangulation data")
+            #         msh_vtk.write("\nASCII")
+            #         msh_vtk.write("\n\nDATASET POLYDATA")
+            #         msh_vtk.write(
+            #             "\nPOINTS {0} {1}".format(9 * len(particles), "float")
+            #         )
+            #         for i_particle_index, i_particle in enumerate(particles):
+            #             for j in range(-1, 2):
+            #                 for k in range(-1, 2):
+            #                     position = (
+            #                         position_center_history[i_particle_index][step]
+            #                         + [j, k] * box
+            #                     )
+            #                     msh_vtk.write(
+            #                         "\n{0} {1} 0".format(position[0], position[1])
+            #                     )
+            #         msh_vtk.write("\n\nPOINT_DATA {0}".format(9 * len(particles)))
+            #         msh_vtk.write(
+            #             "\nSCALARS {0} {1} {2}".format("radius", "float", "1")
+            #         )
+            #         msh_vtk.write("\nLOOKUP_TABLE default")
+            #         for i_particle in particles:
+            #             for j in range(-1, 2):
+            #                 for k in range(-1, 2):
+            #                     msh_vtk.write("\n{0}".format(i_particle.radius))
+            #         msh_vtk.write("\nSCALARS {0} {1} {2}".format("phase", "float", "1"))
+            #         msh_vtk.write("\nLOOKUP_TABLE default")
+            #         for i_particle in particles:
+            #             for j in range(-1, 2):
+            #                 for k in range(-1, 2):
+            #                     msh_vtk.write("\n{0}".format(i_particle.phase))
 
     elif particles[0].dim == 3:
+        # for step in range(len(position_center_history[0])):
+        #     # Updating particle position to current time
+        #     for i_particle_ind, i_particle in enumerate(particles):
+        #         i_particle.position_center = position_center_history[i_particle_ind][
+        #             step
+        #         ]
+        #
+        #     dim = len(box)
+        #     mesh_generator = FEMMeshGenerator(particles[0].radius / 5, "tetra4", box)
+        #
+        #     mesh_generator.init_gmsh_model()
+        #
+        #     model = gmsh.model
+        #     factory = model.occ
+        #     # occ - OpenCASCADE CAD (more advanced)
+        #
+        #     model.add(path_results_dir)
+        #
+        #     mesh_generator.box_tag = factory.addBox(0, 0, 0, box[0], box[1], box[2])
+        #
+        #     mesh_generator.phase_dim_tag = {
+        #         phase_name: []
+        #         for phase_name in {i_particle.phase for i_particle in particles}
+        #     }
+        #
+        #     for i_particle in particles:
+        #         mesh_generator.add_particle_pbc_to_model(i_particle, box)  # [0, 0, 0])
+        #
+        #     out_dim_tag, _ = factory.intersect(
+        #         [(dim, mesh_generator.box_tag)],
+        #         [(dim, particle_tag) for particle_tag in mesh_generator.particle_tags],
+        #         removeObject=True,
+        #         removeTool=True,
+        #     )
+        #
+        #     temp = set(out_dim_tag)
+        #     for i_phase in mesh_generator.phase_dim_tag:
+        #         mesh_generator.phase_dim_tag[i_phase] = [
+        #             value
+        #             for value in mesh_generator.phase_dim_tag[i_phase]
+        #             if value in temp
+        #         ]
+        #
+        #     # Set the mesh size on the geometry points
+        #     # Synchronize the CAD engine (always needed before generating the mesh)
+        #     # It may also be useful for some intermidate operations, like checking the tags of
+        #     # entities
+        #     factory.synchronize()
+        #
+        #     for i_phase, i_dim_tags in mesh_generator.phase_dim_tag.items():
+        #         bound_dim_tags = model.getBoundary([(2, tag) for _, tag in i_dim_tags])
+        #         material_tag = model.addPhysicalGroup(
+        #             2, [tag for dim, tag in bound_dim_tags if dim == 2]
+        #         )
+        #         model.setPhysicalName(2, material_tag, "Phase {0}".format(i_phase))
+        #
+        #     # model.mesh.setSize(points, mesh_size)
+        #     gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
+        #     gmsh.option.setNumber(
+        #         "Mesh.CharacteristicLengthMax", mesh_generator.mesh_size
+        #     )
+        #
+        #     # Generate a 3D mesh
+        #     model.mesh.generate(3)
+        #
+        #     _ = mesh_generator.write_mesh_gmsh(
+        #         path_results_dir, "mic_step_{0}".format(step)
+        #     )
 
         for step in range(len(position_center_history[0])):
             with open(

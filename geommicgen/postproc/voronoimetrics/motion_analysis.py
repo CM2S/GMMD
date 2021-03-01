@@ -14,10 +14,10 @@ def doMotionAnalysis(particles, rve_dims, sample_dir, **kwargs):
 
     motion_results_dir = os.path.join(sample_dir, "motion_results")
     os.makedirs(motion_results_dir)
-    if "position_center_history" in kwargs:
-        plot_paths(
-            particles, rve_dims, kwargs["position_center_history"], motion_results_dir
-        )
+    # if "position_center_history" in kwargs:
+    #     plot_paths(
+    #         particles, rve_dims, kwargs["position_center_history"], motion_results_dir
+    #     )
 
     if "total_overlap_history" in kwargs and "max_residue" in kwargs:
         plot_overlap_history(
