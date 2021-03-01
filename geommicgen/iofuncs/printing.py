@@ -1,5 +1,8 @@
 import os
 
+# Screen directory
+SCREEN_DIR = ""
+
 
 def print_initial_message():
     print_to_file("\n")
@@ -51,11 +54,12 @@ def print_final_message(time, total_overlap, number_iterations, max_overlap):
 def print_to_file(message, end="\n"):
     """Print to the screen file of corresponding to the current microstructure sample."""
 
-    if os.path.exists("temp.screen"):
+    screen_path = os.path.join(SCREEN_DIR, "mic.screen")
+    if os.path.exists(screen_path):
         action = "a"
     else:
         action = "w"
-    with open("temp.screen", action) as screen:
+    with open(screen_path, action) as screen:
         print(message, file=screen, end=end)
     print(message, end=end)
 

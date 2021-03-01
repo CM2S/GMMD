@@ -46,6 +46,7 @@ def run_program():
         input_file_dir, input_file_name
     )
     if previous_mic_path is not None:
+        print_funcs.SCREEN_DIR = results_folder
         print_funcs.print_initial_message()
         print_funcs.print_analysis_previous(input_file_path, previous_mic_path)
         # It is an action on a previously generated microstructure
@@ -95,7 +96,8 @@ def run_program():
             )
         finally:
 
-            os.replace("temp.screen", os.path.join(results_folder, "mic.screen"))
+            # os.replace("temp.screen", os.path.join(results_folder, "mic.screen"))
+            pass
             # Moving the screnn of this sample to the respective directory
 
         # Initializing the mesh generators
@@ -122,6 +124,7 @@ def run_program():
             )
             # Producing the number of samples required
 
+            print_funcs.SCREEN_DIR = sample_dir
             print_funcs.print_initial_message()
             # Printing initial message
 
@@ -350,7 +353,8 @@ def run_program():
                 #     )
             finally:
 
-                os.replace("temp.screen", sample_file_path + ".screen")
+                # os.replace("temp.screen", sample_file_path + ".screen")
+                pass
                 # Moving the screnn of this sample to the respective directory
 
     # Executing the script for microstructure generation
