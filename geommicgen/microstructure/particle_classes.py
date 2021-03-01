@@ -628,10 +628,10 @@ class Particle(abc.ABC):
         )
         if disp <= 0:
             force = 0
-        elif disp >= 2 * r_min:
-            force = 2 * r_min
+        elif disp >= r_min + r_max:
+            force = r_min + r_max
         else:
-            force = 2 * r_min * (1 - (dist / (r_max + r_min)) ** degree)
+            force = (r_max + r_min) * (1 - (dist / (r_max + r_min)) ** degree)
         return force, unit_vector
 
     @property
