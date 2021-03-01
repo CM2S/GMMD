@@ -1088,9 +1088,11 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 if i_inner_particle.volume < 0.5 * available_volume[outer_particle_ind]:
                     available_volume[outer_particle_ind] -= i_inner_particle.volume
                     out_part_in_part[outer_particle_ind].append(i_inner_particle)
+                    print(i_particle_ind)
                     break
         # Placing inner phase particles in each outer phase particle 1-by-1
         # ----------------------------------------------------------------------------------
+        k_part = 0
         for i_outer_particle, i_list_inner_particles in zip(
             outer_phase.particles, out_part_in_part
         ):
@@ -1098,12 +1100,13 @@ class MolecularDynamicsSimulation(GenerationMethod):
             for j_inner_particle in i_list_inner_particles:
                 j_inner_particle.dilate(0.01 * j_inner_particle.radius)
                 i_outer_particle.contract(j_inner_particle.radius * 1.05)
-                while True:
-
+                p_iter = 0
+                while p_iter < 200:
+                    p_iter += 1
                     j_inner_particle.position_center = (
                         i_outer_particle.generate_point_inside()
                     )
-                    j_inner_particle.position_center = (
+                    j_inner_particle.position_center = np.squeeze(
                         j_inner_particle.position_center
                         - rve_dims
                         * np.floor(j_inner_particle.position_center / rve_dims)
@@ -1115,6 +1118,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
                             break
                     if not intersect:
                         placed_particles.append(j_inner_particle)
+                        k_part += 1
+                        print(k_part, "\n\n")
                         break
+
                 i_outer_particle.dilate(j_inner_particle.radius * 1.05)
                 j_inner_particle.contract(0.01 * j_inner_particle.radius)
