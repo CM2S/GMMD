@@ -51,6 +51,7 @@ class CellList(SpeedUpScheme):
         self.cell_particle_list = None
         self.cell_list = None
         self.pos_cell_list = []
+        self.verlet_factor = 1
 
     @cached_property
     def n_cell_dim(self):
@@ -98,6 +99,7 @@ class CellList(SpeedUpScheme):
             self.max_radius = np.max(
                 np.array([particle.radius for particle in particles])
             )
+            self.max_radius *= self.verlet_factor
         n_cells = np.prod(np.array(self.n_cell_dim))
         self.cell_list = [set() for i in range(n_cells)]
         self.particle_list = [set() for _ in particles]
@@ -466,12 +468,8 @@ class VerletList(CellList):
                 self.verlet_neighborhoods[i_particle_index].dilate(
                     (self.verlet_factor - 1) * particles[i_particle_index].radius
                 )
-            self.verlet_neighborhoods_move = deepcopy(particles)
-            for i_particle_index, i_particle in enumerate(particles):
-                self.verlet_neighborhoods_move[i_particle_index].contract(
-                    (2 - self.verlet_factor) * particles[i_particle_index].radius
-                )
             # Initializing the displacement_last_verlet
+        box = self.molecular_dynamics_sim.box
         for i_particle_index, i_particle in enumerate(particles):
             # Computing the displacement of the center of the particle
             # if i_particle.intersection(
@@ -482,8 +480,17 @@ class VerletList(CellList):
             #             i_particle.position_center, self.box
             #         )
             #     ):
-            if not self.verlet_neighborhoods_move[i_particle_index].point_inside(
-                i_particle.position_center, self.box
+            diff_in_box = (
+                i_particle.position_center
+                - self.verlet_neighborhoods[i_particle_index].position_center
+            )
+            # Difference vector between the center of the two particles
+            diff_nearest_other = box * np.round(diff_in_box / box)
+            # Vector from the position of the other ellipse to its nearest image to the current
+            # ellipse
+            if (
+                np.linalg.norm(diff_in_box + diff_nearest_other)
+                > (self.verlet_factor - 1) * particles[i_particle_index].radius
             ):
                 # Checking if the displacement takes the particle out of its neighborhood
                 self.new_verlet_list = True
@@ -508,9 +515,6 @@ class VerletList(CellList):
             for i_particle_index, i_particle in enumerate(particles):
                 # Running though all the particles
                 self.verlet_neighborhoods[
-                    i_particle_index
-                ].position_center = i_particle.position_center
-                self.verlet_neighborhoods_move[
                     i_particle_index
                 ].position_center = i_particle.position_center
                 # Updating the position of all the Verlet neighborhoods to coincide with
