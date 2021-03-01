@@ -669,6 +669,9 @@ class Ellipse(Particle):
     radius: float
         Radius of the circunscribed circle
 
+    radius_insc: float
+        Radius of the inscribed circle
+
     rot_mat: 2-array(floats)
         Rotation matrix from the global to the local coordinates.
 
@@ -1203,37 +1206,47 @@ class Ellipse(Particle):
 
     def intersection(self, other_ellipse, box, inside=True):
         """Check if two ellipses intersect."""
-        diff_in_box = self.position_center - other_ellipse.position_center
-        # Difference vector between the center of the two ellipses
-        diff_nearest_other = box * np.round(diff_in_box / box)
-        # Difference vector to the nearest image of the other particle
-        y_inter_sect = intersection_points_ellipses(
-            self.semi_major_axis,
-            self.semi_minor_axis,
-            self.position_center,
-            self.angle,
-            other_ellipse.semi_major_axis,
-            other_ellipse.semi_minor_axis,
-            other_ellipse.position_center + diff_nearest_other,
-            other_ellipse.angle,
+        intersection_bool, _, _ = self.intersection_gjk(
+            other_ellipse, box, int_only=True
         )
-        if len(y_inter_sect) > 0:
-            # There are intersection points betweeen the two neighborhoods
-            intersection_bool = True
-        else:
-            if inside:
-                # Either the ellipses are disjoint or one of them is completly inside the other
-                if self.volume >= other_ellipse.volume:
-                    # The current ellipse is larger than the other ellipse
-                    intersection_bool = self.point_inside(
-                        other_ellipse.position_center, box
-                    )
-                else:
-                    intersection_bool = other_ellipse.point_inside(
-                        self.position_center, box
-                    )
-            else:
-                intersection_bool = False
+        # diff_in_box = self.position_center - other_ellipse.position_center
+        # # Difference vector between the center of the two ellipses
+        # diff_nearest_other = box * np.round(diff_in_box / box)
+        # # Difference vector to the nearest image of the other particle
+        # y_inter_sect = intersection_points_ellipses(
+        #     self.semi_major_axis,
+        #     self.semi_minor_axis,
+        #     self.position_center,
+        #     self.angle,
+        #     other_ellipse.semi_major_axis,
+        #     other_ellipse.semi_minor_axis,
+        #     other_ellipse.position_center + diff_nearest_other,
+        #     other_ellipse.angle,
+        # )
+        # if len(y_inter_sect) > 0:
+        #     # There are intersection points betweeen the two neighborhoods
+        #     intersection_bool = True
+        # else:
+        #     if inside:
+        #         # Either the ellipses are disjoint or one of them is completly inside the other
+        #         if self.volume >= other_ellipse.volume:
+        #             # The current ellipse is larger than the other ellipse
+        #             intersection_bool = self.point_inside(
+        #                 other_ellipse.position_center, box
+        #             )
+        #         else:
+        #             intersection_bool = other_ellipse.point_inside(
+        #                 self.position_center, box
+        #             )
+        #     else:
+        #         intersection_bool = False
+        # intersection_bool, overlap_length, unit_vector = self.intersection_gjk(
+        #     other_ellipse, box
+        # )
+        # # unit_vector_norm = self.intersection_vector(other_particle, box)
+        # # if unit_vector_norm.dot(unit_vector) <= 0:
+        # #     unit_vector *= -1
+        # intersection_length = overlap_length if intersection_bool else 0
         return intersection_bool
 
     def generate_points_on_surface(self, n_points, erosion_thick=0):
@@ -1294,7 +1307,7 @@ class Ellipse(Particle):
             R = np.linalg.norm(z)
             x_loc = r * self.semi_major_axis * z[0] / R
             y_loc = r * self.semi_minor_axis * z[1] / R
-            [x_glob, y_glob] = self.rot_mat.dot([x_loc, y_loc]) + self.position_center
+            [x_glob, y_glob] = self.rot_mat.T.dot([x_loc, y_loc]) + self.position_center
             points.append(np.array([x_glob, y_glob]))
 
         return points
@@ -1321,6 +1334,55 @@ class Ellipse(Particle):
     def generate_point_inside(self):
         return self.uniform_sample_ellipse()
 
+    # def intersection_length_ellipse_ellipse(
+    #     self, other_ellipse: Ellipse, box: list
+    # ) -> np.array:
+    #     """Intersection length between two ellipses."""
+    #
+    #     # Generating 3 poits belong to the support function
+    #     # ----------------------------------------------------------------------------------
+    #     pts = [None for _ in range(3)]
+    #     for i_ind in range(3):
+    #         random_dir = None
+    #         pts[i_ind] = self.support_function(random_dir) - self.support_function(
+    #             -random_dir
+    #         )
+    #
+    #     # Compute coefficients for the eelipse corresponding to the support function
+    #     # ----------------------------------------------------------------------------------
+    #     mat = np.array(
+    #         [
+    #             [pts[0][0] ** 2, pts[0][1] * pts[0][0], pts[0][1] ** 2],
+    #             [pts[1][0] ** 2, pts[1][1] * pts[1][0], pts[1][1] ** 2],
+    #             [pts[2][0] ** 2, pts[2][1] * pts[0][0], pts[2][1] ** 2],
+    #         ]
+    #     )
+    #     aa, bb, cc = None
+    #
+    #     # Compute the principals directions of the ellipse
+    #     # ----------------------------------------------------------------------------------
+    #     ellip_mat = np.array(
+    #         [
+    #             [aa, 0.5 * bb],
+    #             [0.5 * bb, cc],
+    #         ]
+    #     )
+    #     vals = np.linalg.eigh(ellip_mat)
+    #
+    #     # Compute erosion needed for the origin to be on the surface of the support function
+    #     # ----------------------------------------------------------------------------------
+    #     cos_o = vals.dot(-vec_diff)
+    #     erosion_thick = a - vec_diff[0] / cos_0
+    #     dir_norm = np.vec_diff[0] / (a - erosion_thick)
+    #
+    #     # Computing normal direction to the eroded support function at the origin
+    #     # ----------------------------------------------------------------------------------
+    #
+    #     # Computing the intersection length
+    #     # ----------------------------------------------------------------------------------
+    #
+    #     return None
+
     def intersection_length(
         self, other_particle: Particle, box: list, tol: float = 1e-8
     ) -> tuple[float, np.array]:
@@ -1345,9 +1407,6 @@ class Ellipse(Particle):
             intersection, overlap_length, unit_vector = self.intersection_gjk(
                 other_particle, box, tol=tol
             )
-            # unit_vector_norm = self.intersection_vector(other_particle, box)
-            # if unit_vector_norm.dot(unit_vector) <= 0:
-            #     unit_vector *= -1
             intersection_length = overlap_length if intersection else 0
         elif isinstance(other_particle, Ellipse):
             start = time.time()
