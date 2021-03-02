@@ -148,7 +148,7 @@ class Particle(abc.ABC):
         box: list
             Simulation box containing the particles.
 
-        tol: float\
+        tol: float
             Tolerance for the minimum distance
 
         inside: bool
@@ -167,7 +167,6 @@ class Particle(abc.ABC):
             the overlap.
         """
         intersection = None
-        minimum_dist_rem = np.array([0 for _ in range(self.dim)])
         diff_in_box = self.position_center - particle_2.position_center
         # Difference vector between the center of the two particles
         diff_nearest_other = box * np.round(diff_in_box / box)
@@ -191,10 +190,9 @@ class Particle(abc.ABC):
         k_iter = 0
         while True:
             if k_iter == 100:
-                print("div")
+                # The algorithm diverged. The conservative posture is taken and it is
+                # assumed that the shapes intersect
                 intersection = True
-                overlap_length = 1e-10
-                minimum_dist_rem = self.intersection_vector(particle_2, box)
                 break
             k_iter += 1
             new_mink_diff_point = self.support_function(search_direction) - (
@@ -206,131 +204,124 @@ class Particle(abc.ABC):
             ):
                 # If moving towards the origin we have no gone past it
                 intersection = False
-                overlap_length = 0
-                old_min = simplex[-1]
-                if not out_dist:
-                    break
+                break
             # We've gone past the origin
             simplex.append(new_mink_diff_point)
-            # search_direction_old = search_direction
             simplex, search_direction = self.nearest_simplex(simplex)
-            # if intersection is not None:
-            #
-            #     if (
-            #         np.linalg.norm(simplex[-1] - old_min) / np.linalg.norm(simplex[-1])
-            #         < 1e-8
-            #     ) or k_iter > 100:
-            #         # minimum_dist_rem = search_direction_old / np.linalg.norm(
-            #         #     search_direction_old
-            #         minimum_dist_rem = (
-            #             search_direction / np.linalg.norm(search_direction)
-            #         )[0 : self.dim]
-            #         overlap_length = np.abs(minimum_dist_rem.dot(simplex[-1]))
-            #         break
-            #     old_min = simplex[-1]
 
-            if len(simplex) == self.dim + 1:  # or intersection is False:
+            # We have found a simplex of the hightest dimension of the problem containing
+            # the origin
+            if len(simplex) == self.dim + 1:
                 intersection = True
-                if int_only == True:
-                    minimum_dist_rem = None
-                    overlap_length = None
-                    break
-                # We have found a simplex of the hightest dimension of the problem
-                # containing the origin
-                if Particle.dist_met == "dist_approx":
-                    unit_vector = self.intersection_vector(particle_2, box)
-                    mink_diff_point = self.support_function(unit_vector) - (
-                        particle_2.support_function(-unit_vector) + diff_nearest_other
-                    )
-                    overlap_length = mink_diff_point[0 : self.dim].dot(unit_vector)
-                    # overlap_length = np.linalg.norm(mink_diff_point)
-                    # minimum_dist_rem = mink_diff_point / np.linalg.norm(mink_diff_point)
-                    minimum_dist_rem = unit_vector
+                break
 
-                    break
-                elif Particle.dist_met == "dist_exact":
-                    # --------------------------------------------------------------------------
-                    unit_vector = self.intersection_vector(particle_2, box)
-                    if self.dim == 2:
-                        first_guess = np.array(
-                            [np.arctan2(unit_vector[1], unit_vector[0])]
-                        )
-                    elif self.dim == 3:
-                        first_guess = np.array(
-                            [
-                                np.arctan2(unit_vector[1], unit_vector[0]),
-                                np.arctan(
-                                    np.sqrt(unit_vector[0] ** 2 + unit_vector[1] ** 2)
-                                    / unit_vector[2]
-                                ),
-                            ]
-                        )
-                    # Using the unit vector of the straight line going throught the center of
-                    # the particles as a first guess.
-                    # The search for the minimum distance is done on the space of the polar and
-                    # spherical coordinates
-                    intersection = True
-                    # start_1 = time.time()
-                    search_direction_angles, overlap_length, *_ = fmin(
-                        Particle.minimum_dist_to_diff_sup,
-                        first_guess[0 : self.dim - 1],
-                        args=(self, particle_2, box),
-                        # xtol=1e-3,
-                        ftol=1e-8,
-                        maxiter=1000,
-                        full_output=1,
-                        disp=0,
-                    )
-                    # time_1 = time.time() - start_1
-                    # start_2 = time.time()
-                    # sol = minimize(
-                    #     Particle.minimum_dist_to_diff_sup,
-                    #     first_guess[0 : self.dim - 1],
-                    #     args=(self, particle_2, box),
-                    #     method="Nelder-Mead",
-                    #     tol=5e-2,
-                    #     options={"maxiter": 1000},
-                    # )
-                    # search_direction_angles_2 = sol.x
-                    # overlap_length_2 = Particle.minimum_dist_to_diff_sup(
-                    #     search_direction_angles_2, self, particle_2, box
-                    # )
-                    # time_2 = time.time() - start_2
-                    # print("dist", overlap_length, overlap_length_2)
-                    # print("time", time_1)  # , time_2)
-                    if overlap_length <= 0:
-                        overlap_length = 0
-                        minimum_dist_rem = unit_vector
-                        break
-                    if self.dim == 2:
-                        i_theta = search_direction_angles[0]
-                        minimum_dist_rem = np.array([np.cos(i_theta), np.sin(i_theta)])
+        return intersection
 
-                    elif self.dim == 3:
-                        i_theta, j_phi = search_direction_angles
-                        minimum_dist_rem = np.array(
-                            [
-                                np.sin(i_theta) * np.cos(j_phi),
-                                np.sin(i_theta) * np.sin(j_phi),
-                                np.cos(i_theta),
-                            ]
-                        )
+    def intersection_length(
+        self,
+        particle_2: Particle,
+        box: list,
+        tol: float = 1e-8,
+        dist_met: str = "dist_exact",
+    ) -> tuple[float, np.array]:
+        """
+        Intersection length of *self* with *particle_2*, assuming they intersect.
 
-                    # if inside:
-                    #     # and intersection is None:
-                    #     intersection = True
-                    # else:
-                    #     pt_1 = self.support_function(-minimum_dist_rem)
-                    #     pt_2 = particle_2.support_function(-minimum_dist_rem)
-                    #     # Points from each shape closest to each other
-                    #     intersection = (pt_2 - pt_1)[: self.dim].dot(
-                    #         minimum_dist_rem
-                    #     ) < 0
-                    #     print("intersection", intersection, "\n\n")
-                    #     print("here")
-                    break
+        The intersection length is here defined as the smallest distance from the origin to
+        the boundary of the Minkowski difference of the shapes of the two particles, *self*
+        and *particle_2*.
 
-        return intersection, overlap_length, minimum_dist_rem
+        It is computed to a prescribed accuracy using a minimization algorithm (Nelder-Mead)
+        or an approximation is supplie whose error is not estimated.
+
+        Parameters
+        ----------
+        particle_2: `.Particles`
+            Particle that intersects *self*.
+
+        box: list(float)
+            Dimensions of the simulation box.
+
+        tol: float (optional)
+            Tolerance used for the computation of the intersection length.
+
+        dist_met: {"dist_exact", "dist_approx"} (optional)
+            Flag for the exact computation of the intersection length and direction, or the
+            use of an approximation.
+
+        Returns
+        -------
+        intersection_length: float
+            Intersection legnth between *self* and *particle_2*.
+
+        intersection_dir: float
+            Direction along which a displacement of magnitude *intersection_length* would
+            lead to tangent particles.
+        """
+        diff_in_box = self.position_center - particle_2.position_center
+        # Difference vector between the center of the two particles
+        diff_nearest_other = box * np.round(diff_in_box / box)
+        # Vector from the position of the other ellipse to its nearest image to the current
+        # ellipse
+        if self.dim == 2:
+            diff_nearest_other = np.append(diff_nearest_other, [0])
+
+        if Particle.dist_met == "dist_approx":
+            unit_vector = self.intersection_vector(particle_2, box)
+            mink_diff_point = self.support_function(unit_vector) - (
+                particle_2.support_function(-unit_vector) + diff_nearest_other
+            )
+            intersection_length = mink_diff_point[0 : self.dim].dot(unit_vector)
+            # intersection_length = np.linalg.norm(mink_diff_point)
+            # intersection_dir = mink_diff_point / np.linalg.norm(mink_diff_point)
+            intersection_dir = unit_vector
+
+        elif Particle.dist_met == "dist_exact":
+            # --------------------------------------------------------------------------
+            unit_vector = self.intersection_vector(particle_2, box)
+            if self.dim == 2:
+                first_guess = np.array([np.arctan2(unit_vector[1], unit_vector[0])])
+            elif self.dim == 3:
+                first_guess = np.array(
+                    [
+                        np.arctan2(unit_vector[1], unit_vector[0]),
+                        np.arctan(
+                            np.sqrt(unit_vector[0] ** 2 + unit_vector[1] ** 2)
+                            / unit_vector[2]
+                        ),
+                    ]
+                )
+            # Using the unit vector of the straight line going throught the center of
+            # the particles as a first guess.
+            # The search for the minimum distance is done on the space of the polar and
+            # spherical coordinates
+            search_direction_angles, intersection_length, *_ = fmin(
+                Particle.minimum_dist_to_diff_sup,
+                first_guess[0 : self.dim - 1],
+                args=(self, particle_2, box),
+                # xtol=1e-3,
+                ftol=tol,
+                maxiter=1000,
+                full_output=1,
+                disp=0,
+            )
+            if intersection_length <= 0:
+                intersection_length = 0
+                intersection_dir = unit_vector
+            if self.dim == 2:
+                i_theta = search_direction_angles[0]
+                intersection_dir = np.array([np.cos(i_theta), np.sin(i_theta)])
+
+            elif self.dim == 3:
+                i_theta, j_phi = search_direction_angles
+                intersection_dir = np.array(
+                    [
+                        np.sin(i_theta) * np.cos(j_phi),
+                        np.sin(i_theta) * np.sin(j_phi),
+                        np.cos(i_theta),
+                    ]
+                )
+        return intersection_length, intersection_dir
 
     @staticmethod
     def minimum_dist_to_diff_sup(search_direction_unit, particle_1, particle_2, box):
