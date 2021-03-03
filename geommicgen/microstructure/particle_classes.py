@@ -189,7 +189,7 @@ class Particle(abc.ABC):
         search_direction = -simplex[0]
         k_iter = 0
         while True:
-            if k_iter == 100:
+            if k_iter == 1000:
                 # The algorithm diverged. The conservative posture is taken and it is
                 # assumed that the shapes intersect
                 intersection = True
