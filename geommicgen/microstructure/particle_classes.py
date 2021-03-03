@@ -217,7 +217,7 @@ class Particle(abc.ABC):
 
         return intersection
 
-    def intersection_length(
+    def intersection_length_mink_diff(
         self,
         particle_2: Particle,
         box: list,
@@ -1197,9 +1197,7 @@ class Ellipse(Particle):
 
     def intersection(self, other_ellipse, box, inside=True):
         """Check if two ellipses intersect."""
-        intersection_bool, _, _ = self.intersection_gjk(
-            other_ellipse, box, int_only=True
-        )
+        intersection_bool = self.intersection_gjk(other_ellipse, box)
         # diff_in_box = self.position_center - other_ellipse.position_center
         # # Difference vector between the center of the two ellipses
         # diff_nearest_other = box * np.round(diff_in_box / box)
@@ -1395,10 +1393,14 @@ class Ellipse(Particle):
             intersection.
         """
         if True:
-            intersection, overlap_length, unit_vector = self.intersection_gjk(
-                other_particle, box, tol=tol
-            )
-            intersection_length = overlap_length if intersection else 0
+            intersection = self.intersection_gjk(other_particle, box, tol=tol)
+            if intersection:
+                intersection_length, unit_vector = self.intersection_length_mink_diff(
+                    other_particle, box
+                )
+            else:
+                intersection_length = 0
+                unit_vector = np.array([0, 0, 0])
         elif isinstance(other_particle, Ellipse):
             start = time.time()
             # The other particle is also a Ellipse
@@ -1439,9 +1441,15 @@ class Ellipse(Particle):
                 unit_vector = np.array([0.0, 0.0])
             time_1 = time.time() - start
             start = time.time()
-            _, intersection_length_2, unit_vector_2 = self.intersection_gjk(
-                other_particle, box, tol=tol
-            )
+            intersection = self.intersection_gjk(other_particle, box, tol=tol)
+            if intersection:
+                (
+                    intersection_length_2,
+                    unit_vector_2,
+                ) = self.intersection_length_mink_diff(other_particle, box)
+            else:
+                intersection_length_2 = 0
+                unit_vector_2 = np.array([0, 0, 0])
             time_2 = time.time() - start
             # print(time_1, time_2)
             # print(
@@ -1454,10 +1462,14 @@ class Ellipse(Particle):
             # )
 
         else:
-            intersection, overlap_length, unit_vector = self.intersection_gjk(
-                other_particle, box, tol=tol
-            )
-            intersection_length = overlap_length if intersection else 0
+            intersection = self.intersection_gjk(other_particle, box, tol=tol)
+            if intersection:
+                intersection_length, unit_vector = self.intersection_length_mink_diff(
+                    other_particle, box
+                )
+            else:
+                intersection_length = 0
+                unit_vector = np.array([0, 0, 0])
         return intersection_length, unit_vector
         # Returning the intersection length
 
@@ -1977,8 +1989,9 @@ class Disk(Ellipse):
             )
             unit_vector = self.intersection_vector(other_particle, box)
         else:
-            intersection, overlap_length, unit_vector = self.intersection_gjk(
-                other_particle, box, tol=tol
+            intersection = self.intersection_gjk(other_particle, box, tol=tol)
+            overlap_length, unit_vector = self.intersection_length_mink_diff(
+                other_particle, box
             )
             intersection_length = overlap_length if intersection else 0
         return intersection_length, unit_vector
@@ -2760,7 +2773,11 @@ class Ellipsoid(Particle):
                 # There is no overlap
                 overlap_volume = 0
         elif isinstance(other_particle, (Cylinder, Ellipsoid)):
-            intersection, overlap_length = self.intersection_gjk(other_particle, box)
+            intersection = self.intersection_gjk(other_particle, box)
+            if intersection:
+                overlap_length, unit_vector = self.intersection_length_mink_diff(
+                    other_particle, box
+                )
             overlap_volume = overlap_length if intersection else 0
         return overlap_volume
 
@@ -2978,9 +2995,7 @@ class Ellipsoid(Particle):
             # The other particle is also an Ellipsoid or subclass
             intersection = self.intersection_ellipsoid_ellipsoid(other_particle, box)
         elif isinstance(other_particle, Cylinder) or not inside:
-            intersection, _, _ = self.intersection_gjk(
-                other_particle, box, inside=inside, int_only=True
-            )
+            intersection = self.intersection_gjk(other_particle, box)
         else:
             raise ValueError("Incompatible particles.")
         return intersection
@@ -3056,9 +3071,14 @@ class Ellipsoid(Particle):
             # time_2 = time.time() - start
             # # print(time_1, time_2)
         elif isinstance(other_particle, (Cylinder, Ellipsoid)):
-            _, intersection_length, unit_vector = self.intersection_gjk(
-                other_particle, box, tol=tol
-            )
+            intersection = self.intersection_gjk(other_particle, box, tol=tol)
+            if intersection:
+                intersection_length, unit_vector = self.intersection_length_mink_diff(
+                    other_particle, box
+                )
+            else:
+                intersection_length = 0
+                unit_vector = np.array([0, 0, 0])
         return intersection_length, unit_vector
 
 
@@ -3330,7 +3350,7 @@ class Sphere(Ellipsoid):
             other_particle: Cylinder
             intersection, _ = self.intersection_sphere_cylinder(other_particle, box)
         else:
-            intersection, _ = self.intersection_gjk(other_particle, box, int_only=True)
+            intersection = self.intersection_gjk(other_particle, box)
 
         return intersection
         # Returning the intersection area
@@ -3470,11 +3490,15 @@ class Sphere(Ellipsoid):
         #     )
         #     unit_vector = self.intersection_vector(other_particle, box)
         else:
-            intersection, overlap_length, unit_vector = self.intersection_gjk(
-                other_particle, box, tol=tol
-            )
-            intersection_length = overlap_length if intersection else 0
-        return intersection_length, unit_vector
+            intersection = self.intersection_gjk(other_particle, box, tol=tol)
+            if intersection:
+                overlap_length, unit_vector = self.intersection_length_mink_diff(
+                    other_particle, box
+                )
+            else:
+                overlap_length = 0
+                unit_vector = np.array([0, 0, 0])
+        return overlap_length, unit_vector
         # Returning the intersection area
 
     def intersection_length_sphere_sphere(
@@ -3730,9 +3754,7 @@ class Cylinder(Particle):
         return radius_insc
 
     def intersection(self, other_particle, box, inside=True):
-        intersection, *_ = self.intersection_gjk(
-            other_particle, box, inside=inside, int_only=True
-        )
+        intersection = self.intersection_gjk(other_particle, box)
         return intersection
 
     def intersection_area(self, other_particle, box):
@@ -3772,9 +3794,14 @@ class Cylinder(Particle):
             )
             unit_vector = self.intersection_vector(other_particle, box)
         else:
-            _, intersection_length, unit_vector = self.intersection_gjk(
-                other_particle, box
-            )
+            intersection = self.intersection_gjk(other_particle, box)
+            if intersection:
+                intersection_length, unit_vector = self.intersection_length_mink_diff(
+                    other_particle, box
+                )
+            else:
+                intersection_length = 0
+                unit_vector = np.array([0, 0, 0])
 
         return intersection_length, unit_vector
 
