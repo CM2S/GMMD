@@ -1,20 +1,9 @@
-"""
-Module containing all the Particle abstract class and all its subclasses.
+"""Module containing the Disk particle class."""
 
-Each subclass of the Particle class is a type of particle. This module includes the Ellipse,
-Disk, CylindricalFiber, Ellipsoid and Shpere classes.
-"""
 from __future__ import annotations
-
-import abc
-import time
-
-
-from itertools import cycle
+from typing import Union
 
 import numpy as np
-
-from scipy import integrate
 
 from microstructure.particleclasses import Ellipse, Particle
 
@@ -118,7 +107,7 @@ class Disk(Ellipse):
         other_particle: `.Particle`
             Other particle
         """
-        if isinstance(other_particle, (Disk, CylindricalFiber)):
+        if isinstance(other_particle, Disk):
             # The other particle is also a Disk
             intersection_area = self.intersection_area_disk_disk(other_particle, box)
             # Computing the intersection area
@@ -175,72 +164,6 @@ class Disk(Ellipse):
         return intersection_area
         # Returning the intersection area
 
-    def intersection_sqrt(self, other_sphere, box):
-        """
-        Compute the intersection volume between two Spheres.
-
-        Parameters
-        ----------
-        other_sphere: `.Sphere`
-            Other sphere whose intersection volume with the current sphere we want to know
-        """
-        diff_center = self.position_center - other_sphere.position_center
-        diff_center = diff_center - box * np.round(diff_center / box)
-        # Computing the difference vector between the centers of the current sphere and
-        # the nearest image of the other sphere
-        d = np.linalg.norm(diff_center)
-        # Distance between the current sphere and the nearest image of the other sphere
-        if self.radius >= other_sphere.radius:
-            # The radius of the self is larger than the radius of the other sphere
-            r_1 = self.radius
-            # Sphere 1 is the sphere with the larger radius
-            r_2 = other_sphere.radius
-            # Sphere 2 is the sphere with the smaller radius
-        else:
-            # The radius of the other sphere is larger than the radius of the self
-            r_1 = other_sphere.radius
-            # Sphere 1 is the sphere with the larger radius
-            r_2 = self.radius
-            # Sphere 2 is the sphere with the smaller radius
-        if d >= (r_1 + r_2):
-            # The spheres intersect at most at one point
-            intersection_volume = 0
-            # The intersection area of the spheres is zero
-        elif d <= r_1 - r_2:
-            # Sphere 2 is interely contained within Sphere 1
-            # intersection_volume = r_1 + r_2  # 4 / 3 * np.pi * r_2 ** 3
-            # intersection_volume = 4 / 3 * np.pi * r_2 ** 3
-            intersection_volume = r_2
-            # The intersection area is equal to the area of the smaller sphere, Sphere 2
-        else:
-            d_1 = (r_1 ** 2 - r_2 ** 2 + d ** 2) / (2 * d)
-            # x coordinate of the intersection point of the two disks if the the origin is
-            # at disk 1 and the x axis goes through the center of both disks
-            d_2 = d - d_1
-            # Distance in the x axis from the intersection point to disk 2
-            intersection_volume = r_2 * (
-                1 - (d) ** 2 / (r_1 + r_2) ** 2
-            )  # / (2 * r_2) * 4 / 3 * np.pi * r_2 ** 3
-            # intersection_volume = (
-            #     r_1 ** 3
-            #     / 3
-            #     * 2
-            #     * np.pi
-            #     * (1 - d_1 / r_1)  # Volume of spherical sector (Sphere 1)
-            #     - d_1 * (r_1 ** 2 - d_1 ** 2) * np.pi / 3  # Volume of cone (Sphere 1)
-            #     + r_2 ** 3
-            #     / 3
-            #     * 2
-            #     * np.pi
-            #     * (1 - d_2 / r_2)  # Volume of shperical sector (Sphere 2)
-            #     - d_2 * (r_2 ** 2 - d_2 ** 2) * np.pi / 3
-            # )  # Volume of cone (Sphere 2)
-            # Computing the intersection area as the sum of the spherical caps minus the
-            # corresponding cones
-            # intersection_volume = 0.01
-        return intersection_volume
-        # Returning the intersection area
-
     def intersection(self, other_particle: Particle, box: list, inside=True) -> bool:
         """Check if the Disk intersects the other_particle.
 
@@ -252,7 +175,7 @@ class Disk(Ellipse):
         box: list(float)
             Dimensions of the simulation box.
         """
-        if isinstance(other_particle, (Disk, CylindricalFiber)):
+        if isinstance(other_particle, Disk):
             # The other particle is also a Disk
             intersection = self.intersection_disk_disk(
                 other_particle, box, inside=inside
@@ -309,13 +232,14 @@ class Disk(Ellipse):
         return erosion_thickness
 
     def support_function(self, direction):
+        """Support function for the disk."""
         radius_vec = direction[0:2] / np.linalg.norm(direction[0:2]) * self.radius
         return np.append(self.position_center + radius_vec, [0])
         # GJK algorithm is written for 3D
 
     def intersection_length(
         self, other_particle: Particle, box: list, tol: float = 1e-8
-    ) -> tuple[float, np.array]:
+    ) -> Union[float, np.array]:
         """
         Compute the intersection length between the Disk and the other particle.
 
