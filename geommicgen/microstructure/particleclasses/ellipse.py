@@ -1,16 +1,11 @@
-"""
-Module containing the Ellipse particle class.
-"""
+"""Module containing the Ellipse particle class."""
 from __future__ import annotations
 
-import abc
 import time
 
-from itertools import cycle
 
 import numpy as np
 
-from scipy import integrate
 
 from .particle import Particle
 
