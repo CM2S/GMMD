@@ -1,9 +1,4 @@
-"""
-Module containing all the Particle abstract class and all its subclasses.
-
-Each subclass of the Particle class is a type of particle. This module includes the Ellipse,
-Disk, CylindricalFiber, Ellipsoid and Shpere classes.
-"""
+"""Module containing Ellipoid particle class."""
 from __future__ import annotations
 
 import numpy as np
@@ -414,7 +409,7 @@ class Ellipsoid(Particle):
         A_glob = self.M_inv(diff_nearest).T.dot(A_loc.dot(self.M_inv(diff_nearest)))
         return A_glob
 
-    def point_inside(self, point, box, tol=1e-6, position="inside"):
+    def point_inside(self, point, box, **kwargs):
         """
         Check if a given point is inside the ellipsoid.
 
@@ -429,17 +424,22 @@ class Ellipsoid(Particle):
         point: array
             Point under analysis
 
+        Returns
+        -------
+        point_in: bool
+            True if the point is inside the ellipse and False otherwise.
+
+        Keyword Arguments
+        -----------------
         tol: float
             Tolerance
 
         position: string
             'inside' or 'on'
-
-        Returns
-        -------
-        point_in: bool
-            True if the point is inside the ellipse and False otherwise.
         """
+        tol = kwargs.get("tol", 1e-6)
+        position = kwargs.get("position", "inside")
+        # Collecting keyword arguments
         point_nearest_pbc = Particle.nearest_periodic_image(
             point, self.position_center, box
         )
@@ -623,11 +623,10 @@ class Ellipsoid(Particle):
         return x_samples
 
     def generate_point_inside(self):
-        """Generate a random point inside the ellipsoid."""
-        if self.delta != 0:
-            # FIXME:new delta
-            # print("Warning")
-            pass
+        """Generate a random point inside the ellipsoid.
+
+        Only approximate if the ellipsoid is dilated (self.delta != 0).
+        """
         w = np.random.normal(size=3)
         # Generating 3 independent random points from the standard Gaussian distribution
         r = np.random.uniform() ** (1 / 3)
@@ -660,8 +659,7 @@ class Ellipsoid(Particle):
         overlap_volume: float
             Overlap volume(area) between the ellipsoid and the other particle.
         """
-
-        if False:  # isinstance(other_particle, Ellipsoid):
+        if isinstance(other_particle, Ellipsoid):
             intersection = self.intersection_ellipsoid_ellipsoid(other_particle, box)
             # Saving the class name of the other particle as a string
             if intersection:
@@ -676,10 +674,7 @@ class Ellipsoid(Particle):
         elif isinstance(other_particle, (cyl_cls.Cylinder, Ellipsoid)):
             intersection = self.intersection_gjk(other_particle, box)
             if intersection:
-                overlap_length, unit_vector = self.intersection_length_mink_diff(
-                    other_particle, box
-                )
-            overlap_volume = overlap_length if intersection else 0
+                overlap_volume = self.intersection_area_monte_carlo(other_particle, box)
         return overlap_volume
 
     def intersection_ellipsoid_ellipsoid(self, other_ellipsoid, box):
@@ -870,7 +865,7 @@ class Ellipsoid(Particle):
         # Semi-latus rectum
         return erosion_thickness
 
-    def intersection(self, other_particle: Particle, box: list, inside=False) -> bool:
+    def intersection(self, other_particle: Particle, box: list) -> bool:
         """
         Check if the Ellipsoid intersects the other particle.
 
@@ -891,11 +886,11 @@ class Ellipsoid(Particle):
         intersection: bool
             True if the particles intersect.
         """
-        if isinstance(other_particle, Ellipsoid) and inside:
+        if isinstance(other_particle, Ellipsoid) and False:
             other_particle: Ellipsoid
             # The other particle is also an Ellipsoid or subclass
             intersection = self.intersection_ellipsoid_ellipsoid(other_particle, box)
-        elif isinstance(other_particle, cyl_cls.Cylinder) or not inside:
+        elif isinstance(other_particle, cyl_cls.Cylinder) or True:
             intersection = self.intersection_gjk(other_particle, box)
         else:
             raise ValueError("Incompatible particles.")
@@ -903,6 +898,7 @@ class Ellipsoid(Particle):
         # Returning the intersection area
 
     def support_function(self, direction):
+        """Support function for the ellipsoid."""
         dir_local = self.rotation_mat.T.dot(direction)
         dir_normal = np.array(
             [
@@ -929,55 +925,19 @@ class Ellipsoid(Particle):
         return point_on_ellipsoid_glob
 
     def intersection_length(
-        self, other_particle: Particle, box: list, tol: float = 1e-8
+        self, other_particle: Particle, box: list
     ) -> tuple[float, np.array]:
         """Intersection length between *self* and *other_particle* on *box*."""
         if isinstance(other_particle, Ellipsoid) and False:
-            # start = time.time()
             intersection = self.intersection_ellipsoid_ellipsoid(other_particle, box)
             # Saving the class name of the other particle as a string
-            if intersection:
-                # There is overlap
-                # overlap_volume = self.intersection_volume_ellipsoid_other(
-                #     other_particle, box, max_it=50, seq_size=100
-                # )
-                diff_in_box = self.position_center - other_particle.position_center
-                # Difference vector between the center of the two particles
-                diff_nearest_other = box * np.round(diff_in_box / box)
-                # Vector from the position of the other ellipse to its nearest image to the current
-                # ellipse
-                search_direction = self.intersection_vector(other_particle, box)
-                mink_diff_point = self.support_function(search_direction) - (
-                    other_particle.support_function(-search_direction)
-                    + diff_nearest_other
-                )
-                intersection_length = mink_diff_point.dot(search_direction)
-                # _, intersection_length_2, unit_vector_2 = self.intersection_gjk(
-                #     other_particle, box, tol=tol
-                # )
-                unit_vector = search_direction
-                if intersection_length < 0:
-                    intersection_length = 0
-                    unit_vector = np.array([0.0, 0.0, 0.0])
-                # Computing the intersection area
-            else:
-                # There is no overlap
-                intersection_length = 0
-                unit_vector = np.array([0.0, 0.0, 0.0])
-            # time_1 = time.time() - start
-            # start = time.time()
-            # _, intersection_length, unit_vector = self.intersection_gjk(
-            #     other_particle, box, tol=tol
-            # )
-            # time_2 = time.time() - start
-            # # print(time_1, time_2)
-        elif isinstance(other_particle, (cyl_cls.Cylinder, Ellipsoid)):
-            intersection = self.intersection_gjk(other_particle, box, tol=tol)
-            if intersection:
-                intersection_length, unit_vector = self.intersection_length_mink_diff(
-                    other_particle, box
-                )
-            else:
-                intersection_length = 0
-                unit_vector = np.array([0, 0, 0])
+        elif isinstance(other_particle, cyl_cls.Cylinder) or True:
+            intersection = self.intersection_gjk(other_particle, box)
+        if intersection:
+            intersection_length, unit_vector = self.intersection_length_mink_diff(
+                other_particle, box
+            )
+        else:
+            intersection_length = 0
+            unit_vector = np.array([0, 0, 0])
         return intersection_length, unit_vector
