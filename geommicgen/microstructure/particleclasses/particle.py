@@ -109,10 +109,6 @@ class Particle(abc.ABC):
         self,
         particle_2: Particle,
         box: list,
-        tol: float = 1e-8,
-        inside=True,
-        out_dist=False,
-        int_only=False,
     ) -> tuple[bool, float]:
         """Check using a version of the GJK intersection method if the particles intersect.
 
@@ -142,23 +138,10 @@ class Particle(abc.ABC):
         box: list
             Simulation box containing the particles.
 
-        tol: float
-            Tolerance for the minimum distance
-
-        inside: bool
-            Consider self completly inside particle_2 as an intersection or not.
-
         Returns
         -------
         intersection: bool
             True if the particles intersect, False otherwise.
-
-        overlap_length: float
-            The penetratin length if an intersection is detected, *None* otherwise.
-
-        minimum_dist_rem: np.array
-            Unit vector such a displacement of magnitude *overlap_length* removes completly
-            the overlap.
         """
         intersection = None
         diff_in_box = self.position_center - particle_2.position_center
