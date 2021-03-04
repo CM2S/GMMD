@@ -109,7 +109,7 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
     #     )
 
     # @patch(
-    #     "geommicgen.micgenmethod.microstructure_gen_method.GenerationMethod.generate_particles"
+    #     "particleclassesmicgenmethod.microstructure_gen_method.GenerationMethod.generate_particles"
     # )
     # def test_generate_microstructure_set_box(self, mock_generate_particles):
     #     """Set the simulation box correctly."""

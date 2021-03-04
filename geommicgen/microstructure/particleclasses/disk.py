@@ -16,7 +16,7 @@ import numpy as np
 
 from scipy import integrate
 
-from geommicgen.microstructure.particleclasses import Ellipse, Particle
+from microstructure.particleclasses import Ellipse, Particle
 
 
 class Disk(Ellipse):

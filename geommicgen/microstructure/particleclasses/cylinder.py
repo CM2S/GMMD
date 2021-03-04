@@ -18,7 +18,7 @@ from scipy import integrate
 from scipy.optimize import fmin
 
 from .particle import Particle
-import geommicgen.microstructure.particleclasses.sphere as sph_cls
+import microstructure.particleclasses.sphere as sph_cls
 
 
 class Cylinder(Particle):

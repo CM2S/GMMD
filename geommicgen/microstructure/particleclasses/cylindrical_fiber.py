@@ -16,7 +16,7 @@ import numpy as np
 
 from scipy import integrate
 
-from geommicgen.microstructure.particleclasses import Disk, Particle
+from microstructure.particleclasses import Disk, Particle
 
 
 class CylindricalFiber(Disk):

@@ -19,7 +19,7 @@ from scipy.optimize import fmin
 
 from .ellipsoid import Ellipsoid
 from .particle import Particle
-import geommicgen.microstructure.particleclasses.cylinder as cyl_cls
+import microstructure.particleclasses.cylinder as cyl_cls
 
 
 class Sphere(Ellipsoid):

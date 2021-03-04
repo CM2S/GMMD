@@ -10,7 +10,7 @@ import numpy as np
 
 from scipy import integrate
 
-import geommicgen.microstructure.particleclasses.cylinder as cyl_cls
+import microstructure.particleclasses.cylinder as cyl_cls
 from .particle import Particle
 
 

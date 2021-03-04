@@ -1,11 +1,7 @@
 """Module containing the Ellipse particle class."""
 from __future__ import annotations
 
-import time
-
-
 import numpy as np
-
 
 from .particle import Particle
 
