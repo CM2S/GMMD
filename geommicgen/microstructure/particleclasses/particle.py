@@ -6,14 +6,9 @@ The subclasses include are the the Matrix, Point and Line subclasses.
 from __future__ import annotations
 
 import abc
-import time
-
-
-from itertools import cycle
 
 import numpy as np
 
-from scipy import integrate
 from scipy.optimize import fmin
 
 
