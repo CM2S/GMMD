@@ -1318,7 +1318,7 @@ class TestGJKIntersectionOverlapLength(unittest.TestCase):
         }
         ellipsoid_2 = Ellipsoid(phase_2, descriptors_2, rve_dims)
         ellipsoid_2.position_center = np.array([0.5, 0.65, 0.5])
-        intersection = ellipsoid_1.intersection_gjk(ellipsoid_2, rve_dims, tol=1e-12)
+        intersection = ellipsoid_1.intersection_gjk(ellipsoid_2, rve_dims)
         overlap_length, unit_vector = ellipsoid_1.intersection_length_mink_diff(
             ellipsoid_2, rve_dims
         )
@@ -1692,7 +1692,7 @@ class TestParticlePoint(unittest.TestCase):
 
         point.position_center = np.array([0.5, 0.72])
         ellipse.position_center = np.array([0.5, 0.5])
-        intersection = ellipse.intersection_gjk(point, rve_dims, out_dist=True)
+        intersection = ellipse.intersection_gjk(point, rve_dims)
         overlap_length, unit_vector = ellipse.intersection_length_mink_diff(
             point, rve_dims
         )
@@ -1706,7 +1706,7 @@ class TestParticlePoint(unittest.TestCase):
 
         point.position_center = np.array([0.7, 0.7])
         ellipse.position_center = np.array([0.5, 0.5])
-        intersection = ellipse.intersection_gjk(point, rve_dims, out_dist=True)
+        intersection = ellipse.intersection_gjk(point, rve_dims)
         overlap_length, unit_vector = ellipse.intersection_length_mink_diff(
             point, rve_dims
         )
