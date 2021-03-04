@@ -517,7 +517,7 @@ class Particle(abc.ABC):
         """Compute the interesection length between two particles."""
 
     @abc.abstractmethod
-    def point_inside(self, point: np.array) -> bool:
+    def point_inside(self, point: np.array, box: list) -> bool:
         """Check if some point is inside the particle."""
 
     @abc.abstractmethod
