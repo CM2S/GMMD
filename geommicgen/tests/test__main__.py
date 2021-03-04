@@ -32,7 +32,7 @@ class TestMainFromCommandLine(unittest.TestCase):
 
             run_program()
 
-    # @patch("geommicgen.microstructure.particle_classes.Disk")
+    # @patch("geommicgen.microstructure.particleclasses.Disk")
     # @patch("geommicgen.microstructure.phase.FixedValue")
     # def test_generate_particles_number(self, mock_fixed_value, mock_disk):
     #     gen_method = MicGenTest()

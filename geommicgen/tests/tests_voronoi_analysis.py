@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from scipy import integrate
 import time
-from microstructure.particle_classes import (
+from microstructure.particleclasses import (
     Ellipsoid,
     Ellipse,
     Cylinder,

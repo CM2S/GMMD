@@ -12,7 +12,7 @@ import numpy as np
 
 from scipy.stats import vonmises, lognorm
 
-from .particle_classes import (
+from .particleclasses import (
     Matrix,
     Disk,
     Ellipse,

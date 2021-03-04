@@ -10,7 +10,7 @@ import pickle
 import numpy as np
 
 from micgenmethod.speed_up_schemes import SpeedUpScheme, CellList, VerletList
-from microstructure.particle_classes import Ellipse, Disk
+from microstructure.particleclasses import Ellipse, Disk
 
 from micgenmethod.microstructure_gen_method import (
     GenerationMethod,

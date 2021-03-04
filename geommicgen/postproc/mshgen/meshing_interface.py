@@ -13,7 +13,7 @@ import gmsh
 
 # pylint: disable=import-error
 from gmsh2links.main import readMesh
-from microstructure.particle_classes import (
+from microstructure.particleclasses import (
     Particle,
     Disk,
     Ellipse,

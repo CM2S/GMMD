@@ -1,6 +1,6 @@
 """Module for the statistical analysis of microstructures."""
 
-from microstructure.particle_classes import (
+from microstructure.particleclasses import (
     Particle,
     Disk,
     Ellipse,

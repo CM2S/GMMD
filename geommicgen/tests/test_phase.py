@@ -12,7 +12,7 @@
 #     """Class for the unit test regarding the phase class"""
 #
 #     @patch("microstrucutre.phase.FixedValue")
-#     @patch("microstructure.particle_classes.Disk")
+#     @patch("microstructure.particleclasses.Disk")
 #     def test_generate_particles_number(self, mock_fixed_value, mock_disk):
 #         mock_fixed_value.value = 0.1
 #         rve_dims = [1.0, 1.0]
@@ -27,7 +27,7 @@
 #             self.assertIsInstance(particle, mock_disk)
 #
 #     @patch("microstructure.phase.FixedValue")
-#     @patch("microstructure.particle_classes.Disk")
+#     @patch("microstructure.particleclasses.Disk")
 #     def test_generate_particles_vf(self, mock_fixed_value, mock_disk):
 #         rve_dims = [1.0, 1.0]
 #         descriptors = {

@@ -15,7 +15,7 @@ from micgenmethod.microstructure_gen_method import (
 from micgenmethod.molecular_dynamics_sim import (
     MolecularDynamicsSimulation,
 )
-from microstructure.particle_classes import (
+from microstructure.particleclasses import (
     CylindricalFiber,
 )
 

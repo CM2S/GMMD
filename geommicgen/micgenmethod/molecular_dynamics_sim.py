@@ -19,7 +19,7 @@ import errors.error_classes as errors
 import iofuncs.printing as print_funcs
 from micgenmethod.microstructure_gen_method import GenerationMethod
 from micgenmethod.integration_methods import VerletSync, Newmark
-from microstructure.particle_classes import Matrix, Particle
+from microstructure.particleclasses import Matrix, Particle
 
 
 class MolecularDynamicsSimulation(GenerationMethod):

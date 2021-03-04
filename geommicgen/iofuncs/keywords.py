@@ -8,7 +8,7 @@ TO ADD A POSSIBLE KEYWORD, ADD IT TO THE INSTANCE OF THE TopLevelReader.
 
 import numpy as np
 
-import microstructure.particle_classes as part_cls
+import microstructure.particleclasses as part_cls
 import microstructure.phase as phase
 import errors.error_classes as error_cls
 

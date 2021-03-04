@@ -18,7 +18,7 @@ from matplotlib import cm
 # Finite element mesh conversor to LINKS
 
 
-from microstructure.particle_classes import (
+from microstructure.particleclasses import (
     Disk,
     Ellipse,
     CylindricalFiber,

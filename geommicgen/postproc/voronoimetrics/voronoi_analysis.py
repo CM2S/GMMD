@@ -1,4 +1,4 @@
-from microstructure.particle_classes import (
+from microstructure.particleclasses import (
     Particle,
     Disk,
     Ellipse,

@@ -8,7 +8,7 @@ of the Phase class, in turn described by the adequate phase descriptors.
 import numpy as np
 
 from micgenmethod.speed_up_schemes import CellList
-from microstructure.particle_classes import Point
+from microstructure.particleclasses import Point
 
 
 class Microstructure:
