@@ -1,25 +1,12 @@
-"""
-Module containing all the Particle abstract class and all its subclasses.
-
-Each subclass of the Particle class is a type of particle. This module includes the Ellipse,
-Disk, CylindricalFiber, Ellipsoid and Shpere classes.
-"""
+"""Module containing the Sphere particle class."""
 from __future__ import annotations
-
-import abc
-import time
-
-
-from itertools import cycle
+from typing import Union
 
 import numpy as np
 
-from scipy import integrate
-from scipy.optimize import fmin
-
+import microstructure.particleclasses.cylinder as cyl_cls
 from .ellipsoid import Ellipsoid
 from .particle import Particle
-import microstructure.particleclasses.cylinder as cyl_cls
 
 
 class Sphere(Ellipsoid):
@@ -187,72 +174,6 @@ class Sphere(Ellipsoid):
         return intersection_volume
         # Returning the intersection area
 
-    def intersection_sqrt(self, other_sphere, box):
-        """
-        Compute the intersection volume between two Spheres.
-
-        Parameters
-        ----------
-        other_sphere: `.Sphere`
-            Other sphere whose intersection volume with the current sphere we want to know
-        """
-        diff_center = self.position_center - other_sphere.position_center
-        diff_center = diff_center - box * np.round(diff_center / box)
-        # Computing the difference vector between the centers of the current sphere and
-        # the nearest image of the other sphere
-        d = np.linalg.norm(diff_center)
-        # Distance between the current sphere and the nearest image of the other sphere
-        if self.radius >= other_sphere.radius:
-            # The radius of the self is larger than the radius of the other sphere
-            r_1 = self.radius
-            # Sphere 1 is the sphere with the larger radius
-            r_2 = other_sphere.radius
-            # Sphere 2 is the sphere with the smaller radius
-        else:
-            # The radius of the other sphere is larger than the radius of the self
-            r_1 = other_sphere.radius
-            # Sphere 1 is the sphere with the larger radius
-            r_2 = self.radius
-            # Sphere 2 is the sphere with the smaller radius
-        if d >= (r_1 + r_2):
-            # The spheres intersect at most at one point
-            intersection_volume = 0
-            # The intersection area of the spheres is zero
-        elif d <= r_1 - r_2:
-            # Sphere 2 is interely contained within Sphere 1
-            # intersection_volume = r_1 + r_2  # 4 / 3 * np.pi * r_2 ** 3
-            # intersection_volume = 4 / 3 * np.pi * r_2 ** 3
-            intersection_volume = r_2
-            # The intersection area is equal to the area of the smaller sphere, Sphere 2
-        else:
-            d_1 = (r_1 ** 2 - r_2 ** 2 + d ** 2) / (2 * d)
-            # x coordinate of the intersection point of the two disks if the the origin is
-            # at disk 1 and the x axis goes through the center of both disks
-            d_2 = d - d_1
-            # Distance in the x axis from the intersection point to disk 2
-            intersection_volume = r_2 * (
-                1 - (d) ** 2 / (r_1 + r_2) ** 2
-            )  # / (2 * r_2) * 4 / 3 * np.pi * r_2 ** 3
-            # intersection_volume = (
-            #     r_1 ** 3
-            #     / 3
-            #     * 2
-            #     * np.pi
-            #     * (1 - d_1 / r_1)  # Volume of spherical sector (Sphere 1)
-            #     - d_1 * (r_1 ** 2 - d_1 ** 2) * np.pi / 3  # Volume of cone (Sphere 1)
-            #     + r_2 ** 3
-            #     / 3
-            #     * 2
-            #     * np.pi
-            #     * (1 - d_2 / r_2)  # Volume of shperical sector (Sphere 2)
-            #     - d_2 * (r_2 ** 2 - d_2 ** 2) * np.pi / 3
-            # )  # Volume of cone (Sphere 2)
-            # Computing the intersection area as the sum of the spherical caps minus the
-            # corresponding cones
-            # intersection_volume = 0.01
-        return intersection_volume
-        # Returning the intersection area
-
     @property
     def volume(self):
         """Volume of the sphere."""
@@ -260,7 +181,7 @@ class Sphere(Ellipsoid):
 
         return volume
 
-    def intersection(self, other_particle: Particle, box: list, inside=True) -> bool:
+    def intersection(self, other_particle: Particle, box: list, **kwargs) -> bool:
         """
         Check if the Sphere intersects the other particle.
 
@@ -276,7 +197,13 @@ class Sphere(Ellipsoid):
         -------
         intersection: bool
             True if the particles intersect.
+
+        Keyword Parameters
+        ------------------
+        inside: bool
+            Consider a sphere inside if it completly inside the other.
         """
+        inside = kwargs.get("inside", True)
         if isinstance(other_particle, Sphere):
             # The other particle is also a Disk
             intersection = self.intersection_sphere_sphere(
@@ -318,7 +245,8 @@ class Sphere(Ellipsoid):
 
     def intersection_sphere_cylinder(
         self: Sphere, cylinder: cyl_cls.Cylinder, box: list
-    ) -> tuple[bool, float]:
+    ) -> Union[bool, float]:
+        """Detect the intersection between a sphere and a cylinder."""
         cylinder_position_center_pbc = Particle.nearest_periodic_image(
             cylinder.position_center, self.position_center, box
         )
@@ -405,7 +333,7 @@ class Sphere(Ellipsoid):
         return intersection, overlap_length
 
     def intersection_length(
-        self, other_particle: Particle, box: list, tol: float = 1e-8
+        self, other_particle: Particle, box: list
     ) -> tuple[float, np.array]:
         """
         Compute the intersection length between the Sphere and the other particle.
@@ -414,32 +342,38 @@ class Sphere(Ellipsoid):
         ----------
         other_particle: `.Particle`
             Other particle
+
+        box: list
+            Dimensions of the simulation box.
+
+        Returns
+        -------
+        overlap_length: float
+            Intersection length between the particles.
+
+        overlap_dir: 1-array, shape (3)
+            Intersection direction between the particles.
         """
         if isinstance(other_particle, Sphere):
             # The other particle is also a Sphere
-            intersection_length = self.intersection_length_sphere_sphere(
-                other_particle, box
-            )
-            unit_vector = self.intersection_vector(other_particle, box)
+            overlap_length = self.intersection_length_sphere_sphere(other_particle, box)
+            overlap_dir = self.intersection_vector(other_particle, box)
             # Computing the intersection length
-        # elif isinstance(other_particle, cyl_cls.Cylinder):
-        #     # The other particle is a cylinder
-        #     other_particle: cyl_cls.Cylinder
-        #     _, intersection_length = self.intersection_sphere_cylinder(
-        #         other_particle, box
-        #     )
-        #     unit_vector = self.intersection_vector(other_particle, box)
         else:
-            intersection = self.intersection_gjk(other_particle, box, tol=tol)
+            if isinstance(other_particle, cyl_cls.Cylinder):
+                # The other particle is a cylinder
+                other_particle: cyl_cls.Cylinder
+                intersection, _ = self.intersection_sphere_cylinder(other_particle, box)
+            else:
+                intersection = self.intersection_gjk(other_particle, box)
             if intersection:
-                overlap_length, unit_vector = self.intersection_length_mink_diff(
+                overlap_length, overlap_dir = self.intersection_length_mink_diff(
                     other_particle, box
                 )
             else:
                 overlap_length = 0
-                unit_vector = np.array([0, 0, 0])
-        return overlap_length, unit_vector
-        # Returning the intersection area
+                overlap_dir = np.array([0, 0, 0])
+        return overlap_length, overlap_dir
 
     def intersection_length_sphere_sphere(
         self, other_sphere: Sphere, box: list
@@ -451,6 +385,14 @@ class Sphere(Ellipsoid):
         ----------
         other_sphere: `.Sphere`
             Other sphere whose intersection length with the current sphere we want to know
+
+        box: list
+            Dimensions of the simulation box.
+
+        Returns
+        -------
+        intersection_length: float
+            Intersection length between the particles.
         """
         d = np.linalg.norm(
             Particle.nearest_periodic_image(
@@ -485,8 +427,9 @@ class Sphere(Ellipsoid):
         return intersection_length
         # Returning the intersection length
 
-    def point_inside(self, point, box, tol=1e-3):
+    def point_inside(self, point: np.array, box: list, **kwargs) -> bool:
         """Check if point is inside the particle."""
+        tol = kwargs.get("tol", 1e-3)
         point_nearest_pbc = Particle.nearest_periodic_image(
             point, self.position_center, box
         )
@@ -497,7 +440,9 @@ class Sphere(Ellipsoid):
 
         return point_in
 
-    def generate_points_on_surface(self, n_points, erosion_thick=0):
+    def generate_points_on_surface(
+        self, n_points: int, erosion_thick: float = 0
+    ) -> np.array:
         """Generate *n_points* on the surface of the sphere."""
         theta = np.linspace(0, np.pi, n_points)
         phi = np.linspace(0, 2 * np.pi, n_points, endpoint=False)
@@ -523,13 +468,14 @@ class Sphere(Ellipsoid):
         # Transforming local in global coordinates
         return points_glob
 
-    def compute_critical_erosion_thickness(self):
+    def compute_critical_erosion_thickness(self) -> float:
         """Compute the critical erosion thickness for a sphere."""
         erosion_thickness = 0.9 * self.radius
         # Semi-latus rectum
         return erosion_thickness
 
-    def support_function(self, direction):
+    def support_function(self, direction: np.array) -> np.array:
+        """Get point of the support function in the direction *direction* ofr a sphere."""
         return (
             self.position_center + direction / np.linalg.norm(direction) * self.radius
         )
