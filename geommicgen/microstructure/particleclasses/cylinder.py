@@ -1,24 +1,11 @@
-"""
-Module containing all the Particle abstract class and all its subclasses.
-
-Each subclass of the Particle class is a type of particle. This module includes the Ellipse,
-Disk, CylindricalFiber, Ellipsoid and Shpere classes.
-"""
+"""Module containing the cylinder particle class."""
 from __future__ import annotations
-
-import abc
-import time
-
-
-from itertools import cycle
+from typing import Union
 
 import numpy as np
 
-from scipy import integrate
-from scipy.optimize import fmin
-
-from .particle import Particle
 import microstructure.particleclasses.sphere as sph_cls
+from .particle import Particle
 
 
 class Cylinder(Particle):
@@ -169,6 +156,7 @@ class Cylinder(Particle):
 
     @property
     def radius(self):
+        """Radius of the circumscribed sphere to the cylinder."""
         radius = np.sqrt((self.length / 2) ** 2 + self.r_cyl ** 2) + self.delta
         return radius
 
@@ -179,23 +167,32 @@ class Cylinder(Particle):
 
         return radius_insc
 
-    def intersection(self, other_particle, box, inside=True):
-        intersection = self.intersection_gjk(other_particle, box)
+    def intersection(self, other_particle: Particle, box: list) -> bool:
+        """Check for the intersection between *self* and the *other_particle*."""
+        if isinstance(other_particle, Cylinder):
+            other_particle: Cylinder
+            intersection = self.intersection_cylinder_cylinder(other_particle, box)
+        else:
+            intersection = self.intersection_gjk(other_particle, box)
         return intersection
 
-    def intersection_area(self, other_particle, box):
+    def intersection_area(self, other_particle: Particle, box: list) -> float:
+        """Compute the intersection volume between *self* and *other_particle*."""
         intersection_volume = self.intersection_area_monte_carlo(other_particle, box)
         return intersection_volume
 
     def intersection_length(
-        self, other_particle: Particle, box: list, tol: float = 1e-8
-    ) -> tuple[float, np.array]:
+        self, other_particle: Particle, box: list, **kwargs
+    ) -> Union[float, np.array]:
         """Compute the intersection length between *self* and *other_particle* in *box*.
 
         Parameters
         ----------
         other_particle: `.Particle`
             Other particle
+
+        box: list(float)
+            Dimensions of the simulation box.
 
         Returns
         -------
@@ -205,8 +202,13 @@ class Cylinder(Particle):
         unit_vector: np.array
             Direction of the minimum displacement allowing for the removal of the
             intersection.
-        """
 
+        Keyword Parameters
+        ------------------
+        tol: float
+            Tolerance for the computation of the intersection length.
+        """
+        tol = kwargs.get("tol", 1e-8)
         if False and isinstance(other_particle, Cylinder):
             other_particle: Cylinder
             _, intersection_length = self.intersection_cylinder_cylinder(
@@ -223,7 +225,7 @@ class Cylinder(Particle):
             intersection = self.intersection_gjk(other_particle, box)
             if intersection:
                 intersection_length, unit_vector = self.intersection_length_mink_diff(
-                    other_particle, box
+                    other_particle, box, tol=tol
                 )
             else:
                 intersection_length = 0
@@ -232,7 +234,7 @@ class Cylinder(Particle):
         return intersection_length, unit_vector
 
     def support_function(self, direction: np.array) -> np.array:
-
+        """Compute the point of the cylinder's support in *direction*."""
         dir_parallel_comp = (
             direction.dot(self.sym_axis_unit_vec) * self.sym_axis_unit_vec
         )
@@ -261,23 +263,19 @@ class Cylinder(Particle):
 
         return point_global
 
-    def contract(self, distance):
+    def contract(self, distance: float):
         """Contract the particle."""
-        # self.r_cyl -= distance
-        # self.length -= distance
         self.delta -= distance
         # Contracting the particle size subracting the minimum distance from the semi-axis
 
-    def dilate(self, distance):
+    def dilate(self, distance: float):
         """Dilate the particle."""
-        # self.r_cyl += distance
-        # self.length += distance
         self.delta += distance
         # Dilating the particle size adding the minimum distance to the semi-axis
 
     def intersection_cylinder_cylinder(
         self: Cylinder, other_cylinder: Cylinder, box: list
-    ) -> tuple[bool, float]:
+    ) -> Union[bool, float]:
         """Check if two cylinders intersect. If so give overlap length.
 
         This method used analytical means to detect the intersection of two cylinders and
@@ -361,7 +359,7 @@ class Cylinder(Particle):
 
     def intersection_top_disks(
         self: Cylinder, other: Cylinder, box: list
-    ) -> tuple[bool, float]:
+    ) -> Union[bool, float]:
         """Check if the top of two cylinders intersect.
 
         Parameters
@@ -388,7 +386,7 @@ class Cylinder(Particle):
             pos_d2: np.array,
             r_d2: float,
             normal_d2: np.array,
-        ) -> tuple[bool, float]:
+        ) -> Union[bool, float]:
             """Check if top two disks of two cylinders intersect.
 
             Parameters
@@ -504,7 +502,7 @@ class Cylinder(Particle):
 
     def intersection_top_disk_lateral_cylinder(
         self: Cylinder, other: Cylinder, box: list
-    ) -> tuple[bool, float]:
+    ) -> Union[bool, float]:
         """Check if the top of one one of the cylinders intersects the lateral of the other.
 
         Parameters
@@ -672,10 +670,7 @@ class Cylinder(Particle):
                 np.sum((self.position_center - point_nearest_pbc) ** 2)
                 - dist_on_axis ** 2
             )
-            if L < self.r_cyl:
-                point_inside = True
-            else:
-                point_inside = False
+            point_inside = L < self.r_cyl
 
         return point_inside
 
