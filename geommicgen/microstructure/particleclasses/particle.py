@@ -4,6 +4,7 @@ Module containing all the Particle abstract class and some particular subclasses
 The subclasses include are the the Matrix, Point and Line subclasses.
 """
 from __future__ import annotations
+from typing import Union
 
 import abc
 
@@ -28,6 +29,12 @@ class Particle(abc.ABC):
 
     phase: str
         Phase to which the particle belongs.
+
+    radius: float
+        Radius of the circumscribed cirumpherence/sphere to the particle.
+
+    delta: float
+        Dilation value for the particle, i.e. increase in size normal to its surface.
 
     Class Atributes
     ---------------
@@ -65,10 +72,30 @@ class Particle(abc.ABC):
         self.phase = phase
         # Phase to which the particle belongs
         self.position_center = None
+        self._radius = None
+        self._volume = None
         self.delta = 0
 
+    @property
+    @abc.abstractmethod
+    def radius(self):
+        """Radius of the circumscribed circle to the ellipse."""
+        radius = self._radius
+
+        return radius
+
+    @property
+    @abc.abstractmethod
+    def volume(self):
+        """Area(volume) of the particle."""
+        volume = self._volume
+
+        return volume
+
     @staticmethod
-    def nearest_periodic_image(point_1, point_2, box):
+    def nearest_periodic_image(
+        point_1: np.array, point_2: np.array, box: list
+    ) -> np.array:
         """Get the nearest periodic image of *point_1* to *point_2* in *box* with pbcs."""
         diff_in_box = point_2 - point_1
         # Difference vector between the two points
@@ -79,7 +106,7 @@ class Particle(abc.ABC):
         return point_1_nearest_image
 
     @classmethod
-    def check_acceptable_description(cls, descriptors):
+    def check_acceptable_description(cls: object, descriptors: dict) -> bool:
         """Check if descriptors are an acceptable description.
 
         Depending on the type of particle different sets of descriptors are sufficient to
@@ -301,7 +328,12 @@ class Particle(abc.ABC):
         return intersection_length, intersection_dir
 
     @staticmethod
-    def minimum_dist_to_diff_sup(search_direction_unit, particle_1, particle_2, box):
+    def minimum_dist_to_diff_sup(
+        search_direction_unit: np.array,
+        particle_1: Particle,
+        particle_2: Particle,
+        box: list,
+    ) -> float:
         """Distance from the origin to the suppport function of the Minkowski difference.
 
         Gives the distance along the search direction of the corresponding point in the
@@ -359,7 +391,7 @@ class Particle(abc.ABC):
         return dist
 
     @staticmethod
-    def nearest_simplex(simplex):
+    def nearest_simplex(simplex: list) -> Union[list, np.array]:
         """
         Get the nearest simplex to the origin and the corresponding search direction.
 
@@ -471,7 +503,7 @@ class Particle(abc.ABC):
 
         return simplex, search_direction
 
-    def intersection_vector(self, other_particle, box):
+    def intersection_vector(self, other_particle: Particle, box: list) -> np.array:
         """Compute the unit vector from the center of masss of particle i to particle j.
 
         Parameters
@@ -501,15 +533,17 @@ class Particle(abc.ABC):
         return unit_vector_i_j
 
     @abc.abstractmethod
-    def intersection(self, other_particle, box) -> bool:
+    def intersection(self, other_particle: Particle, box: list) -> bool:
         """Check if the two particles intersect."""
 
     @abc.abstractmethod
-    def intersection_area(self, other_particle, box) -> float:
+    def intersection_area(self, other_particle: Particle, box: list) -> float:
         """Compute the interesection area/volume between two particles."""
 
     @abc.abstractmethod
-    def intersection_length(self, other_particle, box) -> tuple[float, np.array]:
+    def intersection_length(
+        self, other_particle: Particle, box: list
+    ) -> tuple[float, np.array]:
         """Compute the interesection length between two particles."""
 
     @abc.abstractmethod
@@ -525,9 +559,40 @@ class Particle(abc.ABC):
         """Generate a random point inside the particle."""
 
     def intersection_area_monte_carlo(
-        self, other_particle, box, tol=1, max_it=20000, min_it=100
-    ):
-        """Integrate the intersection area/volume using a Monte Carlo technique."""
+        self, other_particle: Particle, box: list, **kwargs
+    ) -> Union[float, float]:
+        """Integrate the intersection area/volume using a Monte Carlo technique.
+
+        Parameters
+        ----------
+        other_particle: `.Particle`
+            Other particle.
+
+        box: list(float)
+            Dimensions of the simulation box.
+
+        Returns
+        -------
+        overlap_area: float
+            Overlap area/volume between the *self* and the *other_particle*.
+
+        error_estimate: float
+            Error estimate for the intergarl using the Monte Carlo integration scheme.
+
+        Keyword Parameters
+        ------------------
+        tol: float
+            Maximum error tolerance.
+
+        max_it: int
+            Maximum number of iterations.
+
+        min_it: int
+            Minimum number of iterations.
+        """
+        tol = kwargs.get("tol", 1)
+        max_it = kwargs.get("max_it", 20000)
+        min_it = kwargs.get("min_it", 100)
         points_in = []
         point = self.generate_point_inside()
         if other_particle.point_inside(point, box):
@@ -559,7 +624,7 @@ class Particle(abc.ABC):
 
         return overlap_area, error_estimate
 
-    def mass(self, option="volume"):
+    def mass(self, option: str = "volume") -> float:
         """Return the mass of the particle according to the *option* selected.
 
         Parameters
@@ -567,7 +632,6 @@ class Particle(abc.ABC):
         option: {"volume", "radius", "unit"}
             Consider the mass equal to its volume, its radius or equal to one.
         """
-
         if option == "volume":
             mass = self.volume
         elif option == "radius":
@@ -579,9 +643,9 @@ class Particle(abc.ABC):
 
         return mass
 
-    def force_spring(self, other_particle, box, degree=2, tol=1e-8):
+    def force_spring(self, other_particle, box, degree=2):
         """Compute force due to non-linear spring at the intersection of degree *degree*."""
-        disp, unit_vector = self.intersection_length(other_particle, box, tol=tol)
+        disp, unit_vector = self.intersection_length(other_particle, box)
         dist = self.radius + other_particle.radius - disp
         # Distance between the current sphere and the nearest image of the other sphere
         r_min = (
@@ -633,21 +697,24 @@ class Matrix(Particle):
 
 
 class Point(Particle):
+    """Class for the point particle."""
 
     radius = 0
+    volume = 0
 
-    def intersection(self, other_particle, box) -> bool:
+    def intersection(self, other_particle: Particle, box: list) -> bool:
         """Check if the two particles intersect."""
 
-    def intersection_area(self, other_particle, box) -> float:
+    def intersection_area(self, other_particle: Particle, box: list) -> float:
         """Compute the interesection area/volume between two particles."""
 
-    def intersection_length(self, other_particle, box) -> tuple[float, np.array]:
+    def intersection_length(
+        self, other_particle: Particle, box: list
+    ) -> Union[float, np.array]:
         """Compute the interesection length between two particles."""
 
     def support_function(self, direction: np.array) -> np.array:
         """Compute the interesection length between two particles."""
-
         return (
             self.position_center
             if self.dim == 3
@@ -663,22 +730,29 @@ class Point(Particle):
 
 
 class Line(Particle):
+    """Class for the line particle."""
+
+    radius = 0
+    volume = 0
+
     def __init__(self, phase, dir_ind):
+        """Initialize the Line object."""
         self.dir_ind = dir_ind
         super().__init__(3, phase)
 
-    def intersection(self, other_particle, box) -> bool:
+    def intersection(self, other_particle: Particle, box: list) -> bool:
         """Check if the two particles intersect."""
 
-    def intersection_area(self, other_particle, box) -> float:
+    def intersection_area(self, other_particle: Particle, box: list) -> float:
         """Compute the interesection area/volume between two particles."""
 
-    def intersection_length(self, other_particle, box) -> tuple[float, np.array]:
+    def intersection_length(
+        self, other_particle: Particle, box: list
+    ) -> tuple[float, np.array]:
         """Compute the interesection length between two particles."""
 
     def support_function(self, direction: np.array) -> np.array:
         """Compute point from the support function along *direction*."""
-
         point = list(self.position_center)
         if direction[self.dir_ind] >= 0:
             point[self.dir_ind] = 1
@@ -689,7 +763,7 @@ class Line(Particle):
 
         return np.array(point)
 
-    def point_inside(self, point: np.array) -> bool:
+    def point_inside(self, point: np.array, box: list) -> bool:
         """Check if some point is inside the particle."""
 
     def generate_point_inside(self):
