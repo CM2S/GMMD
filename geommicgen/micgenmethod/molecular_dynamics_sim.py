@@ -704,13 +704,16 @@ class MolecularDynamicsSimulation(GenerationMethod):
         """
         Compute the forces between all the particle pairs in the system.
 
+        The forces are reset, computed and saved at *self.particle_forces*.
+
+        Forces due particle interactions, thermostats and damping are considered.
+        A force rescale can also be specified according to *self.force_rescale_coeff*.
+
         Parameters
         ----------
         particles : list(`.Particle`)
             Array containing the Particle objects to be placed inside the RVE
         """
-        self.speed_up_scheme.new_list(particles)
-        # Computing a new list for force computation
         self.particle_forces = [np.zeros(particles[0].dim) for _ in particles]
         # Setting all forces to zero at the beginning of the iteration as they are added
         # sequentially as each pair is considered
@@ -721,14 +724,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.compute_forces_damping(particles)
         # Computing forces due to damping
         if self.force_rescale:
-            # if self.max_force is None:
-            # self.max_force = np.max(
-            #     [np.linalg.norm(force) for force in self.particle_forces]
-            # )
-            #     self.max_force = np.max([i_particle.volume for i_particle in particles])
-            # self.current_max_force = np.max(
-            #     [np.linalg.norm(force) for force in self.particle_forces]
-            # )
             self.particle_forces = [
                 force * self.force_rescale_coeff
                 # force * self.max_force / self.current_max_force
@@ -737,11 +732,27 @@ class MolecularDynamicsSimulation(GenerationMethod):
             ]
 
     def compute_forces_overlap(self, particles):
+        """
+        Compute the forces due to particle interactions.
+
+        The forces due to particle interactions are computed according to the
+        *self.speed_up_scheme* specified and added to *self.particle_forces*.
+        The force between each particle pair is also saved for the current iterations in
+        *self.particle_overlap_areas_dict*.
+
+        The total overlap is also computed and saved at *self.total_overlap*.
+
+        If the adaptive time step is enabled (*self.dt_adapt*), it also computes the mean
+        coordination number (*self.coord_number*).
+
+        """
         self.total_overlap = 0
         # Setting the total overlap to zero as it will computed again
         self.particle_overlap_areas = [0 for _ in particles]
         # Setting all the overlap areas to zero at the beginning of the iteration as
         # they are added sequentially as each pair is considered
+        self.speed_up_scheme.new_list(particles)
+        # Computing a new list for force computation
         coord_number_list = [0 for _ in particles]
         for i_particle_index, i_particle in enumerate(particles):
             # Running though all the particles
@@ -779,17 +790,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     # the total force acting on particle 2
                     if self.dt_adapt == "sqrt":
                         # Computing the number of particles effectively touching
-                        # diff_center = (
-                        #     i_particle.position_center - j_particle.position_center
-                        # )
-                        # diff_center = diff_center - self.box * np.round(
-                        #     diff_center / self.box
-                        # )
-                        # # Vector between the centers of the current disk and the nearest image of the other
-                        # # disk
-                        # distance_spheres = np.sqrt(diff_center.dot(diff_center))
-                        # # Distance between the disks
-                        # if distance_spheres < (i_particle.radius + j_particle.radius):
                         if any(np.abs(force_i_j) > 0):
                             coord_number_list[i_particle_index] += 1
                             coord_number_list[j_particle_index] += 1
@@ -801,6 +801,11 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.total_overlap_history.append(self.total_overlap)
 
     def compute_forces_thermostat(self, particles):
+        """Compute "thermic" damping forces from the thermostat.
+
+        This force is proportional to the velocity of the particle with proportionality
+        constant being *self.thermostat.force_coeff*.
+        """
         if self.thermostat.force_coeff is None:
             pass
         else:
@@ -811,6 +816,11 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 )
 
     def compute_forces_damping(self, particles):
+        """Compute the viscous damping force.
+
+        This force is proportional to the velocity of the particle with proportionality
+        constant being *self.damping_coeff*.
+        """
         if self.damping_coeff == 0:
             pass
         else:
