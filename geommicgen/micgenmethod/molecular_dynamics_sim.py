@@ -177,7 +177,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.particle_mass_opt = kwargs.get("particle_mass_opt", "volume")
         self.force_option = kwargs.get("force_option", "intersection_area")
         self.force_rescale = kwargs.get("force_rescale", False)
-        self.dt_adapt = kwargs.get("dt_adapt", "const")
+        self.dt_adapt = kwargs.get("dt_adapt", True)
         self.offset = kwargs.get("offset", True)
         self.fixed_seed = kwargs.get("fixed_seed", None)
         self.force_rescale_coeff = 1
@@ -788,13 +788,13 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     self.particle_forces[j_particle_index] -= force_i_j
                     # Adding the force due to the interaction between particle 1 and 2 to
                     # the total force acting on particle 2
-                    if self.dt_adapt == "sqrt":
+                    if self.dt_adapt:
                         # Computing the number of particles effectively touching
                         if any(np.abs(force_i_j) > 0):
                             coord_number_list[i_particle_index] += 1
                             coord_number_list[j_particle_index] += 1
 
-        if self.dt_adapt == "sqrt":
+        if self.dt_adapt:
             # Computing the mean coordination number
             self.coord_number = np.mean(coord_number_list)
         # print(np.sum(coord_number_list), np.sum(times), len(times), "\n\n")
@@ -829,75 +829,21 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     self.damping_coeff * self.particle_velocities[i_particle_ind]
                 )
 
-    def integrate(self, particles, **kwargs):
-        """Integrate the equations of motion."""
-        dim = particles[0].dim
-        # Dimension of the problem
-        if self.dt_adapt == "log":
-            self.dt = -0.08 * np.log(
-                self.kinetic_energy
-                + np.sum(
-                    [
-                        np.sum(i_particle_force ** 2)
-                        for i_particle_force in self.particle_forces
-                    ]
-                )
-            )
-        elif self.dt_adapt == "quad":
-            max_vel = np.mean(
-                [
-                    np.linalg.norm(i_particle_vel)
-                    for i_particle_vel in self.particle_velocities
-                ]
-            )
-            self.dt = (
-                1
-                / (
-                    np.sqrt(2)
-                    * len(particles)
-                    * np.pi
-                    * 2
-                    * (particles[0].radius) ** 2
-                    * max_vel
-                )
-                if max_vel != 0
-                else self.dt
-            )
-        elif self.dt_adapt == "const":
-            pass
-        elif self.dt_adapt == "sqrt":
-            self.all_dt.append(self.dt)
-            # max_vel = np.max(
-            #     [
-            #         np.linalg.norm(i_particle_vel)
-            #         for i_particle_vel in self.particle_velocities
-            #     ]
-            # )
-            harm_r = hmean([particle.radius_insc for particle in particles])
-            harm_r_2 = hmean([particle.radius for particle in particles])
-            adim_mean_path = 1 / (
-                np.sqrt(2)
-                * particles[0].dim
-                * self.microstructure_sample.volume_fraction
-            )
-            # print("adim_mean_path", adim_mean_path)
+    def integrate(self, particles):
+        """Integrate the equations of motion, using if chosen an adaptive time step.
+
+        If *self.dt_adapt* an adaptive time step is computed, and stored at *self.dt*.
+        The history of time step is also appended to (*self.all_dt*).
+
+        The equations of motion are integrated using the Verlet integration scheme.
+        The postions of the particles are updated as well as their velocities. If selected,
+        the trajectories of the particles will be saved at *self.position_center_history*.
+        """
+        # Computitation of the adaptive time step
+        # ----------------------------------------------------------------------------------
+        if self.dt_adapt:
+            harm_r = hmean([particle.radius for particle in particles])
             if self.force_option == "force_spring":
-                # self.dt = 2 * (
-                #     np.min([1.2, adim_mean_path])
-                #     * (
-                #         np.sqrt(
-                #             harm_m
-                #             / (
-                #                 4
-                #                 * (2 * harm_r - self.dt * max_vel)
-                #                 * harm_r
-                #                 / (2 * harm_r) ** 2
-                #             )
-                #         )
-                #         if max_vel != 0 and 2 * harm_r > self.dt * max_vel
-                #         else 0.05
-                #     )
-                # )
                 max_vel = np.max(
                     [
                         np.linalg.norm(i_particle_vel)
@@ -914,124 +860,37 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 )
 
             elif self.force_option == "intersection_length":
-                # dt_2 = 2 * (np.min([1, adim_mean_path]) * (np.sqrt(harm_m)))
-                # self.dt = np.sqrt(adim_mean_path) * (np.sqrt(harm_r))
-                # self.dt = 0.005
-                # if self.step == 0:
-                #     self.max_vel = 0
-                # else:
-                #     pass
-                # self.max_vel = max(self.max_vel, max_vel)
-                # self.dt = (
-                #     np.min(
-                #         [
-                #             1
-                #             / 2
-                #             / np.sqrt(2)
-                #             * np.sqrt(adim_mean_path * np.sqrt(harm_r) / self.max_vel),
-                #             np.sqrt(2),
-                #         ]
-                #     )
-                #     * (np.sqrt(harm_m))
-                #     if self.max_vel != 0 and 2 * harm_r > self.dt * self.max_vel
-                #     else 0.05
-                # )
-                # print(self.coord_number, "\n\n")
-                self.dt = np.sqrt(2 / max(1, self.coord_number)) * np.sqrt(harm_r_2)
-                # dt_2 = np.sqrt(2 / max(1, self.coord_number)) * np.sqrt(harm_r)
-                # self.dt = 0.05
-                # print(self.dt, dt_2, self.coord_number, "\n\n")
-                # self.dt = np.sqrt(harm_r)
-                # print(
-                #     self.dt,
-                #     np.sqrt(adim_mean_path) * (np.sqrt(harm_m)),
-                #     4
-                #     * np.sqrt(2)
-                #     * (adim_mean_path * harm_r * np.sqrt(harm_r) / self.max_vel) ** -1,
-                #     2 * (adim_mean_path) ** -1,
-                #     adim_mean_path,
-                #     self.max_vel * np.sqrt(harm_r),
-                #     harm_r,
-                #     "\n\n\n",
-                # )
-            # print(
-            #     2
-            #     * (
-            #         np.min([1.2, adim_mean_path])
-            #         * (
-            #             np.sqrt(
-            #                 harm_m
-            #                 / (
-            #                     2
-            #                     * (2 * harm_r - self.dt * max_vel)
-            #                     * harm_r
-            #                     / (2 * harm_r) ** 2
-            #                 )
-            #             )
-            #             if max_vel != 0 and 2 * harm_r > self.dt * max_vel
-            #             else 0.05
-            #         )
-            #     ),
-            #     2 * (np.min([2, adim_mean_path]) * (np.sqrt(harm_m * 2))),
-            #     "\n\n\n",
-            # )
-        for i_particle_index, i_particle in enumerate(particles):
-            # Running through all the particles
-            if False:  # self.integration_scheme == "newmark":
-                # The integration scheme chosen was Newmark
-                damping_constant = kwargs.get("damping_coeff", 0)
-                [new_position, new_velocity, _] = Newmark(
-                    i_particle.position_center,
-                    self.particle_velocities[i_particle_index],
-                    np.array([self.particle_forces[i_particle_index]], dtype="float").T,
-                    i_particle.volume
-                    * np.eye(dim, dtype="float"),  # 10e-6*np.eye(2,dtype='float'),#
-                    damping_constant * np.eye(dim, dtype="float"),
-                    np.zeros(
-                        (dim, dim),
-                        dtype="float",
-                    ),
-                    self.dt,
-                    1,
-                    dim,
-                )
-                # Obtaining the new position and velocity of particle i
+                self.dt = np.sqrt(2 / max(1, self.coord_number)) * np.sqrt(harm_r)
+        self.all_dt.append(self.dt)
 
-            elif True:  # self.integration_scheme == "verlet":
-                # The integration scheme chosen was Verlet
-                [new_position, new_velocity] = VerletSync(
-                    i_particle.position_center,
-                    self.particle_velocities[i_particle_index],
-                    np.array([self.particle_forces[i_particle_index]], dtype="float").T,
-                    i_particle.mass(self.particle_mass_opt),
-                    self.dt,
-                    1,
-                    dim,
-                    # dt_old=self.dt_old,
-                )
+        # Integration of the equations of motion
+        # ----------------------------------------------------------------------------------
+        # Dimension of the problem
+        dim = particles[0].dim
+        # Running through all the particles
+        for i_particle_index, i_particle in enumerate(particles):
+            # The integration scheme chosen was Verlet
+            [new_position, new_velocity] = VerletSync(
+                i_particle.position_center,
+                self.particle_velocities[i_particle_index],
+                np.array([self.particle_forces[i_particle_index]], dtype="float").T,
+                i_particle.mass(self.particle_mass_opt),
+                self.dt,
+                1,
+                dim,
+            )
+            # New position enforcing boundary conditions
             new_position[:, 0] = new_position[:, 0] - self.box * np.floor(
                 new_position[:, 0] / self.box
             )
-            # New position enforcing boundary conditions
+            # Updating the position and velocity of particle i
             i_particle.position_center = new_position[:, 0]
             self.particle_velocities[i_particle_index] = new_velocity[:, 0]
-            # Updating the position and velocity of particle i
+            # The history of the particle's motion is required
             if self.save_history:
-                # The history of the particle's motion is required
                 self.position_center_history[i_particle_index].append(
                     new_position.flatten()
                 )
-            # all_vel = np.sum(
-            #     [
-            #         i_particle.mass(option=self.particle_mass_opt) * i_particle_vel
-            #         for i_particle, i_particle_vel in zip(
-            #             particles, self.particle_velocities
-            #         )
-            #     ]
-            # )
-            # for particle_vel in self.particle_velocities:
-            #     particle_vel = particle_vel - all_vel
-            # Putting the systemas a whole at rest
 
     def compute_relative_energy(self):
         """Relative energy computed from the forces between particles."""

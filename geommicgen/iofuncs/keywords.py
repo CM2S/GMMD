@@ -547,8 +547,8 @@ top_level_reader.addTopLevelKeyword(
     KeywordTypeA(
         "dt_adapt",
         "Mic_Gen_Parameters",
-        default_value="const",
-        type="str",
+        default_value=True,
+        type="bool",
     ),
     KeywordTypeA(
         "temp_low_ratio",
