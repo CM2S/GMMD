@@ -180,6 +180,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.dt_adapt = kwargs.get("dt_adapt", True)
         self.offset = kwargs.get("offset", True)
         self.fixed_seed = kwargs.get("fixed_seed", None)
+        self.initial_vel_coeff = kwargs.get("initial_vel_coeff", 0.25)
         self.force_rescale_coeff = 1
         self.coord_number = None
         self.thermic_enegy_history = []
@@ -539,6 +540,33 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     i_particle.position_center -= np.array(offset)[: len(self.box)]
                     # Applying the offset to the particles
 
+    def set_initial_temp(self, particles):
+        """Set the intial temperature if it was not already specified.
+
+        The temperature is specified through the equipartition theorem, setting the initial
+        velocity so that a particle with an average radius travels *self.initial_vel_coeff*
+        times its radius in one *self.dt*.
+
+        It must be called after *self.compute_forces* to use the correct *self.dt*, if the
+        time step is to adaptatively chosen.
+
+        Parameters
+        ----------
+        particles : list(`.Particle`)
+            Array containing the Particle objects to be placed inside the simulation box.
+        """
+        if self.thermostat.reference_temp is None:
+            self.compute_adaptive_time_step(particles)
+            average_radius = np.mean([i_particle.radius for i_particle in particles])
+            vel = self.initial_vel_coeff * average_radius / self.dt
+            self.thermostat.reference_temp = (
+                vel ** 2
+                * np.sum(
+                    [particle.mass(self.particle_mass_opt) for particle in particles]
+                )
+                / (particles[0].dim * self.thermostat.k_b * len(particles))
+            )
+
     def run_molecular_dynamics_simulation(self, particles):
         """
         Run the Molecular Dynamics simulation for the system of particles given.
@@ -561,12 +589,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
             # Initializing the number of steps that a microstructure was complying with the
             # maximum overlap residue
             self.compute_forces(particles)
-            # Computing the forces in the initial configuration to obtain the initial
-            # relative potential energy (related to the overlap)
             self.compute_relative_energy()
-            # Computing the relative
             self.compute_kinetic_energy(particles)
-            # Computing the kinetic energy
+            self.set_initial_temp(particles)
 
             print_funcs.print_to_terminal_refresh(
                 self.step,
@@ -577,30 +602,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 first=True,
             )
             # # Print info about the iteration
-            if self.thermostat.reference_temp < 0:
-                vel = (
-                    0.25
-                    * 10 ** (1 + self.thermostat.reference_temp)
-                    * particles[0].radius
-                    / self.dt
-                )
-                # (
-                #     1
-                #     / np.abs(self.thermostat.reference_temp)
-                #     * (2 * particles[0].radius / self.dt - self.dt)
-                # )
-                # print("{0:e}".format(self.thermostat.reference_temp), "\n\n")
-                self.thermostat.reference_temp = (
-                    vel ** 2
-                    * np.sum(
-                        [
-                            particle.mass(self.particle_mass_opt)
-                            for particle in particles
-                        ]
-                    )
-                    / (particles[0].dim * self.thermostat.k_b * len(particles))
-                )
-
             while (
                 self.step < self.max_step
             ) and n_steps_relax <= self.max_steps_to_relax:

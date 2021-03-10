@@ -481,7 +481,13 @@ top_level_reader.addTopLevelKeyword(
     KeywordTypeA(
         "Initial_Temp",
         "Mic_Gen_Parameters",
-        default_value=2.5e10,
+        default_value=None,
+        type="float",
+    ),
+    KeywordTypeA(
+        "initial_vel_coeff",
+        "Mic_Gen_Parameters",
+        default_value=0.1,
         type="float",
     ),
     KeywordTypeA(

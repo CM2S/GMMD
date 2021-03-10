@@ -58,6 +58,15 @@ class IsokineticThermostat(Thermostat):
         reference_temp: float
             Reference temperature to be maintained by the thermostat.
         """
+        if reference_temp is None:
+            self.reference_temp = reference_temp
+            # Intial temperature
+        elif reference_temp < 0:
+            raise ValueError(
+                "The reference temperature cannot be negative: Given value is {0}".format(
+                    reference_temp
+                )
+            )
         self.reference_temp = reference_temp
         # Intial temperature
         self.k_b = 1e-15
@@ -131,6 +140,12 @@ class BerendsenForceThermostat(Thermostat):
         berendsen_coeff: float
             Coefficient regulating the force coefficient
         """
+        if reference_temp < 0:
+            raise ValueError(
+                "The reference temperature cannot be negative: Given value is {0}".format(
+                    reference_temp
+                )
+            )
         self.reference_temp = reference_temp
         # Intial temperature
         self.k_b = 1e-15

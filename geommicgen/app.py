@@ -175,6 +175,7 @@ def run_program():
                     "dt_adapt",
                     "offset",
                     "fixed_seed",
+                    "initial_vel_coeff",
                 }
                 md_kwargs = {
                     key: value
