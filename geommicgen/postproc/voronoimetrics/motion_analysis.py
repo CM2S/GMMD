@@ -30,7 +30,7 @@ def doMotionAnalysis(particles, rve_dims, sample_dir, **kwargs):
     if "kinetic_energy_history" in kwargs:
         plot_kinetic_energy_history(
             kwargs["kinetic_energy_history"],
-            kwargs["thermic_enegy_history"],
+            kwargs["thermic_energy_history"],
             motion_results_dir,
         )
 

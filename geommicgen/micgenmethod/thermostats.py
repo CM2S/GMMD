@@ -289,9 +289,9 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
                     diff_kin_e = (
                         np.abs(
                             self.molecular_dynamics_sim.kinetic_energy
-                            - self.molecular_dynamics_sim.thermic_enegy_history[-1]
+                            - self.molecular_dynamics_sim.thermic_energy_history[-1]
                         )
-                        / self.molecular_dynamics_sim.thermic_enegy_history[-1]
+                        / self.molecular_dynamics_sim.thermic_energy_history[-1]
                     )
                     # print(
                     #     "diff_kin_e",

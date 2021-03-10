@@ -185,7 +185,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.microstructure_sample = None
         self.force_rescale_coeff = 1
         self.coord_number = None
-        self.thermic_enegy_history = []
+        self.thermic_energy_history = []
         self.dist_met = "dist_approx"
         self.all_dt = []
 
@@ -622,16 +622,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 self.compute_forces(particles)
                 # Computing the forces on all particles
                 self.compute_relative_energy()
-                # Computing the relative energy
                 self.compute_kinetic_energy(particles)
-                self.thermic_enegy_history.append(
-                    1
-                    / 2
-                    * self.thermostat.k_b
-                    * self.thermostat.reference_temp
-                    * particles[0].dim
-                    * len(particles)
-                )
+                self.compute_thermic_energy(particles)
+
                 # Computing the kinetic energy
                 self.thermostat.apply_thermostat(
                     self.particle_velocities, self.kinetic_energy
@@ -924,6 +917,29 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self._kinetic_energy = kinetic_energy
         if self.save_history:
             self.kinetic_energy_history.append(kinetic_energy)
+
+    def compute_thermic_energy(self, particles):
+        """Thermic energy of the system of particles."""
+        self.thermic_energy = (
+            1
+            / 2
+            * self.thermostat.k_b
+            * self.thermostat.reference_temp
+            * particles[0].dim
+            * len(particles)
+        )
+
+    @property
+    def thermic_energy(self):
+        """Thermic energy of the system of particles."""
+        return self._thermic_energy
+
+    @thermic_energy.setter
+    def thermic_energy(self, thermic_energy):
+        """Set the thermic energy. Saving it in history if the option is enabled."""
+        self._thermic_energy = thermic_energy
+        if self.save_history:
+            self.thermic_energy_history.append(thermic_energy)
 
     def place_inner_phase_rsa(self, inner_phase, outer_phase):
         """Place inner phase."""

@@ -391,7 +391,7 @@ def plot_particles_3d_one_by_one(particles, rve_dims, sample_dir, **kwargs):
 
 def plot_kinetic_energy_history(
     kinetic_energy_history,
-    thermic_enegy_history,
+    thermic_energy_history,
     results_dir,
     save=True,
     show=False,
@@ -403,7 +403,7 @@ def plot_kinetic_energy_history(
     else:
         plt.figure()
     plt.semilogy(range(len(kinetic_energy_history)), kinetic_energy_history)
-    plt.semilogy(range(len(thermic_enegy_history)), thermic_enegy_history)
+    plt.semilogy(range(len(thermic_energy_history)), thermic_energy_history)
     if "axes" not in kwargs:
         if save:
             plt.savefig(os.path.join(results_dir, "kinetic_energy.pdf"))
