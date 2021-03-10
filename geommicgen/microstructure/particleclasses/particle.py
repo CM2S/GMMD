@@ -624,7 +624,7 @@ class Particle(abc.ABC):
 
         return overlap_area, error_estimate
 
-    def mass(self, option: str = "volume") -> float:
+    def mass(self, option: str = "radius") -> float:
         """Return the mass of the particle according to the *option* selected.
 
         Parameters
