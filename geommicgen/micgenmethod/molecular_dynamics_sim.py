@@ -816,6 +816,11 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 )
 
     def compute_adaptive_time_step(self, particles):
+        """Compute the adaptive time step.
+
+        If *self.dt_adapt* an adaptive time step is computed, and stored at *self.dt*.
+        The history of time step is also appended to (*self.all_dt*).
+        """
         if self.dt_adapt:
             harm_r = hmean([particle.radius for particle in particles])
             if self.force_option == "force_spring":
@@ -840,9 +845,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
 
     def integrate(self, particles):
         """Integrate the equations of motion, using if chosen an adaptive time step.
-
-        If *self.dt_adapt* an adaptive time step is computed, and stored at *self.dt*.
-        The history of time step is also appended to (*self.all_dt*).
 
         The equations of motion are integrated using the Verlet integration scheme.
         The postions of the particles are updated as well as their velocities. If selected,
