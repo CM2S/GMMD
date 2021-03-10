@@ -18,7 +18,7 @@ from scipy.stats import hmean
 import errors.error_classes as errors
 import iofuncs.printing as print_funcs
 from micgenmethod.microstructure_gen_method import GenerationMethod
-from micgenmethod.integration_methods import VerletSync, Newmark
+from micgenmethod.integration_methods import VerletSync
 from microstructure.particleclasses import Matrix, Particle
 
 
@@ -182,6 +182,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.fixed_seed = kwargs.get("fixed_seed", None)
         self.initial_vel_coeff = kwargs.get("initial_vel_coeff", 0.25)
         self.final_overlap_check = kwargs.get("final_overlap_check", False)
+        self.microstructure_sample = None
         self.force_rescale_coeff = 1
         self.coord_number = None
         self.thermic_enegy_history = []
