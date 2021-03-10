@@ -325,30 +325,31 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 # Label of each grid place
                 np.random.shuffle(grid_places)
                 # Distributing the particles randomly to different cells of the grid
-                for x_cell in range(n_cells_side):
-                    for y_cell in range(n_cells_side):
-                        for z_cell in range(n_cells_side):
-                            if grid_places[k_counter] < len(particles):
-                                particles[
-                                    grid_places[k_counter]
-                                ].position_center = np.array(
-                                    [
-                                        x_cell * cell_length[0] + cell_length[0] / 2,
-                                        y_cell * cell_length[1] + cell_length[1] / 2,
-                                        z_cell * cell_length[2] + cell_length[2] / 2,
-                                    ]
-                                )
+                for (x_cell, y_cell, z_cell) in (
+                    (x_cell, y_cell, z_cell)
+                    for x_cell in range(n_cells_side)
+                    for y_cell in range(n_cells_side)
+                    for z_cell in range(n_cells_side)
+                ):
+                    if grid_places[k_counter] < len(particles):
+                        particles[grid_places[k_counter]].position_center = np.array(
+                            [
+                                x_cell * cell_length[0] + cell_length[0] / 2,
+                                y_cell * cell_length[1] + cell_length[1] / 2,
+                                z_cell * cell_length[2] + cell_length[2] / 2,
+                            ]
+                        )
 
-                                # Generating the positions from a random uniform
-                                # distribution between
-                                self.particle_velocities[
-                                    grid_places[k_counter]
-                                ] = np.random.uniform(low=-0.1, high=0.1, size=3)
-                                self.position_center_history[grid_places[k_counter]][
-                                    0
-                                ] = particles[grid_places[k_counter]].position_center
-                                # Saving particle history
-                            k_counter += 1
+                        # Generating the positions from a random uniform
+                        # distribution between
+                        self.particle_velocities[
+                            grid_places[k_counter]
+                        ] = np.random.uniform(low=-0.1, high=0.1, size=3)
+                        self.position_center_history[grid_places[k_counter]][
+                            0
+                        ] = particles[grid_places[k_counter]].position_center
+                        # Saving particle history
+                    k_counter += 1
             elif particles[0].dim == 2:
                 n_cells_side = np.int(np.ceil(np.sqrt(len(particles))))
                 # Number of cells in each direction
@@ -360,26 +361,27 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 # Label of each grid place
                 np.random.shuffle(grid_places)
                 # Distributing the particles randomly to different cells of the grid
-                for x_cell in range(n_cells_side):
-                    for y_cell in range(n_cells_side):
-                        if grid_places[k_counter] < len(particles):
-                            particles[
-                                grid_places[k_counter]
-                            ].position_center = np.array(
-                                [
-                                    x_cell * cell_length[0] + cell_length[0] / 2,
-                                    y_cell * cell_length[1] + cell_length[1] / 2,
-                                ]
-                            )
-                            # Generating the positions from a random uniform distribution
-                            self.particle_velocities = np.random.uniform(
-                                low=-0.1, high=0.1, size=2
-                            )
-                            self.position_center_history[grid_places[k_counter]][
-                                0
-                            ] = particles[grid_places[k_counter]].position_center
-                        # # Saving particle history
-                        k_counter += 1
+                for (x_cell, y_cell) in (
+                    (x_cell, y_cell)
+                    for x_cell in range(n_cells_side)
+                    for y_cell in range(n_cells_side)
+                ):
+                    if grid_places[k_counter] < len(particles):
+                        particles[grid_places[k_counter]].position_center = np.array(
+                            [
+                                x_cell * cell_length[0] + cell_length[0] / 2,
+                                y_cell * cell_length[1] + cell_length[1] / 2,
+                            ]
+                        )
+                        # Generating the positions from a random uniform distribution
+                        self.particle_velocities = np.random.uniform(
+                            low=-0.1, high=0.1, size=2
+                        )
+                        self.position_center_history[grid_places[k_counter]][
+                            0
+                        ] = particles[grid_places[k_counter]].position_center
+                    # # Saving particle history
+                    k_counter += 1
         elif self.type_init_conf == "bcc":
             step = self.box[0] / 4
             ind_part = 0
