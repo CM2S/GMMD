@@ -829,18 +829,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     self.damping_coeff * self.particle_velocities[i_particle_ind]
                 )
 
-    def integrate(self, particles):
-        """Integrate the equations of motion, using if chosen an adaptive time step.
-
-        If *self.dt_adapt* an adaptive time step is computed, and stored at *self.dt*.
-        The history of time step is also appended to (*self.all_dt*).
-
-        The equations of motion are integrated using the Verlet integration scheme.
-        The postions of the particles are updated as well as their velocities. If selected,
-        the trajectories of the particles will be saved at *self.position_center_history*.
-        """
-        # Computitation of the adaptive time step
-        # ----------------------------------------------------------------------------------
+    def compute_adaptive_time_step(self, particles):
         if self.dt_adapt:
             harm_r = hmean([particle.radius for particle in particles])
             if self.force_option == "force_spring":
@@ -863,6 +852,19 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 self.dt = np.sqrt(2 / max(1, self.coord_number)) * np.sqrt(harm_r)
         self.all_dt.append(self.dt)
 
+    def integrate(self, particles):
+        """Integrate the equations of motion, using if chosen an adaptive time step.
+
+        If *self.dt_adapt* an adaptive time step is computed, and stored at *self.dt*.
+        The history of time step is also appended to (*self.all_dt*).
+
+        The equations of motion are integrated using the Verlet integration scheme.
+        The postions of the particles are updated as well as their velocities. If selected,
+        the trajectories of the particles will be saved at *self.position_center_history*.
+        """
+        # Computitation of the adaptive time step
+        # ----------------------------------------------------------------------------------
+        self.compute_adaptive_time_step(particles)
         # Integration of the equations of motion
         # ----------------------------------------------------------------------------------
         # Dimension of the problem
