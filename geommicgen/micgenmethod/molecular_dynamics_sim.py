@@ -578,7 +578,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         Parameters
         ----------
         particles : list(`.Particle`)
-            Array containing the Particle objects to be placed inside the RVE.
+            Array containing the Particle objects to be placed inside the simulation box.
         """
         with self.virtual_particle_sizes(particles):
             number_particles = len(particles)
@@ -657,36 +657,12 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     * 100
                     < 1e-2
                 ):
-                    # if self.step > 50:
-                    #     print(
-                    #         np.log10(
-                    #             np.abs(
-                    #                 np.array(self.total_overlap_history[-50])
-                    #                 / np.array(self.total_overlap_history[-1])
-                    #             )
-                    #         ),
-                    #         "\n\n",
-                    #     )
-                    # if self.step > step_rep + 150 and (
-                    #     np.log10(
-                    #         np.abs(
-                    #             np.array(self.total_overlap_history[-50])
-                    #             / np.array(self.total_overlap_history[-1])
-                    #         )
-                    #     )
-                    #     < 0.5
-                    # ):
                     # If after 500 iterations all the iterations produced a relative change
                     # smaller than 1e-5% assume it is not possible to find a legal
                     # configuration
                     print_funcs.print_to_file("Failed sample")
                     break
-                    # self.thermostat.reference_temp *= 10 ** 4
-                    # step_rep += 150
-                    # # import pdb
-                    # #
-                    # # pdb.set_trace()
-            self.total_overlap = 0
+
             for i_particle_index, i_particle in enumerate(particles):
                 # Running though all the particles
                 for j_particle_index, j_particle in enumerate(particles):
@@ -713,7 +689,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         Parameters
         ----------
         particles : list(`.Particle`)
-            Array containing the Particle objects to be placed inside the RVE
+            Array containing the Particle objects to be placed inside the simulation box
         """
         self.particle_forces = [np.zeros(particles[0].dim) for _ in particles]
         # Setting all forces to zero at the beginning of the iteration as they are added
