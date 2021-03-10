@@ -497,6 +497,12 @@ top_level_reader.addTopLevelKeyword(
         type="int",
     ),
     KeywordTypeA(
+        "final_overlap_check",
+        "Mic_Gen_Parameters",
+        default_value=False,
+        type="bool",
+    ),
+    KeywordTypeA(
         "Lowering_Temp_Criterion",
         "Mic_Gen_Parameters",
         default_value="original",

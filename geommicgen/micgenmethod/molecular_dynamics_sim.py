@@ -181,6 +181,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.offset = kwargs.get("offset", True)
         self.fixed_seed = kwargs.get("fixed_seed", None)
         self.initial_vel_coeff = kwargs.get("initial_vel_coeff", 0.25)
+        self.final_overlap_check = kwargs.get("final_overlap_check", False)
         self.force_rescale_coeff = 1
         self.coord_number = None
         self.thermic_enegy_history = []
@@ -217,6 +218,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
             start = time.time()
             self.run_molecular_dynamics_simulation(microstructure_sample.particles)
             self.time = time.time() - start
+            if self.final_overlap_check:
+                self.check_overlap_naive(microstructure_sample.particles)
             microstructure_sample.total_overlap = self.total_overlap
             # Placing inner phases
             # ------------------------------------------------------------------------------
@@ -663,19 +666,23 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     print_funcs.print_to_file("Failed sample")
                     break
 
-            for i_particle_index, i_particle in enumerate(particles):
-                # Running though all the particles
-                for j_particle_index, j_particle in enumerate(particles):
-                    if j_particle_index is None:
-                        continue
-                    j_particle = particles[j_particle_index]
-                    if j_particle_index > i_particle_index:
-                        # Running through the particle pairs that have not been considered yet
-                        intersection_area, unit_vector_i_j = getattr(
-                            i_particle, self.force_option
-                        )(j_particle, self.box)
-                        self.total_overlap += intersection_area
-                        # Updating the overlap area
+    def check_overlap_naive(self, particles):
+        """Check the overlap between particle naively.
+
+        Used to make sure there isn't an error in the Verlet or Cell list.
+        """
+        self.total_overlap = 0
+        for i_particle_index, i_particle in enumerate(particles):
+            # Running though all the particles
+            for j_particle_index, j_particle in enumerate(particles):
+                j_particle = particles[j_particle_index]
+                if j_particle_index > i_particle_index:
+                    # Running through the particle pairs that have not been considered yet
+                    intersection_area, _ = getattr(i_particle, self.force_option)(
+                        j_particle, self.box
+                    )
+                    self.total_overlap += intersection_area
+                    # Updating the overlap area
 
     def compute_forces(self, particles):
         """

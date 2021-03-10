@@ -176,6 +176,7 @@ def run_program():
                     "offset",
                     "fixed_seed",
                     "initial_vel_coeff",
+                    "final_overlap_check",
                 }
                 md_kwargs = {
                     key: value
