@@ -1,10 +1,16 @@
+"""
+Module for file handling.
+
+Making directories. Load and save files.
+"""
 import os
 import sys
 import pickle
 
-from .printing import print_output
-
+# pylint: disable=import-error
+# pylint: disable=relative-beyond-top-level
 from micgenmethod.mic_from_imagej import generate_microstructure_from_csv
+from .printing import print_output
 
 
 def create_sample_results_directory(dp_dir):
@@ -23,7 +29,7 @@ def create_sample_results_directory(dp_dir):
     i = 0
     # Initializing the filename suffix
     while True:
-        results_folder = results_folder_old + "_" + str(i)
+        results_folder = "{0}_{1}".format(results_folder_old, i)
         # Creating a new folder name appending an integer to the name of the original
         # folder
         i += 1
@@ -73,7 +79,7 @@ def create_design_point_results_directory(
         if not os.path.exists(results_folder):
             # Repeat while the folder names already exists
             break
-        results_folder = results_folder_old + "_" + str(i)
+        results_folder = "{0}_{1}".format(results_folder_old, i)
         # Creating a new folder name appending an integer to the name of the original
     os.makedirs(results_folder)
     # Creating the directory
@@ -82,11 +88,12 @@ def create_design_point_results_directory(
 
 
 def get_arguments_from_command_line():
+    """Get arguments from the command line."""
     if len(sys.argv) == 1:
         # No input file has been supplied
         raise ValueError("No input file was supplied.")
         # Exiting the script
-    elif len(sys.argv) > 3:
+    if len(sys.argv) > 3:
         raise ValueError("Too many input files were supplied.")
 
     input_file_path = sys.argv[1]
@@ -121,6 +128,7 @@ def load_previous_sample(previous_mic_path):
 
 
 def save_mic(sample_file_path, current_sample, current_mic_generator):
+    """Save microstructure usign pickle."""
     pickle.dump(
         {
             "microstructure": current_sample,
