@@ -19,7 +19,7 @@ import errors.error_classes as errors
 import iofuncs.printing as print_funcs
 from micgenmethod.microstructure_gen_method import GenerationMethod
 from micgenmethod.integration_methods import VerletSync
-from microstructure.particleclasses import Matrix, Particle
+from microstructure.particleclasses import Matrix
 
 
 class MolecularDynamicsSimulation(GenerationMethod):
@@ -186,7 +186,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.force_rescale_coeff = 1
         self.coord_number = None
         self.thermic_energy_history = []
-        self.dist_met = "dist_approx"
         self.all_dt = []
 
     def generate_microstructure(self, microstructure_sample):
