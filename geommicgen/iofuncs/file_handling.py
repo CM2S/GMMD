@@ -6,6 +6,7 @@ Making directories. Load and save files.
 import os
 import sys
 import pickle
+import shutil
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
@@ -43,6 +44,12 @@ def create_sample_results_directory(dp_dir):
     # Saving the file path in the Particle class
 
     return results_folder, file_path
+
+
+def copy_input_file(input_file_path, results_folder):
+    """Copy the input file to the results directory."""
+    _, input_file_name = os.path.split(input_file_path)
+    shutil.copyfile(input_file_path, os.path.join(results_folder, input_file_name))
 
 
 def create_design_point_results_directory(

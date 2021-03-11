@@ -45,6 +45,8 @@ def run_program():
     results_folder = fileio.create_design_point_results_directory(
         input_file_dir, input_file_name
     )
+    fileio.copy_input_file(input_file_path, results_folder)
+
     if previous_mic_path is not None:
         print_funcs.SCREEN_DIR = results_folder
         print_funcs.print_initial_message(input_file_path)
