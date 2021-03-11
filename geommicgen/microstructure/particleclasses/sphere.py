@@ -333,7 +333,7 @@ class Sphere(Ellipsoid):
         return intersection, overlap_length
 
     def intersection_length(
-        self, other_particle: Particle, box: list
+        self, other_particle: Particle, box: list, **kwargs
     ) -> tuple[float, np.array]:
         """
         Compute the intersection length between the Sphere and the other particle.
@@ -354,6 +354,7 @@ class Sphere(Ellipsoid):
         overlap_dir: 1-array, shape (3)
             Intersection direction between the particles.
         """
+        dist_met = kwargs.get("dist_met", "dist_exact")
         if isinstance(other_particle, Sphere):
             # The other particle is also a Sphere
             overlap_length = self.intersection_length_sphere_sphere(other_particle, box)
@@ -368,7 +369,7 @@ class Sphere(Ellipsoid):
                 intersection = self.intersection_gjk(other_particle, box)
             if intersection:
                 overlap_length, overlap_dir = self.intersection_length_mink_diff(
-                    other_particle, box
+                    other_particle, box, dist_met=dist_met
                 )
             else:
                 overlap_length = 0

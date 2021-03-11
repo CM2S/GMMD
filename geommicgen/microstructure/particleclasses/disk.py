@@ -238,7 +238,7 @@ class Disk(Ellipse):
         # GJK algorithm is written for 3D
 
     def intersection_length(
-        self, other_particle: Particle, box: list, tol: float = 1e-8
+        self, other_particle: Particle, box: list, tol: float = 1e-8, **kwargs
     ) -> Union[float, np.array]:
         """
         Compute the intersection length between the Disk and the other particle.
@@ -257,6 +257,7 @@ class Disk(Ellipse):
             Direction of the minimum displacement allowing for the removal of the
             intersection.
         """
+        dist_met = kwargs.get("dist_met", "dist_exact")
         if isinstance(other_particle, Disk):
             # The other particle is also a Disk
             intersection_length = self.intersection_length_disk_disk(
@@ -274,7 +275,7 @@ class Disk(Ellipse):
         else:
             intersection = self.intersection_gjk(other_particle, box, tol=tol)
             overlap_length, unit_vector = self.intersection_length_mink_diff(
-                other_particle, box
+                other_particle, box, dist_met=dist_met
             )
             intersection_length = overlap_length if intersection else 0
         return intersection_length, unit_vector

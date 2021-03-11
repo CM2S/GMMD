@@ -629,9 +629,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 self.thermostat.apply_thermostat(
                     self.particle_velocities, self.kinetic_energy
                 )
-                Particle.dist_met = self.dist_met
-                # Particle.dist_met = "dist_exact"
-                # print(self.dist_met, "\n\n")
 
                 if self.total_overlap <= self.max_residue + 1e-12:
                     # If the configuration has an overlap area smaller than the tolerance
@@ -726,6 +723,12 @@ class MolecularDynamicsSimulation(GenerationMethod):
         coordination number (*self.coord_number*).
 
         """
+        # If the kinetic energy diverged from the thermic energy compute
+        # intersection exactly
+        if self.thermostat.kin_energy_div:
+            dist_met = "dist_exact"
+        else:
+            dist_met = "dist_approx"
         self.total_overlap = 0
         # Setting the total overlap to zero as it will computed again
         self.particle_overlap_areas = [0 for _ in particles]
@@ -746,7 +749,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     # Running through the particle pairs that have not been considered yet
                     intersection_area, unit_vector_i_j = getattr(
                         i_particle, self.force_option
-                    )(j_particle, self.box)
+                    )(j_particle, self.box, dist_met=dist_met)
                     self.particle_overlap_areas_dict.setdefault(
                         (i_particle_index, j_particle_index),
                         [0 for _ in range(self.step - 1)],

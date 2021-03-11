@@ -247,6 +247,7 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
             self.max_ratio_osc = kwargs["max_ratio_osc"]
         self.force_coeff = None
         self.temp_low_ratio = kwargs.get("temp_low_ratio", 1 / 4)
+        self.kin_energy_div = False
         # Thermostat force coefficient
         super().__init__(initial_temp)
 
@@ -285,7 +286,7 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
         ):
             # If a legal configuration has not been achieved
             if self.reached_equilibrium():
-                if self.molecular_dynamics_sim.dist_met == "dist_approx":
+                if not self.kin_energy_div:
                     diff_kin_e = (
                         np.abs(
                             self.molecular_dynamics_sim.kinetic_energy
@@ -293,13 +294,8 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
                         )
                         / self.molecular_dynamics_sim.thermic_energy_history[-1]
                     )
-                    # print(
-                    #     "diff_kin_e",
-                    #     diff_kin_e,
-                    #     "\n\n",
-                    # )
                     if diff_kin_e > 1 / self.temp_low_ratio / 2:
-                        self.molecular_dynamics_sim.dist_met = "dist_exact"
+                        self.kin_energy_div = True
                         self.temp_change_steps.append(self.molecular_dynamics_sim.step)
                     else:
                         # If the total overlap has increased in the previous iterations

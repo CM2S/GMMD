@@ -50,7 +50,6 @@ class Particle(abc.ABC):
         "vf": ("Volume fraction", "float"),
     }
     acceptable_descriptions = [set()]
-    dist_met = "dist_approx"
 
     def __init__(self, dim: int, phase: str):
         """
@@ -270,7 +269,7 @@ class Particle(abc.ABC):
         if self.dim == 2:
             diff_nearest_other = np.append(diff_nearest_other, [0])
 
-        if Particle.dist_met == "dist_approx":
+        if dist_met == "dist_approx":
             unit_vector = self.intersection_vector(particle_2, box)
             mink_diff_point = self.support_function(unit_vector) - (
                 particle_2.support_function(-unit_vector) + diff_nearest_other
@@ -280,7 +279,7 @@ class Particle(abc.ABC):
             # intersection_dir = mink_diff_point / np.linalg.norm(mink_diff_point)
             intersection_dir = unit_vector
 
-        elif Particle.dist_met == "dist_exact":
+        elif dist_met == "dist_exact":
             # --------------------------------------------------------------------------
             unit_vector = self.intersection_vector(particle_2, box)
             if self.dim == 2:
@@ -542,7 +541,7 @@ class Particle(abc.ABC):
 
     @abc.abstractmethod
     def intersection_length(
-        self, other_particle: Particle, box: list
+        self, other_particle: Particle, box: list, **kwargs
     ) -> tuple[float, np.array]:
         """Compute the interesection length between two particles."""
 

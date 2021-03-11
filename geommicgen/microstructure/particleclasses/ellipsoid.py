@@ -925,9 +925,10 @@ class Ellipsoid(Particle):
         return point_on_ellipsoid_glob
 
     def intersection_length(
-        self, other_particle: Particle, box: list
+        self, other_particle: Particle, box: list, **kwargs
     ) -> tuple[float, np.array]:
         """Intersection length between *self* and *other_particle* on *box*."""
+        dist_met = kwargs.get("dist_met", "dist_exact")
         if isinstance(other_particle, Ellipsoid) and False:
             intersection = self.intersection_ellipsoid_ellipsoid(other_particle, box)
             # Saving the class name of the other particle as a string
@@ -935,7 +936,7 @@ class Ellipsoid(Particle):
             intersection = self.intersection_gjk(other_particle, box)
         if intersection:
             intersection_length, unit_vector = self.intersection_length_mink_diff(
-                other_particle, box
+                other_particle, box, dist_met=dist_met
             )
         else:
             intersection_length = 0

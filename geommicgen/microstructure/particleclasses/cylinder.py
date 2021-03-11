@@ -207,8 +207,12 @@ class Cylinder(Particle):
         ------------------
         tol: float
             Tolerance for the computation of the intersection length.
+
+        dist_met: {"dist_approx", "dist_exact"}
+            Method used for the intersection length computation. Exact or approximate.
         """
         tol = kwargs.get("tol", 1e-8)
+        dist_met = kwargs.get("dist_met", "dist_approx")
         if False and isinstance(other_particle, Cylinder):
             other_particle: Cylinder
             _, intersection_length = self.intersection_cylinder_cylinder(
@@ -225,7 +229,7 @@ class Cylinder(Particle):
             intersection = self.intersection_gjk(other_particle, box)
             if intersection:
                 intersection_length, unit_vector = self.intersection_length_mink_diff(
-                    other_particle, box, tol=tol
+                    other_particle, box, tol=tol, dist_met=dist_met
                 )
             else:
                 intersection_length = 0

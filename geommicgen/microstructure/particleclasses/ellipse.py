@@ -733,7 +733,7 @@ class Ellipse(Particle):
         return self.uniform_sample_ellipse()[0]
 
     def intersection_length(
-        self, other_particle: Particle, box: list
+        self, other_particle: Particle, box: list, **kwargs
     ) -> tuple[float, np.array]:
         """
         Compute the intersection length between the Ellipse and the other particle.
@@ -751,7 +751,13 @@ class Ellipse(Particle):
         unit_vector: np.array
             Direction of the minimum displacement allowing for the removal of the
             intersection.
+
+        Keyword Parameters
+        ------------------
+        dist_met: {"dist_approx", "dist_exact"}
+            Method used for the intersection length computation. Exact or approximate.
         """
+        dist_met = kwargs.get("dist_met", "dist_exact")
         if True:
             intersection = self.intersection_gjk(other_particle, box)
         elif isinstance(other_particle, Ellipse):
@@ -759,7 +765,7 @@ class Ellipse(Particle):
             intersection = self.intersection_ellipse_ellipse(other_particle, box)
         if intersection:
             intersection_length, unit_vector = self.intersection_length_mink_diff(
-                other_particle, box
+                other_particle, box, dist_met=dist_met
             )
         else:
             intersection_length = 0
