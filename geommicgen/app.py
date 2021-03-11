@@ -47,8 +47,8 @@ def run_program():
     )
     if previous_mic_path is not None:
         print_funcs.SCREEN_DIR = results_folder
-        print_funcs.print_initial_message()
-        print_funcs.print_analysis_previous(input_file_path, previous_mic_path)
+        print_funcs.print_initial_message(input_file_path)
+        print_funcs.print_analysis_previous(previous_mic_path)
         # It is an action on a previously generated microstructure
         current_sample, current_mic_generator = fileio.load_previous_sample(
             previous_mic_path
@@ -125,7 +125,7 @@ def run_program():
             # Producing the number of samples required
 
             print_funcs.SCREEN_DIR = sample_dir
-            print_funcs.print_initial_message()
+            print_funcs.print_initial_message(input_file_path)
             # Printing initial message
 
             mesh_generators = set()

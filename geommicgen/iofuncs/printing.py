@@ -1,20 +1,25 @@
+"""Module containing the printing functions."""
+
 import os
 
 # Screen directory
 SCREEN_DIR = ""
 
 
-def print_initial_message():
+def print_initial_message(input_file_path):
+    """Print initial message."""
     print_to_file("\n")
     print_to_file("Geometrical microstructure generation")
     print_to_file("=" * 80)
     print_to_file("Computational Multi-Scale Modelling of".rjust(80))
     print_to_file("Solids and Structures Research Group".rjust(80))
+    print_to_file("\n\n")
+    print_to_file("Input file: {0}".format(input_file_path))
     print_to_file("\n")
 
 
-def print_analysis_previous(input_file_path, previous_mic_path):
-    print_to_file("Input file: {0}".format(input_file_path))
+def print_analysis_previous(previous_mic_path):
+    """Print previous mic path."""
     print_to_file("Previous microstructure: {0}".format(previous_mic_path))
     print_to_file("\n")
 
@@ -53,7 +58,6 @@ def print_final_message(time, total_overlap, number_iterations, max_overlap):
 
 def print_to_file(message, end="\n"):
     """Print to the screen file of corresponding to the current microstructure sample."""
-
     screen_path = os.path.join(SCREEN_DIR, "mic.screen")
     if os.path.exists(screen_path):
         action = "a"
@@ -86,7 +90,7 @@ def print_to_terminal_refresh(
 
 
 def print_microstructure_info(microstructure):
-
+    """Print microstructure info."""
     print_to_file("Microstructure descriptors")
     print_to_file("=" * 80 + "\n")
 
