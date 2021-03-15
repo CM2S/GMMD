@@ -297,8 +297,15 @@ class Ellipsoid(Particle):
 
     @property
     def volume(self):
-        """Volume of the ellipsoid."""
-        volume = 4 / 3 * np.pi * self.semi_axis_1 * self.semi_axis_2 * self.semi_axis_3
+        """Volume of the ellipsoid. Only approximate if *self.delta*!=0."""
+        volume = (
+            4
+            / 3
+            * np.pi
+            * (self.semi_axis_1 + self.delta)
+            * (self.semi_axis_2 + self.delta)
+            * (self.semi_axis_3 + self.delta)
+        )
 
         return volume
 

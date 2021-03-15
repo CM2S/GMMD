@@ -222,7 +222,7 @@ class Disk(Ellipse):
     @property
     def volume(self):
         """Volume/area of the disk."""
-        volume = np.pi * self.radius ** 2
+        volume = np.pi * (self.radius + self.delta) ** 2
 
         return volume
 

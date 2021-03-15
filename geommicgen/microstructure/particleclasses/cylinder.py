@@ -138,8 +138,8 @@ class Cylinder(Particle):
 
     @property
     def volume(self):
-        """Particle volume."""
-        volume = self.length * np.pi * self.r_cyl ** 2
+        """Particle volume. Only approximate if *self.delta !=0."""
+        volume = (self.length + 2 * self.delta) * np.pi * (self.r_cyl + self.delta) ** 2
         return volume
 
     @property

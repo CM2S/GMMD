@@ -516,11 +516,16 @@ class MolecularDynamicsSimulation(GenerationMethod):
         particles: list(`.Particle`)
             List of the particles inside the simulation box.
         """
+        real_vf = self.microstructure_sample.volume_fraction
         for i_particle in particles:
             # Running through all the particles
             i_particle.dilate(self.min_distance / 2)
             # Dilate i_particle
-        print(self.microstructure_sample.volume_fraction, "\n\n\n")
+        virtual_vf = self.microstructure_sample.volume_fraction
+        if self.min_distance != 0:
+            print_funcs.print_virtual_total_volume_fraction(
+                real_vf, virtual_vf, self.min_distance
+            )
         try:
             yield
         finally:
