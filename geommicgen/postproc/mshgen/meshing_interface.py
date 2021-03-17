@@ -5,14 +5,19 @@ instances generate finite element method mesh and regular grid meshes, respectiv
 the information form Microstructure classs object.
 """
 import os
+import sys
 import shutil
 import abc
+import time
 
 # GMSH module
 import gmsh
 
 # pylint: disable=import-error
+import iofuncs.printing as print_funcs
 from gmsh2links.main import readMesh
+
+# Importing the particle class
 from microstructure.particleclasses import (
     Particle,
     Disk,
@@ -25,7 +30,6 @@ from microstructure.particleclasses import (
     Line,
 )
 
-# Importing the particle class
 
 import numpy as np
 
@@ -71,6 +75,9 @@ class FEMMeshGenerator(MeshGenerator):
         to  False if there are Ellipsoids or CylindricalFibers in the microstructure. Gmsh
         has not been able to produce  microstructures containing Ellipsoids or
         CylindricalFibers and with pbcs.
+
+    time: float
+        Time in seconds to generate the mesh.
 
     Class Attributes
     ----------------
@@ -220,11 +227,12 @@ class FEMMeshGenerator(MeshGenerator):
             element_type
         ]
         kwargs.update(self.descriptors_element_type)
-        self.output_term = kwargs.get("output_term", 1)
+        self.output_term = kwargs.get("output_term", 0)
         self.particle_tags = []
         self.box_tag = None
         self.phase_dim_tag = None
         self.enforce_pbc_flag = True
+        self.time = None
 
     def generate_mesh(self, microstructure_sample, sample_dir):
         """
@@ -238,6 +246,9 @@ class FEMMeshGenerator(MeshGenerator):
         sample_dir: str
             Path to store the meshes.
         """
+        start = time.time()
+        print_funcs.print_to_file("Finite Element Mesh using Gmsh")
+        print_funcs.print_to_file("." * 80 + "\n")
         self.init_gmsh_model()
         self.generate_mesh_gmsh(
             microstructure_sample,
@@ -254,10 +265,14 @@ class FEMMeshGenerator(MeshGenerator):
             list(microstructure_sample.phases.keys()),
             microstructure_sample.matrix_phase,
         )
+        self.time = time.time() - start
+        print_funcs.print_to_file("Time ellapsed: {0:.3f}s\n".format(self.time))
         #
 
     def init_gmsh_model(self):
         """Initialize and set the options for the gmsh model."""
+        print_funcs.print_to_file("\t> Initialising Gmsh model and setting options")
+        print_funcs.print_to_file("\t\t- Element type: {0}\n".format(self.element_type))
         gmsh.initialize()
         gmsh.option.setNumber("General.Terminal", self.output_term)
         # Outupt to terminal
@@ -340,6 +355,7 @@ class FEMMeshGenerator(MeshGenerator):
 
     def write_mesh_gmsh(self, mesh_results_dir, name):
         """Write the mesh to the .msh and .vtk file."""
+        print_funcs.print_to_file("\t> Writing .vtk and .msh files.")
         meshfile_temp = os.path.join(mesh_results_dir, name + "_temp.msh")
         meshfile = os.path.join(mesh_results_dir, name + ".msh")
         vtk_temp = os.path.join(mesh_results_dir, name + "_temp.vtk")
@@ -372,6 +388,8 @@ class FEMMeshGenerator(MeshGenerator):
         os.remove(vtk_temp)
         # Sometimes gmsh swaps periods for commas
 
+        print_funcs.print_to_file("\t\t- {0}\n".format(vtk))
+
         return meshfile
 
     def generate_mesh_gmsh(
@@ -390,6 +408,7 @@ class FEMMeshGenerator(MeshGenerator):
         file_path: str
             Path to store the meshes.
         """
+
         model = gmsh.model
         factory = model.occ
         # occ - OpenCASCADE CAD (more advanced)
@@ -419,9 +438,16 @@ class FEMMeshGenerator(MeshGenerator):
         self.phase_dim_tag = {
             phase_name: [] for phase_name in microstructure_sample.phases
         }
-        for i_particle in particles:
+        print_funcs.print_to_file("\t> Adding particles to the model")
+        for i_particle_ind, i_particle in enumerate(particles):
             # Running through all the particles
             self.add_particle_pbc_to_model(i_particle, rve_dims)
+            print(
+                "\t\t- Particle {0} of {1}".format(i_particle_ind + 1, len(particles))
+            )
+            if i_particle_ind + 1 != len(particles):
+                print("\033[F\033[K", end="")
+        print_funcs.print_to_file("")
 
         out_dim_tag, _ = factory.intersect(
             [(dim, self.box_tag)],
@@ -470,9 +496,15 @@ class FEMMeshGenerator(MeshGenerator):
         # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", self.mesh_size_min)
 
         # Generate a 3D mesh
+        print_funcs.print_to_file("\t> Generating mesh\n")
         model.mesh.generate(dim)
+        if model.mesh.getLastEntityError():
+            print_funcs.print_to_file("\t\t- WARNING: Gmsh detected an Error")
 
+        print_funcs.print_to_file("\t> Optimizing mesh\n")
         model.mesh.optimize("HighOrder", force=False, niter=10)
+        if model.mesh.getLastEntityError():
+            print_funcs.print_to_file("\t\t- WARNING: Gmsh detected an Error")
 
         self.enforce_pbc(rve_dims)
         # Repeated becaused gmsh sometines behaves unpredictably
@@ -798,7 +830,11 @@ class FEMMeshGenerator(MeshGenerator):
         matrix_phase: str
             Name of the matrix phase
         """
+        print_funcs.print_to_file("\t> Writing LINKS input file")
+        stdout = sys.stdout
+        sys.stdout = None
         mesh = readMesh(meshfile)
+        sys.stdout = stdout
 
         node_id, coord = mesh.getAllNodes()
         element_id, _, _ = mesh.getElementsByDim(dim)
@@ -854,7 +890,9 @@ class FEMMeshGenerator(MeshGenerator):
                     for k_con in con_mat[i_phase][j_node]:
                         dat.write("{0} ".format(k_con))
 
-        print_femsh_output(os.path.join(title, "femsh.rve"))
+        print_funcs.print_to_file(
+            "\t\t- {0}\n".format(os.path.join(title, "femsh.rve"))
+        )
 
 
 class RegularGridMeshGenerator(MeshGenerator):
@@ -902,6 +940,9 @@ class RegularGridMeshGenerator(MeshGenerator):
         sample_dir: str
             Path to store the meshes.
         """
+        start = time.time()
+        print_funcs.print_to_file("Regular mesh grid")
+        print_funcs.print_to_file("." * 80 + "\n")
         rve_dims = np.array(microstructure_sample.rve_dims)
         pixel_dims = rve_dims / self.n_voxels_dims
         dim = len(rve_dims)
@@ -913,7 +954,10 @@ class RegularGridMeshGenerator(MeshGenerator):
                 dtype=int,
             )
             # Initializing the regular grid
-            for l_particle in microstructure_sample.particles:
+            print_funcs.print_to_file("\t> Processing particles")
+            for l_particle_ind, l_particle in enumerate(
+                microstructure_sample.particles
+            ):
                 lim_x = [
                     l_particle.support_function(np.array([-1, 0, 0]))[0],
                     l_particle.support_function(np.array([1, 0, 0]))[0],
@@ -948,6 +992,14 @@ class RegularGridMeshGenerator(MeshGenerator):
                         ] = l_particle.phase
                         # Setting pixel [i_row, j_column, k_layer] as belong to the
                         # phase of particle k_particle
+                print(
+                    "\t\t- Particle {0} of {1}".format(
+                        l_particle_ind + 1, len(microstructure_sample.particles)
+                    )
+                )
+                if l_particle_ind + 1 != len(microstructure_sample.particles):
+                    print("\033[F\033[K", end="")
+            print_funcs.print_to_file("")
             filename = "{0[0]}_{0[1]}".format(self.n_voxels_dims)
         elif dim == 3:
             regular_grid = np.full(
@@ -955,6 +1007,7 @@ class RegularGridMeshGenerator(MeshGenerator):
                 int(microstructure_sample.matrix_phase),
                 dtype=int,
             )
+            print_funcs.print_to_file("\t> Processing particles")
             # Initializing the regular grid
             for l_particle in microstructure_sample.particles:
                 lim_x = [
@@ -1000,30 +1053,25 @@ class RegularGridMeshGenerator(MeshGenerator):
                         # Setting pixel [i_row, j_column, k_layer] as belong to the
                         # phase of particle k_particle
 
+                print(
+                    "\t\t- Particle {0} of {1}".format(
+                        l_particle_ind + 1, len(microstructure_sample.particles)
+                    )
+                )
+                if l_particle_ind + 1 != len(microstructure_sample.particles):
+                    print("\033[F\033[K", end="")
+            print_funcs.print_to_file("")
             filename = "{0[0]}_{0[1]}_{0[2]}".format(self.n_voxels_dims)
 
         result_dir = os.path.join(sample_dir, "meshes")
         if not os.path.exists(result_dir):
             os.makedirs(result_dir)
-        if dim == 2:
-            np.save(
-                os.path.join(
-                    result_dir,
-                    filename + ".rgmsh",
-                ),
-                regular_grid,
-            )
 
-        elif dim == 3:
-            if self.slice_dir is None:
-
-                np.save(
-                    os.path.join(
-                        result_dir,
-                        filename + ".rgmsh",
-                    ),
-                    regular_grid,
-                )
+        print_funcs.print_to_file("\t> Writing mesh file.")
+        if dim == 2 or (dim == 3 and self.slice_dir is None):
+            file_path = os.path.join(result_dir, filename + ".rgmsh")
+            np.save(file_path, regular_grid)
+            print_funcs.print_to_file("\t\t- {0}\n".format(file_path))
 
         if True:
             from postproc.plotfuncs.plotting_functions import plot_pixels, plot_voxels
@@ -1071,3 +1119,6 @@ class RegularGridMeshGenerator(MeshGenerator):
                             ),
                             show=False,
                         )
+
+        self.time = time.time() - start
+        print_funcs.print_to_file("Time ellapsed: {0:.3f}s\n".format(self.time))

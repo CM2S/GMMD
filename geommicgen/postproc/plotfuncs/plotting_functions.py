@@ -860,7 +860,7 @@ def plot_pixels(pixel_grid, dir, show=False, save=True):
     ax.imshow(pixel_grid.T, cmap="Greys", interpolation="nearest")
     # plt.axis([0, np.size(pixel_grid.T, 0), 0, np.size(pixel_grid.T, 1)])
     if save:
-        plt.savefig(dir + ".png", dpi=len(pixel_grid[0]), cmpa="gray")
+        plt.savefig(dir + ".png", dpi=len(pixel_grid[0]))
         plt.close()
     if show:
         plt.show(block=False)

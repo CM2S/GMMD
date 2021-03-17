@@ -32,11 +32,10 @@ def print_output_header():
 def print_output(filepath):
     print_to_file("Output")
     print_to_file("=" * 80 + "\n")
-    print_to_file("Microstructure output file: {0}".format(filepath))
+    print_to_file("Microstructure output file: {0}\n".format(filepath))
 
 
 def print_femsh_output(filepath):
-    print_to_file("Finite element method mesh:")
     print_to_file("\t Output file: {0}".format(filepath))
 
 

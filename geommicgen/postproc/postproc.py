@@ -6,6 +6,8 @@ import postproc.voronoimetrics.voronoi_analysis as voronoi_analysis
 
 from postproc.plotfuncs.plotting_functions import plot_particles
 
+import iofuncs.printing as print_funcs
+
 
 def post_proc(
     mesh_generators, current_sample, current_mic_generator, sample_dir, post_proc_opts
@@ -13,8 +15,11 @@ def post_proc(
     """Do the post processing, such as meshing and statistical analysis."""
     # Generating meshes
     # --------------------------------------------------------------------------------------
-    for mesh_generator in mesh_generators:
-        mesh_generator.generate_mesh(current_sample, sample_dir)
+    if mesh_generators:
+        print_funcs.print_to_file("Generating meshes")
+        print_funcs.print_to_file("-" * 80 + "\n")
+        for mesh_generator in mesh_generators:
+            mesh_generator.generate_mesh(current_sample, sample_dir)
         # Generate corresponding mesh
 
     # Plotting final configuration
