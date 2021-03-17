@@ -236,7 +236,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     print_funcs.print_microstructure_info(microstructure_sample)
                     self.place_inner_phase_rsa(phase, outer_phase)
         finally:
-            print_funcs.print_final_message(
+            print_funcs.print_final_message_md(
                 self.time,
                 microstructure_sample.total_overlap,
                 len(self.total_overlap_history),

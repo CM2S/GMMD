@@ -1,6 +1,8 @@
 """Module containing the printing functions."""
 
 import os
+from tabulate import tabulate
+import datetime
 
 # Screen directory
 SCREEN_DIR = ""
@@ -15,6 +17,10 @@ def print_initial_message(input_file_path):
     print_to_file("Solids and Structures Research Group".rjust(80))
     print_to_file("\n\n")
     print_to_file("Input file: {0}".format(input_file_path))
+    print_to_file("\n")
+    print_to_file(
+        "Starting program execution at : {0}\n".format(datetime.datetime.now())
+    )
     print_to_file("\n")
 
 
@@ -44,7 +50,7 @@ def print_rgmsh_output(filepath):
     print_to_file("\t Output file: {0}".format(filepath))
 
 
-def print_final_message(time, total_overlap, number_iterations, max_overlap):
+def print_final_message_md(time, total_overlap, number_iterations, max_overlap):
     print_to_file("")
     print_to_file("MD simulation results")
     print_to_file("=" * 80 + "\n")
@@ -143,3 +149,52 @@ def print_virtual_total_volume_fraction(real_vf, virtual_vf, min_distance):
             virtual_vf * 100, min_distance
         )
     )
+
+
+def print_final_message(mic_generator, mesh_generators):
+    """Print final message."""
+    print_to_file(80 * "-")
+
+    print_to_file("Ending program execution at : {0}\n".format(datetime.datetime.now()))
+
+    total_time = 0
+    total_time += mic_generator.time
+    for generator in mesh_generators:
+        total_time += generator.time
+
+    hours = int(total_time // 3600)
+    minutes_rem = int(total_time // 60 - hours * 60)
+    print_to_file(
+        "Total execution time: {0:.2e}s (~{1}h{2}m)\n".format(
+            total_time, hours, minutes_rem
+        )
+    )
+
+    print_to_file("Execution times:\n")
+
+    data_to_print = []
+    data_to_print.append(
+        [
+            "Molecular Dynamics Simulation",
+            "{0:.2e}".format(mic_generator.time),
+            round(mic_generator.time / total_time * 100, ndigits=2),
+        ]
+    )
+    for generator in mesh_generators:
+        if generator.__class__.__name__ == "FEMMeshGenerator":
+            name = "Finite element mesh generation"
+        elif generator.__class__.__name__ == "RegularGridMeshGenerator":
+            name = "Regular mesh generation"
+        data_to_print.append(
+            [
+                name,
+                "{0:.2e}".format(generator.time),
+                round(generator.time / total_time * 100, ndigits=2),
+            ]
+        )
+    formated_data = tabulate(data_to_print, headers=["Phase", "Duration(s)", "%"])
+    for row in formated_data.split("\n"):
+        print_to_file("\t" + row)
+
+    print_to_file("\n")
+    print_to_file("{0: ^80}\n".format("Program Completed"))

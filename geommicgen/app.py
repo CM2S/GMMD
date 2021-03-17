@@ -361,7 +361,7 @@ def run_program():
                 #         current_sample, sample_dir, stat_options_req
                 #     )
             finally:
-
+                print_funcs.print_final_message(current_mic_generator, mesh_generators)
                 # os.replace("temp.screen", sample_file_path + ".screen")
                 pass
                 # Moving the screnn of this sample to the respective directory
