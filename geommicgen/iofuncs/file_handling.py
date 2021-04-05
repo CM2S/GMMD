@@ -11,6 +11,7 @@ import shutil
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 from micgenmethod.mic_from_imagej import generate_microstructure_from_csv
+from micgenmethod.mic_from_file import generate_microstructure_from_txt
 from .printing import print_output
 
 
@@ -110,7 +111,7 @@ def get_arguments_from_command_line():
     previous_mic_path = None
     if len(sys.argv) == 3:
         _, ext = os.path.splitext(os.path.basename(sys.argv[2]))
-        if ext in {".mic", ".csv"}:
+        if ext in {".mic", ".csv", ".txt"}:
             previous_mic_path = sys.argv[2]
         else:
             raise ValueError(
@@ -130,6 +131,9 @@ def load_previous_sample(previous_mic_path):
         # Reconstructing the relevant Particle attributes that could not be pickled
     elif ext == ".csv":
         current_sample = generate_microstructure_from_csv(previous_mic_path)
+        current_mic_generator = None
+    elif ext == ".txt":
+        current_sample = generate_microstructure_from_txt(previous_mic_path)
         current_mic_generator = None
     return current_sample, current_mic_generator
 
