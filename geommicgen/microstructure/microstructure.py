@@ -29,6 +29,9 @@ class Microstructure:
     phases: dict
         Dictionary whose keys are the name of the phases and whose values are the
         corresponding instance of `.Phase`.
+
+    total_overlap: float
+        Measure of the overlap. Zero when there is no overlap.
     """
 
     def __init__(self, rve_dims):
@@ -52,6 +55,7 @@ class Microstructure:
             )
         self.volume = np.prod(rve_dims)
         self.phases = {}
+        self.total_overlap = None
 
     def add_phase(self, phase):
         """
