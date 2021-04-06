@@ -21,8 +21,10 @@ def generate_microstructure_from_txt(file_path):
     with open(file_path, "r") as input_file:
         input_file.readline()
         box = [int(dim) for dim in input_file.readline().split(",")]
+        input_file.readline()
+        phase_type = input_file.readline()
 
-    mic_info = np.genfromtxt(file_path, delimiter=",", names=True, skip_header=2)
+    mic_info = np.genfromtxt(file_path, delimiter=",", names=True, skip_header=4)
     if mic_info.shape == ():
         mic_info = mic_info.reshape((1,))
     # Loading the microstructure info. Assumed to be
@@ -58,7 +60,7 @@ def generate_microstructure_from_txt(file_path):
             raise ValueError("The particle {0} is outside the box.".format(i_part_ind))
 
     descriptors["n"] = len(mic_info)
-    descriptors["phase_type"] = 2
+    descriptors["phase_type"] = phase_type
     # Generating phases and particles
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     microstructure_sample.add_phase(Phase("2", descriptors))
