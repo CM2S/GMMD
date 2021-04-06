@@ -23,6 +23,8 @@ def generate_microstructure_from_txt(file_path):
         box = [int(dim) for dim in input_file.readline().split(",")]
 
     mic_info = np.genfromtxt(file_path, delimiter=",", names=True, skip_header=2)
+    if mic_info.shape == ():
+        mic_info = mic_info.reshape((1,))
     # Loading the microstructure info. Assumed to be
     # N,Area,Mean,Min,Max,XM,YM,Major,Minor,Angle
 
@@ -52,8 +54,8 @@ def generate_microstructure_from_txt(file_path):
                 descriptors[descriptor].append(descriptor_value)
         if len(positions[-1]) != len(box):
             raise ValueError("Too many positions supplied")
-        # if np.any(np.array(positions[-1]) > np.array(box)):
-        #     raise ValueError("The particle {0} is outside the box.".format(i_part_ind))
+        if np.any(np.array(positions[-1]) > np.array(box)):
+            raise ValueError("The particle {0} is outside the box.".format(i_part_ind))
 
     descriptors["n"] = len(mic_info)
     descriptors["phase_type"] = 2
