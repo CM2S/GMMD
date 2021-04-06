@@ -61,16 +61,18 @@ def print_final_message_md(time, total_overlap, number_iterations, max_overlap):
     print_to_file("\n")
 
 
-def print_to_file(message, end="\n"):
+def print_to_file(message, end="\n", to_screen=True, to_terminal=True):
     """Print to the screen file of corresponding to the current microstructure sample."""
-    screen_path = os.path.join(SCREEN_DIR, "mic.screen")
-    if os.path.exists(screen_path):
-        action = "a"
-    else:
-        action = "w"
-    with open(screen_path, action) as screen:
-        print(message, file=screen, end=end)
-    print(message, end=end)
+    if to_screen:
+        screen_path = os.path.join(SCREEN_DIR, "mic.screen")
+        if os.path.exists(screen_path):
+            action = "a"
+        else:
+            action = "w"
+        with open(screen_path, action) as screen:
+            print(message, file=screen, end=end)
+    if to_terminal:
+        print(message, end=end)
 
 
 def print_to_terminal_refresh(
