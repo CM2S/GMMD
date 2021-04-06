@@ -318,9 +318,9 @@ class SpecifiedValue(PhaseDescriptor):
 
     def generate_sample(self, n_samples=1):
         """Return the specified value of the descriptor."""
-        val = self.array_vals[self.current_val]
-        self.current_val += 1
-        return self.array_vals
+        val = self.array_vals[self.current_val : self.current_val + n_samples]
+        self.current_val += n_samples
+        return val if len(val) > 1 else val[0]
 
 
 class FixedValue(PhaseDescriptor):
