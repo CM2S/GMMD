@@ -149,3 +149,20 @@ def save_mic(sample_file_path, current_sample, current_mic_generator):
     )
     print_output(sample_file_path + ".mic")
     # Saving the configuration for later use
+
+
+def save_status(sample_dir, current_sample, current_mic_generator):
+    """Save status with a minimal amount of information (time, total overlap and status)."""
+
+    status_file_name = os.path.join(sample_dir, "status")
+    with open(status_file_name, "w") as status:
+        time_line = "Time: {0:.3f}s\n".format(current_mic_generator.time)
+        overlap_line = "Overlap: {0:.3f}\n".format(current_sample.total_overlap)
+        status_line = "Status: {0}\n".format(current_mic_generator.status)
+        status.writelines(time_line)
+        status.writelines(overlap_line)
+        status.writelines(status_line)
+
+
+def delete_screen(screen_dir):
+    os.remove(os.path.join(screen_dir, "mic.screen"))

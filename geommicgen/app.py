@@ -288,8 +288,13 @@ def run_program():
             try:
                 current_mic_generator.generate_microstructure(current_sample)
             finally:
+                # Use in data-driven framework
                 if top_level_reader.all_options["save_min"]:
                     fileio.save_mic(sample_file_path, current_sample, None)
+                    fileio.save_status(
+                        sample_dir, current_sample, current_mic_generator
+                    )
+
                 else:
                     fileio.save_mic(
                         sample_file_path, current_sample, current_mic_generator
@@ -309,3 +314,5 @@ def run_program():
                 print_funcs.print_final_message(
                     current_mic_generator, mesh_generators, times_dict
                 )
+                if top_level_reader.all_options["save_min"]:
+                    fileio.delete_screen(print_funcs.SCREEN_DIR)

@@ -187,6 +187,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.coord_number = None
         self.thermic_energy_history = []
         self.all_dt = []
+        self.status = False
 
     def generate_microstructure(self, microstructure_sample):
         """
@@ -638,6 +639,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
 
                 if self.total_overlap <= self.max_residue + 1e-12:
                     # If the configuration has an overlap area smaller than the tolerance
+                    self.status = True
                     n_steps_relax += 1
                 else:
                     n_steps_relax = 0
@@ -662,6 +664,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     # If after 500 iterations all the iterations produced a relative change
                     # smaller than 1e-5% assume it is not possible to find a legal
                     # configuration
+                    self.status = False
                     print_funcs.print_to_file("Failed sample")
                     break
 
