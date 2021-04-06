@@ -1,4 +1,6 @@
 """
+Module containg the Keyword class used for input.
+
 This module defines the Keyword class and its subclasses and the TopLevelReader class. These
 are used to read the input file. A single TopLevelReader instance is created as a module
 level variable containing all the allowed Keywords.
@@ -8,6 +10,8 @@ TO ADD A POSSIBLE KEYWORD, ADD IT TO THE INSTANCE OF THE TopLevelReader.
 
 import numpy as np
 
+# pylint: disable=import-error
+# pylint: disable=relative-beyond-top-level
 import microstructure.particleclasses as part_cls
 import microstructure.phase as phase
 import errors.error_classes as error_cls
