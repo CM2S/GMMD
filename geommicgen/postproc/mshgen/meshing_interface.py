@@ -989,7 +989,7 @@ class RegularGridMeshGenerator(MeshGenerator):
                         regular_grid[
                             np.mod(i_row, self.n_voxels_dims[0]),
                             np.mod(j_column, self.n_voxels_dims[1]),
-                        ] = l_particle.phase
+                        ] = l_particle.phase.name
                         # Setting pixel [i_row, j_column, k_layer] as belong to the
                         # phase of particle k_particle
                 print(
@@ -1049,7 +1049,7 @@ class RegularGridMeshGenerator(MeshGenerator):
                             np.mod(i_row, self.n_voxels_dims[0]),
                             np.mod(j_column, self.n_voxels_dims[1]),
                             np.mod(k_layer, self.n_voxels_dims[2]),
-                        ] = l_particle.phase
+                        ] = l_particle.phase.name
                         # Setting pixel [i_row, j_column, k_layer] as belong to the
                         # phase of particle k_particle
 
