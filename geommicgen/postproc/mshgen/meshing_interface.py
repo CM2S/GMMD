@@ -227,7 +227,7 @@ class FEMMeshGenerator(MeshGenerator):
             element_type
         ]
         kwargs.update(self.descriptors_element_type)
-        self.output_term = kwargs.get("output_term", 0)
+        self.output_term = kwargs.get("output_term", True)
         self.particle_tags = []
         self.box_tag = None
         self.phase_dim_tag = None
@@ -247,8 +247,14 @@ class FEMMeshGenerator(MeshGenerator):
             Path to store the meshes.
         """
         start = time.time()
-        print_funcs.print_to_file("Finite Element Mesh using Gmsh")
-        print_funcs.print_to_file("." * 80 + "\n")
+        print_funcs.print_to_file(
+            "Finite Element Mesh using Gmsh",
+            to_terminal=self.output_term,
+            to_screen=self.output_term,
+        )
+        print_funcs.print_to_file(
+            "." * 80 + "\n", to_terminal=self.output_term, to_screen=self.output_term
+        )
         self.init_gmsh_model()
         self.generate_mesh_gmsh(
             microstructure_sample,
@@ -266,15 +272,27 @@ class FEMMeshGenerator(MeshGenerator):
             microstructure_sample.matrix_phase,
         )
         self.time = time.time() - start
-        print_funcs.print_to_file("Time ellapsed: {0:.3f}s\n".format(self.time))
+        print_funcs.print_to_file(
+            "Time ellapsed: {0:.3f}s\n".format(self.time),
+            to_terminal=self.output_term,
+            to_screen=self.output_term,
+        )
         #
 
     def init_gmsh_model(self):
         """Initialize and set the options for the gmsh model."""
-        print_funcs.print_to_file("\t> Initialising Gmsh model and setting options")
-        print_funcs.print_to_file("\t\t- Element type: {0}\n".format(self.element_type))
+        print_funcs.print_to_file(
+            "\t> Initialising Gmsh model and setting options",
+            to_terminal=self.output_term,
+            to_screen=self.output_term,
+        )
+        print_funcs.print_to_file(
+            "\t\t- Element type: {0}\n".format(self.element_type),
+            to_terminal=self.output_term,
+            to_screen=self.output_term,
+        )
         gmsh.initialize()
-        gmsh.option.setNumber("General.Terminal", self.output_term)
+        gmsh.option.setNumber("General.Terminal", 0)
         # Outupt to terminal
 
         gmsh.option.setNumber(
@@ -355,7 +373,11 @@ class FEMMeshGenerator(MeshGenerator):
 
     def write_mesh_gmsh(self, mesh_results_dir, name):
         """Write the mesh to the .msh and .vtk file."""
-        print_funcs.print_to_file("\t> Writing .vtk and .msh files.")
+        print_funcs.print_to_file(
+            "\t> Writing .vtk and .msh files.",
+            to_terminal=self.output_term,
+            to_screen=self.output_term,
+        )
         meshfile_temp = os.path.join(mesh_results_dir, name + "_temp.msh")
         meshfile = os.path.join(mesh_results_dir, name + ".msh")
         vtk_temp = os.path.join(mesh_results_dir, name + "_temp.vtk")
@@ -388,7 +410,11 @@ class FEMMeshGenerator(MeshGenerator):
         os.remove(vtk_temp)
         # Sometimes gmsh swaps periods for commas
 
-        print_funcs.print_to_file("\t\t- {0}\n".format(vtk))
+        print_funcs.print_to_file(
+            "\t\t- {0}\n".format(vtk),
+            to_terminal=self.output_term,
+            to_screen=self.output_term,
+        )
 
         return meshfile
 
@@ -438,7 +464,11 @@ class FEMMeshGenerator(MeshGenerator):
         self.phase_dim_tag = {
             phase_name: [] for phase_name in microstructure_sample.phases
         }
-        print_funcs.print_to_file("\t> Adding particles to the model")
+        print_funcs.print_to_file(
+            "\t> Adding particles to the model",
+            to_terminal=self.output_term,
+            to_screen=self.output_term,
+        )
         for i_particle_ind, i_particle in enumerate(particles):
             # Running through all the particles
             self.add_particle_pbc_to_model(i_particle, rve_dims)
@@ -446,9 +476,21 @@ class FEMMeshGenerator(MeshGenerator):
                 "\t\t- Particle {0} of {1}".format(i_particle_ind + 1, len(particles))
             )
             if i_particle_ind + 1 != len(particles):
-                print("\033[F\033[K", end="")
-        print_funcs.print_to_file("")
+                print_funcs.print_to_file(
+                    "\033[F\033[K",
+                    end="",
+                    to_terminal=self.output_term,
+                    to_screen=False,
+                )
+        print_funcs.print_to_file(
+            "", to_terminal=self.output_term, to_screen=self.output_term
+        )
 
+        print_funcs.print_to_file(
+            "\t> Processing model\n",
+            to_terminal=self.output_term,
+            to_screen=self.output_term,
+        )
         out_dim_tag, _ = factory.intersect(
             [(dim, self.box_tag)],
             [(dim, particle_tag) for particle_tag in self.particle_tags],
@@ -496,15 +538,31 @@ class FEMMeshGenerator(MeshGenerator):
         # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", self.mesh_size_min)
 
         # Generate a 3D mesh
-        print_funcs.print_to_file("\t> Generating mesh\n")
+        print_funcs.print_to_file(
+            "\t> Generating mesh\n",
+            to_terminal=self.output_term,
+            to_screen=self.output_term,
+        )
         model.mesh.generate(dim)
         if model.mesh.getLastEntityError():
-            print_funcs.print_to_file("\t\t- WARNING: Gmsh detected an Error")
+            print_funcs.print_to_file(
+                "\t\t- WARNING: Gmsh detected an Error",
+                to_terminal=self.output_term,
+                to_screen=self.output_term,
+            )
 
-        print_funcs.print_to_file("\t> Optimizing mesh\n")
+        print_funcs.print_to_file(
+            "\t> Optimizing mesh\n",
+            to_terminal=self.output_term,
+            to_screen=self.output_term,
+        )
         model.mesh.optimize("HighOrder", force=False, niter=10)
         if model.mesh.getLastEntityError():
-            print_funcs.print_to_file("\t\t- WARNING: Gmsh detected an Error")
+            print_funcs.print_to_file(
+                "\t\t- WARNING: Gmsh detected an Error",
+                to_terminal=self.output_term,
+                to_screen=self.output_term,
+            )
 
         self.enforce_pbc(rve_dims)
         # Repeated becaused gmsh sometines behaves unpredictably
@@ -830,7 +888,11 @@ class FEMMeshGenerator(MeshGenerator):
         matrix_phase: str
             Name of the matrix phase
         """
-        print_funcs.print_to_file("\t> Writing LINKS input file")
+        print_funcs.print_to_file(
+            "\t> Writing LINKS input file",
+            to_terminal=self.output_term,
+            to_screen=self.output_term,
+        )
         stdout = sys.stdout
         sys.stdout = None
         mesh = readMesh(meshfile)
@@ -891,7 +953,11 @@ class FEMMeshGenerator(MeshGenerator):
                         dat.write("{0} ".format(k_con))
 
         print_funcs.print_to_file(
-            "\t\t- {0}\n".format(os.path.join(title, "femsh.rve"))
+            "\t\t- {0}\n".format(
+                os.path.join(title, "femsh.rve"),
+                to_terminal=self.output_term,
+                to_screen=self.output_term,
+            )
         )
 
 
