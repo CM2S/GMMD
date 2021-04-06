@@ -52,8 +52,8 @@ def generate_microstructure_from_txt(file_path):
                 descriptors[descriptor].append(descriptor_value)
         if len(positions[-1]) != len(box):
             raise ValueError("Too many positions supplied")
-        if np.any(np.array(positions[-1]) > np.array(box)):
-            raise ValueError("The particle {0} is outside the box.".format(i_part_ind))
+        # if np.any(np.array(positions[-1]) > np.array(box)):
+        #     raise ValueError("The particle {0} is outside the box.".format(i_part_ind))
 
     descriptors["n"] = len(mic_info)
     descriptors["phase_type"] = 2
