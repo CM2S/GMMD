@@ -27,6 +27,7 @@ from microstructure.particleclasses import (
 )
 
 from postproc.mshgen.meshing_interface import FEMMeshGenerator
+import iofuncs.printing as print_funcs
 
 latex_textwidth = 5.92  # in = 496pt
 latex_textheigth = 9.63  # in = 674pt
@@ -206,12 +207,12 @@ def plot_particles(particles, rve_dims, sample_dir, **kwargs):
     if len(rve_dims) == 2:
         plot_particles_2d(particles, rve_dims, sample_dir)
     elif len(rve_dims) == 3:
-        plot_particles_3d_one_by_one(particles, rve_dims, sample_dir)
-        # plot_particles_3d(particles, rve_dims, sample_dir)
+        # plot_particles_3d_one_by_one(particles, rve_dims, sample_dir)
+        plot_particles_3d(particles, rve_dims, sample_dir)
 
 
 def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
-
+    """Plot 2D particles."""
     if "ax" in kwargs:
         ax = kwargs["ax"]
         plt.sca(ax)
@@ -251,6 +252,9 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
 
     if kwargs.get("save", True):
         plt.savefig(os.path.join(sample_dir, "final_config.pdf"), bbox_inches="tight")
+        print_funcs.print_to_file(
+            "\t\t- {0}".format(os.path.join(sample_dir, "final_config.pdf"))
+        )
 
     if kwargs.get("show", False):
         plt.show()
@@ -259,7 +263,9 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
 def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
 
     dim = len(rve_dims)
-    mesh_generator = FEMMeshGenerator(particles[0].radius / 5, "tetra4", rve_dims)
+    mesh_generator = FEMMeshGenerator(
+        particles[0].radius / 5, "tetra4", rve_dims, output_term=True
+    )
 
     mesh_generator.init_gmsh_model()
 
@@ -277,9 +283,21 @@ def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
         phase_name: [] for phase_name in {i_particle.phase for i_particle in particles}
     }
 
-    for i_particle in particles:
+    print_funcs.print_to_file(
+        "\t> Adding particles to the model",
+    )
+    for i_particle_ind, i_particle in enumerate(particles):
         mesh_generator.add_particle_pbc_to_model(i_particle, rve_dims)  # [0, 0, 0])
+        print("\t\t- Particle {0} of {1}".format(i_particle_ind + 1, len(particles)))
+        if i_particle_ind + 1 != len(particles):
+            print_funcs.print_to_file(
+                "\033[F\033[K",
+                end="",
+                to_screen=False,
+            )
+    print_funcs.print_to_file("")
 
+    print_funcs.print_to_file("\t> Processing model\n")
     out_dim_tag, _ = factory.intersect(
         [(dim, mesh_generator.box_tag)],
         [(dim, particle_tag) for particle_tag in mesh_generator.particle_tags],
@@ -311,6 +329,7 @@ def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
     gmsh.option.setNumber("Mesh.CharacteristicLengthMax", mesh_generator.mesh_size)
 
     # Generate a 3D mesh
+    print_funcs.print_to_file("\t> Generating mesh\n")
     model.mesh.generate(2)
 
     _ = mesh_generator.write_mesh_gmsh(sample_dir, "final_config")
