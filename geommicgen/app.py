@@ -303,7 +303,7 @@ def run_program():
                 # Saving the RVE properties
 
             try:
-                post_proc(
+                times_dict = post_proc(
                     mesh_generators,
                     current_sample,
                     current_mic_generator,
@@ -361,7 +361,9 @@ def run_program():
                 #         current_sample, sample_dir, stat_options_req
                 #     )
             finally:
-                print_funcs.print_final_message(current_mic_generator, mesh_generators)
+                print_funcs.print_final_message(
+                    current_mic_generator, mesh_generators, times_dict
+                )
                 # os.replace("temp.screen", sample_file_path + ".screen")
                 pass
                 # Moving the screnn of this sample to the respective directory

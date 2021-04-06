@@ -153,7 +153,7 @@ def print_virtual_total_volume_fraction(real_vf, virtual_vf, min_distance):
     )
 
 
-def print_final_message(mic_generator, mesh_generators):
+def print_final_message(mic_generator, mesh_generators, times_dict):
     """Print final message."""
     print_to_file(80 * "-")
 
@@ -163,6 +163,9 @@ def print_final_message(mic_generator, mesh_generators):
     total_time += mic_generator.time
     for generator in mesh_generators:
         total_time += generator.time
+
+    for post_proc_time in times_dict.values():
+        total_time += post_proc_time
 
     hours = int(total_time // 3600)
     minutes_rem = int(total_time // 60 - hours * 60)
@@ -192,6 +195,15 @@ def print_final_message(mic_generator, mesh_generators):
                 name,
                 "{0:.2e}".format(generator.time),
                 round(generator.time / total_time * 100, ndigits=2),
+            ]
+        )
+
+    for post_proc_op_name, post_proc_op_time in times_dict.items():
+        data_to_print.append(
+            [
+                post_proc_op_name,
+                "{0:.2e}".format(post_proc_op_time),
+                round(post_proc_op_time / total_time * 100, ndigits=2),
             ]
         )
     formated_data = tabulate(data_to_print, headers=["Phase", "Duration(s)", "%"])

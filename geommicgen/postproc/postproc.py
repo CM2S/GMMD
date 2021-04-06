@@ -1,18 +1,39 @@
 """Module containing the main function relative to post processsing."""
 
+import time
+
+# pylint: disable=import-error
+# pylint: disable=relative-beyond-top-level
+# pylint: disable=no-name-in-module
+import iofuncs.printing as print_funcs
 import postproc.voronoimetrics.motion_analysis as motion_analysis
 import postproc.voronoimetrics.stat_analysis as stat_analysis
 import postproc.voronoimetrics.voronoi_analysis as voronoi_analysis
 
 from postproc.plotfuncs.plotting_functions import plot_particles
 
-import iofuncs.printing as print_funcs
-
 
 def post_proc(
     mesh_generators, current_sample, current_mic_generator, sample_dir, post_proc_opts
 ):
     """Do the post processing, such as meshing and statistical analysis."""
+    dict_times = {}
+    # Plotting final configuration
+    # --------------------------------------------------------------------------------------
+    if post_proc_opts.get("final_config", False):
+        # Plot and save the final configuration
+        print_funcs.print_to_file("Generating final configuration for visualization")
+        print_funcs.print_to_file("-" * 80 + "\n")
+        start = time.time()
+        plot_particles(current_sample.particles, current_sample.rve_dims, sample_dir)
+        plot_particles_time = time.time() - start
+        print_funcs.print_to_file(
+            "Time ellapsed: {0:.3f}s\n".format(plot_particles_time)
+        )
+        dict_times[
+            "Generating final configuration for visualization"
+        ] = plot_particles_time
+
     # Generating meshes
     # --------------------------------------------------------------------------------------
     if mesh_generators:
@@ -22,15 +43,11 @@ def post_proc(
             mesh_generator.generate_mesh(current_sample, sample_dir)
         # Generate corresponding mesh
 
-    # Plotting final configuration
-    # --------------------------------------------------------------------------------------
-    if post_proc_opts.get("final_config", False):
-        # Plot and save the final configuration
-        plot_particles(current_sample.particles, current_sample.rve_dims, sample_dir)
-
     # Motion analysis
     # --------------------------------------------------------------------------------------
     if post_proc_opts.get("motion_analysis", False):
+        print_funcs.print_to_file("Generating simulation plots")
+        print_funcs.print_to_file("-" * 80 + "\n")
         motion_analysis.doMotionAnalysis(
             current_sample.particles,
             current_sample.rve_dims,
@@ -51,6 +68,8 @@ def post_proc(
     # Voronoi analysis
     # --------------------------------------------------------------------------
     if post_proc_opts.get("voronoi_analysis", False):
+        print_funcs.print_to_file("Voronoi analysis")
+        print_funcs.print_to_file("-" * 80 + "\n")
 
         all_voronoi_kwargs_options = {
             "n_surf_points",
@@ -83,5 +102,9 @@ def post_proc(
         for i_stat_opt in all_stat_options
         if post_proc_opts.get(i_stat_opt, False)
     }
-    if len(stat_options_req) > 0:
+    if stat_options_req:
+        print_funcs.print_to_file("Statistical analysis")
+        print_funcs.print_to_file("-" * 80 + "\n")
         stat_analysis.do_stat_analysis(current_sample, sample_dir, stat_options_req)
+
+    return dict_times
