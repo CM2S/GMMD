@@ -22,7 +22,7 @@ def generate_microstructure_from_txt(file_path):
         input_file.readline()
         box = [int(dim) for dim in input_file.readline().split(",")]
         input_file.readline()
-        phase_type = input_file.readline()
+        phase_type = int(input_file.readline())
 
     mic_info = np.genfromtxt(file_path, delimiter=",", names=True, skip_header=4)
     if mic_info.shape == ():
