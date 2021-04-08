@@ -54,11 +54,20 @@ class Ellipse(Particle):
 
     possible_parameters = {
         **{
-            "major_axis": ("Major axis", "float"),
-            "minor_axis": ("Minor axis", "float"),
-            "angle": ("Angle", "float"),
-            "eccentricity": ("Eccentricity", "float"),
-            "ratio": ("Ratio a/b", "float"),
+            "major_axis": (
+                "Major axis",
+                lambda major_axis, rve_dims: min(rve_dims) / 2 > major_axis > 0,
+            ),
+            "minor_axis": (
+                "Minor axis",
+                lambda minor_axis, rve_dims: min(rve_dims) / 2 > minor_axis > 0,
+            ),
+            "angle": ("Angle", lambda angle, rve_dims: True),
+            "eccentricity": (
+                "Eccentricity",
+                lambda eccentricity, rve_dims: eccentricity >= 0,
+            ),
+            "ratio": ("Ratio a/b", lambda ratio, rve_dims: ratio >= 1),
         },
         **Particle.possible_parameters,
     }
@@ -90,6 +99,9 @@ class Ellipse(Particle):
         rve_dims: list
             List containing the dimensions of the microstructure in each direction
         """
+
+        self.check_if_descriptor_values_are_valid(descriptors, rve_dims)
+
         if "major_axis" in descriptors and "minor_axis" in descriptors:
             # Both major and minor axis were supplied
             major_axis = np.max(
@@ -132,9 +144,6 @@ class Ellipse(Particle):
             minor_axis = major_axis / descriptors["ratio"]
         if "angle" in descriptors:
             angle = descriptors["angle"]
-
-        if major_axis <= 0 or minor_axis <= 0:
-            raise ValueError("Major and minor axis must be positive values.")
 
         self.major_axis = major_axis
         self.minor_axis = minor_axis

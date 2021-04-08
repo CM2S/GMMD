@@ -24,6 +24,24 @@ from postproc.plotfuncs.plotting_functions import plot_particles_3d, plot_partic
 import pickle
 
 
+class TestParticleClass(unittest.TestCase):
+    def test_check_size_parameter(self):
+
+        descriptors = {"major_axis": 0.1, "minor_axis": 0.2, "angle": 0.3, "n": -1}
+        with self.assertRaises(ValueError):
+
+            _ = Ellipse("1", descriptors, [1, 1])
+
+        descriptors = {"major_axis": 0.1, "minor_axis": 0.2, "angle": 0.3, "n": 1.2}
+        with self.assertRaises(ValueError):
+
+            _ = Ellipse("1", descriptors, [1, 1])
+
+        descriptors = {"major_axis": 0.1, "vf": -0.2, "angle": 0.3, "n": -1}
+        with self.assertRaises(ValueError):
+            _ = Ellipse("1", descriptors, [1, 1])
+
+
 class TestEllipsoid(unittest.TestCase):
     """Tests concening Ellipsoids"""
 
@@ -1535,7 +1553,7 @@ class TestIntegrationCylinder(unittest.TestCase):
 
     def test_cylinder_inside(self):
         """The cylinder is completly inside an ellipsoid."""
-        rve_dims = [1, 1, 1]
+        rve_dims = [2.5, 2.5, 2.5]
         cylinder = Cylinder(
             "1",
             {

@@ -29,7 +29,15 @@ class Sphere(Ellipsoid):
     """
 
     possible_parameters = {
-        **{"r": ("Radius", "float"), "volume": ("Volume per particle", "float")},
+        **{
+            "r": ("Radius", lambda r, rve_dims: 0 < r < min(rve_dims) / 4),
+            "volume": (
+                "Volume per particle",
+                lambda volume, rve_dims: 0
+                < volume
+                < 4 / 3 * np.pi * (min(rve_dims) / 4) ** 3,
+            ),
+        },
         **Particle.possible_parameters,
     }
 
@@ -58,6 +66,7 @@ class Sphere(Ellipsoid):
         rve_dims: list
             List containing the dimensions of the microstructure in each direction
         """
+        self.check_if_descriptor_values_are_valid(descriptors, rve_dims)
         if "r" in descriptors:
             # The radius was supplied
             radius = descriptors.pop("r")

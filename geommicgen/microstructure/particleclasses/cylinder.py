@@ -48,10 +48,16 @@ class Cylinder(Particle):
 
     possible_parameters = {
         **{
-            "r_cyl": ("Cylinder Radius", "float"),
-            "length": ("Cylinder Length", "float"),
-            "azimuth_angle": ("Azimuthal angle", "float"),
-            "polar_angle": ("Polar angle", "float"),
+            "r_cyl": (
+                "Cylinder Radius",
+                lambda r_cyl, rve_dims: min(rve_dims) / 4 > r_cyl > 0,
+            ),
+            "length": (
+                "Cylinder Length",
+                lambda length, rve_dims: min(rve_dims) / 2 > length > 0,
+            ),
+            "azimuth_angle": ("Azimuthal angle", lambda azimuth_angle, rve_dims: True),
+            "polar_angle": ("Polar angle", lambda polar_angle, rve_dims: True),
         },
         **Particle.possible_parameters,
     }
@@ -87,6 +93,7 @@ class Cylinder(Particle):
         ValueError:
             When the cylinder radius or the length are nonpositive numbers.
         """
+        self.check_if_descriptor_values_are_valid(descriptors, rve_dims)
         if "r_cyl" in descriptors:
             if descriptors["r_cyl"] <= 0:
                 raise ValueError(

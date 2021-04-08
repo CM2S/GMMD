@@ -29,7 +29,13 @@ class Disk(Ellipse):
 
     possible_parameters = {
         **Particle.possible_parameters,
-        **{"r": ("Radius", "float"), "area": ("Area per particle", "float")},
+        **{
+            "r": ("Radius", lambda r, rve_dims: 0 < r < min(rve_dims) / 4),
+            "area": (
+                "Area per particle",
+                lambda area, rve_dims: 0 < area < np.pi * (min(rve_dims) / 4) ** 2,
+            ),
+        },
     }
     #
     # )
@@ -59,6 +65,7 @@ class Disk(Ellipse):
         rve_dims: list
             List containing the dimensions of the microstructure in each direction
         """
+        self.check_if_descriptor_values_are_valid(descriptors, rve_dims)
         if "r" in descriptors:
             # The radius was supplied
             r = descriptors["r"]

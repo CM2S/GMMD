@@ -30,9 +30,15 @@ class CylindricalFiber(Disk):
 
     possible_parameters = {
         **{
-            "r": ("Radius", "float"),
-            "area": ("Area per particle", "float"),
-            "direction": ("Fiber direction", "int"),
+            "r": ("Radius", lambda r, rve_dims: 0 < r < min(rve_dims) / 4),
+            "area": (
+                "Area per particle",
+                lambda area, rve_dims: 0 < area < np.pi * (min(rve_dims) / 4) ** 2,
+            ),
+            "direction": (
+                "Fiber direction",
+                lambda direction, rve_dims: direction in (0, 1, 2),
+            ),
         },
         **Particle.possible_parameters,
     }
@@ -62,6 +68,7 @@ class CylindricalFiber(Disk):
         rve_dims: list
             List containing the dimensions of the microstructure in each direction
         """
+        self.check_if_descriptor_values_are_valid(descriptors, rve_dims)
         self.direction_fibers = descriptors.pop("direction")
         # Integer giving the direction of the fibers
         self.length_dir_fibers = rve_dims[self.direction_fibers]

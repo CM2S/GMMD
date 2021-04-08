@@ -57,21 +57,48 @@ class Ellipsoid(Particle):
 
     possible_parameters = {
         **{
-            "axis_1": ("Axis 1", "float"),
-            "semi_axis_1": ("Semi-Axis 1", "float"),
-            "axis_2": ("Axis 2", "float"),
-            "axis_3": ("Axis 3", "float"),
-            "rot_axis_comp_x": ("x-component rotation axis", "float"),
-            "rot_axis_comp_y": ("y-component rotation axis", "float"),
-            "rot_axis_comp_z": ("z-component rotation axis", "float"),
-            "angle": ("Rotation angle", "float"),
-            "ratio_12": ("Ratio a1/a2", "float"),
-            "ratio_21": ("Ratio a2/a1", "float"),
-            "ratio_13": ("Ratio a1/a3", "float"),
-            "ratio_32": ("Ratio a3/a2", "float"),
-            "ratio_321": ("Ratio a3/a1 and a2/a1", "float"),
-            "p_3": ("Angle a1 makes with XY", "float"),
-            "phi_z": ("Angle that the projection of a1 in XY makes with Y", "float"),
+            "axis_1": (
+                "Axis 1",
+                lambda axis_1, rve_dims: min(rve_dims) / 2 > axis_1 > 0,
+            ),
+            "semi_axis_1": (
+                "Semi-Axis 1",
+                lambda semi_axis_1, rve_dims: min(rve_dims) / 4 > semi_axis_1 > 0,
+            ),
+            "axis_2": (
+                "Axis 2",
+                lambda axis_2, rve_dims: min(rve_dims) / 2 > axis_2 > 0,
+            ),
+            "axis_3": (
+                "Axis 3",
+                lambda axis_3, rve_dims: min(rve_dims) / 2 > axis_3 > 0,
+            ),
+            "rot_axis_comp_x": (
+                "x-component rotation axis",
+                lambda rot_axis_comp_x, rve_dims: True,
+            ),
+            "rot_axis_comp_y": (
+                "y-component rotation axis",
+                lambda rot_axis_comp_y, rve_dims: True,
+            ),
+            "rot_axis_comp_z": (
+                "z-component rotation axis",
+                lambda rot_axis_comp_z, rve_dims: True,
+            ),
+            "angle": ("Rotation angle", lambda rot_axis_comp_y, rve_dims: True),
+            "ratio_12": ("Ratio a1/a2", lambda ratio_12, rve_dims: ratio_12 >= 1),
+            "ratio_21": ("Ratio a2/a1", lambda ratio_21, rve_dims: ratio_21 <= 1),
+            "ratio_13": ("Ratio a1/a3", lambda ratio_13, rve_dims: ratio_13 >= 1),
+            "ratio_32": ("Ratio a3/a2", lambda ratio_31, rve_dims: ratio_31 <= 1),
+            "ratio_321": (
+                "Ratio a3/a1 and a2/a1",
+                lambda ratio_321, rve_dims: ratio_321 <= 1,
+            ),
+            "p_3": ("Angle a1 makes with XY", lambda rot_axis_comp_y, rve_dims: True),
+            "phi_z": (
+                "Angle that the projection of a1 in XY makes with Y",
+                lambda rot_axis_comp_y, rve_dims: True,
+            ),
         },
         **Particle.possible_parameters,
     }
@@ -140,6 +167,7 @@ class Ellipsoid(Particle):
         rve_dims: list
             List containing the dimensions of the microstructure in each direction
         """
+        self.check_if_descriptor_values_are_valid(descriptors, rve_dims)
         if "axis_1" in descriptors and "axis_2" in descriptors and "axis_3":
             # All axis were supplied
             axis_1 = descriptors["axis_1"]

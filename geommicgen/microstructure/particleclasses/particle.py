@@ -46,8 +46,11 @@ class Particle(abc.ABC):
     """
 
     possible_parameters = {
-        "n": ("Number of particles", "int"),
-        "vf": ("Volume fraction", "float"),
+        "n": (
+            "Number of particles",
+            lambda n, rve_dims: isinstance(n, int) and n > 0,
+        ),
+        "vf": ("Volume fraction", lambda vf, rve_dims: 0 < vf < 1),
     }
     acceptable_descriptions = [set()]
 
@@ -74,6 +77,19 @@ class Particle(abc.ABC):
         self._radius = None
         self._volume = None
         self.delta = 0
+
+    def check_if_descriptor_values_are_valid(self, descriptors, rve_dims):
+        """Check if the descriptor values are valid."""
+        for descriptor, descriptor_value in descriptors.items():
+            if descriptor in self.__class__.possible_parameters:
+                if not self.__class__.possible_parameters[descriptor][1](
+                    descriptor_value, rve_dims
+                ):
+                    raise ValueError(
+                        "{0} is not an allowable value for descriptor {1}.".format(
+                            descriptor_value, descriptor
+                        )
+                    )
 
     @property
     @abc.abstractmethod
