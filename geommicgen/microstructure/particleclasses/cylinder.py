@@ -5,7 +5,7 @@ from typing import Union
 import numpy as np
 
 import microstructure.particleclasses.sphere as sph_cls
-from .particle import Particle
+from .particle import Particle, MINIMUM_SIZE
 
 
 class Cylinder(Particle):
@@ -50,11 +50,11 @@ class Cylinder(Particle):
         **{
             "r_cyl": (
                 "Cylinder Radius",
-                lambda r_cyl, rve_dims: min(rve_dims) / 4 > r_cyl > 0,
+                lambda r_cyl, rve_dims: min(rve_dims) / 4 > r_cyl > MINIMUM_SIZE / 2,
             ),
             "length": (
                 "Cylinder Length",
-                lambda length, rve_dims: min(rve_dims) / 2 > length > 0,
+                lambda length, rve_dims: min(rve_dims) / 2 > length > MINIMUM_SIZE,
             ),
             "azimuth_angle": ("Azimuthal angle", lambda azimuth_angle, rve_dims: True),
             "polar_angle": ("Polar angle", lambda polar_angle, rve_dims: True),

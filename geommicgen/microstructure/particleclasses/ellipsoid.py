@@ -6,7 +6,7 @@ import numpy as np
 from scipy import integrate
 
 import microstructure.particleclasses.cylinder as cyl_cls
-from .particle import Particle
+from .particle import Particle, MINIMUM_SIZE
 
 
 class Ellipsoid(Particle):
@@ -59,19 +59,21 @@ class Ellipsoid(Particle):
         **{
             "axis_1": (
                 "Axis 1",
-                lambda axis_1, rve_dims: min(rve_dims) / 2 > axis_1 > 0,
+                lambda axis_1, rve_dims: min(rve_dims) / 2 > axis_1 > MINIMUM_SIZE,
             ),
             "semi_axis_1": (
                 "Semi-Axis 1",
-                lambda semi_axis_1, rve_dims: min(rve_dims) / 4 > semi_axis_1 > 0,
+                lambda semi_axis_1, rve_dims: min(rve_dims) / 4
+                > semi_axis_1
+                > MINIMUM_SIZE / 2,
             ),
             "axis_2": (
                 "Axis 2",
-                lambda axis_2, rve_dims: min(rve_dims) / 2 > axis_2 > 0,
+                lambda axis_2, rve_dims: min(rve_dims) / 2 > axis_2 > MINIMUM_SIZE,
             ),
             "axis_3": (
                 "Axis 3",
-                lambda axis_3, rve_dims: min(rve_dims) / 2 > axis_3 > 0,
+                lambda axis_3, rve_dims: min(rve_dims) / 2 > axis_3 > MINIMUM_SIZE,
             ),
             "rot_axis_comp_x": (
                 "x-component rotation axis",

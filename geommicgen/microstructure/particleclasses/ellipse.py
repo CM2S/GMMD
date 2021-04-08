@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .particle import Particle
+from .particle import Particle, MINIMUM_SIZE
 
 
 class Ellipse(Particle):
@@ -56,11 +56,15 @@ class Ellipse(Particle):
         **{
             "major_axis": (
                 "Major axis",
-                lambda major_axis, rve_dims: min(rve_dims) / 2 > major_axis > 0,
+                lambda major_axis, rve_dims: min(rve_dims) / 2
+                > major_axis
+                > MINIMUM_SIZE,
             ),
             "minor_axis": (
                 "Minor axis",
-                lambda minor_axis, rve_dims: min(rve_dims) / 2 > minor_axis > 0,
+                lambda minor_axis, rve_dims: min(rve_dims) / 2
+                > minor_axis
+                > MINIMUM_SIZE,
             ),
             "angle": ("Angle", lambda angle, rve_dims: True),
             "eccentricity": (

@@ -6,7 +6,7 @@ import numpy as np
 
 import microstructure.particleclasses.cylinder as cyl_cls
 from .ellipsoid import Ellipsoid
-from .particle import Particle
+from .particle import Particle, MINIMUM_SIZE
 
 
 class Sphere(Ellipsoid):
@@ -30,10 +30,13 @@ class Sphere(Ellipsoid):
 
     possible_parameters = {
         **{
-            "r": ("Radius", lambda r, rve_dims: 0 < r < min(rve_dims) / 4),
+            "r": (
+                "Radius",
+                lambda r, rve_dims: MINIMUM_SIZE / 2 < r < min(rve_dims) / 4,
+            ),
             "volume": (
                 "Volume per particle",
-                lambda volume, rve_dims: 0
+                lambda volume, rve_dims: 4 / 3 * np.pi * (MINIMUM_SIZE / 2) ** 3
                 < volume
                 < 4 / 3 * np.pi * (min(rve_dims) / 4) ** 3,
             ),

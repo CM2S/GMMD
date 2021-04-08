@@ -1,4 +1,4 @@
-from .particle import Particle, Line, Point, Matrix
+from .particle import Particle, Line, Point, Matrix, MINIMUM_SIZE
 
 from .cylinder import Cylinder
 

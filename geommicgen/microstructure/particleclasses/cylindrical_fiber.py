@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from microstructure.particleclasses import Disk, Particle
+from microstructure.particleclasses import Disk, Particle, MINIMUM_SIZE
 
 
 class CylindricalFiber(Disk):
@@ -30,10 +30,15 @@ class CylindricalFiber(Disk):
 
     possible_parameters = {
         **{
-            "r": ("Radius", lambda r, rve_dims: 0 < r < min(rve_dims) / 4),
+            "r": (
+                "Radius",
+                lambda r, rve_dims: MINIMUM_SIZE / 2 < r < min(rve_dims) / 4,
+            ),
             "area": (
                 "Area per particle",
-                lambda area, rve_dims: 0 < area < np.pi * (min(rve_dims) / 4) ** 2,
+                lambda area, rve_dims: np.pi * (MINIMUM_SIZE / 2) ** 2
+                < area
+                < np.pi * (min(rve_dims) / 4) ** 2,
             ),
             "direction": (
                 "Fiber direction",

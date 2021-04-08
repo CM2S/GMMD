@@ -13,6 +13,9 @@ import numpy as np
 from scipy.optimize import fmin
 
 
+MINIMUM_SIZE = 0
+
+
 class Particle(abc.ABC):
     """
     This is the class for particles.
