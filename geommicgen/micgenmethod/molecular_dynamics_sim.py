@@ -188,6 +188,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.thermic_energy_history = []
         self.all_dt = []
         self.status = False
+        self._original_box = None
 
     def generate_microstructure(self, microstructure_sample):
         """
@@ -520,10 +521,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
             List of the particles inside the simulation box.
         """
         real_vf = self.microstructure_sample.volume_fraction
-        for i_particle in particles:
-            # Running through all the particles
-            i_particle.dilate(self.min_distance / 2)
-            # Dilate i_particle
+        self.dilate_all_particles(particles)
+        self.resize_sim_box_and_all_particles_inside(particles, "unitary")
         virtual_vf = self.microstructure_sample.volume_fraction
         if self.min_distance != 0:
             print_funcs.print_virtual_total_volume_fraction(
@@ -532,26 +531,58 @@ class MolecularDynamicsSimulation(GenerationMethod):
         try:
             yield
         finally:
-            for i_particle in particles:
-                # Running through all the particles
-                i_particle.contract(self.min_distance / 2)
-                # contract i_particle
             if self.thermostat.__class__.__name__ == "MultiTemperatureIsokineticScheme":
                 self.thermostat.equilibration_steps.append(self.thermostat.jump_list)
             if not self.save_history:
                 # If the complete motion was not saved
-                for i_particle_ind, _ in enumerate(particles):
+                for i_particle_ind, i_particle in enumerate(particles):
 
                     self.position_center_history[i_particle_ind].append(
                         i_particle.position_center.flatten()
                     )
                     # Saving the final configuration
+            self.contract_all_particles(particles)
+            self.resize_sim_box_and_all_particles_inside(particles, "original")
             if self.offset:
                 offset = self.compute_rve_offset(particles, self.box)
                 for i_particle in particles:
                     # Running through all the particles
                     i_particle.position_center -= np.array(offset)[: len(self.box)]
                     # Applying the offset to the particles
+
+    def contract_all_particles(self, particles):
+        """Contract all the particles in the simulation box."""
+        for i_particle in particles:
+            # Running through all the particles
+            i_particle.contract(self.min_distance / 2)
+            # Dilate i_particle
+
+    def dilate_all_particles(self, particles):
+        """Dilate all the particles in the simulation box."""
+        for i_particle in particles:
+            # Running through all the particles
+            i_particle.dilate(self.min_distance / 2)
+            # Dilate i_particle
+
+    def resize_sim_box_and_all_particles_inside(self, particles, size):
+        """Resize the simulation box and all the particles inside."""
+        if size == "unitary":
+            if self._original_box is None:
+                self._original_box = list(self.box)
+                self.box = [1 for _ in self._original_box]
+                rescale_parameter = 1 / min(self._original_box)
+                for i_particle in particles:
+                    i_particle.rescale(rescale_parameter)
+        elif size == "original":
+            if self._original_box is not None:
+                rescale_parameter = min(self._original_box)
+                self.box = list(self._original_box)
+                self._original_box = None
+                for i_particle in particles:
+                    i_particle.rescale(rescale_parameter)
+
+        else:
+            raise ValueError("Size choice for simulation box unknown: {0}".format(size))
 
     def set_initial_temp(self, particles):
         """Set the intial temperature if it was not already specified.
