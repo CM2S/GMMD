@@ -2049,3 +2049,86 @@ class TestParticleLine(unittest.TestCase):
         )
         print(intersection, overlap_length)
         self.assertTrue(np.abs(overlap_length) < 1e-4)
+
+
+class ParticleRescaleTest(unittest.TestCase):
+    def assert_position(self, particle, position):
+        for i, j in zip(particle.position_center, position):
+            self.assertAlmostEqual(i, j)
+
+    def test_cylinder(self):
+        r_cyl_og = 2
+        r_cyl_after = 1
+        length_og = 1
+        length_after = 0.5
+        position_og = np.array([1.0, 2, 3])
+        position_after = np.array([0.5, 1, 1.5])
+        particle = Cylinder(
+            "1",
+            {
+                "r_cyl": r_cyl_og,
+                "length": length_og,
+                "azimuth_angle": 0,
+                "polar_angle": 0,
+                "n": 1,
+            },
+            [10, 10, 10],
+        )
+        particle.position_center = position_og
+        particle.rescale(0.5)
+        self.assertAlmostEqual(particle.r_cyl, r_cyl_after)
+        self.assertAlmostEqual(particle.length, length_after)
+        self.assert_position(particle, position_after)
+
+    def test_ellipse(self):
+        major_axis_og = 2
+        major_axis_after = 4
+        minor_axis_og = 1.5
+        minor_axis_after = 3
+        position_og = np.array([1.0, 2])
+        position_after = np.array([2, 4])
+        particle = Ellipse(
+            "1",
+            {
+                "major_axis": major_axis_og,
+                "minor_axis": minor_axis_og,
+                "angle": 0,
+                "n": 1,
+            },
+            [10, 10],
+        )
+        particle.position_center = position_og
+        particle.rescale(2)
+        self.assertAlmostEqual(particle.major_axis, major_axis_after)
+        self.assertAlmostEqual(particle.minor_axis, minor_axis_after)
+        self.assert_position(particle, position_after)
+
+    def test_ellipsoid(self):
+        axis_1_og = 2
+        axis_1_after = 4
+        axis_2_og = 1.5
+        axis_2_after = 3
+        axis_3_og = 1.5
+        axis_3_after = 3
+        position_og = np.array([1.0, 2, 1])
+        position_after = np.array([2, 4, 2.0])
+        particle = Ellipsoid(
+            "1",
+            {
+                "axis_1": axis_1_og,
+                "axis_2": axis_2_og,
+                "axis_3": axis_3_og,
+                "rot_axis_comp_x": 1.0,
+                "rot_axis_comp_y": 1.0,
+                "rot_axis_comp_z": 1.0,
+                "angle": 0,
+                "n": 1,
+            },
+            [10, 10, 10],
+        )
+        particle.position_center = position_og
+        particle.rescale(2)
+        self.assertAlmostEqual(particle.axis_1, axis_1_after)
+        self.assertAlmostEqual(particle.axis_2, axis_2_after)
+        self.assertAlmostEqual(particle.axis_3, axis_3_after)
+        self.assert_position(particle, position_after)

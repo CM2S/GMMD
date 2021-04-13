@@ -1012,3 +1012,10 @@ class Ellipsoid(Particle):
             intersection_length = 0
             unit_vector = np.array([0, 0, 0])
         return intersection_length, unit_vector
+
+    def rescale(self, rescale_parameter):
+        """Rescale all size parameters and the position according to *rescale_parameter*."""
+        self.axis_1 *= rescale_parameter
+        self.axis_2 *= rescale_parameter
+        self.axis_3 *= rescale_parameter
+        self.position_center *= rescale_parameter

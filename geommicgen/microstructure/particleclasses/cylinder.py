@@ -290,6 +290,12 @@ class Cylinder(Particle):
         self.delta += distance
         # Dilating the particle size adding the minimum distance to the semi-axis
 
+    def rescale(self, rescale_parameter):
+        """Rescale all size parameters and the position according to *rescale_parameter*."""
+        self.r_cyl *= rescale_parameter
+        self.length *= rescale_parameter
+        self.position_center *= rescale_parameter
+
     def intersection_cylinder_cylinder(
         self: Cylinder, other_cylinder: Cylinder, box: list
     ) -> Union[bool, float]:

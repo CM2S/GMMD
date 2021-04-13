@@ -140,12 +140,12 @@ class TestRVENormalization(unittest.TestCase):
 
         self.mdsim.box = [2, 2]
         particles = [MagicMock(), MagicMock()]
-        self.mdsim.resize_sim_box_and_all_particles_inside(particles, "unitary")
+        self.mdsim.resize_sim_box_and_all_particles_inside(particles, size="unitary")
         self.assertEqual(self.mdsim._original_box, [2, 2])
         self.assertEqual(self.mdsim.box, [1, 1])
         for particle in particles:
             particle.rescale.assert_called_with(1 / 2)
-        self.mdsim.resize_sim_box_and_all_particles_inside(particles, "original")
+        self.mdsim.resize_sim_box_and_all_particles_inside(particles, size="original")
         self.assertEqual(self.mdsim.box, [2, 2])
         for particle in particles:
             particle.rescale.assert_called_with(2)
