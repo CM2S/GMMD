@@ -45,6 +45,12 @@ class Phase:
     particles: list(`.Particles`)
         List of particles belonging to the phase.
 
+    inner_phase: bool
+        True if it an inner phase of another phase. False otherwise.
+
+    outer_phase: `.Phase`
+        If it is an inner phase, *self.outer_phase* is its outer phase.
+
     Class Attributes
     ----------------
     phase_types: dict
@@ -279,7 +285,7 @@ class PhaseDescriptor(abc.ABC):
 
 class SpecifiedValue(PhaseDescriptor):
     """
-    This is the class for phase descriptors with a fixed value.
+    This is the class for phase descriptors with a specified value.
 
     Attributes
     ----------
@@ -300,7 +306,7 @@ class SpecifiedValue(PhaseDescriptor):
 
     def __init__(self, name, vals):
         """
-        Initialize for the FixedValue class object.
+        Initialize for the SpecifiedValue class object.
 
         Parameters
         ----------
@@ -493,7 +499,8 @@ class UniformDistribution(PhaseDescriptor):
         """
         if low > high:
             raise ValueError(
-                "Descriptor {0}: For a uniform distribution the lower bound must be smaller than the upper bound.".format(
+                """Descriptor {0}: For a uniform distribution the lower bound must be
+                smaller than the upper bound.""".format(
                     name
                 )
             )
@@ -509,17 +516,19 @@ class UniformDistribution(PhaseDescriptor):
 
 
 class VonMisesDistribution(PhaseDescriptor):
-    ## FIXME:  Update docs
     """
     This is the class for phase descriptors with a von mises distribution.
 
     Attributes
     ----------
-    low: float
-        Lower bound of the uniform distribution.
+    loc: float
+        Translation parameter of the Von Mises distibution.
 
-    high: float
-        Upper bound of the uniform distribution.
+    kappa: float
+        Dispersion parameters of the Von Mises distribution.
+
+    scale: float
+        Scale parameters of the Von Mises distribution.
 
     Class Attributes
     ----------------
@@ -538,11 +547,14 @@ class VonMisesDistribution(PhaseDescriptor):
         name: str
             Name of the descriptor
 
-        low: float
-            Lower bound of the uniform distribution.
+        loc: float
+            Translation parameter of the Von Mises distibution.
 
-        high: float
-            Upper bound of the uniform distribution.
+        kappa: float
+            Dispersion parameters of the Von Mises distribution.
+
+        scale: float
+            Scale parameters of the Von Mises distribution.
         """
 
         self.loc = loc
