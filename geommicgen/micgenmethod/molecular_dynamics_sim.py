@@ -16,6 +16,7 @@ from scipy.stats import hmean
 
 # pylint: disable=import-error
 import errors.error_classes as errors
+import iofuncs.file_handling as fileio
 import iofuncs.printing as print_funcs
 from micgenmethod.microstructure_gen_method import GenerationMethod
 from micgenmethod.integration_methods import VerletSync
@@ -680,6 +681,12 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     self.total_overlap,
                     self.relative_energy,
                     self.kinetic_energy,
+                )
+                fileio.save_mic(
+                    fileio.SAMPLE_DIR,
+                    self.microstructure_sample,
+                    None,
+                    print_out=False,
                 )
                 if self.step > 500 and all(
                     (

@@ -45,6 +45,7 @@ def run_program():
     results_folder = fileio.create_design_point_results_directory(
         input_file_dir, input_file_name
     )
+    fileio.RESULTS_FOLDER = results_folder
     fileio.copy_input_file(input_file_path, results_folder)
 
     if previous_mic_path is not None:
@@ -118,6 +119,7 @@ def run_program():
             sample_dir, sample_file_path = fileio.create_sample_results_directory(
                 results_folder
             )
+            fileio.SAMPLE_DIR = sample_dir
             # Producing the number of samples required
 
             print_funcs.SCREEN_DIR = sample_dir
@@ -290,15 +292,13 @@ def run_program():
             finally:
                 # Use in data-driven framework
                 if top_level_reader.all_options["save_min"]:
-                    fileio.save_mic(sample_file_path, current_sample, None)
+                    fileio.save_mic(sample_dir, current_sample, None)
                     fileio.save_status(
                         sample_dir, current_sample, current_mic_generator
                     )
 
                 else:
-                    fileio.save_mic(
-                        sample_file_path, current_sample, current_mic_generator
-                    )
+                    fileio.save_mic(sample_dir, current_sample, current_mic_generator)
                 # Saving the RVE properties
 
             try:

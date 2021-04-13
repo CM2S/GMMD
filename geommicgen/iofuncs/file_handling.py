@@ -14,6 +14,9 @@ from micgenmethod.mic_from_imagej import generate_microstructure_from_csv
 from micgenmethod.mic_from_file import generate_microstructure_from_txt
 from .printing import print_output
 
+SAMPLE_DIR = ""
+RESULTS_FOLDER = ""
+
 
 def create_sample_results_directory(dp_dir):
     """
@@ -138,16 +141,20 @@ def load_previous_sample(previous_mic_path):
     return current_sample, current_mic_generator
 
 
-def save_mic(sample_file_path, current_sample, current_mic_generator):
+def save_mic(sample_dir, current_sample, current_mic_generator, print_out=True):
     """Save microstructure usign pickle."""
+    if os.path.exists(os.path.join(sample_dir, "mic.mic")):
+        # Repeat while the folder names already exists
+        os.remove(os.path.join(sample_dir, "mic.mic"))
     pickle.dump(
         {
             "microstructure": current_sample,
             "generation_method": current_mic_generator,
         },
-        open(sample_file_path + ".mic", "wb"),
+        open(os.path.join(sample_dir, "mic.mic"), "wb"),
     )
-    print_output(sample_file_path + ".mic")
+    if print_out:
+        print_output(os.path.join(sample_dir, "mic.mic"))
     # Saving the configuration for later use
 
 
