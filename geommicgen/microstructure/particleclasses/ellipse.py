@@ -59,19 +59,22 @@ class Ellipse(Particle):
                 lambda major_axis, rve_dims: min(rve_dims) / 2
                 > major_axis
                 > MINIMUM_SIZE,
+                "float",
             ),
             "minor_axis": (
                 "Minor axis",
                 lambda minor_axis, rve_dims: min(rve_dims) / 2
                 > minor_axis
                 > MINIMUM_SIZE,
+                "float",
             ),
-            "angle": ("Angle", lambda angle, rve_dims: True),
+            "angle": ("Angle", lambda angle, rve_dims: True, "float"),
             "eccentricity": (
                 "Eccentricity",
                 lambda eccentricity, rve_dims: eccentricity >= 0,
+                "float",
             ),
-            "ratio": ("Ratio a/b", lambda ratio, rve_dims: ratio >= 1),
+            "ratio": ("Ratio a/b", lambda ratio, rve_dims: ratio >= 1, "float"),
         },
         **Particle.possible_parameters,
     }

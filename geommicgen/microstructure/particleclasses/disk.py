@@ -33,12 +33,14 @@ class Disk(Ellipse):
             "r": (
                 "Radius",
                 lambda r, rve_dims: MINIMUM_SIZE / 2 < r < min(rve_dims) / 4,
+                "float",
             ),
             "area": (
                 "Area per particle",
                 lambda area, rve_dims: np.pi * (MINIMUM_SIZE / 2) ** 2
                 < area
                 < np.pi * (min(rve_dims) / 4) ** 2,
+                "float",
             ),
         },
     }

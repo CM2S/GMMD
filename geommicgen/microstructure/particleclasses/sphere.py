@@ -33,12 +33,14 @@ class Sphere(Ellipsoid):
             "r": (
                 "Radius",
                 lambda r, rve_dims: MINIMUM_SIZE / 2 < r < min(rve_dims) / 4,
+                "float",
             ),
             "volume": (
                 "Volume per particle",
                 lambda volume, rve_dims: 4 / 3 * np.pi * (MINIMUM_SIZE / 2) ** 3
                 < volume
                 < 4 / 3 * np.pi * (min(rve_dims) / 4) ** 3,
+                "float",
             ),
         },
         **Particle.possible_parameters,

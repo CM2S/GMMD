@@ -52,8 +52,9 @@ class Particle(abc.ABC):
         "n": (
             "Number of particles",
             lambda n, rve_dims: isinstance(n, int) and n > 0,
+            "int",
         ),
-        "vf": ("Volume fraction", lambda vf, rve_dims: 0 < vf < 1),
+        "vf": ("Volume fraction", lambda vf, rve_dims: 0 < vf < 1, "float"),
     }
     acceptable_descriptions = [set()]
 
