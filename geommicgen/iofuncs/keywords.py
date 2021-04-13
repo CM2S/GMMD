@@ -14,10 +14,9 @@ import numpy as np
 # pylint: disable=relative-beyond-top-level
 import microstructure.particleclasses as part_cls
 import microstructure.phase as phase
-import errors.error_classes as error_cls
 
 
-class Keyword(object):
+class Keyword:
     """This is the class for keywords used in the input file.
 
     Attributes
@@ -25,7 +24,7 @@ class Keyword(object):
     name: str
         Name of the keyword.
 
-    type: optional, {'float', 'int', 'bool', 'str', 'none'}
+    type_str: optional, {'float', 'int', 'bool', 'str', 'none'}
         Type of the value corresponding to the keyword. 'none' will set the value of the
         keyword as its name.
 
@@ -36,9 +35,9 @@ class Keyword(object):
         keywords.
     """
 
-    def __init__(self, name, type=None, **kwargs):
+    def __init__(self, name, **kwargs):
         """
-        Constructor for the Keyword class.
+        Initialize an instance of the Keyword class.
 
         Parameters
         ----------
@@ -49,7 +48,7 @@ class Keyword(object):
             'MIC_GEN_DESCRIPTORS', 'MESH_OPTIONS'}
             Group to wich the keyword belongs. Used for storage in the right variable.
 
-        type: str, optional
+        type_str: str, optional
             Type of the variable
 
         Keyword Arguments
@@ -58,13 +57,13 @@ class Keyword(object):
             Default value for the keyword
         """
         self.name = name
-        self.type = type
+        self.type_str = kwargs.get("type_str", None)
 
-    def readValue(self):
+    def read_value(self):
         """Read the value of the keyword."""
         line = Keyword.input_reader.input[Keyword.input_reader.i_line]
         try:
-            if self.type == "float":
+            if self.type_str == "float":
                 value_str = line.split()[1:]
                 if len(value_str) == 1:
                     final_val = float(value_str[0])
@@ -75,7 +74,7 @@ class Keyword(object):
                     value_str[-1] = value_str[-1][:-1]
                     # Remove squre brackets from vector
                     final_val = np.array([float(val) for val in value_str])
-            elif self.type == "int":
+            elif self.type_str == "int":
                 value_str = line.split()[1:]
                 if len(value_str) == 1:
                     final_val = int(value_str[0])
@@ -90,7 +89,7 @@ class Keyword(object):
                         final_val.append(
                             ([int(val) for val in i_str_list if val != " "])
                         )
-            elif self.type == "bool":
+            elif self.type_str == "bool":
                 value_str = line.split()[1]
                 if value_str == "True":
                     final_val = True
@@ -98,10 +97,10 @@ class Keyword(object):
                     final_val = False
                 else:
                     raise ValueError
-            elif self.type == "str":
+            elif self.type_str == "str":
                 value_str = line.split()[1]
                 final_val = value_str
-            elif self.type == "none":
+            elif self.type_str == "none":
                 final_val = self.name
             else:
                 value_str = line.split()[1]
@@ -114,16 +113,17 @@ class Keyword(object):
         Keyword.input_reader.i_line += 1
         return final_val
 
-    def isIn(self, line):
+    def is_in(self, line):
         """Check if the first string in the *line* is the keyword *self*."""
+        is_in = line.split()[0].lower() == self.name.lower()
 
-        isIn = line.split()[0].lower() == self.name.lower()
-
-        return isIn
+        return is_in
 
 
 class KeywordTypeA(Keyword):
-    """This the class for keywords formatted in the input file as::
+    """This the class for keywords of the type A.
+
+        Keyword of type A formatted in the input file as:
 
         keyword.name val
 
@@ -156,9 +156,9 @@ class KeywordTypeA(Keyword):
 
         if "default_value" in kwargs:
             self.default_value = kwargs["default_value"]
-            self.storeValue(self.default_value)
+            self.store_value(self.default_value)
 
-    def storeValue(self, val):
+    def store_value(self, val):
         """Store the value of the keyword."""
         Keyword.input_reader.all_options.setdefault(self.keyword_group.lower(), {})
         Keyword.input_reader.all_options[self.keyword_group.lower()][
@@ -167,7 +167,9 @@ class KeywordTypeA(Keyword):
 
 
 class KeywordTypeB(Keyword):
-    """This the class for keywords formatted in the input file as::
+    """This the class for keywords of the type B.
+
+    Keyword of type B are formatted in the input file as:
 
         keyword.name val
 
@@ -190,15 +192,17 @@ class KeywordTypeB(Keyword):
 
         if "default_value" in kwargs:
             self.default_value = kwargs["default_value"]
-            self.storeValue(self.default_value)
+            self.store_value(self.default_value)
 
-    def storeValue(self, value):
+    def store_value(self, value):
         """Store the value of the keyword."""
         Keyword.input_reader.all_options[self.name.lower()] = value
 
 
 class KeywordTypeC(Keyword):
-    """This the class for keywords formatted in the input file as::
+    """This the class for keywords of the type C.
+
+        Keyword of type C formatted in the input file as:
 
         keyword.name
         header_key_1 val
@@ -243,28 +247,28 @@ class KeywordTypeC(Keyword):
         self.header_keys = header_keys
         self.sub_keys = sub_keys
 
-    def readValue(self):
-        """Read the values of the *self* keyword. """
+    def read_value(self):
+        """Read the values of the *self* keyword."""
         options = {}
         Keyword.input_reader.i_line += 1
         # Moving over the line containing top level keyword
-        Keyword.input_reader.ignoreComments()
+        Keyword.input_reader.ignore_comments()
         # Ignore comments
         while Keyword.input_reader.i_line < len(Keyword.input_reader.input):
             line = Keyword.input_reader.input[Keyword.input_reader.i_line]
             # Current line
             if all(
                 [
-                    not keyword.isIn(line)
+                    not keyword.is_in(line)
                     for keyword in self.header_keys.union(self.sub_keys)
                 ]
             ):
                 # If the current line doesn't contain a known keyword, exit the block
                 break
             for header_keyword in self.header_keys:
-                if header_keyword.isIn(line):
+                if header_keyword.is_in(line):
                     keyword_already_supplied = set()
-                    current_header = header_keyword.readValue()
+                    current_header = header_keyword.read_value()
                     if current_header in options:
                         raise ValueError(
                             "The {0} group {1} was specified twice.".format(
@@ -274,7 +278,7 @@ class KeywordTypeC(Keyword):
                     options[current_header] = {}
                     break
             for sub_keyword in self.sub_keys:
-                if sub_keyword.isIn(line):
+                if sub_keyword.is_in(line):
                     if sub_keyword in keyword_already_supplied:
                         raise ValueError(
                             "The keyword {0} is supplied twice.".format(
@@ -282,21 +286,23 @@ class KeywordTypeC(Keyword):
                             )
                         )
                     keyword_already_supplied.add(sub_keyword)
-                    value = sub_keyword.readValue()
+                    value = sub_keyword.read_value()
                     options[current_header][sub_keyword.name.lower()] = value
                     break
-            Keyword.input_reader.ignoreComments()
+            Keyword.input_reader.ignore_comments()
             # Ignore comments
 
         return options
 
-    def storeValue(self, val):
+    def store_value(self, val):
         """Store the value of the keyword."""
         Keyword.input_reader.all_options[self.name.lower()] = val
 
 
 class TopLevelReader:
-    """This is the class for the reader that keeps of where we are in the input file and
+    """Docstring for TopLevelReader class.
+
+    This is the class for the reader that keeps of where we are in the input file and
         looks for top level keywords.
 
     Attributes
@@ -327,7 +333,7 @@ class TopLevelReader:
         self.top_level_keywords = set()
         Keyword.input_reader = self
 
-    def ignoreComments(self):
+    def ignore_comments(self):
         """Ignore comments, moving to the next line that doesn't contain a commment."""
         while True:
             if self.i_line >= len(self.input):
@@ -344,10 +350,9 @@ class TopLevelReader:
                 self.i_line += 1
                 # Move to the next line
                 continue
-            else:
-                break
+            break
 
-    def checkTopLevelKeywords(self):
+    def check_top_level_keywords(self):
         """Check if the current line contains a keyword, and read it is the case."""
         current_line_keyword = False
         # Flag for the presence of a keyword in the current line
@@ -355,12 +360,12 @@ class TopLevelReader:
         # Current line
         for possible_keyword in self.top_level_keywords:
             # Checking what is the current keyword
-            if possible_keyword.isIn(line):
+            if possible_keyword.is_in(line):
                 current_line_keyword = True
                 # General keyword has been found
-                val = possible_keyword.readValue()
+                val = possible_keyword.read_value()
                 # Read the value
-                possible_keyword.storeValue(val)
+                possible_keyword.store_value(val)
                 # Store the value
                 break
         if not current_line_keyword:
@@ -371,33 +376,35 @@ class TopLevelReader:
                 )
             )
 
-    def moveAlong(self):
+    def move_along(self):
         """Move alogn the input file."""
-        self.ignoreComments()
+        self.ignore_comments()
         while self.i_line < len(self.input):
             # Remaain inside the file
-            self.checkTopLevelKeywords()
-            self.ignoreComments()
+            self.check_top_level_keywords()
+            self.ignore_comments()
 
-    def readInputFile(self, input_file_path):
+    def read_input_file(self, input_file_path):
         """Read the input file at *input_file_path*."""
-        with open(input_file_path, "r") as input:
-            self.input = input.readlines()
+        with open(input_file_path, "r") as input_file:
+            self.input = input_file.readlines()
             # Saving the contents of the input file
             self.i_line = 0
             # Initializing the line counter
-            self.moveAlong()
+            self.move_along()
             # Move along the file
 
-    def addTopLevelKeyword(self, *args):
+    def add_top_level_keyword(self, *args):
         """Add a top level keyword to the input reader."""
         for keyword in args:
             self.top_level_keywords.add(keyword)
             self.all_keywords[keyword.name] = keyword
 
 
-def generateAllPossibleKeywordsFromParticleAttributes():
+def generate_all_possible_keywords_from_particle_attributes():
     """
+    Generate all possible keywords.
+
     Generate all possible keywords from the attributes of the `.Particle` class and
     subclasses.
     """
@@ -416,274 +423,285 @@ def generateAllPossibleKeywordsFromParticleAttributes():
     keyword_set = set()
     for descriptor, (_, _, var_type) in part_cls.Particle.possible_parameters.items():
         # Volume fraction and number of particles
-        keyword_set.add(Keyword(descriptor, type=var_type))
+        keyword_set.add(Keyword(descriptor, type_str=var_type))
     for particle_type in all_particle_sub_classes:
         for descriptor, (_, _, var_type) in particle_type.possible_parameters.items():
             if descriptor in part_cls.Particle.possible_parameters:
                 continue
-            keyword_set.add(Keyword(descriptor, type=var_type))
-            keyword_set.add(Keyword(descriptor + "_distribution", type="str"))
+            keyword_set.add(Keyword(descriptor, type_str=var_type))
+            keyword_set.add(Keyword(descriptor + "_distribution", type_str="str"))
             for distribution in all_phase_descriptor_sub_classes:
                 for parameter in distribution.parameters:
-                    keyword_set.add(Keyword(descriptor + "_" + parameter, type="float"))
+                    keyword_set.add(
+                        Keyword(descriptor + "_" + parameter, type_str="float")
+                    )
 
     return keyword_set
 
 
 top_level_reader = TopLevelReader()
-top_level_reader.addTopLevelKeyword(
-    KeywordTypeA("Max_Residue_Per_Particle", "Mic_Gen_Parameters", type="float"),
-    KeywordTypeA("Max_Step", "Mic_Gen_Parameters", type="int"),
+
+# Generation parameters
+# ------------------------------------------------------------------------------------------
+top_level_reader.add_top_level_keyword(
+    KeywordTypeA("Max_Residue_Per_Particle", "Mic_Gen_Parameters", type_str="float"),
+    KeywordTypeA("Max_Step", "Mic_Gen_Parameters", type_str="int"),
     KeywordTypeA(
         "Max_Steps_To_Relax",
         "Mic_Gen_Parameters",
         default_value=0,
-        type="int",
+        type_str="int",
     ),
     KeywordTypeA(
         "Speed_Up_Scheme",
         "Mic_Gen_Parameters",
         default_value="Cell",
-        type="str",
+        type_str="str",
     ),
     KeywordTypeA(
         "Verlet_Factor",
         "Mic_Gen_Parameters",
-        type="float",
-        parent_keyword=("Speed_Up_Scheme", "Verlet"),
+        type_str="float",
     ),
     KeywordTypeA(
         "dt",
         "Mic_Gen_Parameters",
         default_value=0.05,
-        type="float",
+        type_str="float",
     ),
     KeywordTypeA(
         "Save_History",
         "Mic_Gen_Parameters",
         default_value=False,
-        type="bool",
+        type_str="bool",
     ),
     KeywordTypeA(
         "Type_Initial_Configuration",
         "Mic_Gen_Parameters",
         default_value="random",
-        type="str",
+        type_str="str",
     ),
     KeywordTypeA(
         "Thermostat",
         "Mic_Gen_Parameters",
         default_type="multi_temperature",
-        type="str",
+        type_str="str",
     ),
     KeywordTypeA(
         "Min_Distance",
         "Mic_Gen_Parameters",
         default_value=0,
-        type="float",
+        type_str="float",
     ),
     KeywordTypeA(
         "Initial_Temp",
         "Mic_Gen_Parameters",
         default_value=None,
-        type="float",
+        type_str="float",
     ),
     KeywordTypeA(
         "initial_vel_coeff",
         "Mic_Gen_Parameters",
         default_value=0.1,
-        type="float",
+        type_str="float",
     ),
     KeywordTypeA(
         "Min_Eq_Steps_At_Temp",
         "Mic_Gen_Parameters",
         default_value=25,
-        type="int",
+        type_str="int",
     ),
     KeywordTypeA(
         "final_overlap_check",
         "Mic_Gen_Parameters",
         default_value=False,
-        type="bool",
+        type_str="bool",
     ),
     KeywordTypeA(
         "Lowering_Temp_Criterion",
         "Mic_Gen_Parameters",
         default_value="original",
-        type="str",
+        type_str="str",
     ),
     KeywordTypeA(
         "Average_Window",
         "Mic_Gen_Parameters",
         default_value=25,
-        type="int",
+        type_str="int",
     ),
     KeywordTypeA(
         "Remesh",
         "Mic_Gen_Parameters",
         default_value=False,
-        type="bool",
+        type_str="bool",
     ),
     KeywordTypeA(
         "Damping_Coeff",
         "Mic_Gen_Parameters",
         default_value=0,
-        type="float",
+        type_str="float",
     ),
     KeywordTypeA(
         "Particle_Mass_Opt",
         "Mic_Gen_Parameters",
         default_value="volume",
-        type="str",
+        type_str="str",
     ),
     KeywordTypeA(
         "Force_Option",
         "Mic_Gen_Parameters",
         default_value="intersection_area",
-        type="str",
+        type_str="str",
     ),
     KeywordTypeA(
         "Berendsen_Coeff",
         "Mic_Gen_Parameters",
         default_value=1e-2,
-        type="float",
+        type_str="float",
     ),
     KeywordTypeA(
         "Force_Rescale",
         "Mic_Gen_Parameters",
         default_value=False,
-        type="bool",
+        type_str="bool",
     ),
     KeywordTypeA(
         "Max_Ratio_Osc",
         "Mic_Gen_Parameters",
         default_value=2,
-        type="int",
+        type_str="int",
     ),
     KeywordTypeA(
         "dt_adapt",
         "Mic_Gen_Parameters",
         default_value=True,
-        type="bool",
+        type_str="bool",
     ),
     KeywordTypeA(
         "temp_low_ratio",
         "Mic_Gen_Parameters",
         default_value=1 / 4,
-        type="float",
+        type_str="float",
     ),
     KeywordTypeA(
         "offset",
         "Mic_Gen_Parameters",
         default_value=True,
-        type="bool",
+        type_str="bool",
     ),
     KeywordTypeA(
         "fixed_seed",
         "Mic_Gen_Parameters",
         default_value=None,
-        type="int",
+        type_str="int",
     ),
-    KeywordTypeA("Dir_Previous_Mic", "Mic_Gen_Parameters", type="str"),
-    KeywordTypeA("RVE_Dimensions", "Mic_Gen_Parameters", type="float"),
+    KeywordTypeA("Dir_Previous_Mic", "Mic_Gen_Parameters", type_str="str"),
+    KeywordTypeA("RVE_Dimensions", "Mic_Gen_Parameters", type_str="float"),
 )
-# Generation parameters
 
-top_level_reader.addTopLevelKeyword(
+# Post Processing
+# ------------------------------------------------------------------------------------------
+top_level_reader.add_top_level_keyword(
     KeywordTypeA(
         "Motion_Analysis",
         "post_proc",
         default_value=False,
-        type="bool",
+        type_str="bool",
     ),
     KeywordTypeA(
         "final_config",
         "post_proc",
         default_value=False,
-        type="bool",
+        type_str="bool",
     ),
     KeywordTypeA(
         "stat_nearest_neighbor",
         "post_proc",
         default_value=False,
-        type="bool",
+        type_str="bool",
     ),
     KeywordTypeA(
         "stat_ripleys_k",
         "post_proc",
         default_value=False,
-        type="bool",
+        type_str="bool",
     ),
     KeywordTypeA(
         "stat_two_pt_corr",
         "post_proc",
         default_value=False,
-        type="bool",
+        type_str="bool",
     ),
     KeywordTypeA(
         "voronoi_analysis",
         "post_proc",
         default_value=False,
-        type="bool",
+        type_str="bool",
     ),
     KeywordTypeA(
         "voronoi_type",
         "post_proc",
         default_value="standard",
-        type="str",
+        type_str="str",
     ),
     KeywordTypeA(
         "n_surf_points",
         "post_proc",
         default_value=10,
-        type="int",
+        type_str="int",
     ),
     KeywordTypeA(
         "plot_voronoi",
         "post_proc",
         default_value=False,
-        type="bool",
+        type_str="bool",
     ),
     KeywordTypeA(
         "plot_imts",
         "post_proc",
         default_value=False,
-        type="bool",
+        type_str="bool",
     ),
 )
 
 
-top_level_reader.addTopLevelKeyword(
-    KeywordTypeB("Problem_Type", type="int"),
-    KeywordTypeB("N_DP_Samples", type="int"),
-    KeywordTypeB("save_min", type="bool", default_value=False),
+# Post Processing
+# ------------------------------------------------------------------------------------------
+top_level_reader.add_top_level_keyword(
+    KeywordTypeB("Problem_Type", type_str="int"),
+    KeywordTypeB("N_DP_Samples", type_str="int"),
+    KeywordTypeB("save_min", type_str="bool", default_value=False),
 )
-# General keywords
 
-top_level_reader.addTopLevelKeyword(
+# Phase descriptors
+# ------------------------------------------------------------------------------------------
+top_level_reader.add_top_level_keyword(
     KeywordTypeC(
         "Mic_Gen_Descriptors",
         header_keys={Keyword("Phase")},
         sub_keys={
-            Keyword("Phase_Type", type="int"),
-            Keyword("inner_phase", type="bool"),
-            Keyword("outer_phase", type="int"),
-            *generateAllPossibleKeywordsFromParticleAttributes(),
+            Keyword("Phase_Type", type_str="int"),
+            Keyword("inner_phase", type_str="bool"),
+            Keyword("outer_phase", type_str="int"),
+            *generate_all_possible_keywords_from_particle_attributes(),
         },
     )
 )
-# Phase descriptors
 
-top_level_reader.addTopLevelKeyword(
+# Mesh generation parameters
+# ------------------------------------------------------------------------------------------
+top_level_reader.add_top_level_keyword(
     KeywordTypeC(
         "Mesh_Options",
-        header_keys={Keyword("femsh", type="none"), Keyword("rgmsh", type="none")},
+        header_keys={
+            Keyword("femsh", type_str="none"),
+            Keyword("rgmsh", type_str="none"),
+        },
         sub_keys={
-            Keyword("Element_Type", type="str"),
-            Keyword("Mesh_Size", type="float"),
-            Keyword("N_Voxels_Dims", type="int"),
-            Keyword("Slice_Dir", type="int"),
+            Keyword("Element_Type", type_str="str"),
+            Keyword("Mesh_Size", type_str="float"),
+            Keyword("N_Voxels_Dims", type_str="int"),
+            Keyword("Slice_Dir", type_str="int"),
         },
     )
 )
-# Mesh generation parameters

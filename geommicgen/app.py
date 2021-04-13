@@ -39,7 +39,7 @@ def run_program():
         previous_mic_path,
     ) = fileio.get_arguments_from_command_line()
 
-    top_level_reader.readInputFile(input_file_path)
+    top_level_reader.read_input_file(input_file_path)
     # Create results directory
     # Generate corresponding mesh
     results_folder = fileio.create_design_point_results_directory(
