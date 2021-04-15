@@ -30,4 +30,4 @@ class TestUpdateIndices(unittest.TestCase):
         old_indices = [1, 3, 4, 5, 7, 9, 10, 15]
         removed_ind = [2, 4, 6, 8, 12]
         new_ind = update_indices(old_indices, removed_ind)
-        print(new_ind)
+        # print(new_ind)

@@ -51,7 +51,6 @@ class CellList(SpeedUpScheme):
         self.cell_particle_list = None
         self.cell_list = None
         self.pos_cell_list = []
-        self.verlet_factor = 1
 
     @cached_property
     def n_cell_dim(self):
@@ -84,7 +83,7 @@ class CellList(SpeedUpScheme):
 
         return box
 
-    def new_list(self, particles):
+    def new_list(self, particles, particle_rescale_factor=1):
         """
         Compute a new cell list for particles.
 
@@ -99,7 +98,7 @@ class CellList(SpeedUpScheme):
             self.max_radius = np.max(
                 np.array([particle.radius for particle in particles])
             )
-            self.max_radius *= self.verlet_factor
+            self.max_radius *= particle_rescale_factor
         n_cells = np.prod(np.array(self.n_cell_dim))
         self.cell_list = [set() for i in range(n_cells)]
         self.particle_list = [set() for _ in particles]
@@ -507,7 +506,7 @@ class VerletList(CellList):
             #             (old_verlet_fac - self.verlet_factor)
             #             * particles[i_particle_index].radius
             #         )
-            super().new_list(particles)
+            super().new_list(particles, particle_rescale_factor=self.verlet_factor)
             # Creating the cell list used to compute the Verlet list
             self.cell_particle_list = list(self.particle_list)
             self.particle_list = [[] for _ in particles]
@@ -522,18 +521,24 @@ class VerletList(CellList):
             for i_particle_index, i_particle in enumerate(particles):
                 # Running though all the particles
                 for j_particle_index in self.cell_particle_list[i_particle_index]:
-                    # Running through all the particles in the neighboring cell
-                    if self.verlet_neighborhoods[i_particle_index].intersection(
-                        self.verlet_neighborhoods[j_particle_index],
-                        self.box,
-                    ):
-                        # If the neighborhoods of the particles intersect
+
+                    if j_particle_index > i_particle_index:
+                        if self.verlet_neighborhoods[i_particle_index].intersection(
+                            self.verlet_neighborhoods[j_particle_index],
+                            self.box,
+                        ):
+                            # If the neighborhoods of the particles intersect
+                            self.particle_list[i_particle_index].append(
+                                j_particle_index
+                            )
+                            # Add the particle j_particle to i_particle's Verlet list
+                    if j_particle_index == i_particle_index:
                         self.particle_list[i_particle_index].append(j_particle_index)
-                        # Add the particle j_particle to i_particle's Verlet list
-            # self.molecular_dynamics_sim.coord_number = (
-            #     np.mean([len(list) for list in self.particle_list]) - 1
-            # )
-        # print("list", self.molecular_dynamics_sim.coord_number, "\n\n\n")
+                    else:
+                        if i_particle_index in self.particle_list[j_particle_index]:
+                            self.particle_list[i_particle_index].append(
+                                j_particle_index
+                            )
 
 
 class VerletList2(VerletList):
@@ -614,9 +619,6 @@ class VerletList2(VerletList):
                 # the particles current position
             super().new_list_partial(particles, lists_to_recalc)
             # print(self.cell_particle_list)
-            # import pdb
-
-            # pdb.set_trace()
             # Creating the cell list used to compute the Verlet list
             for i_particle_index, i_particle in enumerate(particles):
                 # Running though all the particles

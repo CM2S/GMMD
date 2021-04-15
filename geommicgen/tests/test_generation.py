@@ -177,7 +177,6 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
     def test_generate_initial_configuration_inside_box_grid_2d(self):
         """Check if the particles are all inside the simulation box for a grid configuration
         in 2D"""
-        print(self.md_init_mock_kwargs)
         current_generation_method = MolecularDynamicsSimulation(
             *self.md_init_mock_kwargs.values()
         )
@@ -306,19 +305,6 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
                 )
             )
 
-    def test_virtual_size(self):
-        """Test if the virtual size context manager is working."""
-        current_generation_method = MolecularDynamicsSimulation(
-            *self.md_init_mock_kwargs.values()
-        )
-        particles = [Mock() for _ in range(10)]
-        current_generation_method.min_distance = 0.1
-        with current_generation_method.virtual_particle_sizes(particles):
-            pass
-        for particle in particles:
-            particle.dilate.assert_called_with(0.1)
-            particle.contract.assert_called_with(0.1)
-
 
 class TestMolecularDynamicSimulationForce(unittest.TestCase):
     def setUp(self):
@@ -339,14 +325,15 @@ class TestMolecularDynamicSimulationForce(unittest.TestCase):
         current_generation_method = MolecularDynamicsSimulation(
             *self.md_init_mock_kwargs.values()
         )
+        current_generation_method.force_option = "intersection_area"
+        current_generation_method.thermostat = Mock()
+        current_generation_method.thermostat.kin_energy_div = False
         current_generation_method.set_speed_up_scheme(Mock(particle_list=[[1], [0]]))
         current_generation_method.particle_forces = [0, 0]
         particle_1 = Mock(position_center=np.array([0.6, 0.5]))
-        particle_1.intersection_area.return_value = 0.1
-        particle_1.intersection_vector.return_value = np.array([1, 0])
+        particle_1.intersection_area.return_value = (0.1, np.array([1, 0]))
         particle_2 = Mock(position_center=np.array([0.5, 0.5]))
-        particle_2.intersection_area.return_value = 0.1
-        particle_2.intersection_vector.return_value = np.array([-1, 0])
+        particle_2.intersection_area.return_value = (0.1, np.array([-1, 0]))
         particles = [particle_1, particle_2]
         current_generation_method.compute_forces_overlap(particles)
         self.assertTrue(current_generation_method.total_overlap == 0.1)

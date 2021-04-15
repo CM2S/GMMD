@@ -156,11 +156,12 @@ class TestSpeedUpScheme(unittest.TestCase):
         current_cell_list.molecular_dynamics_sim = mock_molecular_dynamics_sim
         current_cell_list.new_list(particles)
         correct_particle_list = [None for _ in range(5)]
-        correct_particle_list[0] = [1]
-        correct_particle_list[1] = []
-        correct_particle_list[2] = [3, 4]
-        correct_particle_list[3] = [4]
-        correct_particle_list[4] = []
+        correct_particle_list[0] = {0, 1}
+        correct_particle_list[1] = {0, 1}
+        correct_particle_list[2] = {2, 3, 4}
+        correct_particle_list[3] = {2, 3, 4}
+        correct_particle_list[4] = {2, 3, 4}
+
         self.assertTrue(current_cell_list.particle_list == correct_particle_list)
 
     def test_neighbor_cell_is_bottom(self):
@@ -181,7 +182,6 @@ class TestSpeedUpScheme(unittest.TestCase):
         current_cell_list.molecular_dynamics_sim = mock_molecular_dynamics_sim
         current_cell_list.new_list(particles)
 
-        print(current_cell_list.n_cell_dim)
         self.assertEqual(6, current_cell_list.neighbor_cell(0, 10, 3, [3, 3, 3]))
         self.assertEqual(7, current_cell_list.neighbor_cell(1, 10, 3, [3, 3, 3]))
         self.assertEqual(8, current_cell_list.neighbor_cell(2, 10, 3, [3, 3, 3]))
@@ -210,7 +210,6 @@ class TestSpeedUpScheme(unittest.TestCase):
         current_cell_list.molecular_dynamics_sim = mock_molecular_dynamics_sim
         current_cell_list.new_list(particles)
 
-        print(current_cell_list.n_cell_dim)
         self.assertEqual(0, current_cell_list.neighbor_cell(6, 16, 3, [3, 3, 3]))
         self.assertEqual(1, current_cell_list.neighbor_cell(7, 16, 3, [3, 3, 3]))
         self.assertEqual(2, current_cell_list.neighbor_cell(8, 16, 3, [3, 3, 3]))
@@ -239,7 +238,6 @@ class TestSpeedUpScheme(unittest.TestCase):
         current_cell_list.molecular_dynamics_sim = mock_molecular_dynamics_sim
         current_cell_list.new_list(particles)
 
-        print(current_cell_list.n_cell_dim)
         self.assertEqual(0, current_cell_list.neighbor_cell(2, 14, 3, [3, 3, 3]))
         self.assertEqual(3, current_cell_list.neighbor_cell(5, 14, 3, [3, 3, 3]))
         self.assertEqual(6, current_cell_list.neighbor_cell(8, 14, 3, [3, 3, 3]))
@@ -268,7 +266,6 @@ class TestSpeedUpScheme(unittest.TestCase):
         current_cell_list.molecular_dynamics_sim = mock_molecular_dynamics_sim
         current_cell_list.new_list(particles)
 
-        print(current_cell_list.n_cell_dim)
         self.assertEqual(2, current_cell_list.neighbor_cell(0, 12, 3, [3, 3, 3]))
         self.assertEqual(5, current_cell_list.neighbor_cell(3, 12, 3, [3, 3, 3]))
         self.assertEqual(8, current_cell_list.neighbor_cell(6, 12, 3, [3, 3, 3]))
@@ -384,9 +381,9 @@ class TestVerlet(unittest.TestCase):
 
         verlet_list.new_verlet_list = True
         verlet_list.new_list(particles)
-        self.assertTrue(verlet_list.particle_list[0] == [1, 2])
-        self.assertTrue(verlet_list.particle_list[1] == [2])
-        self.assertTrue(verlet_list.particle_list[2] == [])
+        self.assertTrue(verlet_list.particle_list[0] == [0, 1, 2])
+        self.assertTrue(verlet_list.particle_list[1] == [0, 1, 2])
+        self.assertTrue(verlet_list.particle_list[2] == [0, 1, 2])
 
     def test_intersection_issue_small_large_3(self):
 
