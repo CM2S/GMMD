@@ -789,7 +789,7 @@ class Ellipse(Particle):
             )
         else:
             intersection_length = 0
-            unit_vector = np.array([0, 0, 0])
+            unit_vector = np.array([0, 0])
 
         return intersection_length, unit_vector
         # Returning the intersection length
