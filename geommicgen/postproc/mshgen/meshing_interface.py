@@ -1075,7 +1075,9 @@ class RegularGridMeshGenerator(MeshGenerator):
             )
             print_funcs.print_to_file("\t> Processing particles")
             # Initializing the regular grid
-            for l_particle in microstructure_sample.particles:
+            for l_particle_ind, l_particle in enumerate(
+                microstructure_sample.particles
+            ):
                 lim_x = [
                     l_particle.support_function(np.array([-1, 0, 0]))[0],
                     l_particle.support_function(np.array([1, 0, 0]))[0],
