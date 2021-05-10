@@ -160,7 +160,6 @@ def save_mic(sample_dir, current_sample, current_mic_generator, print_out=True):
 
 def save_status(sample_dir, current_sample, current_mic_generator):
     """Save status with a minimal amount of information (time, total overlap and status)."""
-
     status_file_name = os.path.join(sample_dir, "status")
     with open(status_file_name, "w") as status:
         time_line = "Time: {0:.3f}s\n".format(current_mic_generator.time)
@@ -172,4 +171,5 @@ def save_status(sample_dir, current_sample, current_mic_generator):
 
 
 def delete_screen(screen_dir):
+    """Delete screen file."""
     os.remove(os.path.join(screen_dir, "mic.screen"))
