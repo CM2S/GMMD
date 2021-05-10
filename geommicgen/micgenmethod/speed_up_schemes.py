@@ -9,6 +9,8 @@ import abc
 from functools import cached_property
 from copy import deepcopy
 
+from microstructure.particleclasses import Particle
+
 import numpy as np
 
 
@@ -79,7 +81,7 @@ class CellList(SpeedUpScheme):
         if self.molecular_dynamics_sim is not None:
             box = self.molecular_dynamics_sim.box
         else:
-            box = self.box
+            box = None
 
         return box
 
@@ -415,7 +417,7 @@ class CellList(SpeedUpScheme):
         return pos_neighbor_cell
 
 
-class VerletList(CellList):
+class VerletList:
     """
     Class for the verlet list used to speed up force computation.
 
@@ -427,7 +429,7 @@ class VerletList(CellList):
     verlet_factor: float
         Multiplicative factor used to compute the neighborhood of the particle.
 
-    new_verlet_list: bool
+    a_new_verlet_list_has_to_be_computed: bool
         Flag to signal the computation of a new Verlet list.
 
     verlet_neighborhoods: list(`.Particle`)
@@ -446,11 +448,22 @@ class VerletList(CellList):
         """
         self.verlet_factor = verlet_factor
         # Saving the Verlet radius to compute the Verlet list
-        self.new_verlet_list = True
+        self.a_new_verlet_list_has_to_be_computed = True
         # Signaling that for the first computation of the forces there is a need to compute
         # a new Verlet list
         self.verlet_neighborhoods = None
-        super().__init__()
+        self.particle_list = None
+        self.cell_list = CellList()
+        self.molecular_dynamics_sim = None
+
+    @property
+    def box(self):
+        """List containing the dimensions of the simulation box."""
+        if self.molecular_dynamics_sim is not None:
+            box = self.molecular_dynamics_sim.box
+        else:
+            box = None
+        return box
 
     def new_list(self, particles):
         """
@@ -467,81 +480,65 @@ class VerletList(CellList):
                 self.verlet_neighborhoods[i_particle_index].dilate(
                     (self.verlet_factor - 1) * particles[i_particle_index].radius
                 )
-            # Initializing the displacement_last_verlet
-        box = self.molecular_dynamics_sim.box
+            self.cell_list.molecular_dynamics_sim = self.molecular_dynamics_sim
+        # if self.cell_list.molecular_dynamics_sim is None:
         for i_particle_index, i_particle in enumerate(particles):
-            # Computing the displacement of the center of the particle
-            # if i_particle.intersection(
-            #     self.verlet_neighborhoods[i_particle_index],
-            #     self.box,
-            #     inside=False,
-            #         or not self.verlet_neighborhoods[i_particle_index].point_inside(
-            #             i_particle.position_center, self.box
-            #         )
-            #     ):
-            diff_in_box = (
-                i_particle.position_center
-                - self.verlet_neighborhoods[i_particle_index].position_center
-            )
-            # Difference vector between the center of the two particles
-            diff_nearest_other = box * np.round(diff_in_box / box)
-            # Vector from the position of the other ellipse to its nearest image to the current
-            # ellipse
-            if (
-                np.linalg.norm(diff_in_box + diff_nearest_other)
-                > (self.verlet_factor - 1) * particles[i_particle_index].radius
+            if self.particle_intersects_its_own_neighborhood(
+                i_particle, self.verlet_neighborhoods[i_particle_index]
             ):
-                # Checking if the displacement takes the particle out of its neighborhood
-                self.new_verlet_list = True
+                self.a_new_verlet_list_has_to_be_computed = True
                 break
-                # There is a need to compute a new verlet list
-        if self.new_verlet_list:
-            self.new_verlet_list = False
-            # old_verlet_fac = self.verlet_factor
-            # self.verlet_factor = np.max([1.05, old_verlet_fac * 0.95])
-            # print(self.verlet_factor, "verlet\n\n")
-            # if old_verlet_fac != self.verlet_factor:
-            #     for i_particle_index, i_particle in enumerate(particles):
-            #         self.verlet_neighborhoods[i_particle_index].contract(
-            #             (old_verlet_fac - self.verlet_factor)
-            #             * particles[i_particle_index].radius
-            #         )
-            super().new_list(particles, particle_rescale_factor=self.verlet_factor)
-            # Creating the cell list used to compute the Verlet list
-            self.cell_particle_list = list(self.particle_list)
+        if self.a_new_verlet_list_has_to_be_computed:
+            self.a_new_verlet_list_has_to_be_computed = False
+            self.cell_list.new_list(self.verlet_neighborhoods)
             self.particle_list = [[] for _ in particles]
-            # Resetting the Verlet list of
             for i_particle_index, i_particle in enumerate(particles):
-                # Running though all the particles
                 self.verlet_neighborhoods[
                     i_particle_index
                 ].position_center = i_particle.position_center
-                # Updating the position of all the Verlet neighborhoods to coincide with
-                # the particles current position
             for i_particle_index, i_particle in enumerate(particles):
-                # Running though all the particles
-                for j_particle_index in self.cell_particle_list[i_particle_index]:
+                for j_particle_index in self.cell_list.particle_list[i_particle_index]:
 
-                    if j_particle_index > i_particle_index:
-                        if self.verlet_neighborhoods[i_particle_index].intersection(
-                            self.verlet_neighborhoods[j_particle_index],
-                            self.box,
-                        ):
-                            # If the neighborhoods of the particles intersect
-                            self.particle_list[i_particle_index].append(
-                                j_particle_index
-                            )
-                            # Add the particle j_particle to i_particle's Verlet list
-                    if j_particle_index == i_particle_index:
+                    if self.the_verlet_neighborhoods_of_the_particles_intersect(
+                        i_particle_index, j_particle_index
+                    ):
                         self.particle_list[i_particle_index].append(j_particle_index)
-                    else:
-                        if i_particle_index in self.particle_list[j_particle_index]:
-                            self.particle_list[i_particle_index].append(
-                                j_particle_index
-                            )
+        print(self.particle_list)
+
+    def particle_intersects_its_own_neighborhood(self, particle, neighborhood):
+        """Check if a particle intersects its own neighborhood.
+
+        It assumes the neighborhood is found by dilation of the particle.
+        """
+        distance_between_center_of_particle_and_verlet_neighborhood = np.linalg.norm(
+            particle.position_center
+            - Particle.nearest_periodic_image(
+                neighborhood.position_center,
+                particle.position_center,
+                self.box,
+            ),
+        )
+        return (
+            distance_between_center_of_particle_and_verlet_neighborhood
+            > (self.verlet_factor - 1) * particle.radius
+        )
+
+    def the_verlet_neighborhoods_of_the_particles_intersect(
+        self, i_particle_index, j_particle_index
+    ):
+        """Check if two Verlet neighborhoods intersect."""
+        if i_particle_index < j_particle_index:
+            return self.verlet_neighborhoods[i_particle_index].intersection(
+                self.verlet_neighborhoods[j_particle_index], self.box
+            )
+
+        return (
+            j_particle_index == i_particle_index
+            or i_particle_index in self.particle_list[j_particle_index]
+        )
 
 
-class VerletList2(VerletList):
+class VerletPartialUpdate(VerletList):
     def new_list(self, particles):
         """
         Compute a new verlet list for particles.
@@ -552,7 +549,7 @@ class VerletList2(VerletList):
             Particles in the simulatin box, whose cell list is to be computed.
         """
         if self.verlet_neighborhoods is None:
-            self.new_verlet_list = True
+            self.a_new_verlet_list_has_to_be_computed = True
             self.verlet_neighborhoods = deepcopy(particles)
             self.particle_list = [[] for _ in particles]
             # Resetting the Verlet list of
@@ -589,12 +586,12 @@ class VerletList2(VerletList):
                     # ):
                     # Checking if the displacement takes the particle out of its
                     # neighborhood
-                    self.new_verlet_list = True
+                    self.a_new_verlet_list_has_to_be_computed = True
                     # There is a need to compute a new verlet list
                     lists_to_recalc.add(i_particle)
                     lists_to_recalc_ind.add(i_particle_index)
-        if self.new_verlet_list:
-            self.new_verlet_list = False
+        if self.a_new_verlet_list_has_to_be_computed:
+            self.a_new_verlet_list_has_to_be_computed = False
             # old_verlet_fac = self.verlet_factor
             # self.verlet_factor = np.max([1.05, old_verlet_fac * 0.95])
             # print(self.verlet_factor, "verlet\n\n")
@@ -651,7 +648,7 @@ class Naive(SpeedUpScheme):
     verlet_factor: float
         Multiplicative factor used to compute the neighborhood of the particle.
 
-    new_verlet_list: bool
+    a_new_verlet_list_has_to_be_computed: bool
         Flag to signal the computation of a new Verlet list.
     """
 
