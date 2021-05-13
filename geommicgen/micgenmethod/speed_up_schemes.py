@@ -503,7 +503,6 @@ class VerletList:
                         i_particle_index, j_particle_index
                     ):
                         self.particle_list[i_particle_index].append(j_particle_index)
-        print(self.particle_list)
 
     def particle_intersects_its_own_neighborhood(self, particle, neighborhood):
         """Check if a particle intersects its own neighborhood.
