@@ -319,6 +319,7 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
         # Compute the rescaling factor only if the kinetic energy is nonzero
 
     def reached_equilibrium(self) -> bool:
+        """Check if equilibrium has been reached."""
         equilibrium_flag = False
         if self.criterion == "original":
             if self.molecular_dynamics_sim.step > self._next_temp_change:
