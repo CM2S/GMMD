@@ -15,12 +15,13 @@ import numpy as np
 from scipy.stats import hmean
 
 # pylint: disable=import-error
+# pylint: disable=relative-beyond-top-level
 import errors.error_classes as errors
 import iofuncs.file_handling as fileio
 import iofuncs.printing as print_funcs
+from microstructure.particleclasses import Matrix
 from micgenmethod.microstructure_gen_method import GenerationMethod
 from micgenmethod.integration_methods import verlet_sync_integration
-from microstructure.particleclasses import Matrix
 
 
 class MolecularDynamicsSimulation(GenerationMethod):
@@ -73,7 +74,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
     max_steps_to_relax: int
         Number of time steps a configuration has to remain legal to be accepted.
 
-    dt: float
+    delta_t: float
         Time step for the intergration of the equations of motion.
 
     min_distance: float
@@ -104,7 +105,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         max_residue_per_particle,
         max_step,
         max_steps_to_relax,
-        dt,
+        delta_t,
         min_distance,
         type_init_conf,
         save_history,
@@ -126,7 +127,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         max_steps_to_relax: int
             Number of time steps a configuration has to remain legal to be accepted.
 
-        dt: float
+        delta_t: float
             Time step for the intergration of the equations of motion.
 
         min_distance: float
@@ -168,7 +169,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.max_residue = None
         self.max_step = max_step
         self.max_steps_to_relax = max_steps_to_relax
-        self.dt = dt
+        self.delta_t = delta_t
         self.save_history = save_history
         self.time = None
         self.step = 0
@@ -590,10 +591,10 @@ class MolecularDynamicsSimulation(GenerationMethod):
 
         The temperature is specified through the equipartition theorem, setting the initial
         velocity so that a particle with an average radius travels *self.initial_vel_coeff*
-        times its radius in one *self.dt*.
+        times its radius in one *self.delta_t*.
 
-        It must be called after *self.compute_forces* to use the correct *self.dt*, if the
-        time step is to adaptatively chosen.
+        It must be called after *self.compute_forces* to use the correct *self.delta_t*, if
+        the time step is to adaptatively chosen.
 
         Parameters
         ----------
@@ -603,7 +604,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         if self.thermostat.reference_temp is None:
             self.compute_adaptive_time_step(particles)
             average_radius = np.mean([i_particle.radius for i_particle in particles])
-            vel = self.initial_vel_coeff * average_radius / self.dt
+            vel = self.initial_vel_coeff * average_radius / self.delta_t
             self.thermostat.reference_temp = (
                 vel ** 2
                 * np.sum(
@@ -857,7 +858,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
     def compute_adaptive_time_step(self, particles):
         """Compute the adaptive time step.
 
-        If *self.dt_adapt* an adaptive time step is computed, and stored at *self.dt*.
+        If *self.dt_adapt* an adaptive time step is computed, and stored at *self.delta_t*.
         The history of time step is also appended to (*self.all_dt*).
         """
         if self.dt_adapt:
@@ -870,17 +871,17 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     ]
                 )
                 k_eff = (
-                    2 * (2 * harm_r - max_vel * self.dt) / (2 * harm_r)
-                    if max_vel != 0 and 2 * harm_r > self.dt * max_vel
+                    2 * (2 * harm_r - max_vel * self.delta_t) / (2 * harm_r)
+                    if max_vel != 0 and 2 * harm_r > self.delta_t * max_vel
                     else 1
                 )
-                self.dt = np.sqrt(2 / max(1, self.coord_number)) * np.sqrt(
+                self.delta_t = np.sqrt(2 / max(1, self.coord_number)) * np.sqrt(
                     harm_r / k_eff
                 )
 
             elif self.force_option == "intersection_length":
-                self.dt = np.sqrt(2 / max(1, self.coord_number)) * np.sqrt(harm_r)
-        self.all_dt.append(self.dt)
+                self.delta_t = np.sqrt(2 / max(1, self.coord_number)) * np.sqrt(harm_r)
+        self.all_dt.append(self.delta_t)
 
     def integrate(self, particles):
         """Integrate the equations of motion, using if chosen an adaptive time step.
@@ -904,7 +905,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 self.particle_velocities[i_particle_index],
                 np.array([self.particle_forces[i_particle_index]], dtype="float").T,
                 i_particle.mass(self.particle_mass_opt),
-                self.dt,
+                self.delta_t,
                 1,
                 dim,
             )
