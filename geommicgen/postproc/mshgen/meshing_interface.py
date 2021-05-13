@@ -17,23 +17,20 @@ import gmsh
 import iofuncs.printing as print_funcs
 from gmsh2links.main import readMesh
 
+# pylint: disable=import-error
+# pylint: disable=relative-beyond-top-level
 # Importing the particle class
 from microstructure.particleclasses import (
-    Particle,
     Disk,
     Ellipse,
     Ellipsoid,
     Sphere,
     CylindricalFiber,
     Cylinder,
-    Point,
-    Line,
 )
 
 
 import numpy as np
-
-from iofuncs.printing import print_rgmsh_output, print_femsh_output
 
 
 class MeshGenerator(abc.ABC):
@@ -434,7 +431,6 @@ class FEMMeshGenerator(MeshGenerator):
         file_path: str
             Path to store the meshes.
         """
-
         model = gmsh.model
         factory = model.occ
         # occ - OpenCASCADE CAD (more advanced)
@@ -953,11 +949,9 @@ class FEMMeshGenerator(MeshGenerator):
                         dat.write("{0} ".format(k_con))
 
         print_funcs.print_to_file(
-            "\t\t- {0}\n".format(
-                os.path.join(title, "femsh.rve"),
-                to_terminal=self.output_term,
-                to_screen=self.output_term,
-            )
+            "\t\t- {0}\n".format(os.path.join(title, "femsh.rve")),
+            to_terminal=self.output_term,
+            to_screen=self.output_term,
         )
 
 
@@ -969,6 +963,12 @@ class RegularGridMeshGenerator(MeshGenerator):
     ----------
     n_voxels_dims: array(int)
         Number of voxels in each spatial direction.
+
+    slice_dir: int
+        Direction along which a 3D microstructure is to be sliced to obtain the 2D sections.
+
+    time: float
+        CPU time taken to generate the regular grid.
     """
 
     def __init__(self, n_voxels_dims, rve_dims, **kwargs):
@@ -993,6 +993,7 @@ class RegularGridMeshGenerator(MeshGenerator):
             )
         self.n_voxels_dims = np.array(n_voxels_dims)
         self.slice_dir = kwargs.get("slice_dir", None)
+        self.time = None
 
     def generate_mesh(self, microstructure_sample, sample_dir):
         """
@@ -1141,7 +1142,8 @@ class RegularGridMeshGenerator(MeshGenerator):
             np.save(file_path, regular_grid)
             print_funcs.print_to_file("\t\t- {0}\n".format(file_path))
 
-        if True:
+        save_plot = False
+        if save_plot:
             from postproc.plotfuncs.plotting_functions import plot_pixels, plot_voxels
 
             if len(microstructure_sample.rve_dims) == 2:
