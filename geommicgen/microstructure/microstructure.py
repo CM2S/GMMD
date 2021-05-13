@@ -7,6 +7,8 @@ of the Phase class, in turn described by the adequate phase descriptors.
 
 import numpy as np
 
+# pylint: disable=import-error
+# pylint: disable=relative-beyond-top-level
 from micgenmethod.speed_up_schemes import CellList
 from microstructure.particleclasses import Point
 
@@ -83,12 +85,12 @@ class Microstructure:
                 for i_phase in self.phases.values():
                     if i_phase.type.__name__ not in ("CylindricalFiber", "Matrix"):
                         raise ValueError(
-                            "The CylindricalFiber particles are only compatible with each other."
+                            "The CylindricalFiber particles are only compatible with"
+                            + " each other."
                         )
 
     def inside_particle_phase(self, pts):
         """Check if a point is inside the particle phase."""
-
         pts_particle = [Point(len(i_pt), "1") for i_pt in pts]
         for i_pt_ind, (i_pt, i_pt_center) in enumerate(zip(pts_particle, pts)):
             pts_particle[i_pt_ind].position_center = np.array(
