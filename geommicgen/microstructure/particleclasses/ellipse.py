@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import numpy as np
 
+# pylint: disable=import-error
+# pylint: disable=relative-beyond-top-level
 from .particle import Particle, MINIMUM_SIZE
 
 
@@ -106,7 +108,6 @@ class Ellipse(Particle):
         rve_dims: list
             List containing the dimensions of the microstructure in each direction
         """
-
         self.check_if_descriptor_values_are_valid(descriptors, rve_dims)
 
         if "major_axis" in descriptors and "minor_axis" in descriptors:

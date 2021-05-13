@@ -4,6 +4,8 @@ from typing import Union
 
 import numpy as np
 
+# pylint: disable=import-error
+# pylint: disable=relative-beyond-top-level
 import microstructure.particleclasses.cylinder as cyl_cls
 from .ellipsoid import Ellipsoid
 from .particle import Particle, MINIMUM_SIZE
