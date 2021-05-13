@@ -19,7 +19,7 @@ import errors.error_classes as errors
 import iofuncs.file_handling as fileio
 import iofuncs.printing as print_funcs
 from micgenmethod.microstructure_gen_method import GenerationMethod
-from micgenmethod.integration_methods import VerletSync
+from micgenmethod.integration_methods import verlet_sync_integration
 from microstructure.particleclasses import Matrix
 
 
@@ -899,7 +899,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         # Running through all the particles
         for i_particle_index, i_particle in enumerate(particles):
             # The integration scheme chosen was Verlet
-            [new_position, new_velocity] = VerletSync(
+            [new_position, new_velocity] = verlet_sync_integration(
                 i_particle.position_center,
                 self.particle_velocities[i_particle_index],
                 np.array([self.particle_forces[i_particle_index]], dtype="float").T,
