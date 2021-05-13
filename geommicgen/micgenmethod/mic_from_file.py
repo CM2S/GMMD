@@ -1,6 +1,9 @@
-"""Loading micorstructures from files."""
+"""Module used to load micorstructures from files."""
 
 import numpy as np
+
+# pylint: disable=import-error
+# pylint: disable=relative-beyond-top-level
 from microstructure.microstructure import Microstructure
 from microstructure.phase import Phase
 import iofuncs.printing as print_funcs
@@ -9,9 +12,6 @@ import iofuncs.printing as print_funcs
 def generate_microstructure_from_txt(file_path):
     """
     Generate the microstructure for the sample supplied.
-
-    Generate the microstructure for microstructure_sample using the microstructure
-    generation method *self*.
 
     Parameters
     ----------
@@ -27,11 +27,6 @@ def generate_microstructure_from_txt(file_path):
     mic_info = np.genfromtxt(file_path, delimiter=",", names=True, skip_header=4)
     if mic_info.shape == ():
         mic_info = mic_info.reshape((1,))
-    # Loading the microstructure info. Assumed to be
-    # N,Area,Mean,Min,Max,XM,YM,Major,Minor,Angle
-
-    # Getting info from file name
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     microstructure_sample = Microstructure(box)
 
@@ -67,12 +62,6 @@ def generate_microstructure_from_txt(file_path):
     for phase in microstructure_sample.phases.values():
         phase.generate_particles(microstructure_sample.rve_dims)
     microstructure_sample.add_phase(Phase("1", {"phase_type": 1}))
-    # if microstructure_sample.volume_fraction > 1:
-    #     raise ValueError(
-    #         "The volume fraction goes over 1: {0}".format(
-    #             microstructure_sample.volume_fraction
-    #         )
-    #     )
     # Setting the position of the particles
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     for i_particle_ind, i_particle in enumerate(microstructure_sample.particles):
