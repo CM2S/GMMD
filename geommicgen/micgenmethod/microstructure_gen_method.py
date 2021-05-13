@@ -3,14 +3,10 @@
 import abc
 import numpy as np
 
+# pylint: disable=import-error
+# pylint: disable=relative-beyond-top-level
 from microstructure.particleclasses import (
     Particle,
-    Disk,
-    Ellipse,
-    Ellipsoid,
-    Sphere,
-    CylindricalFiber,
-    Cylinder,
     Point,
     Line,
 )
@@ -26,8 +22,8 @@ class GenerationMethod(abc.ABC):
     def compute_rve_offset(self, particles, rve_dims):
         """Compute the origin of the RVE to minimize tangent particles to the boundaries.
 
-        This function computes the furthest point of each particle in all cartesian coordinates
-        directions using the corresponding support functions.
+        This function computes the furthest point of each particle in all cartesian
+        coordinates directions using the corresponding support functions.
         Then, for each direction, chooses the point where the distance between boundaries is
         largest, so that the FEM mesh is the least distorted possible.
         It also tries to maximize the distance to from the new origin point to the surface
@@ -50,7 +46,6 @@ class GenerationMethod(abc.ABC):
 
         def min_dist_to_part(offset, particles, rve_dims):
             """Compute the minum distance from offset to the surface of the particles."""
-
             offset_array = np.array(offset)
             # list to array
             dim = particles[0].dim
