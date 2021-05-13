@@ -1,8 +1,8 @@
 """Module containing the printing functions."""
 
 import os
-from tabulate import tabulate
 import datetime
+from tabulate import tabulate
 
 # Screen directory
 SCREEN_DIR = ""
@@ -31,26 +31,31 @@ def print_analysis_previous(previous_mic_path):
 
 
 def print_output_header():
+    """Print the output header."""
     print_to_file("Output")
     print_to_file("=" * 80 + "\n")
 
 
 def print_output(filepath):
+    """Print output."""
     print_to_file("Output")
     print_to_file("=" * 80 + "\n")
     print_to_file("Microstructure output file: {0}\n".format(filepath))
 
 
 def print_femsh_output(filepath):
+    """Print finite element mesh output."""
     print_to_file("\t Output file: {0}".format(filepath))
 
 
 def print_rgmsh_output(filepath):
+    """Print regular mesh output."""
     print_to_file("Regular grid mesh:")
     print_to_file("\t Output file: {0}".format(filepath))
 
 
 def print_final_message_md(time, total_overlap, number_iterations, max_overlap):
+    """Print final message for molecular dynamics simulation."""
     print_to_file("")
     print_to_file("MD simulation results")
     print_to_file("=" * 80 + "\n")
@@ -75,9 +80,7 @@ def print_to_file(message, end="\n", to_screen=True, to_terminal=True):
         print(message, end=end)
 
 
-def print_to_terminal_refresh(
-    step, total_overlap, relative_energy, kin_energy, **kwargs
-):
+def print_to_terminal_refresh(step, total_overlap, **kwargs):
     """Print info about the current iteration."""
     if kwargs.get("first"):
         # First meassage containing information about the iteration

@@ -641,9 +641,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
             print_funcs.print_to_terminal_refresh(
                 self.step,
                 self.total_overlap,
-                self.relative_energy,
-                self.kinetic_energy,
-                temp=self.thermostat.reference_temp,
                 first=True,
             )
             # # Print info about the iteration
@@ -679,8 +676,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 print_funcs.print_to_terminal_refresh(
                     self.step,
                     self.total_overlap,
-                    self.relative_energy,
-                    self.kinetic_energy,
                 )
                 fileio.save_mic(
                     fileio.SAMPLE_DIR,
