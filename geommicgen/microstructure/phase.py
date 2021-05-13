@@ -12,6 +12,8 @@ import numpy as np
 
 from scipy.stats import vonmises, lognorm
 
+# pylint: disable=import-error
+# pylint: disable=relative-beyond-top-level
 from .particleclasses import (
     Matrix,
     Disk,
@@ -157,7 +159,8 @@ class Phase:
                                 # Save the value
                             except KeyError:
                                 print(
-                                    "The probability for {0} was not supplied in Phase {1}.".format(
+                                    "The probability "
+                                    + "for {0} was not supplied in Phase {1}.".format(
                                         descriptor + "_value", self.name
                                     )
                                 )
@@ -176,7 +179,8 @@ class Phase:
                     )
                 else:
                     raise ValueError(
-                        "The distribution supplied for {0} in Phase {1} is not supported".format(
+                        "The distribution supplied"
+                        + " for {0} in Phase {1} is not supported".format(
                             descriptor, self.name
                         )
                     )
@@ -556,7 +560,6 @@ class VonMisesDistribution(PhaseDescriptor):
         scale: float
             Scale parameters of the Von Mises distribution.
         """
-
         self.loc = loc
         self.kappa = kappa
         self.scale = scale
