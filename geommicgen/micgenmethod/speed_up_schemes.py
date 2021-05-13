@@ -9,6 +9,8 @@ import abc
 from functools import cached_property
 from copy import deepcopy
 
+# pylint: disable=import-error
+# pylint: disable=relative-beyond-top-level
 from microstructure.particleclasses import Particle
 
 import numpy as np
@@ -538,6 +540,8 @@ class VerletList:
 
 
 class VerletPartialUpdate(VerletList):
+    """Class for the Verlet list with partial update (currently not working)."""
+
     def new_list(self, particles):
         """
         Compute a new verlet list for particles.
