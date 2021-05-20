@@ -1,46 +1,39 @@
-from microstructure.particleclasses import (
-    Particle,
-    Disk,
-    Ellipse,
-    Sphere,
-    Ellipsoid,
-    CylindricalFiber,
-)
+"""Module for Voronoi analysis.
+
+Functions to draw standard and set Voronoi of 2D and 3D particles assemblies.
+Functions also for the analysis of the Minkowski structure metrics and associated concepts.
+"""
+
+# pylint: disable=import-error
+# pylint: disable=relative-beyond-top-level
+# pylint: disable=no-name-in-module
+import os
+import pickle
+import numpy as np
+
+from scipy.spatial import Voronoi, sph_harm
 
 from postproc.plotfuncs.plotting_functions import (
     plot_voronoi_2d,
     plot_voronoi_2d_with_imts,
     plot_voronoi_3d,
     plot_voronoi_3d_with_imts,
-    create_figure,
 )
-
-from scipy.spatial import Voronoi
-
-from scipy.special import sph_harm
-
-import numpy as np
-
-import os
-
-import time
-
-import pickle
 
 
 class Polygon:
+    """Class for a single polygon."""
+
     def __init__(self, vertices, region):
+        """Initialize a `.Polygon` instance."""
         self.vertices = vertices
         self.regions = region
 
 
-class Polyhedron:
-
-    pass
-
-
 def normal_density(phi, coeffs):
     """
+    Compute the value of the normal density functions.
+
     Compute the value of the normal density functions defined by the Fourier series with
     coefficients *coeffs* at *phi*.
 
@@ -74,6 +67,8 @@ def normal_density(phi, coeffs):
 
 def pos_vec(phi, coeffs):
     """
+    Compute position vector.
+
     Compute the position vector whose tangent makes a *phi* with the x axis with normal
     density defined by a Fourier series with coefficients *coeffs*.
 
@@ -87,7 +82,7 @@ def pos_vec(phi, coeffs):
 
     Returns
     -------
-    pos_vec: float
+    position_vec: float
         Normal density at *phi*.
     """
     pos_complex = 0
@@ -105,29 +100,8 @@ def pos_vec(phi, coeffs):
                 4 * np.pi
             )
 
-    pos_vec = np.array([np.imag(pos_complex), -np.real(pos_complex)])
-    return pos_vec
-
-
-# class weightedVoronoi():
-#
-#     def __init__(self. auxiliar_voronoi, particles):
-#         list_2D_vetices = []
-#         for vertex in auxiliar_voronoi.vertices:
-#         # Running through all the vertices in the auxiliar voronoi
-#             list_2D_vetices.append(vertex[0:-1])
-#             # Removing the third (auxiliar) coordinate
-#         self.vertices = np.array(list_2D_vetices)
-#         # Saving the vertices of the weighted voronoi
-#         for ridge in auxiliar_voronoi.ridges:
-#         # Running through all the ridges in the auxiliar voronoi
-#             for region in auxiliar_voronoi.regions:
-#             # Running through all the regions in the auxiliary voronoi
-#                 if any([vertex in region for vertex in ridge])
-#                 # If any of the vertex of the current ridge belongs to the current region
-#                     clean_ridge = [vertex for vertex in ridge if vertex != -1]
-#                     # Removing the -1s
-#
+    position_vec = np.array([np.imag(pos_complex), -1 * np.real(pos_complex)])
+    return position_vec
 
 
 class Set2DVoronoi:
@@ -469,9 +443,10 @@ def compute_2d_irreducible_minkowski_tensors(voronoi, degree=6):
             # elif i_side[0] >= 0 and i_side[1] <= 0:
             #     angles.append(np.pi/2 - np.arctan2(np.abs(i_side[1]), np.abs(i_side[0])))
             # elif i_side[0] <= 0 and i_side[1] <= 0:
-            #     angles.append(3*np.pi/2 + np.arctan2(np.abs(i_side[1]), np.abs(i_side[0])))
-            # elif i_side[0] <= 0 and i_side[1] >= 0:
-            #     angles.append(3*np.pi/2 - np.arctan2(np.abs(i_side[1]), np.abs(i_side[0])))
+            #     angles.append(3*np.pi/2 + np.arctan2(np.abs(i_side[1]),
+            #     np.abs(i_side[0]))) # elif i_side[0] <= 0 and i_side[1] >= 0:
+            #     angles.append(3*np.pi/2 - np.arctan2(np.abs(i_side[1]),
+            #     np.abs(i_side[0])))
             # else:
             #     pass
             # print(i_side)
@@ -496,7 +471,7 @@ def compute_2d_irreducible_minkowski_tensors_polygon(voronoi, degree=6):
     """Compute the Irreducible Minkowski Tensors."""
     imt_region = []
     # Initializing the list containing the list of imts for each Voronoi cell
-    for ind, i_region in enumerate(voronoi.regions):
+    for _, i_region in enumerate(voronoi.regions):
         if len(i_region) == 0:
             continue
         if any([vertex == -1 for vertex in i_region]):
@@ -551,10 +526,6 @@ def compute_2d_irreducible_minkowski_tensors_polygon(voronoi, degree=6):
 
 def compute_3d_irreducible_minkowski_tensors(voronoi):
     """Compute the Irreducible Minkowski Tensors."""
-    # FIXME: Repeated operations, as values are computed for each region repeating
-    # operations for common ridges. Use ridges instead (voronoi.ridge_points).
-    # Initializing the list containing the list of imts for each Voronoi cell
-
     p = 0
     particle_inds = list(range(13, len(voronoi.point_region), 27))
     n_particles = len(voronoi.point_region)
@@ -616,7 +587,6 @@ def compute_3d_irreducible_minkowski_tensors(voronoi):
 
 def compute_3d_irreducible_minkowski_tensors_polyhedron(unormals, area):
     """Compute the Irreducible Minkowski Tensors."""
-
     phi = np.zeros((7, 13), dtype=complex)
     imt_region = []
     angles_normal = [unit_vector_to_sph_coord(unormal) for unormal in unormals]
@@ -689,6 +659,8 @@ def area_face(vertices):
 
 def out_normal_face(vertices, center_point):
     """
+    Compute outward normal.
+
     Compute the outward normal unit vector to the polygon defined by *vertices* relative
     to *center_point*.
     """
@@ -702,7 +674,7 @@ def out_normal_face(vertices, center_point):
 
 
 def unit_vector_to_sph_coord(unit_vector):
-    """Convert unit vector to spherical coordinates"""
+    """Convert unit vector to spherical coordinates."""
     theta = np.arctan2(unit_vector[1], unit_vector[0])
     if theta < 0:
         theta += 2 * np.pi
@@ -765,7 +737,7 @@ def compute_2d_set_voronoi(particles, rve_dims, n_surf_points=10):
     return set_voronoi
 
 
-def compute_2d_weigthed_voronoi(particles):
+def compute_2d_weigthed_voronoi():  # particles):
     """
     Compute the set Voronoi of the *particles*.
 
@@ -779,28 +751,29 @@ def compute_2d_weigthed_voronoi(particles):
     weighted_voronoi: `.WeightedVoronoi`
         Weighted voronoi of the particles.
     """
-    particle_centers = []
-    # Intializing the list containing the centers of the particles and their images
-    C = np.max([i_particle.radius for i_particle in particles])
-    # Obtaining the largest radius
-    for i_part_ind, i_particle in enumerate(particles):
-        for j in range(-1, 2):
-            for k in range(-1, 2):
-                # Running through all the particles and their periodic images
-                particle_centers.append(
-                    np.concatenate(
-                        (
-                            i_particle.position_center + rve_dims * np.array([j, k]),
-                            [np.sqrt(C - i_particle.radius)],
-                        )
-                    )
-                )
-                # Sampling points on the surface of each eroded particle and collecing then
-    auxiliar_voronoi = Voronoi(particle_centers)
-    # Obraining the auxiliar voronoi for the construction of the set voronoi
-    weighted_voronoi = weighted2DVoronoi(auxiliar_voronoi, particles)
-    # Computing the set voronoi of the particles
-    return weighted_voronoi
+    # particle_centers = []
+    # # Intializing the list containing the centers of the particles and their images
+    # C = np.max([i_particle.radius for i_particle in particles])
+    # # Obtaining the largest radius
+    # for i_part_ind, i_particle in enumerate(particles):
+    #     for j in range(-1, 2):
+    #         for k in range(-1, 2):
+    #             # Running through all the particles and their periodic images
+    #             particle_centers.append(
+    #                 np.concatenate(
+    #                     (
+    #                         i_particle.position_center + rve_dims * np.array([j, k]),
+    #                         [np.sqrt(C - i_particle.radius)],
+    #                     )
+    #                 )
+    #             )
+    #             # Sampling points on the surface of each eroded particle and collecing
+    # then
+    # auxiliar_voronoi = Voronoi(particle_centers)
+    # # Obraining the auxiliar voronoi for the construction of the set voronoi
+    # # weighted_voronoi = weighted2DVoronoi(auxiliar_voronoi, particles)
+    # # Computing the set voronoi of the particles
+    # # return weighted_voronoi
 
 
 def compute_3d_set_voronoi(particles, rve_dims, n_surf_points=10):
@@ -1028,9 +1001,6 @@ def do_voronoi_analysis(
             )
         imts, in_box, angles = compute_2d_irreducible_minkowski_tensors(voronoi)
         # Computing the irreducible Minkowski tensors for the current microsturcture
-        imts_in_box = np.array(imts)[in_box, :]
-        # Saving the irreducible Minkowski tensors of the voronoi cells associated with
-        # particles inside the box
         if plot_imts:
             plot_voronoi_2d_with_imts(
                 particles, rve_dims, voronoi, imts, voronoi_results_dir, voronoi_type
@@ -1052,8 +1022,6 @@ def do_voronoi_analysis(
             # particles inside the box
             plot_voronoi_3d(particles, voronoi, rve_dims, voronoi_results_dir)
         imts, phi = compute_3d_irreducible_minkowski_tensors(voronoi)
-        imts_in_box = np.array(imts)
-        print(imts, phi)
         if plot_imts:
             plot_voronoi_3d_with_imts(
                 particles, voronoi, rve_dims, imts, voronoi_results_dir
@@ -1064,211 +1032,3 @@ def do_voronoi_analysis(
             [voronoi, imts, phi],
             open(os.path.join(voronoi_results_dir, "voronoi_results.vor"), "wb"),
         )
-
-
-# def plotMetrics
-
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    import matplotlib
-
-    phi = np.linspace(0, 2 * np.pi, 500, endpoint=True)
-    print("here")
-    if False:
-        dp_dir = "/home/zeluis/Documents/Tese/programa/studies/thermostats/minkowski/fundamental_forms_2D/fundamental_forms"
-        radius_all = [[], [], [], [], [], [], []]
-        xmax = [[], [], [], [], [], [], []]
-        xmin = [[], [], [], [], [], [], []]
-        ymax = [[], [], [], [], [], [], []]
-        ymin = [[], [], [], [], [], [], []]
-        for degree in range(7):
-            coeffs = np.zeros((7))
-            coeffs[0] = 1
-            coeffs[degree] = 1
-            radius_all[degree] = np.array([pos_vec(i_phi, coeffs) for i_phi in phi])
-            xmax[degree] = np.max(radius_all[degree][:, 0])
-            ymax[degree] = np.max(radius_all[degree][:, 1])
-            xmin[degree] = np.min(radius_all[degree][:, 0])
-            ymin[degree] = np.min(radius_all[degree][:, 1])
-
-        xdist = np.max(xmax) - np.min(xmin)
-        ydist = np.max(ymax) - np.min(ymin)
-        for degree in range(7):
-            _, axis, (w_fig, h_fig) = create_figure(nrows=3, ncols=2)
-            plt.axis("equal")
-            # plt.plot(phi, 1 + np.cos(3*phi))
-            # plt.plot(phi, 3 + 1/2*np.exp(-3*1j*phi) + 1/2*np.exp(3*1j*phi) + 1)
-            radius = radius_all[degree]
-            plt.fill(radius[:, 0], radius[:, 1], color="k")  # , color=color)
-            xcenter = (np.max(radius[:, 0]) + np.min(radius[:, 0])) / 2
-            ycenter = (np.max(radius[:, 1]) + np.min(radius[:, 1])) / 2
-            plt.xlim(xcenter - xdist, xcenter + xdist)
-            plt.ylim(ycenter - ydist, ycenter + ydist)
-            axis.axis("off")
-            plt.savefig(dp_dir + "_fund" + str(degree) + ".pdf", bbox_inches="tight")
-            plt.close()
-    else:
-        dp_dir = "/home/zeluis/Documents/Tese/programa/studies/thermostats/minkowski/example_2D_convex_4/"
-        _, axis, (w_fig, h_fig) = create_figure(nrows=4, ncols=3)
-
-        vertices_1 = np.array(
-            [[230, 99.6333], [100, 339.633], [328, 340.6333], [301, 170]]
-        )
-        region_1 = [[3, 2, 1, 0]]
-        vertices_2 = np.array(
-            [[223, 113], [115, 277], [326, 322], [368, 153], [300, 115]]
-        )
-        region_2 = [[4, 3, 2, 1, 0]]
-        vertices_3 = np.array(
-            [[223, 113], [115, 277], [156, 324], [311, 102], [310, 60]]
-        )
-        region_3 = [[4, 3, 2, 1, 0]]
-        vertices_4 = np.array(
-            [
-                [250, 100],
-                [386, 146],
-                [386, 264],
-                [249, 378],
-                [142, 315],
-                [120.09618943233414, 175.00000000000009],
-                [177, 110],
-            ]
-        )
-        region_4 = [[5, 4, 3, 2, 1, 0]]
-        vertices_5 = np.array(
-            [[230, 99.6333], [100, 339.633], [328, 340.6333], [227, 179]]
-        )
-        region_5 = [[3, 2, 1, 0]]
-        vertices_6 = np.array(
-            [[223, 113], [115, 277], [326, 322], [368, 153], [261, 148]]
-        )
-        region_6 = [[4, 3, 2, 1, 0]]
-        vertices_7 = np.array([[301, 39], [115, 277], [139, 281], [337, 54], [304, 70]])
-        region_7 = [[4, 3, 2, 1, 0]]
-        vertices_8 = np.array(
-            [
-                [250, 100],
-                [378, 155],
-                [386, 264],
-                [257, 373],
-                [142, 315],
-                [126, 178],
-                [196, 158],
-            ]
-        )
-        region_8 = [[5, 4, 3, 2, 1, 0]]
-        vertices_9 = np.array([[159, 288], [179, 308], [319, 206], [299, 180]])
-        region_9 = [[0, 1, 2, 3]]
-        vertices = vertices_9
-        region = region_9
-        test_pol = Polygon(vertices, region)
-        coeffs = compute_2d_irreducible_minkowski_tensors_polygon(test_pol, degree=6)[0]
-        # coeffs = [4, 0, 0, 3, 0, 0, 3]
-        norm_dens = np.array([normal_density(i_phi, coeffs) for i_phi in phi])
-        # plt.plot(phi, norm_dens, color='k')
-        plt.axis("equal")
-        plt.fill(vertices[:, 0], vertices[:, 1], color="k")
-        plt.xlim(np.min(vertices[:, 0]) - 0.1, np.max(vertices[:, 0]) + 0.1)
-        plt.ylim(np.min(vertices[:, 1]) - 0.1, np.max(vertices[:, 1]) + 0.1)
-        # radius = (
-        #     phi
-        #     + 1j*0.21/2*(np.exp(-2*1j*phi)-1)
-        #     - 1j*0.21/2*(np.exp(2*1j*phi)-1)
-        #     )
-        #     # 1/(-1j)*np.exp(-1j*phi) \
-        #     # + 0.21*(1/1j*np.exp(1j*phi) + 1/(-3*1j)*np.exp(-3*1j*phi)) \
-        #     # + 0.18*(1/(2*1j)*np.exp(1j*2*phi) + 1/(-4*1j)*np.exp(-4*1j*phi)) \
-        #     # + 0*(1/(3*1j)*np.exp(1j*3*phi) + 1/(-5*1j)*np.exp(-5*1j*phi)) \
-        #     # + 0*(1/(4*1j)*np.exp(1j*4*phi) + 1/(-6*1j)*np.exp(-6*1j*phi)) \
-        #     # + 0*(1/(5*1j)*np.exp(1j*5*phi) + 1/(-7*1j)*np.exp(-7*1j*phi))
-        #     # 2/(-1j)*np.exp(-1j*phi) + 1/1j*np.exp(1j*phi) + 1/(2*1j)*np.exp(1j*2*phi) + 1/(-3*1j)*np.exp(-3*1j*phi) + 1/(-4*1j)*np.exp(-4*1j*phi)
-        radius = np.array([pos_vec(i_phi, coeffs) for i_phi in phi])
-
-        axis.axis("off")
-        plt.savefig(dp_dir + "poly" + ".pdf", bbox_inches="tight")
-        plt.close()
-        _, axis, (w_fig, h_fig) = create_figure(nrows=4, ncols=3)
-        plt.axis("equal")
-        # plt.plot(phi, 1 + np.cos(3*phi))
-        # plt.plot(phi, 3 + 1/2*np.exp(-3*1j*phi) + 1/2*np.exp(3*1j*phi) + 1)
-        plt.fill(radius[:, 0], radius[:, 1], color="k")  # , color=color)
-        plt.xlim(np.min(radius[:, 0]) - 0.1, np.max(radius[:, 0]) + 0.1)
-        plt.ylim(np.min(radius[:, 1]) - 0.1, np.max(radius[:, 1]) + 0.1)
-        axis.axis("off")
-        plt.savefig(dp_dir + "approx" + ".pdf", bbox_inches="tight")
-        plt.close()
-        from matplotlib import cm
-
-        print(np.angle(coeffs))
-        imts = np.abs(coeffs) / np.abs(coeffs[0])
-        colors = cm.Blues(imts[2:])
-        _, axis, (w_fig, h_fig) = create_figure(nrows=4, ncols=3)
-        # plt.polar(phi, np.real(norm_dens), color='k')
-        rects = plt.barh(
-            range(5),
-            imts[2:],
-            height=1,
-            tick_label=["$q_2$", "$q_3$", "$q_4$", "$q_5$", "$q_6$"],
-            color=colors,
-        )
-        rect_labels = []
-        # Lastly, write in the ranking inside each bar to aid in interpretation
-        for ind, rect in enumerate(rects):
-            # Rectangle widths are already integer-valued but are floating
-            # type, so it helps to remove the trailing decimal point and 0 by
-            # converting width to int type
-            width = rect.get_width()
-
-            rankStr = str(np.round(imts[2 + ind], decimals=3))
-            # The bars aren't wide enough to print the ranking inside
-            if width < 0.5:
-                # Shift the text to the right side of the right edge
-                xloc = 3
-                # Black against white background
-                clr = "black"
-                align = "left"
-            else:
-                # Shift the text to the left side of the right edge
-                xloc = -3
-                # White on magenta
-                clr = "white"
-                align = "right"
-
-            # Center the text vertically in the bar
-            yloc = rect.get_y() + rect.get_height() / 2
-            label = axis.annotate(
-                rankStr,
-                xy=(width, yloc),
-                xytext=(xloc, 0),
-                textcoords="offset points",
-                ha=align,
-                va="center",
-                color=clr,
-                weight="bold",
-                clip_on=True,
-                fontsize=10,
-            )
-            rect_labels.append(label)
-        plt.xticks([])
-        plt.xlim([0, 1])
-        # axis.axis('off')
-        plt.savefig(dp_dir + "polar" + ".pdf", bbox_inches="tight")
-        plt.show()
-        plt.close()
-
-    # vertices = np.array(
-    #     [[150, 150],
-    #      [150, 350],
-    #      [350, 350],
-    #      [350, 150],
-    #      [250, 167]])
-    # region = [[4, 3, 2, 1, 0]]
-    # test_pol = Polygon(vertices, region)
-    #
-    # imts = computeIrreducibleMinkowskiTensors(test_pol)[0]
-    # print(np.abs(imts[0]))
-    # print(np.abs(imts[2]/imts[0]))
-    # print(np.abs(imts[3]/imts[0]))
-    # print(np.abs(imts[4]/imts[0]))
-    # print(np.abs(imts[5]/imts[0]))
-    # print(np.abs(imts[6]/imts[0]))
