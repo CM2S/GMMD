@@ -1,32 +1,22 @@
 """Module for the statistical analysis of microstructures."""
 
-from microstructure.particleclasses import (
-    Particle,
-    Disk,
-    Ellipse,
-    Sphere,
-    Ellipsoid,
-    CylindricalFiber,
-)
-
-from iofuncs.file_handling import create_design_point_results_directory
-
-import numpy as np
-
+# pylint: disable=import-error
+# pylint: disable=relative-beyond-top-level
+# pylint: disable=no-name-in-module
 import pickle
+import os
+import sys
+import numpy as np
 
 from PIL import Image
 
-from micgenmethod.speed_up_schemes import CellList
+from iofuncs.file_handling import create_design_point_results_directory
 
 from postproc.plotfuncs.plotting_functions import (
     plot_nearest_neighbor_dist,
     plot_ripleys_k_func,
     plot_two_point_correlation,
 )
-
-import os
-import sys
 
 
 class MicrostructureImage:
@@ -422,7 +412,6 @@ def ripleys_k_func(microstructure, max_radius=10, n_points=20):
         microstructure.particles, microstructure.rve_dims
     )
     adj_rve_dims = adjust_rve_dims(rem_particles)
-    import matplotlib.pyplot as plt
 
     from postproc.plotfuncs.plotting_functions import plot_particles_2d
 

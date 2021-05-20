@@ -11,7 +11,8 @@ import os
 import pickle
 import numpy as np
 
-from scipy.spatial import Voronoi, sph_harm
+from scipy.spatial import Voronoi
+from scipy.special import sph_harm
 
 from postproc.plotfuncs.plotting_functions import (
     plot_voronoi_2d,

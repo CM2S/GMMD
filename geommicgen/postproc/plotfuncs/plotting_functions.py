@@ -1,3 +1,6 @@
+# pylint: disable=import-error
+# pylint: disable=relative-beyond-top-level
+# pylint: disable=no-name-in-module
 import numpy as np
 
 import scipy.integrate as integrate
@@ -24,6 +27,7 @@ from microstructure.particleclasses import (
     CylindricalFiber,
     Sphere,
     Ellipsoid,
+    Particle,
 )
 
 from postproc.mshgen.meshing_interface import FEMMeshGenerator
@@ -2138,7 +2142,7 @@ def plot_voronoi_3d_with_imts(
 
     factory.synchronize()
     # box_surface = gmsh.model.getBoundary([(3, boxTag)])
-    out_dim_tag_3, _ = factory.fragment(
+    _, _ = factory.fragment(
         [(2, planeSurface) for planeSurface in planeSurfaceTags],
         [(3, boxTag)],
         removeObject=False,
@@ -2269,11 +2273,9 @@ def plot_voronoi_3d_with_imts(
 
     for i_order in range(7):
 
-        fig, ax, (w_fig, h_fig) = create_figure(nrows=3, ncols=2)
+        _, ax, (_, _) = create_figure(nrows=3, ncols=2)
 
         ax = plt.gca()
-
-        N = len(particles)
 
         if i_order == 0:
             plt.hist(

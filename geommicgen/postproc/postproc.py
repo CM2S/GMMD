@@ -48,7 +48,7 @@ def post_proc(
     if post_proc_opts.get("motion_analysis", False):
         print_funcs.print_to_file("Generating simulation plots")
         print_funcs.print_to_file("-" * 80 + "\n")
-        motion_analysis.doMotionAnalysis(
+        motion_analysis.do_motion_analysis(
             current_sample.particles,
             current_sample.rve_dims,
             sample_dir,
