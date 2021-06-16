@@ -318,7 +318,7 @@ class SpecifiedValue(PhaseDescriptor):
         Initialize for the SpecifiedValue class object.
 
         Parameters
-        ----------+ mean: float
+        ----------
         name: str
             Name of the descriptor
 
