@@ -31,6 +31,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
     methods needed to run the simulation and it also stores the relevant details of the
     simulation.
 
+    TO DO: Breakdown into smaller classes.
+
     Attributes
     ----------
     box: list
@@ -46,21 +48,37 @@ class MolecularDynamicsSimulation(GenerationMethod):
     particle_overlap_areas: list(float)
         List containing the overlap for each particle in the simulation box.
 
-    particle_total_overlap: float
+    particle_overlap_areas_dict; dict
+         Dictonary containing as the key the particle pair in the form of a tuple, and as
+         the value the overlap history of those two particle.
+
+    total_overlap: float
         Total overlap for all the particles in the simulation box.
 
-    particle_total_overlap_history: list(float)
+    total_overlap_history: list(float)
         History of the total overlap.
 
     position_center_history: list(list(array))
         It is a list containing the list of the positions of all particles in the simulation
         for each time step.
 
-    thermostat: `.Thermostat`
-        Thermostat to be used
+    relative_energy_history: list(float)
+        List of the relative energy history.
+
+    kinetic_energy_history: list(float)
+        List of the kinetic energy history.
 
     speed_up_scheme: `.SpeedUpScheme`
         Speed up scheme for force computation to be used.
+
+    thermostat: `.Thermostat`
+        Thermostat to be used
+
+    min_distance: float
+        Minimum distance between particles.
+
+    type_init_conf: {'random', 'grid'}
+        Type of initial configuration used.
 
     max_residue_per_particle: float
         Maximum allowable overlap residue between per particle
@@ -77,27 +95,64 @@ class MolecularDynamicsSimulation(GenerationMethod):
     delta_t: float
         Time step for the intergration of the equations of motion.
 
-    min_distance: float
-        Minimum distance between particles.
-
-    type_init_conf: {'random', 'grid'}
-        Type of initial configuration used.
-
     save_history: bool
         Save all the trajectories of the particles, the history of the relative and
         kinetic energy.
 
-    step: int
-        Current iteration of the MD simulation.
-
     time: float
         Time taken by the simulation.
 
-    relative_energy_history: list(float)
-        List of the relative energy history.
+    step: int
+        Current iteration of the MD simulation.
 
-    kinetic_energy_history: list(float)
-        List of the kinetic energy history.
+    damping_coeff: float
+        Damping coeffecient for the viscous damping.
+
+    particle_mass_opt: {"volume", "radius", "unit"}
+        Use as the mass of a particle either its volume/area, its radius or unit.
+
+    force_option: str
+        Name of the method used to compute the intersection overlap between the particles.
+
+    force_rescale: bool
+        Flag for the use of force rescale.
+
+    dt_adapt: bool
+        Flag for the use of the adaptive time step choice.
+
+    offset: bool
+        Flag for the use of an offset to place the origin such a FEM is more easily created.
+
+    fixed_seed; int
+        Seed to be used to produce the initial random configuration using the Poisson point
+        process.
+
+    initial_vel_coeff: float
+        Coeff used to setup the initial temperature of the system.
+
+    final_overlap_check: bool
+        Do a final check using a naive approach for the particle overlap.
+
+    microstructure_sample: `.Microstructure`
+        Microstructure to be generated.
+
+    force_rescale_coeff: float
+        Force rescale coefficient. Currently not in use.
+
+    coord_number: float
+        Mean coordination number of the particles in the simulation.
+
+    thermic_energy_history: list
+        History regarding the thermal energy of the system.
+
+    all_dt: list
+        List of the time steps used during the simulation.
+
+    status: bool
+        Status of the simulation. Successfull or failed.
+
+    _original_box: list
+        Dimensions of the original box, before normalization to an unitary box.
     """
 
     def __init__(
@@ -143,13 +198,32 @@ class MolecularDynamicsSimulation(GenerationMethod):
         Keyword Parameters
         ------------------
         damping_coeff: float
-            Viscous damping coefficient.
+            Damping coeffecient for the viscous damping.
 
-        particle_mass_opt: {'volume', 'radius', 'unit'}
-            Consider the mass equal to its volume, its radius or equal to one.
+        particle_mass_opt: {"volume", "radius", "unit"}
+            Use as the mass of a particle either its volume/area, its radius or unit.
 
-        force_option: {"intersection_area", "intersection_length"}
-            Force proportional to the overlap area/volume or the overlap length
+        force_option: str
+            Name of the method used to compute the intersection overlap between the particles.
+
+        force_rescale: bool
+            Flag for the use of force rescale.
+
+        dt_adapt: bool
+            Flag for the use of the adaptive time step choice.
+
+        offset: bool
+            Flag for the use of an offset to place the origin such a FEM is more easily created.
+
+        fixed_seed; int
+            Seed to be used to produce the initial random configuration using the Poisson point
+            process.
+
+        initial_vel_coeff: float
+            Coeff used to setup the initial temperature of the system.
+
+        final_overlap_check: bool
+            Do a final check using a naive approach for the particle overlap.
         """
         self.box = None
         self.particle_velocities = None
@@ -173,11 +247,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.save_history = save_history
         self.time = None
         self.step = 0
-        # Initializing the the time step at 0
-        self.max_force = None
         self.damping_coeff = kwargs.get("damping_coeff", 0)
         self.particle_mass_opt = kwargs.get("particle_mass_opt", "volume")
-        self.force_option = kwargs.get("force_option", "intersection_area")
+        self.force_option = kwargs.get("force_option", "intersection_length")
         self.force_rescale = kwargs.get("force_rescale", False)
         self.dt_adapt = kwargs.get("dt_adapt", True)
         self.offset = kwargs.get("offset", True)
@@ -189,6 +261,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.coord_number = None
         self.thermic_energy_history = []
         self.all_dt = []
+
         self.status = False
         self._original_box = None
 
@@ -746,8 +819,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
         if self.force_rescale:
             self.particle_forces = [
                 force * self.force_rescale_coeff
-                # force * self.max_force / self.current_max_force
-                if self.current_max_force != 0 else force
+                if self.current_max_force != 0
+                else force
                 for force in self.particle_forces
             ]
 
