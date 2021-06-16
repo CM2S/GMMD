@@ -51,7 +51,7 @@ class Particle(abc.ABC):
     possible_parameters = {
         "n": (
             "Number of particles",
-            lambda n, rve_dims: isinstance(n, int) and n > 0,
+            lambda n, rve_dims: isinstance(n, np.integer) and n > 0,
             "int",
         ),
         "vf": ("Volume fraction", lambda vf, rve_dims: 0 < vf < 1, "float"),
