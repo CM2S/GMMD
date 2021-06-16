@@ -293,12 +293,17 @@ class SpecifiedValue(PhaseDescriptor):
 
     Attributes
     ----------
-    value: object
-        Specified value of the descriptor.
+    mean: float
+        Mean of te specified values.
 
-    real_value: object
-        Real value of the descriptor. Used when a given descriptor cannot be exactly
-        satisfied.
+    sigma: float
+        Standard deviation of the specified values.
+
+    array_vals: array
+        Array containing the values specified.
+
+    current_val: int
+        Current index.
 
     Class Attributes
     ----------------
@@ -313,7 +318,7 @@ class SpecifiedValue(PhaseDescriptor):
         Initialize for the SpecifiedValue class object.
 
         Parameters
-        ----------
+        ----------+ mean: float
         name: str
             Name of the descriptor
 
@@ -341,10 +346,6 @@ class FixedValue(PhaseDescriptor):
     ----------
     value: object
         Specified value of the descriptor.
-
-    real_value: object
-        Real value of the descriptor. Used when a given descriptor cannot be exactly
-        satisfied.
 
     Class Attributes
     ----------------
