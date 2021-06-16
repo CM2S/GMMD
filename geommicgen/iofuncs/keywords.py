@@ -530,12 +530,6 @@ top_level_reader.add_top_level_keyword(
         type_str="int",
     ),
     KeywordTypeA(
-        "Remesh",
-        "Mic_Gen_Parameters",
-        default_value=False,
-        type_str="bool",
-    ),
-    KeywordTypeA(
         "Damping_Coeff",
         "Mic_Gen_Parameters",
         default_value=0,
@@ -595,7 +589,6 @@ top_level_reader.add_top_level_keyword(
         default_value=None,
         type_str="int",
     ),
-    KeywordTypeA("Dir_Previous_Mic", "Mic_Gen_Parameters", type_str="str"),
     KeywordTypeA("RVE_Dimensions", "Mic_Gen_Parameters", type_str="float"),
 )
 
@@ -664,8 +657,7 @@ top_level_reader.add_top_level_keyword(
     ),
 )
 
-
-# Post Processing
+# General keywords
 # ------------------------------------------------------------------------------------------
 top_level_reader.add_top_level_keyword(
     KeywordTypeB("Problem_Type", type_str="int"),
