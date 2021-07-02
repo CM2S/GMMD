@@ -14,13 +14,13 @@ import time
 import gmsh
 
 # pylint: disable=import-error
-import iofuncs.printing as print_funcs
+import geommicgen.iofuncs.printing as print_funcs
 from gmsh2links.main import readMesh
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 # Importing the particle class
-from microstructure.particleclasses import (
+from geommicgen.microstructure.particleclasses import (
     Disk,
     Ellipse,
     Ellipsoid,

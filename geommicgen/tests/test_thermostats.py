@@ -9,10 +9,10 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from scipy import integrate
 import time
-from postproc.plotfuncs.plotting_functions import plot_particles_3d
+from geommicgen.postproc.plotfuncs.plotting_functions import plot_particles_3d
 import pickle
-from micgenmethod.thermostats import MultiTemperatureIsokineticThermostat
-from micgenmethod.molecular_dynamics_sim import MolecularDynamicsSimulation
+from geommicgen.micgenmethod.thermostats import MultiTemperatureIsokineticThermostat
+from geommicgen.micgenmethod.molecular_dynamics_sim import MolecularDynamicsSimulation
 
 
 class TestRatioInOut(unittest.TestCase):

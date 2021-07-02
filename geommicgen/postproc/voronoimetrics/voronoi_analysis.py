@@ -14,7 +14,7 @@ import numpy as np
 from scipy.spatial import Voronoi
 from scipy.special import sph_harm
 
-from postproc.plotfuncs.plotting_functions import (
+from geommicgen.postproc.plotfuncs.plotting_functions import (
     plot_voronoi_2d,
     plot_voronoi_2d_with_imts,
     plot_voronoi_3d,

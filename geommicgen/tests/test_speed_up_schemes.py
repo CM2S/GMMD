@@ -5,17 +5,20 @@ The classes tested are the GenerationMethod class and the MolecularDynamicsSimul
 import unittest
 from unittest.mock import sentinel, Mock, patch, call
 
-from postproc.plotfuncs.plotting_functions import plot_particles_3d, plot_particles_2d
+from geommicgen.postproc.plotfuncs.plotting_functions import (
+    plot_particles_3d,
+    plot_particles_2d,
+)
 import pickle
 import numpy as np
 
-from micgenmethod.speed_up_schemes import SpeedUpScheme, CellList, VerletList
-from microstructure.particleclasses import Ellipse, Disk
+from geommicgen.micgenmethod.speed_up_schemes import SpeedUpScheme, CellList, VerletList
+from geommicgen.microstructure.particleclasses import Ellipse, Disk
 
-from micgenmethod.microstructure_gen_method import (
+from geommicgen.micgenmethod.microstructure_gen_method import (
     GenerationMethod,
 )
-from micgenmethod.molecular_dynamics_sim import (
+from geommicgen.micgenmethod.molecular_dynamics_sim import (
     MolecularDynamicsSimulation,
 )
 

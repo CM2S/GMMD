@@ -6,7 +6,7 @@ from unittest.mock import sentinel, Mock, MagicMock, patch
 # from microstructure.phase import Phase
 
 
-from micgenmethod.molecular_dynamics_sim import MolecularDynamicsSimulation
+from geommicgen.micgenmethod.molecular_dynamics_sim import MolecularDynamicsSimulation
 import numpy as np
 
 

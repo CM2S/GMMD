@@ -9,8 +9,8 @@ import numpy as np
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-from micgenmethod.speed_up_schemes import CellList
-from microstructure.particleclasses import Point
+from geommicgen.micgenmethod.speed_up_schemes import CellList
+from geommicgen.microstructure.particleclasses import Point
 
 
 class Microstructure:

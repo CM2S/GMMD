@@ -5,12 +5,12 @@ import time
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 # pylint: disable=no-name-in-module
-import iofuncs.printing as print_funcs
-import postproc.voronoimetrics.motion_analysis as motion_analysis
-import postproc.voronoimetrics.stat_analysis as stat_analysis
-import postproc.voronoimetrics.voronoi_analysis as voronoi_analysis
+import geommicgen.iofuncs.printing as print_funcs
+import geommicgen.postproc.voronoimetrics.motion_analysis as motion_analysis
+import geommicgen.postproc.voronoimetrics.stat_analysis as stat_analysis
+import geommicgen.postproc.voronoimetrics.voronoi_analysis as voronoi_analysis
 
-from postproc.plotfuncs.plotting_functions import plot_particles
+from geommicgen.postproc.plotfuncs.plotting_functions import plot_particles
 
 
 def post_proc(

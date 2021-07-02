@@ -10,9 +10,9 @@ import numpy as np
 
 from PIL import Image
 
-from iofuncs.file_handling import create_design_point_results_directory
+from geommicgen.iofuncs.file_handling import create_design_point_results_directory
 
-from postproc.plotfuncs.plotting_functions import (
+from geommicgen.postproc.plotfuncs.plotting_functions import (
     plot_nearest_neighbor_dist,
     plot_ripleys_k_func,
     plot_two_point_correlation,

@@ -5,7 +5,7 @@ import os
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 # pylint: disable=no-name-in-module
-from postproc.plotfuncs.plotting_functions import (
+from geommicgen.postproc.plotfuncs.plotting_functions import (
     plot_overlap_history,
     plot_kinetic_energy_history,
     plot_delta_t_history,

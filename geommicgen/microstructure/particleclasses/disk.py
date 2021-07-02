@@ -7,7 +7,7 @@ import numpy as np
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-from microstructure.particleclasses import Ellipse, Particle, MINIMUM_SIZE
+from geommicgen.microstructure.particleclasses import Ellipse, Particle, MINIMUM_SIZE
 
 
 class Disk(Ellipse):

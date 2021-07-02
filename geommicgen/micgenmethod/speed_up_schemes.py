@@ -11,7 +11,7 @@ from copy import deepcopy
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-from microstructure.particleclasses import Particle
+from geommicgen.microstructure.particleclasses import Particle
 
 import numpy as np
 

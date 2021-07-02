@@ -4,8 +4,8 @@ import os
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-from iofuncs.file_handling import load_previous_sample
-import postproc.plotfuncs.plotting_functions as my_plt
+from geommicgen.iofuncs.file_handling import load_previous_sample
+import geommicgen.postproc.plotfuncs.plotting_functions as my_plt
 
 
 def load_samples(*list_file_paths):

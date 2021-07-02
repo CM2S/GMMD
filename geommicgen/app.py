@@ -6,27 +6,35 @@ import os
 # import postproc.voronoimetrics.motion_analysis as motion_analysis
 # import postproc.voronoimetrics.stat_analysis as stat_analysis
 
-import iofuncs.printing as print_funcs
+import geommicgen.iofuncs.printing as print_funcs
 
 # from postproc.plotfuncs.plotting_functions import plot_particles
 
-from postproc.mshgen.meshing_interface import FEMMeshGenerator, RegularGridMeshGenerator
+from geommicgen.postproc.mshgen.meshing_interface import (
+    FEMMeshGenerator,
+    RegularGridMeshGenerator,
+)
 
-from postproc.postproc import post_proc
+from geommicgen.postproc.postproc import post_proc
 
-import iofuncs.file_handling as fileio
-from iofuncs.keywords import top_level_reader
+import geommicgen.iofuncs.file_handling as fileio
+from geommicgen.iofuncs.keywords import top_level_reader
 
-from microstructure.microstructure import Microstructure
-from microstructure.phase import Phase
-from micgenmethod.molecular_dynamics_sim import MolecularDynamicsSimulation
-from micgenmethod.thermostats import (
+from geommicgen.microstructure.microstructure import Microstructure
+from geommicgen.microstructure.phase import Phase
+from geommicgen.micgenmethod.molecular_dynamics_sim import MolecularDynamicsSimulation
+from geommicgen.micgenmethod.thermostats import (
     IsokineticThermostat,
     MultiTemperatureIsokineticThermostat,
     MicroCanonicalEnsemble,
     BerendsenForceThermostat,
 )
-from micgenmethod.speed_up_schemes import CellList, VerletList, VerletPartialUpdate, Naive
+from geommicgen.micgenmethod.speed_up_schemes import (
+    CellList,
+    VerletList,
+    VerletPartialUpdate,
+    Naive,
+)
 
 
 def run_program():

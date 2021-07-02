@@ -16,12 +16,12 @@ from scipy.stats import hmean
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-import errors.error_classes as errors
-import iofuncs.file_handling as fileio
-import iofuncs.printing as print_funcs
-from microstructure.particleclasses import Matrix
-from micgenmethod.microstructure_gen_method import GenerationMethod
-from micgenmethod.integration_methods import verlet_sync_integration
+import geommicgen.errors.error_classes as errors
+import geommicgen.iofuncs.file_handling as fileio
+import geommicgen.iofuncs.printing as print_funcs
+from geommicgen.microstructure.particleclasses import Matrix
+from geommicgen.micgenmethod.microstructure_gen_method import GenerationMethod
+from geommicgen.micgenmethod.integration_methods import verlet_sync_integration
 
 
 class MolecularDynamicsSimulation(GenerationMethod):

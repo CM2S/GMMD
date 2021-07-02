@@ -12,8 +12,8 @@ import numpy as np
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-import microstructure.particleclasses as part_cls
-import microstructure.phase as phase
+import geommicgen.microstructure.particleclasses as part_cls
+import geommicgen.microstructure.phase as phase
 
 
 class Keyword:

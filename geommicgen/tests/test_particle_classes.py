@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from scipy import integrate
 import time
-from microstructure.particleclasses import (
+from geommicgen.microstructure.particleclasses import (
     Ellipsoid,
     Ellipse,
     Cylinder,
@@ -20,7 +20,10 @@ from microstructure.particleclasses import (
     Point,
     Line,
 )
-from postproc.plotfuncs.plotting_functions import plot_particles_3d, plot_particles_2d
+from geommicgen.postproc.plotfuncs.plotting_functions import (
+    plot_particles_3d,
+    plot_particles_2d,
+)
 import pickle
 
 

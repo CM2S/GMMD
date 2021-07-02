@@ -4,7 +4,7 @@ from unittest.mock import sentinel, Mock, patch
 # from microstructure.phase import Phase
 
 
-from microstructure.microstructure import Microstructure
+from geommicgen.microstructure.microstructure import Microstructure
 
 
 class TestMicrostructure(unittest.TestCase):

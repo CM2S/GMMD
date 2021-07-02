@@ -7,7 +7,7 @@ from scipy import integrate
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-import microstructure.particleclasses.cylinder as cyl_cls
+import geommicgen.microstructure.particleclasses.cylinder as cyl_cls
 from .particle import Particle, MINIMUM_SIZE
 
 

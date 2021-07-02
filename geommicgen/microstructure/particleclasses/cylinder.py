@@ -6,7 +6,7 @@ import numpy as np
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-import microstructure.particleclasses.sphere as sph_cls
+import geommicgen.microstructure.particleclasses.sphere as sph_cls
 from .particle import Particle, MINIMUM_SIZE
 
 

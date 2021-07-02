@@ -3,7 +3,7 @@ import numpy as np
 import os
 
 # Quasi monte carlo integration
-import qmcpy as qp
+# import qmcpy as qp
 from scipy.optimize import newton_krylov, root
 from scipy.stats import lognorm, beta, norm
 
@@ -12,9 +12,9 @@ import multiprocessing as mp
 
 
 # pylint: disable=import-error
-import iofuncs.printing as print_funcs
-from microstructure.phase import Phase
-from microstructure.microstructure import Microstructure
+import geommicgen.iofuncs.printing as print_funcs
+from geommicgen.microstructure.phase import Phase
+from geommicgen.microstructure.microstructure import Microstructure
 
 
 def generate_microstructure_from_csv(file_path):
@@ -555,7 +555,7 @@ def qmc_em_size_param_estimation(
 
     # Generate Sobol samples
     # --------------------------------------------------------------------------------------
-    sobol_sequence = qp.Sobol(3)
+    sobol_sequence = None  # qp.Sobol(3)
     for i_part in range(n_particles):
         # Generate Sobol samples \(\pmb h_i^{(s)}\) until \(S\) samples with nonzero weights
         # are obtained

@@ -21,7 +21,7 @@ from matplotlib import cm
 # Finite element mesh conversor to LINKS
 
 
-from microstructure.particleclasses import (
+from geommicgen.microstructure.particleclasses import (
     Disk,
     Ellipse,
     CylindricalFiber,
@@ -30,8 +30,8 @@ from microstructure.particleclasses import (
     Particle,
 )
 
-from postproc.mshgen.meshing_interface import FEMMeshGenerator
-import iofuncs.printing as print_funcs
+from geommicgen.postproc.mshgen.meshing_interface import FEMMeshGenerator
+import geommicgen.iofuncs.printing as print_funcs
 
 latex_textwidth = 5.92  # in = 496pt
 latex_textheigth = 9.63  # in = 674pt

@@ -4,9 +4,9 @@ import numpy as np
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-from microstructure.microstructure import Microstructure
-from microstructure.phase import Phase
-import iofuncs.printing as print_funcs
+from geommicgen.microstructure.microstructure import Microstructure
+from geommicgen.microstructure.phase import Phase
+import geommicgen.iofuncs.printing as print_funcs
 
 
 def generate_microstructure_from_txt(file_path):

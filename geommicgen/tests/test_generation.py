@@ -9,13 +9,13 @@ import numpy as np
 
 
 # pylint: disable=import-error
-from micgenmethod.microstructure_gen_method import (
+from geommicgen.micgenmethod.microstructure_gen_method import (
     GenerationMethod,
 )
-from micgenmethod.molecular_dynamics_sim import (
+from geommicgen.micgenmethod.molecular_dynamics_sim import (
     MolecularDynamicsSimulation,
 )
-from microstructure.particleclasses import (
+from geommicgen.microstructure.particleclasses import (
     CylindricalFiber,
 )
 

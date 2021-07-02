@@ -10,8 +10,8 @@ import shutil
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-from micgenmethod.mic_from_imagej import generate_microstructure_from_csv
-from micgenmethod.mic_from_file import generate_microstructure_from_txt
+from geommicgen.micgenmethod.mic_from_imagej import generate_microstructure_from_csv
+from geommicgen.micgenmethod.mic_from_file import generate_microstructure_from_txt
 from .printing import print_output
 
 SAMPLE_DIR = ""
