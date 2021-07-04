@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 import numpy as np
-from app import run_program
+from geommicgen.app import run_program
 
 
 @patch("sys.argv")

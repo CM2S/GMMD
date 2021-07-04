@@ -47,7 +47,7 @@ class TestRVENormalization(unittest.TestCase):
         self.mdsim.min_distance = 1
         self.mdsim._original_box = None
 
-    @patch("iofuncs.printing.print_virtual_total_volume_fraction")
+    @patch("geommicgen.iofuncs.printing.print_virtual_total_volume_fraction")
     def test_characterization_virtual_particle_sizes_1(self, mock_print_to_file):
 
         particles = [MagicMock(), MagicMock()]
@@ -58,7 +58,7 @@ class TestRVENormalization(unittest.TestCase):
             particle.dilate.assert_called_with(1 / 2)
             particle.contract.assert_called_with(1 / 2)
 
-    @patch("iofuncs.printing.print_virtual_total_volume_fraction")
+    @patch("geommicgen.iofuncs.printing.print_virtual_total_volume_fraction")
     def test_characterization_virtual_particle_sizes_2(self, mock_print_to_file):
 
         self.mdsim.microstructure_sample = MagicMock()
@@ -74,7 +74,7 @@ class TestRVENormalization(unittest.TestCase):
 
         thermostat_mock.equilibration_steps.append.assert_called_with(jump_list)
 
-    @patch("iofuncs.printing.print_virtual_total_volume_fraction")
+    @patch("geommicgen.iofuncs.printing.print_virtual_total_volume_fraction")
     def test_characterization_virtual_particle_sizes_3(self, mock_print_to_file):
 
         self.mdsim.microstructure_sample = MagicMock()
@@ -97,7 +97,7 @@ class TestRVENormalization(unittest.TestCase):
             ],
         )
 
-    @patch("iofuncs.printing.print_virtual_total_volume_fraction")
+    @patch("geommicgen.iofuncs.printing.print_virtual_total_volume_fraction")
     def test_characterization_virtual_particle_sizes_4(self, mock_print_to_file):
 
         self.mdsim.microstructure_sample = MagicMock()
