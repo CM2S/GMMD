@@ -484,7 +484,7 @@ top_level_reader.add_top_level_keyword(
     KeywordTypeA(
         "Thermostat",
         "Mic_Gen_Parameters",
-        default_type="multi_temperature",
+        default_value="multi_temperature",
         type_str="str",
     ),
     KeywordTypeA(
@@ -520,7 +520,7 @@ top_level_reader.add_top_level_keyword(
     KeywordTypeA(
         "Lowering_Temp_Criterion",
         "Mic_Gen_Parameters",
-        default_value="original",
+        default_value="ratio_in_out",
         type_str="str",
     ),
     KeywordTypeA(
@@ -538,13 +538,13 @@ top_level_reader.add_top_level_keyword(
     KeywordTypeA(
         "Particle_Mass_Opt",
         "Mic_Gen_Parameters",
-        default_value="volume",
+        default_value="radius",
         type_str="str",
     ),
     KeywordTypeA(
         "Force_Option",
         "Mic_Gen_Parameters",
-        default_value="intersection_area",
+        default_value="intersection_length",
         type_str="str",
     ),
     KeywordTypeA(

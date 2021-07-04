@@ -1,7 +1,7 @@
 # GMMD - Input data file
 # ==========================================================================================
 # Description:
-# This file provides a complete input data file of the (???) program, where each parameter
+# This file provides a complete input data file of the GMMD program, where each parameter
 # specification (either mandatory or optional) is fully documented (meaning, syntax,
 # available options). Note that it can be readily used by replacing the '[insert here]'
 # boxes with the suitable specification!
