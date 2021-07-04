@@ -1,4 +1,4 @@
-"""Setup file for LINKS-RC package
+"""Setup file for GMMD package
 """
 # Import modules
 # --------------
@@ -19,23 +19,22 @@ setup(
     # Version from the version file
     version=version,
     # Short description
-    description="LINKS-RC: Module for Rough Contact Modelling",
+    description="GMMD: Generation of Microstructures using Molecular Dynamics",
     # Long descriptionf from README.md
     long_description=longDescription,
     long_description_content_type="text/markdown",
     # Github url
-    url="https://github.com/CM2S/LINKS-RC",
+    url="https://github.com/josevilacha/GMMD",
     # Authors
-    author="António Manuel Couto Carneiro, Rodrigo Pinto Carvalho @CM2S, FEUP",
-    author_email="amcc@fe.up.pt, rcarvalho@fe.up.pt",
+    author="José Luís P. Vila-Chã, Bernardo P. Ferreira, Francisco M. Andrade Pires @CM2S, FEUP",
+    author_email="jvc@fe.up.pt, bpferreira@fe.up.pt, fpires@fe.up.pt",
     # Licensing
-    licence="MIT",
+    licence="BSD 3-Clause License",
     # Classifiers (selected from https://pypi.org/classifiers/)
     classifiers=[
         "Development Status :: 4 - Beta",
         "Environment :: Console",
         "Intended Audience :: Science/Research",
-        "License :: OSI Approved :: MIT License",
         "Natural Language :: English",
         # Python version obtained with https://pypi.org/project/check-python-versions/
         "Programming Language :: Python :: 3.5",
@@ -44,18 +43,18 @@ setup(
         "Programming Language :: Python :: 3.8",
         "Topic :: Scientific/Engineering",
         "Topic :: Scientific/Engineering :: Physics",
-        "Topic :: Software Development :: Pre-processors",
+        "Topic :: Scientific/Engineering :: Microstructure Generation",
     ],
     # Keywords
-    keywords="FEM contact roughness mesh generation",
+    keywords="Microstructure generation",
     # Project URLs
     project_urls={
         # 'Documentation': 'https://packaging.python.org/tutorials/distributing-packages/',
-        "Source": "https://github.com/CM2S/LINKS-RC",
-        "Tracker": "https://github.com/CM2S/LINKS-RC/issues",
+        "Source": "https://github.com/josevilacha/GMMD",
+        "Tracker": "unknown",
     },
     # Python version compatibility
-    python_requires=">=3.5, <3.9",
+    python_requires=">=3.8, <3.9",
     # Source directory
     # package_dir={"": "src"},
     # Packages provided
