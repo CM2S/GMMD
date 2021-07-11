@@ -12,7 +12,7 @@ Employing a time-driven molecular dynamics simulation, GMMD offers a solution to
 
 
 ### Authors
-This program initial version was documented and fully coded by José Luís P. Vila-Chã<sup>[1](#f1) </sup> ([up201506192@fe.up.pt](mailto:jvc@fe.up.pt)) and developed in colaboration with Bernardo P. Ferreira<sup>[1](#f1) </sup> ([bpferreira@fe.up.pt](mailto:bpferreira@fe.up.pt)) and Francisco M. Andrade Pires<sup>[2](#2) </sup> ([fpires@fe.up.pt](mailto:fpires@fe.up.pt)).
+This program initial version was documented and fully coded by José Luís P. Vila-Chã<sup>[1](#f1) </sup> ([jvc@fe.up.pt](mailto:jvc@fe.up.pt)) and developed in colaboration with Bernardo P. Ferreira<sup>[1](#f1) </sup> ([bpferreira@fe.up.pt](mailto:bpferreira@fe.up.pt)) and Francisco M. Andrade Pires<sup>[2](#2) </sup> ([fpires@fe.up.pt](mailto:fpires@fe.up.pt)).
 
 <sup id="f1"> 1 </sup> Member of CM2S research group, Department of Mechanical Engineering, Faculty of Engineering, University of Porto  
 <sup id="f2"> 2 </sup> Leader of CM2S research group, Department of Mechanical Engineering, Faculty of Engineering, University of Porto
@@ -81,7 +81,15 @@ Some software must be installed to successfully run GMMD:
 
 * Gmsh e gmsh2links (see [here](https://github.com/CM2S/Utilities/tree/master/gmsh)) - Required to produce meshes of the microstructures to be used in FEM analysis through LINKS.
 
-> **Note:** When trying to run GMMD for the first couple of times, it is expected that Python's ImportError and ModuleNotFoundError are raised depending on the required packages that are not installed. Install them in turn and rerun GMMD until these exceptions are no longer raised, meaning that all required packages are properly installed and accessed.
+### Installation
+`GMMD` can be installed system-wide by first cloning this repository
+```
+git clone git@github.com:CM2S/GMMD.git
+```
+Second, change directory into the freshly cloned repository, where the `setup.py` is located, and install the package (and the respective dependencies, automatically):
+```bash
+pip3 install -e .
+```
 
 ### GMMD workflow
 In what follows, the general workflow of GMMD in the generation of a set of samples with a given set of microstructural descriptors:
@@ -93,13 +101,13 @@ A complete GMMD input data file where each parameter specification (either manda
 
   2.1. *New set of microstructures:* To generate a new microstructure using GMMD, one must simply execute the module (`geommicgen`) with Python 3.X and provide the input data file (argument parsing).
     > In Linux/UNIX operative systems, open a terminal console window and execute the following command:  
-    `python3.X geommicgen input_data_file.mdsim`
+    `geommicgen input_data_file.mdsim`
      <br/><br/>
     The program execution can be followed in the terminal console window, where the data associated with the program launch, to the progress of the main execution phases, and the program end is output.
 
   2.2. *Meshing/analysis of microstructures:* To generate a new mesh or perform statistical analysis on a previously generated microstructure using GMMD, one must simply execute the module (`geommicgen`) with Python 3.X, provide the input data file (`.mdsim`) and the microstructure file (`.mic`), in this order.
     > In Linux/UNIX operative systems, open a terminal console window and execute the following command:  
-    `python3.X geommicgen input_data_file.mdsim previous_mic.mic`
+    `geommicgen input_data_file.mdsim previous_mic.mic`
      <br/><br/>
     The program execution can be followed in the terminal console window, where the data associated with the program launch, to the progress of the main execution phases, and the program end is output.
 
