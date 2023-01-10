@@ -44,6 +44,8 @@ class GenerationMethod(abc.ABC):
 
         """
 
+        return [0.,0.,0.] # jump this function due to possible bug in intersection_gjk
+        #
         def min_dist_to_part(offset, particles, rve_dims):
             """Compute the minum distance from offset to the surface of the particles."""
             offset_array = np.array(offset)
