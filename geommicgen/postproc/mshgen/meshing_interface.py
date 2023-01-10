@@ -792,7 +792,6 @@ class FEMMeshGenerator(MeshGenerator):
             Tolerance for the bounding boxes used to enforce the pbc.
         """
         factory = gmsh.model.occ
-        gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
         trans_vec = [0, 0, 0]
         trans_vec[direction] = rve_dims[direction]
         normal_plane = list(rve_dims) if len(rve_dims) == 3 else list(rve_dims) + [0]
