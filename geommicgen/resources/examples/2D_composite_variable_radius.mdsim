@@ -8,8 +8,8 @@ Phase_Type 1
 Phase Fibre
 Phase_Type 2
 r_distribution normal
-r_mean 0.1
-r_sigma 0.05
+r_mean 0.05
+r_sigma 0.01
 vf 0.6
 # ------------------------------------------------------------------------------------------
 Max_Residue_Per_Particle 0

@@ -263,6 +263,17 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
     if kwargs.get("show", False):
         plt.show()
 
+    # Loop over particles to print their center and radius
+    outfile = open(os.path.join(sample_dir, 'fibres_list.csv'),'w')
+    outfile.write('center_coordinates , radius \n')
+    for i_particle in particles:
+        center = ''
+        for ic in i_particle.position_center:
+            center = center+f'{ic} , '
+        outfile.write(f'{center}{i_particle.radius} \n')
+    outfile.close()
+
+
 
 def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
 
