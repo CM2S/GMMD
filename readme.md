@@ -83,6 +83,12 @@ Some software must be installed to successfully run GMMD:
 
 > **Note:** When trying to run GMMD for the first couple of times, it is expected that Python's ImportError and ModuleNotFoundError are raised depending on the required packages that are not installed. Install them in turn and rerun GMMD until these exceptions are no longer raised, meaning that all required packages are properly installed and accessed.
 
+### Installation
+
+* Open a terminal in the main folder `GMMD`, where the file `setup.py` is located. To install GMMD as a package, type:
+  `pip install -e .`
+
+
 ### GMMD workflow
 In what follows, the general workflow of GMMD in the generation of a set of samples with a given set of microstructural descriptors:
 
@@ -90,6 +96,8 @@ In what follows, the general workflow of GMMD in the generation of a set of samp
 A complete GMMD input data file where each parameter specification (either mandatory or optional) is fully documented (meaning, syntax, available options) can be found in the `geommicgen/resources` directory (or [here](https://github.com/josevilacha/GMMD/blob/master/geommicgen/resources/MIC_input_data_file.dat)). This file can be copied to a given directory and be readily used by replacing the `[insert here]` boxes with the suitable specification.
 
 2. **Run GMMD.**
+  
+  To run GMMD, you must open a terminal in the main folder `GMMD`.
 
   2.1. *New set of microstructures:* To generate a new microstructure using GMMD, one must simply execute the module (`geommicgen`) with Python 3.X and provide the input data file (argument parsing).
     > In Linux/UNIX operative systems, open a terminal console window and execute the following command:  
