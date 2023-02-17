@@ -266,11 +266,24 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
     # Loop over particles to print their center and radius
     outfile = open(os.path.join(sample_dir, 'fibres_list.csv'),'w')
     outfile.write('center_coordinates , radius \n')
+    # Periodic images considered
+    pbc_images = [-1, 0, 1]
+    eps = 0.0
     for i_particle in particles:
-        center = ''
-        for ic in i_particle.position_center:
-            center = center+f'{ic} , '
-        outfile.write(f'{center}{i_particle.radius} \n')
+        for (j_pbc, p_pbc) in [
+            (j_pbc, p_pbc) for j_pbc in pbc_images for p_pbc in pbc_images
+        ]:
+            x_c = i_particle.position_center[0] + rve_dims[0] * j_pbc
+            y_c = i_particle.position_center[1] + rve_dims[1] * p_pbc
+            r_p = i_particle.radius
+            if (
+                x_c > rve_dims[0] + r_p - eps
+                or x_c < -r_p + eps
+                or y_c > rve_dims[1] + r_p - eps
+                or y_c < -r_p + eps
+            ):
+                continue
+            outfile.write(f'{x_c} , {y_c} , {i_particle.radius} \n')
     outfile.close()
 
 
