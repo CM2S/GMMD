@@ -54,7 +54,7 @@ setup(
         "Tracker": "unknown",
     },
     # Python version compatibility
-    python_requires=">=3.8, <3.11",
+    python_requires=">=3.8, <3.13",
     # Source directory
     # package_dir={"": "src"},
     # Packages provided
