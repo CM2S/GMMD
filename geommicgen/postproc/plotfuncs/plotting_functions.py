@@ -8,6 +8,7 @@ import scipy.integrate as integrate
 import os
 
 import gmsh
+import yaml
 
 from PIL import Image
 
@@ -262,20 +263,21 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
 
     if kwargs.get("show", False):
         plt.show()
-
+        
     # Loop over particles to print their center and radius
-    outfile = open(os.path.join(sample_dir, 'fibres_list.csv'),'w')
-    outfile.write('center_coordinates , radius \n')
+    fibers_data = []
+
     # Periodic images considered
     pbc_images = [-1, 0, 1]
     eps = 0.0
+
     for i_particle in particles:
         for (j_pbc, p_pbc) in [
             (j_pbc, p_pbc) for j_pbc in pbc_images for p_pbc in pbc_images
         ]:
-            x_c = i_particle.position_center[0] + rve_dims[0] * j_pbc
-            y_c = i_particle.position_center[1] + rve_dims[1] * p_pbc
-            r_p = i_particle.radius
+            x_c = float(i_particle.position_center[0] + rve_dims[0] * j_pbc)
+            y_c = float(i_particle.position_center[1] + rve_dims[1] * p_pbc)
+            r_p = float(i_particle.radius)
             if (
                 x_c > rve_dims[0] + r_p - eps
                 or x_c < -r_p + eps
@@ -283,8 +285,15 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
                 or y_c < -r_p + eps
             ):
                 continue
-            outfile.write(f'{x_c} , {y_c} , {i_particle.radius} \n')
-    outfile.close()
+            fibers_data.append({
+                "center_coordinates": [str(x_c), str(y_c)],  # Convert to string
+                "radius": str(r_p)  # Convert to string
+            })
+
+    # Save to YAML file
+    yaml_file_path = os.path.join(sample_dir, 'fibres_list.yaml')
+    with open(yaml_file_path, 'w') as outfile:
+        yaml.dump({"fibers": fibers_data}, outfile, default_flow_style=False)
 
 
 

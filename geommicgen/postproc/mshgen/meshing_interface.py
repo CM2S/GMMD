@@ -15,7 +15,7 @@ import gmsh
 
 # pylint: disable=import-error
 import geommicgen.iofuncs.printing as print_funcs
-from gmsh2links.main import readMesh
+#from gmsh2links.main import readMesh
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
