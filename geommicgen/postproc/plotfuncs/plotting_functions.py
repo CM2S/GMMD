@@ -17,6 +17,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib import cm
+from datetime import datetime, timezone
 
 # Simple math tools
 # Finite element mesh conversor to LINKS
@@ -289,12 +290,36 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
                 "center_coordinates": [str(x_c), str(y_c)],  # Convert to string
                 "radius": str(r_p)  # Convert to string
             })
+    
 
     # Save to YAML file
     yaml_file_path = os.path.join(sample_dir, 'fibres_list.yaml')
-    with open(yaml_file_path, 'w') as outfile:
-        yaml.dump({"fibers": fibers_data}, outfile, default_flow_style=False)
+    # Step 1: Get the folder name "RVE_GMMD_test_3_00XX" from the path
+    stage1_yaml_name = os.path.basename(os.path.dirname(sample_dir))
+    # Step 2: Construct the path to the corresponding YAML file inside the 'yamls' folder
+    stage1_yaml_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(sample_dir))), 'yamls', f"{stage1_yaml_name}.yaml")
 
+    # Read the DoE stage YAML and fetch the hash
+    with open(stage1_yaml_path, 'r', encoding='utf8') as file:
+        yaml_content = yaml.safe_load(file)
+
+    # Extract the hash from the Metadata section
+    hash_value = yaml_content['Metadata']['hash']
+    new_metadata = {
+    "hash": hash_value,
+    "created_at": datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"), 
+    "stage": "fibre_locations"
+    }
+
+    data_to_dump = {
+        "Metadata": new_metadata,
+        "fibers": fibers_data
+    }
+
+    with open(yaml_file_path, 'w') as outfile:
+        yaml.dump(data_to_dump, outfile, default_flow_style=False, sort_keys=False, allow_unicode=True)
+    
+   
 
 
 def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
