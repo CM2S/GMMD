@@ -34,6 +34,7 @@ from geommicgen.microstructure.particleclasses import (
 
 from geommicgen.postproc.mshgen.meshing_interface import FEMMeshGenerator
 import geommicgen.iofuncs.printing as print_funcs
+from geommicgen.postproc.plotfuncs.check_fibres import is_fiber_completely_outside_rve
 
 latex_textwidth = 5.92  # in = 496pt
 latex_textheigth = 9.63  # in = 674pt
@@ -270,7 +271,6 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
 
     # Periodic images considered
     pbc_images = [-1, 0, 1]
-    eps = 0.0
 
     for i_particle in particles:
         for (j_pbc, p_pbc) in [
@@ -279,18 +279,20 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
             x_c = float(i_particle.position_center[0] + rve_dims[0] * j_pbc)
             y_c = float(i_particle.position_center[1] + rve_dims[1] * p_pbc)
             r_p = float(i_particle.radius)
-            if (
-                x_c > rve_dims[0] + r_p - eps
-                or x_c < -r_p + eps
-                or y_c > rve_dims[1] + r_p - eps
-                or y_c < -r_p + eps
-            ):
+            
+            fiber = {
+                "center_coordinates": {
+                    "x": str(x_c),
+                    "y": str(y_c)
+                },
+                "radius": str(r_p)
+            }
+            
+            # Check if fiber is completely outside the RVE
+            if is_fiber_completely_outside_rve(fiber, length=rve_dims[0], height=rve_dims[1]):
                 continue
-            fibers_data.append({
-                "center_coordinates": [str(x_c), str(y_c)],  # Convert to string
-                "radius": str(r_p)  # Convert to string
-            })
-    
+                
+            fibers_data.append(fiber)
 
     # Save to YAML file
     yaml_file_path = os.path.join(sample_dir, 'fibres_list.yaml')
