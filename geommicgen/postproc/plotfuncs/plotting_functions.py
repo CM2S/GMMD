@@ -315,7 +315,10 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
 
     data_to_dump = {
         "Metadata": new_metadata,
-        "fibers": fibers_data
+        "fibers": {
+            'scaling_factor': 1.0,
+            'dimensions': fibers_data
+        }
     }
 
     with open(yaml_file_path, 'w') as outfile:
