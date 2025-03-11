@@ -282,10 +282,10 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
             
             fiber = {
                 "center_coordinates": {
-                    "x": str(x_c),
-                    "y": str(y_c)
+                    "x": x_c,
+                    "y": y_c
                 },
-                "radius": str(r_p)
+                "radius": r_p
             }
             
             # Check if fiber is completely outside the RVE
