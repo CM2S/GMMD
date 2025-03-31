@@ -268,6 +268,8 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
         
     # Loop over particles to print their center and radius
     fibers_data = []
+    fibers_centers = []
+    fibers_radii = []
 
     # Periodic images considered
     pbc_images = [-1, 0, 1]
@@ -293,6 +295,8 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
                 continue
                 
             fibers_data.append(fiber)
+            fibers_centers.append([x_c, y_c])
+            fibers_radii.append(r_p)
 
     # Save to YAML file
     yaml_file_path = os.path.join(sample_dir, 'fibres_list.yaml')
@@ -323,9 +327,35 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
 
     with open(yaml_file_path, 'w') as outfile:
         yaml.dump(data_to_dump, outfile, default_flow_style=False, sort_keys=False, allow_unicode=True)
-    
-   
+    # Save to NPZ file
 
+    npz_file_path = os.path.join(sample_dir, 'fibres_list.npz')
+    fibre_pos = np.zeros((len(fibers_centers), 6))
+    fibre_pos[:, 1] = [center[0] for center in fibers_centers]  # x-coordinates
+    fibre_pos[:, 2] = [center[1] for center in fibers_centers]  # y-coordinates
+    fibre_pos[:, -1] = fibers_radii  # radii in the last column
+    np.savez(
+        npz_file_path, 
+        Fibre_pos=fibre_pos,
+        R = 0,
+        R1 = 0,
+        DISTMIN = 0,
+        SimNumb = 0,
+        delta_width = 0,
+        delta_height = 0,
+        Fibre_type_1 = 0,
+        A_total = 0,
+        a = rve_dims[0],
+        b = rve_dims[1],
+        Hybrid_type = 0,
+        R_STDEV = 0,
+        R1_STDEV = 0,
+        metadata={
+            'hash': hash_value,
+            'created_at': new_metadata['created_at'],
+            'stage': 'fibre_locations'
+        }
+    )
 
 def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
 
