@@ -10,7 +10,7 @@ import geommicgen.postproc.voronoimetrics.motion_analysis as motion_analysis
 import geommicgen.postproc.voronoimetrics.stat_analysis as stat_analysis
 import geommicgen.postproc.voronoimetrics.voronoi_analysis as voronoi_analysis
 
-from geommicgen.postproc.plotfuncs.plotting_functions import plot_particles
+from geommicgen.postproc.plotfuncs.plotting_functions import plot_particles, generate_output_files
 
 
 def post_proc(
@@ -26,6 +26,7 @@ def post_proc(
         print_funcs.print_to_file("-" * 80 + "\n")
         start = time.time()
         plot_particles(current_sample.particles, current_sample.rve_dims, sample_dir)
+        generate_output_files(current_sample.particles, current_sample.rve_dims, sample_dir, float(current_sample.volume_fraction))
         plot_particles_time = time.time() - start
         print_funcs.print_to_file(
             "Time ellapsed: {0:.3f}s\n".format(plot_particles_time)

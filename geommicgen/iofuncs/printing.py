@@ -150,7 +150,7 @@ def print_virtual_total_volume_fraction(real_vf, virtual_vf, min_distance):
     print_to_file("=" * 80 + "\n")
     print_to_file("Total real volume fraction: {0:.3f}%".format(real_vf * 100))
     print_to_file(
-        "Total vitual volume fraction: {0:.3f}% (minimum distance: {1:.5f})\n".format(
+        "Total virtual volume fraction: {0:.3f}% (minimum distance: {1:.5f})\n".format(
             virtual_vf * 100, min_distance
         )
     )
