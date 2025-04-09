@@ -273,6 +273,7 @@ def generate_output_files(particles, rve_dims, sample_dir, real_vf, **kwargs):
         data_to_dump = {
             "Metadata": new_metadata,
             "fibers": {
+                'n_fibres': len(particles),
                 'vf': real_vf,
                 'scaling_factor': 1.0,
                 'dimensions': fibers_data
