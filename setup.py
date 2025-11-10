@@ -18,6 +18,7 @@ setup(
     name="geommicgen",
     # Version from the version file
     version=version,
+    py_modules=['geommicgen'],
     # Short description
     description="GMMD: Generation of Microstructures using Molecular Dynamics",
     # Long descriptionf from README.md
@@ -54,7 +55,7 @@ setup(
         "Tracker": "unknown",
     },
     # Python version compatibility
-    python_requires=">=3.8, <3.9",
+    python_requires=">=3.8",
     # Source directory
     # package_dir={"": "src"},
     # Packages provided

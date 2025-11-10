@@ -62,7 +62,7 @@ class CellList(SpeedUpScheme):
         if self.box is None:
             raise ValueError("The simulation box has not been defined")
         n_cell_dim = [
-            np.int(np.floor(self.box[i_dim] / (2 * self.max_radius)))
+            np.int_(np.floor(self.box[i_dim] / (2 * self.max_radius)))
             for i_dim in range(len(self.box))
         ]
         return n_cell_dim
@@ -325,15 +325,15 @@ class CellList(SpeedUpScheme):
 
         if dim == 2:
             # 2D problem
-            local_row_pos_neigh = np.int(
+            local_row_pos_neigh = np.int_(
                 np.mod(np.floor(local_pos_neighbor_cell / 3), 3) - 1
             )
             # Local row position of the neighbor, going from -1 to 1 with the origin at the
             # current cell
-            local_col_pos_neigh = np.int(np.mod(local_pos_neighbor_cell, 3) - 1)
+            local_col_pos_neigh = np.int_(np.mod(local_pos_neighbor_cell, 3) - 1)
             # Local column position of the neighbor, going from -1 to 1 with the origin at
             # the current cell
-            pos_neighbor_cell = np.int(
+            pos_neighbor_cell = np.int_(
                 pos_current_cell
                 + local_col_pos_neigh
                 + local_row_pos_neigh * n_cells[0]
@@ -366,20 +366,20 @@ class CellList(SpeedUpScheme):
                 # Enforcing the periodic boundary conditions
         elif dim == 3:
             # 3D problem
-            local_row_pos_neigh = np.int(
+            local_row_pos_neigh = np.int_(
                 np.mod(np.floor(local_pos_neighbor_cell / 3), 3) - 1
             )
             # Local row position of the neighbor, going from -1 to 1 with the origin at the
             # current cell
-            local_col_pos_neigh = np.int(np.mod(local_pos_neighbor_cell, 3) - 1)
+            local_col_pos_neigh = np.int_(np.mod(local_pos_neighbor_cell, 3) - 1)
             # Local column position of the neighbor, going from -1 to 1 with the origin at
             # the current cell
-            local_lay_pos_neigh = np.int(
+            local_lay_pos_neigh = np.int_(
                 np.mod(np.floor(local_pos_neighbor_cell / 9), 3) - 1
             )
             # Local layer position of the neighbor, going from -1 to 1 with the origin at
             # the current cell
-            pos_neighbor_cell = np.int(
+            pos_neighbor_cell = np.int_(
                 pos_current_cell
                 + local_col_pos_neigh
                 + local_row_pos_neigh * n_cells[0]

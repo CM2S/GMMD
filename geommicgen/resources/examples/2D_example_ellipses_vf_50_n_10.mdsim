@@ -33,8 +33,6 @@ final_config True
 # Mesh generation
 # ------------------------------------------------------------------------------------------
 Mesh_Options
-femsh
-mesh_size 0.1
-element_type tri3
+
 rgmsh
 n_voxels_dims [1000, 1000]
