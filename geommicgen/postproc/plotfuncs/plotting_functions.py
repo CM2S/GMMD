@@ -24,10 +24,11 @@ from matplotlib import cm
 from geommicgen.microstructure.particleclasses import (
     Disk,
     Ellipse,
+    Square,
     CylindricalFiber,
     Sphere,
     Ellipsoid,
-    Particle,
+    Particle
 )
 
 from geommicgen.postproc.mshgen.meshing_interface import FEMMeshGenerator
@@ -237,22 +238,47 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
     colors = generate_colors(len(phases))
     phase_colors = dict(zip(phases, colors))
 
-    for i_particle in particles:
+
+    for idx,i_particle in enumerate(particles):
         for (j_dim, k_dim) in [
             (j_dim, k_dim) for j_dim in range(-1, 2) for k_dim in range(-1, 2)
         ]:
-            ellip = mpatches.Ellipse(
-                i_particle.position_center
-                + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),
-                i_particle.major_axis,
-                i_particle.minor_axis,
-                angle=180 / np.pi * i_particle.angle,
-                alpha=0.8,
-                edgecolor=None,
-                facecolor=phase_colors[i_particle.phase],
-            )
-            ax.add_artist(ellip)
-            # plt.annotate(str(k), tuple(i_particle.position_center))
+            if isinstance(i_particle, Square):  
+                square = mpatches.Rectangle(
+                    i_particle.position_center
+                    - np.array([i_particle.side, i_particle.side]) / 2
+                    + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),
+                    i_particle.side,
+                    i_particle.side,
+                    angle=0,
+                    alpha=0.8,
+                    edgecolor=None,
+                    facecolor=phase_colors[i_particle.phase],
+                )
+                ax.add_artist(square)
+            else:    # particle is a disk or an ellipse
+                ellip = mpatches.Ellipse(
+                    i_particle.position_center
+                    + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),
+                    i_particle.major_axis,
+                    i_particle.minor_axis,
+                    angle=180 / np.pi * i_particle.angle,
+                    alpha=0.8,
+                    edgecolor=None,
+                    facecolor=phase_colors[i_particle.phase],
+                )
+                ax.add_artist(ellip)
+
+            # Comment or uncomment to show particle index at the center
+            plt.annotate(
+                str(idx), 
+                tuple(i_particle.position_center + np.array(rve_dims) * np.array([j_dim, k_dim])), 
+                fontsize=6,
+                clip_on=False
+                )
+            ####    end particle indexing   ####
+
+
 
     if kwargs.get("save", True):
         plt.savefig(os.path.join(sample_dir, "final_config.pdf"), bbox_inches="tight")

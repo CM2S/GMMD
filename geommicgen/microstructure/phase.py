@@ -22,6 +22,7 @@ from .particleclasses import (
     Ellipsoid,
     CylindricalFiber,
     Cylinder,
+    Square,
 )
 
 
@@ -67,6 +68,7 @@ class Phase:
         5: Ellipsoid,
         6: CylindricalFiber,
         7: Cylinder,
+        8: Square,
     }
     # Correspondence between phase type and phase type class
 

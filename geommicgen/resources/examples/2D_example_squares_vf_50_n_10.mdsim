@@ -1,0 +1,34 @@
+# 2D Example
+# Microstructure containing a single phase with 100 squares. Its volume fraction is 50%.
+
+
+Problem_Type 1
+N_DP_Samples 1
+RVE_Dimensions [1, 1]
+
+# Microstructure definition
+# ------------------------------------------------------------------------------------------
+Mic_Gen_Descriptors
+Phase 0
+Phase_Type 1
+Phase 1
+Phase_Type 8
+n 200
+side 0.05
+
+# Generation parameters
+# ------------------------------------------------------------------------------------------
+Max_Residue_Per_Particle 0
+Max_Step 150
+Speed_Up_Scheme Verlet
+Verlet_Factor 1.1
+Save_History True
+final_config True
+
+
+# Mesh generation
+# ------------------------------------------------------------------------------------------
+Mesh_Options
+
+rgmsh
+n_voxels_dims [1000, 1000]

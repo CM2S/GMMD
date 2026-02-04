@@ -37,7 +37,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
     ----------
     box: list
         List of the dimensions of the simulation box. Almost always equal to the the
-        dimensions of the micrrostructure, except for CylindricalFibers.
+        dimensions of the microstructure, except for CylindricalFibers.
 
     particle_velocities: list(array)
         List containing the velocities of the particles in the simulation box.
@@ -863,6 +863,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 j_particle = particles[j_particle_index]
                 if j_particle_index > i_particle_index:
                     # Running through the particle pairs that have not been considered yet
+
                     intersection_area, unit_vector_i_j = getattr(
                         i_particle, self.force_option
                     )(j_particle, self.box, dist_met=dist_met)
@@ -873,6 +874,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     self.particle_overlap_areas_dict[
                         (i_particle_index, j_particle_index)
                     ] += [intersection_area]
+
+                    
                     # Intersection area between particle i and j
                     self.particle_overlap_areas[i_particle_index] += intersection_area
                     self.particle_overlap_areas[j_particle_index] += intersection_area

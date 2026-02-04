@@ -55,7 +55,7 @@ def run_program():
     )
     fileio.RESULTS_FOLDER = results_folder
     fileio.copy_input_file(input_file_path, results_folder)
-
+    
     if previous_mic_path is not None:
         print_funcs.SCREEN_DIR = results_folder
         print_funcs.print_initial_message(input_file_path)

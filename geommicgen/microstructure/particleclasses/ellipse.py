@@ -95,7 +95,7 @@ class Ellipse(Particle):
 
     def __init__(self, phase, descriptors, rve_dims):
         """
-        Initialize a classe Ellipse obejct.
+        Initialize a classe Ellipse object.
 
         Parameters
         ----------

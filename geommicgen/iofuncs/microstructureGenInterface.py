@@ -80,7 +80,7 @@ import subprocess
 #
 #                            dictionary['disc_ext']['parameter'] = [ ... ]
 #
-#                                            -
+#    -                                        -
 #
 # Q2. How can a microstructure generation program be implemented/used in this program?
 #
