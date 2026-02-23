@@ -538,6 +538,7 @@ class Particle(abc.ABC):
         unit_vector_i_j: array
             Unit vector from the center of *self* to *other_particle*
         """
+
         vector_centers = other_particle.position_center - self.position_center
         vector_centers = vector_centers - box * np.round(vector_centers / box)
         # Vector connecting the centers of the current particle and the nearest image of

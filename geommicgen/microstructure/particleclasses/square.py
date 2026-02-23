@@ -50,10 +50,9 @@ class Square(Particle):
     #
     acceptable_descriptions = [
         {"side", "n"},
-        # Implement later
-        #{"area", "n"},
-        #{"side", "vf"},
-        #{"area", "vf"}
+        {"area", "n"},
+        {"side", "vf"},
+        {"area", "vf"}
     ]
     # List of acceptable collections of parameters
     dim = 2
@@ -112,7 +111,7 @@ class Square(Particle):
             #intersection_area = other_particle.intersection_area_square_disc(
                 #self, box
             #)
-        #lif isinstance(other_particle, Ellipse):
+        #elif isinstance(other_particle, Ellipse):
             #other_particle: Ellipse
             # The other particle is an Ellipse
             #intersection_area = other_particle.intersection_area_square_ellipse( self, box)
@@ -128,18 +127,22 @@ class Square(Particle):
 
     def intersection_area_square_square(self, other_square, box):
         """Compute the intersection area between two squares."""
-        self.position_center
-        other_square.position_center
-        x_min = max(self.position_center[0] - self.side / 2, other_square.position_center[0] - other_square.side / 2)
-        x_max = min(self.position_center[0] + self.side / 2, other_square.position_center[0] + other_square.side / 2)
-        y_min = max(self.position_center[1] - self.side / 2, other_square.position_center[1] - other_square.side / 2)
-        y_max = min(self.position_center[1] + self.side / 2, other_square.position_center[1] + other_square.side / 2)
+
+        # Nearest periodic image of the other square relative to self square
+        diff_center = self.position_center - other_square.position_center
+        diff_center = diff_center - box * np.round(diff_center / box)
+        other_square_nearest_pbc_center = self.position_center - diff_center
+
+        
+        x_min = max(self.position_center[0] - self.side / 2, other_square_nearest_pbc_center[0] - other_square.side / 2)
+        x_max = min(self.position_center[0] + self.side / 2, other_square_nearest_pbc_center[0] + other_square.side / 2)
+        y_min = max(self.position_center[1] - self.side / 2, other_square_nearest_pbc_center[1] - other_square.side / 2)
+        y_max = min(self.position_center[1] + self.side / 2, other_square_nearest_pbc_center[1] + other_square.side / 2)
         overlap_x = max(0, x_max - x_min)
         overlap_y = max(0, y_max - y_min)
         intersection_area = overlap_x * overlap_y
         return intersection_area
         # Returning the intersection area
-
 
     def point_inside(self, point, box):
         """Check if some point is inside the Square."""
@@ -154,16 +157,21 @@ class Square(Particle):
 
     def intersection_square_square(self, other_square: Square, box: list, inside=True) -> bool:
         """Check if two Squares intersect."""
-        # Vertices of self
+        # Vertices of self 
         x_min_self = self.position_center[0] - self.side / 2
         x_max_self = self.position_center[0] + self.side / 2
         y_min_self = self.position_center[1] - self.side / 2
         y_max_self = self.position_center[1] + self.side / 2
-        # Vertices of other_square
-        x_min_other = other_square.position_center[0] - other_square.side / 2
-        x_max_other = other_square.position_center[0] + other_square.side / 2
-        y_min_other = other_square.position_center[1] - other_square.side / 2
-        y_max_other = other_square.position_center[1] + other_square.side / 2
+        # Nearest periodic image of the other square relative to self square
+        diff_center = self.position_center - other_square.position_center
+        diff_center = diff_center - box * np.round(diff_center / box)
+        other_square_nearest_pbc_center = self.position_center - diff_center
+
+        # Vertices of the nearest pereiodic image of the other_square
+        x_min_other = other_square_nearest_pbc_center[0] - other_square.side / 2
+        x_max_other = other_square_nearest_pbc_center[0] + other_square.side / 2
+        y_min_other = other_square_nearest_pbc_center[1] - other_square.side / 2
+        y_max_other = other_square_nearest_pbc_center[1] + other_square.side / 2
         # Check for intersection
         intersection_bool = (
             (x_min_self <= x_min_other < x_max_self or x_min_self < x_max_other <= x_max_self)
@@ -229,6 +237,7 @@ class Square(Particle):
 
     def uniform_sample_square(self, n_samples: int = 1) -> list(np.array):
         """Generate uniform random sample of points inside a square."""
+        raise NotImplementedError("To be implemented later.")
         points = []
         half_side = self.side / 2
         for _ in range(n_samples):
@@ -302,14 +311,19 @@ class Square(Particle):
         other_square: `.Square`
             Other square whose intersection length with the current square we want to know
         """
-        x_min = max(self.position_center[0] - self.side / 2, other_square.position_center[0] - other_square.side / 2)
-        x_max = min(self.position_center[0] + self.side / 2, other_square.position_center[0] + other_square.side / 2)
+        # Nearest periodic image of the other square relative to self square
+        diff_center = self.position_center - other_square.position_center
+        diff_center = diff_center - box * np.round(diff_center / box)
+        other_square_nearest_pbc_center = self.position_center - diff_center
 
-        y_min = max(self.position_center[1] - self.side / 2, other_square.position_center[1] - other_square.side / 2)
-        y_max = min(self.position_center[1] + self.side / 2, other_square.position_center[1] + other_square.side / 2)
+        x_min = max(self.position_center[0] - self.side / 2, other_square_nearest_pbc_center[0] - other_square.side / 2)
+        x_max = min(self.position_center[0] + self.side / 2, other_square_nearest_pbc_center[0] + other_square.side / 2)
+
+        y_min = max(self.position_center[1] - self.side / 2, other_square_nearest_pbc_center[1] - other_square.side / 2)
+        y_max = min(self.position_center[1] + self.side / 2, other_square_nearest_pbc_center[1] + other_square.side / 2)
         overlap_x = max(0, x_max - x_min)
         overlap_y = max(0, y_max - y_min)
-        intersection_length = min(overlap_x, overlap_y)
+        intersection_length = overlap_x *overlap_y
         return intersection_length
         # Returning the intersection length
 

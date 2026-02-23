@@ -77,7 +77,8 @@
 #		4 - Spheres (3D)
 #		5 - Ellipsoids (3D)
 #		6 - Long cilyndrical fibers (3D)
-#       7 - Cyliner (3D)
+#       	7 - Cyliner (3D)
+#       	8 - Square
 #
 # 	Note: 2D and 3D shapes are incompatible and long cylindrical fibers (6) are
 #	incompatible with all other particle shapes except matrix (1).
@@ -93,7 +94,7 @@
 #        Disk (2): Choose 2 of the parameters
 #        -----------------------------------------------------------------------
 #        r                    float        Radius of the disk
-#	       area                 float        Area of the disk
+#	 area                 float        Area of the disk
 #        n                    integer      Number of particles
 #        vf                   float        Volume fraction (decimal)
 #        ==================== ============ ======================================
@@ -103,9 +104,8 @@
 #        -----------------------------------------------------------------------
 #        major_axis           float        Major principal axis
 #        minor_axis           float        Minor principal axis
-#	       ratio      		      float	       Ratio between the major and minor axis
-#        angle                float        Angle between the major semi-axis and
-#					                                 the positive x semi-axis.
+#	 ratio		      float	   Ratio between the major and minor axis
+#        angle                float        Angle between the major semi-axis and the positive x semi-axis.
 #        n                    integer      Number of particles
 #        vf                   float        Volume fraction (decimal)
 #        ==================== ============ ======================================
@@ -114,7 +114,7 @@
 #        Sphere (4): Choose 2 of the parameters
 #        -----------------------------------------------------------------------
 #        r                    float        Radius of the sphere
-#	       volume               float        Volume of the sphere
+#	 volume               float        Volume of the sphere
 #        n                    integer      Number of particles
 #        vf                   float        Volume fraction (decimal)
 #        ==================== ============ ======================================
@@ -130,19 +130,18 @@
 #        axis_3               float        Principal axis along zz before
 # 					                               applying the rotation
 #     	 ratio_12             float        Ratio between the pricipal axis along
-#                                          xx (axis_1) and along yy (axis_2)
-#                                          before rotation and minor axis
-#	     ratio_13	          float        Ratio between the pricipal axis along
-#                                          xx (axis_1) and along zz (axis_3)
-#                                          before rotation and minor axis
-#	     rot_axis_comp_x      float	       Component x of the vector parallel to
-#                                          the rotation axis
-#	     rot_axis_comp_y      float	       Component y of the vector parallel to
-#                                          the rotation axis
-#	     rot_axis_comp_z      float	       Component z of the vector parallel to
-#                                          the rotation axis
-#        angle                float        Rotation angle around the rotation
-#                                          axis
+#                                          	xx (axis_1) and along yy (axis_2)
+#                                          	before rotation and minor axis
+#	 ratio_13	      float        Ratio between the pricipal axis along
+#                                          	xx (axis_1) and along zz (axis_3)
+#                                          	before rotation and minor axis
+#	 rot_axis_comp_x      float	   Component x of the vector parallel to
+#                                          	the rotation axis
+#	 rot_axis_comp_y      float	   Component y of the vector parallel to
+#                                          	the rotation axis
+#	 rot_axis_comp_z      float	   Component z of the vector parallel to
+#                                          	the rotation axis
+#        angle                float        Rotation angle around the rotation axis
 #        n                    integer      Number of particles
 #        vf                   float        Volume fraction (decimal)
 #        =================== ============= ======================================
@@ -152,7 +151,7 @@
 #        'direction'.
 #        -----------------------------------------------------------------------
 #        r                   float         Radius of the disk
-#	     area                float         Area of the disk
+#	 area                float         Area of the disk
 #        n                   integer       Number of particles
 #        vf                  float         Volume fraction (decimal)
 #        direction           {0, 1, 2}     Direction of the fibers
@@ -162,9 +161,18 @@
 #        Cylinder (7)
 #        -----------------------------------------------------------------------
 #        r_cyl               float         Radius of the cylinder
-#	     length              float         Length of the cylinder
+#	 length              float         Length of the cylinder
 #        azimuth_angle       float         Azimuth angle of the cylinder
 #        polar_angle         float         Polar angle of the cylinder
+#        n                   integer       Number of particles
+#        vf                  float         Volume fraction (decimal)
+#        =================== ============= ======================================
+
+#        =================== ============= ======================================
+#        Square (8)
+#        -----------------------------------------------------------------------
+#        side                float         Side of the square
+#        area                float         Area of the square
 #        n                   integer       Number of particles
 #        vf                  float         Volume fraction (decimal)
 #        =================== ============= ======================================
@@ -178,10 +186,10 @@
 #
 #	     		parameter 1e-5
 #
-#	     - Discrete distribution:
-#        	The parameter follows a discrete distribution, where the it may only #
-#        	take the specified values (parameter_value_1, parameter_value_2, #
-#        	parameter_value_3) with the corresponding probability (parameter_prob_1, #
+#	 - Discrete distribution:
+#        	The parameter follows a discrete distribution, where the it may only
+#        	take the specified values (parameter_value_1, parameter_value_2,
+#        	parameter_value_3) with the corresponding probability (parameter_prob_1,
 #        	parameter_prob_2, parameter_prob_3).
 #
 #					parameter_distribution discrete

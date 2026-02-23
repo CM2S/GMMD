@@ -158,6 +158,7 @@ def print_virtual_total_volume_fraction(real_vf, virtual_vf, min_distance):
 
 def print_final_message(mic_generator, mesh_generators, times_dict):
     """Print final message."""
+    
     print_to_file(80 * "-")
 
     print_to_file("Ending program execution at : {0}\n".format(datetime.datetime.now()))

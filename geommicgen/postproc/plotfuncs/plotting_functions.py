@@ -269,13 +269,13 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
                 )
                 ax.add_artist(ellip)
 
-            # Comment or uncomment to show particle index at the center
-            plt.annotate(
-                str(idx), 
-                tuple(i_particle.position_center + np.array(rve_dims) * np.array([j_dim, k_dim])), 
-                fontsize=6,
-                clip_on=False
-                )
+            ####    Comment or uncomment to show particle index at the center   #####
+            # plt.annotate(
+            #     str(idx), 
+            #     tuple(i_particle.position_center + np.array(rve_dims) * np.array([j_dim, k_dim])), 
+            #     fontsize=6,
+            #     clip_on=False
+            #     )
             ####    end particle indexing   ####
 
 

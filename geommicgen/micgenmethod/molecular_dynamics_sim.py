@@ -261,9 +261,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.coord_number = None
         self.thermic_energy_history = []
         self.all_dt = []
-
         self.status = False
         self._original_box = None
+        
 
     def generate_microstructure(self, microstructure_sample):
         """
@@ -277,6 +277,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         microstructure_sample: `.Microstructure`
             Microstructure sample to be generated
         """
+
         self.microstructure_sample = microstructure_sample
         for phase in microstructure_sample.phases.values():
             if phase.type is not Matrix and not phase.inner_phase:
@@ -823,7 +824,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 else force
                 for force in self.particle_forces
             ]
-
+        
     def compute_forces_overlap(self, particles):
         """
         Compute the forces due to particle interactions.
@@ -867,6 +868,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     intersection_area, unit_vector_i_j = getattr(
                         i_particle, self.force_option
                     )(j_particle, self.box, dist_met=dist_met)
+
                     self.particle_overlap_areas_dict.setdefault(
                         (i_particle_index, j_particle_index),
                         [0 for _ in range(self.step - 1)],
