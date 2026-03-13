@@ -162,23 +162,21 @@ class Square(Particle):
         x_max_self = self.position_center[0] + self.side / 2
         y_min_self = self.position_center[1] - self.side / 2
         y_max_self = self.position_center[1] + self.side / 2
-        # Nearest periodic image of the other square relative to self square
+        # Periodic image of the other square closest to self square
         diff_center = self.position_center - other_square.position_center
         diff_center = diff_center - box * np.round(diff_center / box)
         other_square_nearest_pbc_center = self.position_center - diff_center
 
-        # Vertices of the nearest pereiodic image of the other_square
+        # Vertices of the nearest periodic image of the other_square
         x_min_other = other_square_nearest_pbc_center[0] - other_square.side / 2
         x_max_other = other_square_nearest_pbc_center[0] + other_square.side / 2
         y_min_other = other_square_nearest_pbc_center[1] - other_square.side / 2
         y_max_other = other_square_nearest_pbc_center[1] + other_square.side / 2
         # Check for intersection
-        intersection_bool = (
-            (x_min_self <= x_min_other < x_max_self or x_min_self < x_max_other <= x_max_self)
-            and
-            (y_min_self <= y_min_other < y_max_self or y_min_self < y_max_other <= y_max_self)
-             )
-        return intersection_bool
+        intersect_x = (x_min_self < x_max_other) and (x_max_self > x_min_other)
+        intersect_y = (y_min_self < y_max_other) and (y_max_self > y_min_other)
+
+        return intersect_x and intersect_y
     
     def intersection(self, other_particle: Particle, box: list) -> bool:
         """Check this square intersects the other particle."""
@@ -200,7 +198,8 @@ class Square(Particle):
     @property
     def volume(self):
         """Volume/area of the square."""
-        volume =  (self.side) ** 2
+        volume =  self.side ** 2
+
 
         return volume
     
@@ -250,7 +249,7 @@ class Square(Particle):
     
     def generate_point_inside(self):
         """Generate a random point inside the square."""
-
+        raise NotImplementedError("To be implemented later.")
         return self.uniform_sample_square()[0]
 
 
@@ -311,7 +310,7 @@ class Square(Particle):
         other_square: `.Square`
             Other square whose intersection length with the current square we want to know
         """
-        # Nearest periodic image of the other square relative to self square
+        # Periodic image of the other square closest to self square
         diff_center = self.position_center - other_square.position_center
         diff_center = diff_center - box * np.round(diff_center / box)
         other_square_nearest_pbc_center = self.position_center - diff_center
