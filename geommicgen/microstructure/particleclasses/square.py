@@ -184,8 +184,7 @@ class Square(Particle):
             other_particle: Square
             intersection_bool = self.intersection_square_square(other_particle, box)
         else:
-            raise NotImplementedError("To be implemented later.")
-            # intersection_bool = self.intersection_gjk(other_particle, box)
+            intersection_bool = self.intersection_gjk(other_particle, box)
         return intersection_bool
 
     @property
@@ -284,20 +283,11 @@ class Square(Particle):
             # Computing the intersection length
 
         else:
-            raise NotImplementedError("To be implemented later.")
-        # elif isinstance(other_particle, Ellipse) and False:
-        #     # The other particle is a ellipse
-        #     other_particle: Ellipse
-        #     _, intersection_length = other_particle.intersection_ellipse_ellipse(
-        #         other_particle, box
-        #     )
-        #     unit_vector = self.intersection_vector(other_particle, box)
-        # else:
-        #     intersection = self.intersection_gjk(other_particle, box, tol=tol)
-        #     overlap_length, unit_vector = self.intersection_length_mink_diff(
-        #         other_particle, box, dist_met=dist_met
-        #     )
-        #     intersection_length = overlap_length if intersection else 0
+            intersection = self.intersection_gjk(other_particle, box)
+            overlap_length, unit_vector = self.intersection_length_mink_diff(
+                other_particle, box, dist_met=dist_met
+            )
+            intersection_length = overlap_length if intersection else 0
         return intersection_length, unit_vector
         # Returning the intersection length
 
