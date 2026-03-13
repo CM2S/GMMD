@@ -290,10 +290,11 @@ def run_program():
                     # Adding a speed up scheme to the MD simulation
                 elif mic_gen_method == "RSA":
                     # Random sequential adsorption method
-                    #try: 
-                    current_mic_generator = RandomSequentialAdsorption()
-                    #except KeyError:
-                        #print("Missing mandatory parameter defining a MD simulation.")S
+                    try: 
+                        current_mic_generator = RandomSequentialAdsorption(mic_gen_parameters["max_step"])
+                    except KeyError:
+                        print("Missing mandatory parameter defining the RSA simulation.")
+                        raise
                 else:
                     raise ValueError("Unknown microstructure generation method: {0}".format(Mic_Gen_method))
             else:

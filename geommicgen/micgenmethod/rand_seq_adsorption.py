@@ -41,62 +41,64 @@ class RandomSequentialAdsorption(GenerationMethod):
     to be added
     """
 
-    def __init__(self):
+    def __init__(self,max_step):
         """Initialize the random sequential adsorption simulation class."""
         #self.mic_gen_parameters = mic_gen_parameters
         #self.mic_gen_descriptors = mic_gen_descriptors
         #self.microstructure_sample = None
         self.time= None
         self.microstructure_sample = None
+        self.max_step = max_step
 
     def generate_microstructure(self, microstructure_sample):
-        """Generate microstructure.
-        For now, only works for one phase."""
+        """Generate microstructure."""
         self.microstructure_sample = microstructure_sample
         self.set_box(microstructure_sample.particles, microstructure_sample.rve_dims)
         start = time.time()
+        n_particles_total = 0
+        n_iterations = 0
+        print_funcs.print_to_terminal_refresh_rsa(
+            n_iterations,
+            n_particles_total,
+            first=True
+            )
+        
         for i_phase in microstructure_sample.phases.values():
             if i_phase.type is not Matrix and not i_phase.inner_phase:
-                # Generate the first particle and add it to the phase
-                i_phase.particles.append(i_phase.generate_single_particle(microstructure_sample.rve_dims))        
-                n_particles = 1
-                n_iterations = 0
-                print_funcs.print_to_terminal_refresh_rsa(
-                n_iterations,
-                n_particles,
-                first=True
-                )
-
-                # If the number of particles is specified, generate particles until the number of particles is reached. If the volume fraction is specified and number of particles is not, generate particles until the volume fraction is reached.
                 try:
                     n_particles_target = i_phase.descriptors["n"].value
                 except KeyError:
-                    try:
-                        vf_target= i_phase.descriptors["vf"].value
-                    except KeyError:
-                        pass
-                    else:
-                        vf = i_phase.get_vf(self.microstructure_sample.rve_dims)
-                        while vf < vf_target:
-                            n_iterations += 1
-                            new_particle = i_phase.generate_single_particle(microstructure_sample.rve_dims)
-                            if not self.check_intersection(new_particle, microstructure_sample.phases):
-                                i_phase.particles.append(new_particle)
-                                vf = i_phase.get_vf(self.microstructure_sample.rve_dims)
-                            print_funcs.print_to_terminal_refresh_rsa(
-                            n_iterations,
-                            n_particles
-                            )
-                else:
-                    while n_particles < n_particles_target:
+                    pass
+                else:                   
+                    while len(i_phase.particles) < n_particles_target:
+                        # if number of iterations is higher than the maximum number of iterations
+                        if n_iterations > self.max_step:
+                            print("Simulation reached the maximum number of iterations.")
+                            break
                         n_iterations += 1
                         new_particle = i_phase.generate_single_particle(microstructure_sample.rve_dims)
                         if not self.check_intersection(new_particle, microstructure_sample.phases):
                             i_phase.particles.append(new_particle)
-                            n_particles += 1
+                            n_particles_total += 1
                         print_funcs.print_to_terminal_refresh_rsa(
                         n_iterations,
-                        n_particles
+                        n_particles_total
+                        )
+                if "vf" in i_phase.descriptors and "n" not in i_phase.descriptors:
+                    vf_target= i_phase.descriptors["vf"].value             
+                    while i_phase.volume_fraction < vf_target:
+                        # if number of iterations is higher than the maximum number of iterations
+                        if n_iterations > self.max_step:
+                            print("Simulation reached the maximum number of iterations.")
+                            break
+                        n_iterations += 1
+                        new_particle = i_phase.generate_single_particle(microstructure_sample.rve_dims)
+                        if not self.check_intersection(new_particle, microstructure_sample.phases):
+                            i_phase.particles.append(new_particle)
+                            n_particles_total += 1
+                        print_funcs.print_to_terminal_refresh_rsa(
+                        n_iterations,
+                        n_particles_total
                         )
                                 
         self.time = time.time() - start
