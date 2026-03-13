@@ -7,6 +7,7 @@ statistical distributions.
 """
 
 import abc
+from operator import pos
 
 import numpy as np
 
@@ -218,10 +219,11 @@ class Phase:
     def number_particles(self):
         """Get number of particles."""
         return len(self.particles)
-
+    
     def generate_particles(self, rve_dims):
         """
         Generate particles for a microstructure.
+        Used in molecular dynamics simulation.
 
         Parameters
         ----------
@@ -261,6 +263,49 @@ class Phase:
                 particles.append(self.type(self.name, i_particle_descriptors, rve_dims))
 
         self.particles = particles
+
+
+
+    def generate_single_particle(self, rve_dims):
+        """
+        Output: an object from class particle with the descriptors according to the input and a random position.
+        Used in random sequential adsorption method.
+
+        Parameters
+        ----------
+        rve_dims: list
+        """
+        current_sample = {}
+        for i_descriptor_name, i_descriptor in self.descriptors.items():
+            current_sample[i_descriptor_name] = i_descriptor.generate_sample()
+        new_particle = self.type(self.name, current_sample, rve_dims)
+
+        # Assign a random center position to the single new particle, ensuring it is within the bounds of the microstructure
+        if self.type.__name__ in ("Disk", "Ellipse", "Square"):
+            new_particle.position_center = np.random.rand(2) * rve_dims
+        elif self.type.__name__ in ("Sphere", "Ellipsoid", "Cylinder", "CylindricalFiber"):
+            new_particle.position_center = np.random.rand(3) * rve_dims
+        else:
+            raise ValueError(
+                "The random sequential adsorption method is not implemented for "
+                + "particles of type {0}.".format(self.type.__name__)
+            )
+        return new_particle
+
+        ##  Prints bellow for debugging. Delete later.  ##
+        # print the position of the particles in self.particles
+        #print("Current particles in the phase (in phase.py):")
+        #for i_particle in self.particles:
+        #    print("\t- Particle position:")
+        #    print("\t\tPosition: {0}".format(i_particle.position_center))
+        
+        # print attributes of particles in self.particles
+        #print("Current particles in the phase with attributes:")
+        #for i_particle in self.particles:       
+        #    print("\t- Particle with descriptors:")
+        #    for i_descriptor_name, i_descriptor in vars(i_particle).items():
+        #        print("\t\t- {0}: {1}".format(i_descriptor_name, i_descriptor))
+
 
 
 class PhaseDescriptor(abc.ABC):

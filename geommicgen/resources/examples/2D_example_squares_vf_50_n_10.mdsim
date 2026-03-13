@@ -1,5 +1,5 @@
 # 2D Example
-# Microstructure containing a single phase with 100 squares. Its volume fraction is 50%.
+# Microstructure containing a single phase with squares.
 
 
 Problem_Type 1
@@ -13,13 +13,12 @@ Phase 0
 Phase_Type 1
 Phase 1	s
 Phase_Type 8
-vf 0.6
-side_distribution normal
-side_mean 0.1
-side_sigma 0.01 
+vf 0.3
+side 0.1
 
 # Generation parameters
 # ------------------------------------------------------------------------------------------
+Mic_Gen_Method MD
 Max_Residue_Per_Particle 0
 Max_Step 500
 Speed_Up_Scheme Verlet

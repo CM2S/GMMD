@@ -713,7 +713,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
             self.compute_kinetic_energy(particles)
             self.set_initial_temp(particles)
 
-            print_funcs.print_to_terminal_refresh(
+            print_funcs.print_to_terminal_refresh_md(
                 self.step,
                 self.total_overlap,
                 first=True,
@@ -748,7 +748,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 else:
                     n_steps_relax = 0
                     # Restarting the count
-                print_funcs.print_to_terminal_refresh(
+                print_funcs.print_to_terminal_refresh_md(
                     self.step,
                     self.total_overlap,
                 )

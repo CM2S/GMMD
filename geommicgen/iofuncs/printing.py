@@ -65,6 +65,15 @@ def print_final_message_md(time, total_overlap, number_iterations, max_overlap):
     print_to_file("Maximum overlap: {:.2e}".format(max_overlap))
     print_to_file("\n")
 
+def print_final_message_rsa(time, number_iterations):
+    """Print final message for random sequential adsorption."""
+    print_to_file("")
+    print_to_file("RSA simulation results")
+    print_to_file("=" * 80 + "\n")
+    print_to_file("Total iterations: {0}".format(number_iterations))
+    print_to_file("Simulation time: {:.3f} s".format(time))
+    print_to_file("\n")
+
 
 def print_to_file(message, end="\n", to_screen=True, to_terminal=True):
     """Print to the screen file of corresponding to the current microstructure sample."""
@@ -80,8 +89,8 @@ def print_to_file(message, end="\n", to_screen=True, to_terminal=True):
         print(message, end=end)
 
 
-def print_to_terminal_refresh(step, total_overlap, **kwargs):
-    """Print info about the current iteration."""
+def print_to_terminal_refresh_md(step, total_overlap, **kwargs):
+    """Print info about the current iteration of MD simulation."""
     if kwargs.get("first"):
         # First meassage containing information about the iteration
         print("MD simulation info")
@@ -97,6 +106,25 @@ def print_to_terminal_refresh(step, total_overlap, **kwargs):
         print("Total Overlap: {:.2e}".format(total_overlap))
         # print("Relative Energy: {:.2e}".format(relative_energy))
         # print("Kinetic Energy: {:.2e}".format(kin_energy))
+
+def print_to_terminal_refresh_rsa(step, number_particles, **kwargs):
+    """Print info about the current iteration of RSA simulation."""
+    if kwargs.get("first"):
+        # First meassage containing information about the iteration
+        print("RSA simulation info")
+        print("=" * 80 + "\n")
+        print("Step: {0}".format(step))
+        print("Number of particles: {0}".format(number_particles))
+
+
+    else:
+        for _ in range(2):
+            print("\033[F\033[K", end="")
+        print("Step: {0}".format(step))
+        print("Number of particles: {0}".format(number_particles))
+
+
+
 
 
 def print_microstructure_info(microstructure):
@@ -151,7 +179,7 @@ def print_virtual_total_volume_fraction(real_vf, virtual_vf, min_distance):
     print_to_file("Total real volume fraction: {0:.3f}%".format(real_vf * 100))
     print_to_file(
         "Total vitual volume fraction: {0:.3f}% (minimum distance: {1:.5f})\n".format(
-            virtual_vf * 100, min_distance
+        virtual_vf * 100, min_distance
         )
     )
 
@@ -181,10 +209,11 @@ def print_final_message(mic_generator, mesh_generators, times_dict):
 
     print_to_file("Execution times:\n")
 
+
     data_to_print = []
     data_to_print.append(
         [
-            "Molecular Dynamics Simulation",
+            "Microstructure generation",
             "{0:.2e}".format(mic_generator.time),
             round(mic_generator.time / total_time * 100, ndigits=2),
         ]

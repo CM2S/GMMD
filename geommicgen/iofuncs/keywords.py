@@ -444,6 +444,7 @@ top_level_reader = TopLevelReader()
 # Generation parameters
 # ------------------------------------------------------------------------------------------
 top_level_reader.add_top_level_keyword(
+    KeywordTypeA("Mic_Gen_Method", "Mic_Gen_Parameters", type_str="str"),
     KeywordTypeA("Max_Residue_Per_Particle", "Mic_Gen_Parameters", type_str="float"),
     KeywordTypeA("Max_Step", "Mic_Gen_Parameters", type_str="int"),
     KeywordTypeA(

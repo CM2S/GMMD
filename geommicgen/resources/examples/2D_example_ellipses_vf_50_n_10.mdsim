@@ -15,7 +15,7 @@ Phase_Type 1
 Phase 1
 Phase_Type 3
 vf 0.5
-n 100
+n 50
 angle_distribution normal
 angle_mean 0
 angle_sigma 0.2
@@ -23,6 +23,7 @@ ratio 1.2
 
 # Generation parameters
 # ------------------------------------------------------------------------------------------
+Mic_Gen_Method MD
 Max_Residue_Per_Particle 0
 Max_Step 150
 Speed_Up_Scheme Verlet

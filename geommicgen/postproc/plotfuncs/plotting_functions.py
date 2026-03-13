@@ -257,6 +257,8 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
                 )
                 ax.add_artist(square)
             else:    # particle is a disk or an ellipse
+                #print("particle position (in plotting functions): {0}".format(i_particle.position_center))
+                # above print is for debugging. Delete later.
                 ellip = mpatches.Ellipse(
                     i_particle.position_center
                     + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),

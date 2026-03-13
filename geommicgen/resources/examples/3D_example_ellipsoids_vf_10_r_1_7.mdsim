@@ -36,6 +36,7 @@ angle_sigma 0.2
 
 # Generation parameters
 # ------------------------------------------------------------------------------------------
+Mic_Gen_Method MD
 Min_Distance 0.002
 Max_Residue_Per_Particle 0
 Max_Step 20000
