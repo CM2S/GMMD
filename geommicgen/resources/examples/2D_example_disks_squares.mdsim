@@ -1,7 +1,8 @@
 # 2D Example
-# Microstructure containing a single phase with 100 ellipses. Its volume fraction is 50%.
-# The orientation of the ellipses varies according to a Normal distribution and the ratio
-# between principal axis is 1.2.
+# Microstructure containing two phases
+#	- square phase with 20% volume fraction. Its side varies according to a Normal distribution
+#	- disk phase with 20% volume fraction
+# The microstructure generation method used is Random Sequential Adsorption (RSA)
 
 Problem_Type 1
 N_DP_Samples 1
@@ -13,23 +14,24 @@ Mic_Gen_Descriptors
 Phase 0
 Phase_Type 1
 Phase 1
-Phase_Type 3
-vf 0.5
-n 50
-angle_distribution normal
-angle_mean 0
-angle_sigma 0.2
-ratio 1.2
+Phase_Type 2
+r 0.05
+vf 0.2
+Phase 2
+Phase_Type 8
+vf 0.2
+side_distribution normal
+side_mean 0.1
+side_sigma 0.01
+
+
 
 # Generation parameters
 # ------------------------------------------------------------------------------------------
 Mic_Gen_Method RSA
-Max_Residue_Per_Particle 0
-Max_Step 150
-Speed_Up_Scheme Verlet
-Verlet_Factor 1.1
-Save_History True
-final_config True
+Max_Step 10000
+Save_History True # For now this is not being used
+final_config True # For now this is not being used
 
 # Mesh generation
 # ------------------------------------------------------------------------------------------

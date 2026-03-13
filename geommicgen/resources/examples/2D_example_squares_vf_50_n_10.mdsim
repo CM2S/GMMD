@@ -11,16 +11,19 @@ RVE_Dimensions [1, 1]
 Mic_Gen_Descriptors
 Phase 0
 Phase_Type 1
-Phase 1	s
+Phase 1
 Phase_Type 8
-vf 0.3
-side 0.1
+vf 0.5
+side_distribution normal
+side_mean 0.1
+side_sigma 0.01
+
 
 # Generation parameters
 # ------------------------------------------------------------------------------------------
 Mic_Gen_Method MD
 Max_Residue_Per_Particle 0
-Max_Step 500
+Max_Step 5
 Speed_Up_Scheme Verlet
 Verlet_Factor 1.1
 Save_History True
