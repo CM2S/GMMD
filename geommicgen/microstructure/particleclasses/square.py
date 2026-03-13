@@ -52,7 +52,8 @@ class Square(Particle):
         {"side", "n"},
         {"area", "n"},
         {"side", "vf"},
-        {"area", "vf"}
+        {"area", "vf"},
+        {"n", "vf"}
     ]
     # List of acceptable collections of parameters
     dim = 2
@@ -83,7 +84,7 @@ class Square(Particle):
             # Both the volume fraction and the number of particles was supplied
             area = descriptors["vf"] * rve_dims[0] * rve_dims[1] / descriptors["n"]
             # Area of each particle (all the same)
-            side = np.sqrt(descriptors["area"])
+            side = np.sqrt(area)
         self.side = side
         super().__init__(2, phase)
 
@@ -280,8 +281,6 @@ class Square(Particle):
                 other_particle, box
             )
             unit_vector = self.intersection_vector(other_particle, box)
-            # Computing the intersection length
-
         else:
             intersection = self.intersection_gjk(other_particle, box)
             overlap_length, unit_vector = self.intersection_length_mink_diff(
@@ -289,7 +288,7 @@ class Square(Particle):
             )
             intersection_length = overlap_length if intersection else 0
         return intersection_length, unit_vector
-        # Returning the intersection length
+
 
     def intersection_length_square_square(self, other_square: Square, box: list) -> float:
         """
