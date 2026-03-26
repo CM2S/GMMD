@@ -13,7 +13,6 @@ Phase 0
 Phase_Type 1
 Phase 1
 Phase_Type 8
-#n 10
 vf 0.2
 side_distribution normal
 side_mean 0.1

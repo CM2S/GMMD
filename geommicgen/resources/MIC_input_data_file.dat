@@ -10,11 +10,25 @@
 #       being the former presented first for practical use.
 # ==========================================================================================
 # Development history:
-# José Luís P. Vila-Chã | June 2020 | Initial version
-# José Luís P. Vila-Chã | June 2021 | Updated version
+# José Luís P. Vila-Chã     | June  2020 | Initial version
+# José Luís P. Vila-Chã     | June  2021 | Updated version
+# João António G. C. Morais | March 2026 | Updated version
 # ==========================================================================================
+
+
+# The input file is divided in the following main categories:
+#	[P]- Problem type
+#	[Mic]- Microstructure definition
+#	[G]- Generation parameters
+#		[G-MD] - microsructure generation parameters for molecular dynamics simulation
+#			[G-MD-T]  - thermostat
+#			[G-MD-MA] - motion analysis
+#			[G-MD-DC] - Deep cuts
+#		[G-RSA] - microsructure generation parameters for random sequential adsorption simulation
+#	[SA] - Statistical analysis
+#	[MO]- Mesh options
 #
-#                                                                           Problem Type [M]
+#                                                                       Problem Type [P] (M)
 # ==========================================================================================
 # Meaning:   Problem type (2D: plain strain, plain stress or axisymmetric and 3D).
 #
@@ -27,7 +41,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                         Number of samples for the current design point [M]
+#                                     Number of samples for the current design point [P] (M)
 # ==========================================================================================
 # Meaning:   Number of samples to be generated with the specified microstructural
 	     descriptors corresponding to the current design point.
@@ -38,7 +52,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                                                         RVE dimensions [M]
+#                                                                     RVE dimensions [P] (M)
 # ==========================================================================================
 # Meaning:   Dimensions of the quadrilateral (2D) or parallelepipedic (3D) RVE.
 #
@@ -50,7 +64,7 @@
 [insert here]
 
 
-#                                                  Microstructure Generation Descriptors [M]
+#                                            Microstructure Generation Descriptors [Mic] (M)
 # ==========================================================================================
 # Meaning:   Description of the microstructure in terms of the shape of the phases and the
 #            statistical description of their geometrical parameters.
@@ -157,7 +171,7 @@
 #        direction           {0, 1, 2}     Direction of the fibers
 #        =================== ============= ======================================
 
-#        =================== ============= ======================================
+#        =================== ============= =================================#
 #        Cylinder (7)
 #        -----------------------------------------------------------------------
 #        r_cyl               float         Radius of the cylinder
@@ -182,7 +196,7 @@
 #      For a given parameter 'parameter':
 #
 #   	 - Fixed distribution:
-#			 		The parameters are fixed. Simply specify the parameter.
+#			The parameters are fixed. Simply specify the parameter.
 #
 #	     		parameter 1e-5
 #
@@ -203,8 +217,8 @@
 #					Note: The sum of the probabilities of all values must equal 1.
 #
 #      - Uniform distribution:
-#			 		The parameter follows an uniform distribution, where the probability density is
-#			 		constant for a given interval of values, [parameter_low, parameter_high].
+#			The parameter follows an uniform distribution, where the probability density is
+#		 	constant for a given interval of values, [parameter_low, parameter_high].
 #
 #		      parameter_distribution uniform
 #		      parameter_low 0.1
@@ -218,7 +232,7 @@
 #		      parameter_mean 0.5
 #		      parameter_sigma 0.02
 #
-# 	 Note: Particular choices of descriptors' values for a given phase may lead to #
+# 	 Note: Particular choices of descriptors' values for a given phase may lead to
 # 	 impossible, e.g. volume fraction above 100%, or very costly to obtain, e.g. ellipses #
 # 	 with very high ratios, microstructures.
 #
@@ -226,8 +240,47 @@
 [insert here]
 
 
-#                                     Maximum allowable overlap area/volume per particle [M]
+#						   Microstructure generation method  [G] (M)
 # ==========================================================================================
+# Meaning:   It is the microstructure generation method to be used.
+#
+# Syntax:    Mic_Gen_Method x
+#
+# x:         {'MD', 'RSA'}
+#	     'MD'  - a Molecular Dynamics simulation is used
+#	     'RSA' - a Random Sequential Adsorption simulation is used
+#
+#	Note: generally, RSA is faster for smaller volume fractions and MD is faster
+#	      for larger volume fractions.
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+#                                                       Maximum number of iterations [G] (M)
+# ==========================================================================================
+# Meaning:   The maximum number of iterations for a given microstructure generation method.
+#
+# Syntax:    Max_Step x
+#
+# x:         integer
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+#                                                Minimum distance between particles [G] (O)
+# ==========================================================================================
+# Meaning:   Minimum distance between particles.
+#
+# Syntax:    Min_Distance x (default to 0)
+#
+# x:         float
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+#                              Maximum allowable overlap area/volume per particle [G-MD] (M)
+# ==========================================================================================
+# Note: mandatory only in case of using Molecular Dynamics simulation.
 # Meaning:   It is the maximum allowable overlap area/volume per particle, i.e. the total
 #	           overlap area/volume divided by the number of particles, such that a given
 #            configuration is considered legal.
@@ -239,77 +292,7 @@
 [insert here]
 
 
-#                                                           Maximum number of iterations [M]
-# ==========================================================================================
-# Meaning:   The maximum number of iterations for a given molecular dynamics simulation.
-#
-# Syntax:    Max_Step x
-#
-# x:         integer
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                                     			                Mesh options [M]
-# ==========================================================================================
-# Meaning:   Mesh options.
-#
-# Syntax:    Mesh_Options
-#	     Mesh_Type mesh_type_1
-#	     mesh_option_1 y
-#	     mesh_option_2 y
-#	     Mesh_Type mesh_type_2
-#	     mesh_option_1 y
-#	     mesh_option_2 y
-#
-# mesh_type_X:	{'rgmsh','femsh'}
-#	     	'rgmh'  - Regular grid mesh. A given voxel is set to the phase to which its
-#	     		center point belongs.
-#            	'femsh' - Finite element mesh. Generated using gmsh.
-#
-# mesh_option_Y: str
-#		 The mandatory and optional mesh options depend on the mesh type specified.
-#
-#		 ========================================================================
-#		 'rgmsh' - 1 mandatory parameter
-#		 ------------------------------------------------------------------------
-#		 Number of voxels in each direction                                   [M]
-#
-#		 Meaning: number of voxels discretizing each side of the microstructure.
-#
-#	         Syntax: n_voxels_dims [x1, x2] (2D)/ [x1, x2, x3] (3D)
-#
-#		 x1: float
-#		 x2: float
-#		 x3: float
-#		 ========================================================================
-#
-#		 ========================================================================
-#		 'femsh' - 2 mandatory parameters
-#		 ------------------------------------------------------------------------
-#		 Mesh size                                                            [M]
-#
-#		 Meaning: Largest mesh size allowed. The mesh size is computed from the
-#		 	  curvature of the geometry.
-#
-#	         Syntax: mesh_size x
-#
-#		 x: float
-#                ........................................................................
-#		 Element type                                                         [M]
-#
-#		 Meaning: Type of element used to mesh the microstructure.
-#
-#	         Syntax: element_type x
-#
-#		 x: {'tri3', 'tri6', tetra4', 'tetra10'}
-#		 ========================================================================
-#
-# y: depends on the corresponding mesh_option_Y
-#
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                                  Speed-up scheme for force computation [O]
+#                                           Speed-up scheme for force computation [G-MD] (O)
 # ==========================================================================================
 # Meaning:   Speed-up scheme for force computation, avoiding computing interactions between
 #      	     between particles that can be shown a priori not to interact.
@@ -363,7 +346,8 @@
 [insert here]
 
 
-#                                                          Type of initial configuration [O]
+
+#                                                   Type of initial configuration [G-MD] (O)
 # ==========================================================================================
 # Meaning:   Type of initial configuration for the center of mass of the particles in the
 #	     simulation box.
@@ -380,7 +364,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                         							       Final naive overlap check [O]
+#                                      			Final naive overlap check [G-MD] (O)
 # ==========================================================================================
 # Meaning:   Check the final overlap considering every pair of particles.
 #
@@ -390,7 +374,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                         							              Adaptive time step [O]
+#                                       		       Adaptive time step [G-MD] (O)
 # ==========================================================================================
 # Meaning:   Flag for the use of the adaptive time step scheme.
 #
@@ -400,50 +384,11 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                         							   Offset use for better meshing [O]
-# ==========================================================================================
-# Meaning:   Flag for the use of an offset for better FEM meshing.
-#
-# Syntax:    offset x
-#
-# x:         bool
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                                                    Final configuration [O]
-# ==========================================================================================
-# Meaning:   Plot the final configuration of the micro-structure.
-#
-# Syntax:    final_config x
-#
-# x:         bool
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                                                 Produce minimal output [O]
-# ==========================================================================================
-# Meaning:   Produce minimal output. To be in data-driven frameworks.
-#
-# Syntax:    save_min x
-#
-# x:         bool
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                                     Minimum distance between particles [O]
-# ==========================================================================================
-# Meaning:   Minimum distance between particles.
-#
-# Syntax:    Min_Distance x (default to 0)
-#
-# x:         float
-# ------------------------------------------------------------------------------------------
-[insert here]
 
 # THERMOSTAT
 # ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-#                                                  Thermostat used during the simulation [O]
+#                                         Thermostat used during the simulation [G-MD-T] (O)
 # ==========================================================================================
 # Meaning:   Thermostat used during the simulation
 #
@@ -458,7 +403,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                         							  Lowering temperature criterion [O]
+#                                                Lowering temperature criterion [G-MD-T] (O)
 # ==========================================================================================
 # Meaning:   Temperature lowering criterion.
 #
@@ -466,16 +411,16 @@
 #
 # x:         {"original", "rolling_ave", "ratio_in_out"}
 #
-#						 "original" -  stays a given specified number of iterations at the current
-#   					 	temperature before lowering it.
-#						 "rolling_ave" -  a rolling average of the residual overlap is used to decide
-#						     if it has stabilized. If so the temperature is lowered.
-#						 "ratio_in_out" -  the increase and decreased in overlap when taken particle
-#   						 pair by particle pair is used to decide if the temperature can be lowered.
+#			"original" -  stays a given specified number of iterations at the current
+#   				temperature before lowering it.
+#			"rolling_ave" -  a rolling average of the residual overlap is used to decide
+#				if it has stabilized. If so the temperature is lowered.
+#			"ratio_in_out" -  the increase and decreased in overlap when taken particle
+#   				pair by particle pair is used to decide if the temperature can be lowered.
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                         							      Temperature lowering ratio [O]
+#                                         	     Temperature lowering ratio [G-MD-T] (O)
 # ==========================================================================================
 # Meaning:   When using the Mulitemperature Isokinetic thermostat is the ratio used to
 #            compute the next temperature from the current temperature.
@@ -486,7 +431,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                         							  Number of overlap oscillations [O]
+#                                         	 Number of overlap oscillations [G-MD-T] (O)
 # ==========================================================================================
 # Meaning:   Number of sign changes of the overlap ratio (increase/decrease) accepted as
 #            signaling that thermal equilibrium has been reached.
@@ -497,7 +442,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                        Size of the window used for the rolling average [O]
+#                               Size of the window used for the rolling average [G-MD-T] (O)
 # ==========================================================================================
 # Meaning:   Size of the window used to compute the rolling average in the corresponding
 # 					 lowering temperature criterion.
@@ -508,7 +453,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                         Initial temperature of the system of particles [O]
+#                                Initial temperature of the system of particles [G-MD-T] (O)
 # ==========================================================================================
 # Meaning:   Initial temperature of the system of particles, as understood from the
 #	     equipartion theorem from statistical mechanics. It is not in kelvin.
@@ -519,7 +464,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                         							 Initial temperature coefficient [O]
+#                                         	Initial temperature coefficient [G-MD-T] (O)
 # ==========================================================================================
 # Meaning:   Coefficient used to set the initial temperature through the connection with the
 #						 kinetic energy expressed in the equipartition theorem.
@@ -530,7 +475,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                         							           Berendsen coefficient [O]
+#                                         		  Berendsen coefficient [G-MD-T] (O)
 # ==========================================================================================
 # Meaning:   Value of the coefficient used in the Berendsen thermostat.
 #
@@ -540,7 +485,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                           Minimum number of iteration at a temperature [O]
+#                                  Minimum number of iteration at a temperature [G-MD-T] (O)
 # ==========================================================================================
 # Meaning:   Minimum number of iterations spent at each temperature stage before the
 #	           temperature can be lowered.
@@ -555,7 +500,7 @@
 # MOTION ANALYSIS
 # ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-#                                                              	Save the complete motion [O]
+#                                                     Save the complete motion [G-MD-MA] (O)
 # ==========================================================================================
 # Meaning:   If True all the positions of all the particles through the complete motion are
 #	     saved, else only the initial and final configurations are saved.
@@ -566,7 +511,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                                                        Motion analysis [O]
+#                                                              Motion analysis [G-MD-MA] (O)
 # ==========================================================================================
 # Meaning:   Do motion analysis, including "plotting" the particle paths, kinetic energy,
 #            total overlap and time step used.
@@ -577,96 +522,11 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-# STATISTICAL ANALYSIS
-# ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-
-#                                                      Ripley's K statistical descriptor [O]
-# ==========================================================================================
-# Meaning:   Compute and plot the Ripley's K function of the microstructure.
-#
-# Syntax:    stat_ripleys_k x
-#
-# x:         bool
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                                 Nearest neighbor statistical descriptor [O]
-# ==========================================================================================
-# Meaning:   Compute and plot the nearest neighbor function of the microstructure.
-#
-# Syntax:    stat_nearest_neighbor x
-#
-# x:         bool
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-
-
-#                                           Two point correlation statistical descriptor [O]
-# ==========================================================================================
-# Meaning:   Compute and plot the two point correlation function of the microstructure.
-#
-# Syntax:    stat_two_pt_corr x
-#
-# x:         bool
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                                                       Voronoi analysis [O]
-# ==========================================================================================
-# Meaning:   Do a Voronoi analysis.
-#
-# Syntax:    voronoi_analysis x
-#
-# x:         bool
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                                                           Voronoi type [O]
-# ==========================================================================================
-# Meaning:   Voronoi type to be used in the Voronoi analysis.
-#
-# Syntax:    voronoi_type x (defaults to "standard")
-#
-# x:         {"standard", "set"}
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                                       Number of points for set Voronoi [O]
-# ==========================================================================================
-# Meaning:   Number of points on the surface used to construct the set Voronoi diagram.
-#
-# Syntax:    n_surf_points x (defaults to 10)
-#
-# x:         int
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                                              Plot the Voronoi diagrams [O]
-# ==========================================================================================
-# Meaning:   Flag used to plot the Voronoi diagrams.
-#
-# Syntax:    plot_voronoi x
-#
-# x:         bool
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                                 Plot the Voronoi diagram with the IMTs [O]
-# ==========================================================================================
-# Meaning:   Plot the Voronoi diagram including the values of the Irreducible Minkowski
-#            tensors corresponding to each cell.
-#
-# Syntax:    plot_imts x
-#
-# x:         bool
-# ------------------------------------------------------------------------------------------
-[insert here]
 
 # DEEP CUTS
 # ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-#                                                    Number of iterations for relaxation [O]
+#                                          Number of iterations for relaxation [G-MD-DC] (O)
 # ==========================================================================================
 # Meaning:   The number of iterations allowed for the system to still move after reaching a
 #	     legal configuration.
@@ -677,7 +537,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                                        	   Integration time step [O]
+#                                                        Integration time step [G-MD-DC] (O)
 # ==========================================================================================
 # Meaning:   Integration time step for the numerical integration of the equations of motion
 #	     in the molecular dynamics simulation.
@@ -688,7 +548,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                         							  Seed for initial configuration [O]
+#                                        	    Seed for initial configuration [G-MD-DC] (O)
 # ==========================================================================================
 # Meaning:   Use the given value to seed the initial configuration.
 #
@@ -698,7 +558,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                         							                   Force rescale [O]
+#                                         			             Force rescale [G-MD-DC] (O)
 # ==========================================================================================
 # Meaning:   Flag for the use of a force rescaling procedure, that approximates the sceme
 #            described in Salnikov et al. (2015).
@@ -709,7 +569,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                         							    Option for the particle mass [O]
+#                                         	      Option for the particle mass [G-MD-DC] (O)
 # ==========================================================================================
 # Meaning:   Option for the mass of the particles.
 #
@@ -721,9 +581,8 @@
 #            "radius" - mass equal to the radius of the circumscribed sphere/disk.
 #            "unit"   - unit mass for all particles.
 # ------------------------------------------------------------------------------------------
-[insert here]
 
-#                                         							      Type of interaction forces [O]
+#                                         	        Type of interaction forces [G-MD-DC] (O)
 # ==========================================================================================
 # Meaning:   Type of the interaction forces prescribed for intersection particles.
 #
@@ -738,7 +597,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                                    							       Viscous damping [O]
+#                                                    	       Viscous damping [G-MD-DC] (O)
 # ==========================================================================================
 # Meaning:   Viscous damping coefficient.
 #
@@ -747,3 +606,185 @@
 # x:         float
 # ------------------------------------------------------------------------------------------
 [insert here]
+
+
+# STATISTICAL ANALYSIS
+# ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+#                                            	  Ripley's K statistical descriptor [SA] (O)
+# ==========================================================================================
+# Meaning:   Compute and plot the Ripley's K function of the microstructure.
+#
+# Syntax:    stat_ripleys_k x
+#
+# x:         bool
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                      	    Nearest neighbor statistical descriptor [SA] (O)
+# ==========================================================================================
+# Meaning:   Compute and plot the nearest neighbor function of the microstructure.
+#
+# Syntax:    stat_nearest_neighbor x
+#
+# x:         bool
+# ------------------------------------------------------------------------------------------
+[insert here][G-MD-DC]
+
+
+
+#                                      Two point correlation statistical descriptor [SA] (O)
+# ==========================================================================================
+# Meaning:   Compute and plot the two point correlation function of the microstructure.
+#
+# Syntax:    stat_two_pt_corr x
+#
+# x:         bool
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                                             	   Voronoi analysis [SA] (O)
+# ==========================================================================================
+# Meaning:   Do a Voronoi analysis.
+#
+# Syntax:    voronoi_analysis x
+#
+# x:         bool
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                                                      Voronoi type [SA] (O)
+# ==========================================================================================
+# Meaning:   Voronoi type to be used in the Voronoi analysis.
+#
+# Syntax:    voronoi_type x (defaults to "standard")
+#
+# x:         {"standard", "set"}
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                                  Number of points for set Voronoi [SA] (O)
+# ==========================================================================================
+# Meaning:   Number of points on the surface used to construct the set Voronoi diagram.
+#
+# Syntax:    n_surf_points x (defaults to 10)
+#
+# x:         int
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                                         Plot the Voronoi diagrams [SA] (O)
+# ==========================================================================================
+# Meaning:   Flag used to plot the Voronoi diagrams.
+#
+# Syntax:    plot_voronoi x
+#
+# x:         bool
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                            Plot the Voronoi diagram with the IMTs [SA] (O)
+# ==========================================================================================
+# Meaning:   Plot the Voronoi diagram including the values of the Irreducible Minkowski
+#            tensors corresponding to each cell.
+#
+# Syntax:    plot_imts x
+#
+# x:         bool
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+#                                                     			           Mesh options [MO]
+# ==========================================================================================
+# Meaning:   Mesh options.
+#
+# Syntax:    Mesh_Options
+#	     Mesh_Type mesh_type_1
+#	     mesh_option_1 y
+#	     mesh_option_2 y
+#	     Mesh_Type mesh_type_2
+#	     mesh_option_1 y
+#	     mesh_option_2 y
+#
+# mesh_type_X:	{'rgmsh','femsh'}
+#	     	'rgmh'  - Regular grid mesh. A given voxel is set to the phase to which its
+#	     		center point belongs.
+#            	'femsh' - Finite element mesh. Generated using gmsh.
+#
+# mesh_option_Y: str
+#		 The mandatory and optional mesh options depend on the mesh type specified.
+#
+#		 ========================================================================
+#		 'rgmsh' - 1 mandatory parameter
+#		 ------------------------------------------------------------------------
+#		 Number of voxels in each direction                                   (M)
+#
+#		 Meaning: number of voxels discretizing each side of the microstructure.
+#
+#	         Syntax: n_voxels_dims [x1, x2] (2D)/ [x1, x2, x3] (3D)
+#
+#		 x1: float
+#		 x2: float
+#		 x3: float
+#		 ========================================================================
+#
+#		 ========================================================================
+#		 'femsh' - 2 mandatory parameters
+#		 ------------------------------------------------------------------------
+#		 Mesh size                                                            (M)
+#
+#		 Meaning: Largest mesh size allowed. The mesh size is computed from the
+#		 	  curvature of the geometry.
+#
+#	         Syntax: mesh_size x
+#
+#		 x: float
+#                ........................................................................
+#		 Element type                                                         (M)
+#
+#		 Meaning: Type of element used to mesh the microstructure.
+#
+#	         Syntax: element_type x
+#
+#		 x: {'tri3', 'tri6', tetra4', 'tetra10'}
+#		 ========================================================================
+#
+# y: depends on the corresponding mesh_option_Y
+#
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+
+#                                       		   Offset use for better meshing (O)
+# ==========================================================================================
+# Meaning:   Flag for the use of an offset for better FEM meshing.
+#
+# Syntax:    offset x
+#
+# x:         bool
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                                                    Final configuration (O)
+# ==========================================================================================
+# Meaning:   Plot the final configuration of the micro-structure.
+#
+# Syntax:    final_config x
+#
+# x:         bool
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                                                 Produce minimal output (O)
+# ==========================================================================================
+# Meaning:   Produce minimal output. To be in data-driven frameworks.
+#
+# Syntax:    save_min x
+#
+# x:         bool
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
