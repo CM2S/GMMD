@@ -199,15 +199,28 @@ class Phase:
 
     @property
     def volume_fraction(self):
-        """Volume fraction in decimal."""
+        """Volume fraction in decimal.
+        Its the real volume fraction if the particles are not dilated, and the virtual volume fraction if the particles are dilated."""
         volume_fraction = 0
         for particle in self.particles:
             volume_fraction += particle.volume / self.microstructure.volume
 
         return volume_fraction
+    
+    @property
+    def real_volume_fraction(self):
+        """Real volume fraction in decimal."""
+        real_volume_fraction = 0
+        for particle in self.particles:
+            real_volume_fraction += particle.real_volume / self.microstructure.volume
+
+        return real_volume_fraction
 
     @property
     def volume_fraction_circ(self):
+        raise NotImplementedError(
+            "Not implemented."
+        )
         """Volume fraction in decimal of the circumscribed spheres/disks."""
         volume_fraction = 0
         for particle in self.particles:
@@ -280,7 +293,7 @@ class Phase:
             current_sample[i_descriptor_name] = i_descriptor.generate_sample()
         new_particle = self.type(self.name, current_sample, rve_dims)
 
-        # Assign a random center position to the single new particle, ensuring it is within the bounds of the microstructure
+        # Assign a random center position to the single new particle
         if self.type.__name__ in ("Disk", "Ellipse", "Square"):
             new_particle.position_center = np.random.rand(2) * rve_dims
         elif self.type.__name__ in ("Sphere", "Ellipsoid", "Cylinder", "CylindricalFiber"):

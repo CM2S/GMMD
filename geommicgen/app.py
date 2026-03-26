@@ -291,12 +291,15 @@ def run_program():
                 elif mic_gen_method == "RSA":
                     # Random sequential adsorption method
                     try: 
-                        current_mic_generator = RandomSequentialAdsorption(mic_gen_parameters["max_step"])
+                        current_mic_generator = RandomSequentialAdsorption(
+                            mic_gen_parameters["max_step"],
+                            mic_gen_parameters["min_distance"]
+                            )
                     except KeyError:
                         print("Missing mandatory parameter defining the RSA simulation.")
                         raise
                 else:
-                    raise ValueError("Unknown microstructure generation method: {0}".format(Mic_Gen_method))
+                    raise ValueError("Unknown microstructure generation method: {0}".format(mic_gen_method))
             else:
                 raise ValueError("Unknown input file extension: {0}".format(ext))
 

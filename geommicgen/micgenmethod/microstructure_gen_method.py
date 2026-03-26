@@ -1,6 +1,7 @@
 """Module for the GenerationMethod abstract class."""
 
 import abc
+from contextlib import contextmanager
 import numpy as np
 
 # pylint: disable=import-error
@@ -10,6 +11,7 @@ from geommicgen.microstructure.particleclasses import (
     Point,
     Line,
 )
+import geommicgen.iofuncs.printing as print_funcs
 
 
 class GenerationMethod(abc.ABC):
@@ -205,3 +207,19 @@ class GenerationMethod(abc.ABC):
             k_ind_sort[ind_inc] += 1
             # Increase the index whose next distance is the largest
         return offset
+    
+
+    def contract_all_particles(self, particles):
+        """Contract all the particles in the simulation box."""
+        for i_particle in particles:
+            # Running through all the particles
+            i_particle.contract(self.min_distance / 2)
+            # Dilate i_particle
+
+    def dilate_all_particles(self, particles):
+        """Dilate all the particles in the simulation box."""
+        for i_particle in particles:
+            # Running through all the particles
+            i_particle.dilate(self.min_distance / 2)
+            # Dilate i_particle
+

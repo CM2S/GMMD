@@ -1,4 +1,4 @@
-"""Module for tests related to the molecular dynamics simulation."""
+"""Module for tests related to the random sequential adsorption simulation."""
 
 import unittest
 from unittest.mock import sentinel, Mock, MagicMock, patch

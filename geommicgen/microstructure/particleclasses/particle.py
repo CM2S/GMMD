@@ -102,14 +102,26 @@ class Particle(abc.ABC):
         radius = self._radius
 
         return radius
+    
+    @property
+    @abc.abstractmethod
+    def real_volume(self):
+        """Real area(volume) of the particle.
+        When a minimum distance between paeticles is imposed, the algorithm dilates the particles, runs the generation method and then contracts the particles.
+        When the particles are dilated, it's dimensions are increased by the value of the minimum distance. In turn, it's new volume is the volume of the dilated particle. Real_volume is the volume of the particle before dilation."""
+        real_volume = self._real_volume
+        return real_volume
 
     @property
     @abc.abstractmethod
     def volume(self):
-        """Area(volume) of the particle."""
+        """Area(volume) of the particle.
+        It is the virtual volume when the particles are dilated, and the real volume when the particles are contracted to their original size."""
         volume = self._volume
 
         return volume
+    
+
 
     @staticmethod
     def nearest_periodic_image(

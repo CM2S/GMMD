@@ -13,17 +13,21 @@ Phase 0
 Phase_Type 1
 Phase 1
 Phase_Type 8
-vf 0.5
+#n 10
+vf 0.2
 side_distribution normal
 side_mean 0.1
-side_sigma 0.01
+side_sigma 0.02
+Min_Distance 0.05
+
+
 
 
 # Generation parameters
 # ------------------------------------------------------------------------------------------
 Mic_Gen_Method MD
 Max_Residue_Per_Particle 0
-Max_Step 5
+Max_Step 50
 Speed_Up_Scheme Verlet
 Verlet_Factor 1.1
 Save_History True

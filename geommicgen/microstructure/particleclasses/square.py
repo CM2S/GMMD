@@ -88,6 +88,26 @@ class Square(Particle):
         self.side = side
         super().__init__(2, phase)
 
+    @property
+    def volume(self):
+        """Volume/area of the square."""
+        volume =  (self.side) ** 2
+        return volume
+    
+    @property
+    def real_volume(self):
+        """Real volume/area of the square."""
+        volume =  (self.side - self.delta) ** 2
+        return volume
+    
+    @property
+    def radius(self):
+        """Radius of the circumscribed circle to the square."""
+        radius = ( (self.side)**2 * 2)**0.5 / 2
+        #radius =  (self.side**2 * 2)**0.5 / 2
+        return radius
+    
+
     def generate_points_on_surface(self):
         """Generate *n_points* on the surface of the square."""
         raise NotImplementedError("To be implemented later.")
@@ -159,20 +179,20 @@ class Square(Particle):
     def intersection_square_square(self, other_square: Square, box: list, inside=True) -> bool:
         """Check if two Squares intersect."""
         # Vertices of self 
-        x_min_self = self.position_center[0] - self.side / 2
-        x_max_self = self.position_center[0] + self.side / 2
-        y_min_self = self.position_center[1] - self.side / 2
-        y_max_self = self.position_center[1] + self.side / 2
+        x_min_self = self.position_center[0] - (self.side) / 2
+        x_max_self = self.position_center[0] + (self.side) / 2
+        y_min_self = self.position_center[1] - (self.side) / 2
+        y_max_self = self.position_center[1] + (self.side) / 2
         # Periodic image of the other square closest to self square
         diff_center = self.position_center - other_square.position_center
         diff_center = diff_center - box * np.round(diff_center / box)
         other_square_nearest_pbc_center = self.position_center - diff_center
 
         # Vertices of the nearest periodic image of the other_square
-        x_min_other = other_square_nearest_pbc_center[0] - other_square.side / 2
-        x_max_other = other_square_nearest_pbc_center[0] + other_square.side / 2
-        y_min_other = other_square_nearest_pbc_center[1] - other_square.side / 2
-        y_max_other = other_square_nearest_pbc_center[1] + other_square.side / 2
+        x_min_other = other_square_nearest_pbc_center[0] - (other_square.side) / 2
+        x_max_other = other_square_nearest_pbc_center[0] + (other_square.side) / 2
+        y_min_other = other_square_nearest_pbc_center[1] - (other_square.side) / 2
+        y_max_other = other_square_nearest_pbc_center[1] + (other_square.side) / 2
         # Check for intersection
         intersect_x = (x_min_self < x_max_other) and (x_max_self > x_min_other)
         intersect_y = (y_min_self < y_max_other) and (y_max_self > y_min_other)
@@ -187,32 +207,21 @@ class Square(Particle):
         else:
             intersection_bool = self.intersection_gjk(other_particle, box)
         return intersection_bool
-
-    @property
-    def radius(self):
-        """Radius of the circumscribed circle to the square."""
-        radius = self.side / 2
-
-        return radius
-
-    @property
-    def volume(self):
-        """Volume/area of the square."""
-        volume =  self.side ** 2
-
-
-        return volume
     
 
     def contract(self, distance):
         """Contract the particle."""
-        self.delta -= distance
-        # Contracting the particle size subracting the minimum distance from the semi-axis
+        self.side -= 2 * distance
+        self.delta -= 2 * distance
+        # Contracting the particle size subracting the minimum distance from the side
+
 
     def dilate(self, distance):
         """Dilate the particle."""
-        self.delta += distance
-        # Dilating the particle size adding the minimum distance to the semi-axis
+        self.side += 2 * distance
+        self.delta += 2 * distance
+        # Dilating the particle size adding the minimum distance to the side
+
 
     def compute_critical_erosion_thickness(self):
         """Compute the critical erosion thickness for a square."""
@@ -221,7 +230,7 @@ class Square(Particle):
         return erosion_thickness
 
     def support_function(self, direction):
-        """Support function for GJK algorithm for the square."""  
+        """Support function for GJK algorithm for the square."""
         if direction[0] >= 0 and direction[1] >= 0:
             vec = np.array([self.side / 2, self.side / 2])
         elif direction[0] < 0 and direction[1] >= 0:
@@ -304,11 +313,11 @@ class Square(Particle):
         diff_center = diff_center - box * np.round(diff_center / box)
         other_square_nearest_pbc_center = self.position_center - diff_center
 
-        x_min = max(self.position_center[0] - self.side / 2, other_square_nearest_pbc_center[0] - other_square.side / 2)
-        x_max = min(self.position_center[0] + self.side / 2, other_square_nearest_pbc_center[0] + other_square.side / 2)
+        x_min = max(self.position_center[0] - (self.side) / 2, other_square_nearest_pbc_center[0] - (other_square.side) / 2)
+        x_max = min(self.position_center[0] + (self.side) / 2, other_square_nearest_pbc_center[0] + (other_square.side) / 2)
 
-        y_min = max(self.position_center[1] - self.side / 2, other_square_nearest_pbc_center[1] - other_square.side / 2)
-        y_max = min(self.position_center[1] + self.side / 2, other_square_nearest_pbc_center[1] + other_square.side / 2)
+        y_min = max(self.position_center[1] - (self.side) / 2, other_square_nearest_pbc_center[1] - (other_square.side) / 2)
+        y_max = min(self.position_center[1] + (self.side) / 2, other_square_nearest_pbc_center[1] + (other_square.side)   / 2)
         overlap_x = max(0, x_max - x_min)
         overlap_y = max(0, y_max - y_min)
         intersection_length = overlap_x *overlap_y
@@ -318,3 +327,5 @@ class Square(Particle):
     def rescale(self, rescale_parameter):
         """Rescale all size parameters and the position according to *rescale_parameter*."""
         self.side *= rescale_parameter
+        self.position_center *= rescale_parameter
+

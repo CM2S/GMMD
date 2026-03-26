@@ -582,63 +582,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
             except errors.UnsupportedInitialConfigurationType as error:
                 error.message()
 
-    @contextmanager
-    def virtual_particle_sizes(self, particles):
-        """
-        Ensure a minimum distance using a virtual particle size larger than the real size.
-
-        Dilate all the particles so that a minimum distance is ensured after contraction at
-        the begin of the simulation and contract all the particles so that a minimum
-        distance is ensured.
-
-        Parameters
-        ----------
-        particles: list(`.Particle`)
-            List of the particles inside the simulation box.
-        """
-        real_vf = self.microstructure_sample.volume_fraction
-        self.dilate_all_particles(particles)
-        self.resize_sim_box_and_all_particles_inside(particles, size="unitary")
-        virtual_vf = self.microstructure_sample.volume_fraction
-        if self.min_distance != 0:
-            print_funcs.print_virtual_total_volume_fraction(
-                real_vf, virtual_vf, self.min_distance
-            )
-        try:
-            yield
-        finally:
-            if self.thermostat.__class__.__name__ == "MultiTemperatureIsokineticScheme":
-                self.thermostat.equilibration_steps.append(self.thermostat.jump_list)
-            if not self.save_history:
-                # If the complete motion was not saved
-                for i_particle_ind, i_particle in enumerate(particles):
-
-                    self.position_center_history[i_particle_ind].append(
-                        i_particle.position_center.flatten()
-                    )
-                    # Saving the final configuration
-            self.contract_all_particles(particles)
-            self.resize_sim_box_and_all_particles_inside(particles, size="original")
-            if self.offset:
-                offset = self.compute_rve_offset(particles, self.box)
-                for i_particle in particles:
-                    # Running through all the particles
-                    i_particle.position_center -= np.array(offset)[: len(self.box)]
-                    # Applying the offset to the particles
-
-    def contract_all_particles(self, particles):
-        """Contract all the particles in the simulation box."""
-        for i_particle in particles:
-            # Running through all the particles
-            i_particle.contract(self.min_distance / 2)
-            # Dilate i_particle
-
-    def dilate_all_particles(self, particles):
-        """Dilate all the particles in the simulation box."""
-        for i_particle in particles:
-            # Running through all the particles
-            i_particle.dilate(self.min_distance / 2)
-            # Dilate i_particle
+    
 
     def resize_sim_box_and_all_particles_inside(self, particles, size):
         """Resize the simulation box and all the particles inside."""
@@ -775,6 +719,49 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     self.status = False
                     print_funcs.print_to_file("Failed sample")
                     break
+
+    @contextmanager
+    def virtual_particle_sizes(self, particles):
+        """
+        Ensure a minimum distance using a virtual particle size larger than the real size.
+
+        Dilate all the particles so that a minimum distance is ensured after contraction at
+        the begin of the simulation and contract all the particles so that a minimum
+        distance is ensured.
+
+        Parameters
+        ----------
+        particles: list(`.Particle`)
+            List of the particles inside the simulation box.
+        """
+        real_vf = self.microstructure_sample.volume_fraction
+        self.dilate_all_particles(particles)
+        virtual_vf = self.microstructure_sample.volume_fraction
+        self.resize_sim_box_and_all_particles_inside(particles, size="unitary")
+        if self.min_distance != 0:
+            print_funcs.print_virtual_total_volume_fraction(
+                real_vf, virtual_vf, self.min_distance
+            )
+        try:
+            yield
+        finally:
+            if self.thermostat.__class__.__name__ == "MultiTemperatureIsokineticScheme":
+                self.thermostat.equilibration_steps.append(self.thermostat.jump_list)
+            if not self.save_history:
+                # If the complete motion was not saved
+                for i_particle_ind, i_particle in enumerate(particles):
+                    self.position_center_history[i_particle_ind].append(
+                        i_particle.position_center.flatten()
+                    )
+                    # Saving the final configuration
+            self.contract_all_particles(particles)
+            self.resize_sim_box_and_all_particles_inside(particles, size="original")
+            if self.offset:
+                offset = self.compute_rve_offset(particles, self.box)
+                for i_particle in particles:
+                    # Running through all the particles
+                    i_particle.position_center -= np.array(offset)[: len(self.box)]
+                    # Applying the offset to the particles
 
     def check_overlap_naive(self, particles):
         """Check the overlap between particle naively.

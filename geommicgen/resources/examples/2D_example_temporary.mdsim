@@ -14,7 +14,7 @@ Phase 0
 Phase_Type 1
 Phase 1
 Phase_Type 3
-vf 0.1
+vf 0.3
 #n 50
 major_axis 0.1
 minor_axis 0.05
@@ -22,14 +22,13 @@ angle_distribution normal
 angle_mean 0
 angle_sigma 0.2
 #ratio 1.2
-Min_Distance 0.05
+
 
 # Generation parameters
 # ------------------------------------------------------------------------------------------
-Mic_Gen_Method RSA
+Mic_Gen_Method MD
 Max_Residue_Per_Particle 0
-#Max_Step 150
-Max_Step 5000
+Max_Step 150
 Speed_Up_Scheme Verlet
 Verlet_Factor 1.1
 Save_History True

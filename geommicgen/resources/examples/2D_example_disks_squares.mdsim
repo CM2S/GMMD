@@ -16,13 +16,14 @@ Phase_Type 1
 Phase 1
 Phase_Type 2
 r 0.05
-vf 0.2
+vf 0.15
 Phase 2
 Phase_Type 8
-vf 0.2
+vf 0.15
 side_distribution normal
 side_mean 0.1
 side_sigma 0.01
+Min_Distance 0.01
 
 
 
