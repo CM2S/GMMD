@@ -522,92 +522,6 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-
-# DEEP CUTS
-# ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-
-#                                          Number of iterations for relaxation [G-MD-DC] (O)
-# ==========================================================================================
-# Meaning:   The number of iterations allowed for the system to still move after reaching a
-#	     legal configuration.
-#
-# Syntax:    Max_Steps_To_Relax x
-#
-# x:         integer (default to 0)
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                                        Integration time step [G-MD-DC] (O)
-# ==========================================================================================
-# Meaning:   Integration time step for the numerical integration of the equations of motion
-#	     in the molecular dynamics simulation.
-#
-# Syntax:    dt x (default to 0.05)
-#
-# x:         float
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                        	    Seed for initial configuration [G-MD-DC] (O)
-# ==========================================================================================
-# Meaning:   Use the given value to seed the initial configuration.
-#
-# Syntax:    fixed_seed x
-#
-# x:         int
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                         			             Force rescale [G-MD-DC] (O)
-# ==========================================================================================
-# Meaning:   Flag for the use of a force rescaling procedure, that approximates the sceme
-#            described in Salnikov et al. (2015).
-#
-# Syntax:    Force_Rescale x
-#
-# x:         float
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                         	      Option for the particle mass [G-MD-DC] (O)
-# ==========================================================================================
-# Meaning:   Option for the mass of the particles.
-#
-# Syntax:    Particle_Mass_Opt x
-#
-# x:         {"volume", "radius", "unit"}
-#
-#            "volume" - mass equal to the volume/area of the particle.
-#            "radius" - mass equal to the radius of the circumscribed sphere/disk.
-#            "unit"   - unit mass for all particles.
-# ------------------------------------------------------------------------------------------
-
-#                                         	        Type of interaction forces [G-MD-DC] (O)
-# ==========================================================================================
-# Meaning:   Type of the interaction forces prescribed for intersection particles.
-#
-# Syntax:    Force_Option x
-#
-# x:         {"intersection_length", "intersection_area"}
-#
-#            "intersection_length" - intersection force proportional to the intersection
-#                length between the interacting particles.
-#            "intersection_area"   - intersection force proportional to the intersection
-#                area/volume between the interacting particles.
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                                    	       Viscous damping [G-MD-DC] (O)
-# ==========================================================================================
-# Meaning:   Viscous damping coefficient.
-#
-# Syntax:    Damping_Coeff x
-#
-# x:         float
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-
 # STATISTICAL ANALYSIS
 # ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -629,7 +543,7 @@
 #
 # x:         bool
 # ------------------------------------------------------------------------------------------
-[insert here][G-MD-DC]
+[insert here][G-MG-DC]
 
 
 
@@ -694,8 +608,92 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
+# DEEP CUTS
+# ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-#                                                     			           Mesh options [MO]
+#                                          Number of iterations for relaxation [G-MD-DC] (O)
+# ==========================================================================================
+# Meaning:   The number of iterations allowed for the system to still move after reaching a
+#	     legal configuration.
+#
+# Syntax:    Max_Steps_To_Relax x
+#
+# x:         integer (default to 0)
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                                        Integration time step [G-MG-DC] (O)
+# ==========================================================================================
+# Meaning:   Integration time step for the numerical integration of the equations of motion
+#	     in the molecular dynamics simulation.
+#
+# Syntax:    dt x (default to 0.05)
+#
+# x:         float
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                        	Seed for initial configuration [G-MG-DC] (O)
+# ==========================================================================================
+# Meaning:   Use the given value to seed the initial configuration.
+#
+# Syntax:    fixed_seed x
+#
+# x:         int
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                         			 Force rescale [G-MG-DC] (O)
+# ==========================================================================================
+# Meaning:   Flag for the use of a force rescaling procedure, that approximates the sceme
+#            described in Salnikov et al. (2015).
+#
+# Syntax:    Force_Rescale x
+#
+# x:         float
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                         	  Option for the particle mass [G-MG-DC] (O)
+# ==========================================================================================
+# Meaning:   Option for the mass of the particles.
+#
+# Syntax:    Particle_Mass_Opt x
+#
+# x:         {"volume", "radius", "unit"}
+#
+#            "volume" - mass equal to the volume/area of the particle.
+#            "radius" - mass equal to the radius of the circumscribed sphere/disk.
+#            "unit"   - unit mass for all particles.
+# ------------------------------------------------------------------------------------------
+
+#                                         	    Type of interaction forces [G-MG-DC] (O)
+# ==========================================================================================
+# Meaning:   Type of the interaction forces prescribed for intersection particles.
+#
+# Syntax:    Force_Option x
+#
+# x:         {"intersection_length", "intersection_area"}
+#
+#            "intersection_length" - intersection force proportional to the intersection
+#                length between the interacting particles.
+#            "intersection_area"   - intersection force proportional to the intersection
+#                area/volume between the interacting particles.
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                                    	       Viscous damping [G-MG-DC] (O)
+# ==========================================================================================
+# Meaning:   Viscous damping coefficient.
+#
+# Syntax:    Damping_Coeff x
+#
+# x:         float
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+#                                                     			   Mesh options [MO]
 # ==========================================================================================
 # Meaning:   Mesh options.
 #
