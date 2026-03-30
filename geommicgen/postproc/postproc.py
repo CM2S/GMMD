@@ -9,8 +9,7 @@ import geommicgen.iofuncs.printing as print_funcs
 import geommicgen.postproc.voronoimetrics.motion_analysis as motion_analysis
 import geommicgen.postproc.voronoimetrics.stat_analysis as stat_analysis
 import geommicgen.postproc.voronoimetrics.voronoi_analysis as voronoi_analysis
-
-from geommicgen.postproc.plotfuncs.plotting_functions import plot_particles
+import geommicgen.postproc.plotfuncs.plotting_functions as plot_funcs
 
 
 def post_proc(
@@ -25,7 +24,7 @@ def post_proc(
         print_funcs.print_to_file("Generating final configuration for visualization")
         print_funcs.print_to_file("-" * 80 + "\n")
         start = time.time()
-        plot_particles(current_sample.particles, current_sample.rve_dims, sample_dir)
+        plot_funcs.plot_particles(current_sample.particles, current_sample.rve_dims, sample_dir)
         plot_particles_time = time.time() - start
         print_funcs.print_to_file(
             "Time ellapsed: {0:.3f}s\n".format(plot_particles_time)
@@ -90,6 +89,15 @@ def post_proc(
         )
         # Do a voronoi analysis
 
+    if post_proc_opts.get("plot_rsa_vf_history", False):
+        plot_funcs.plot_RSA_history(
+            current_mic_generator.RSA_vf_history,
+            sample_dir,
+            save=True,
+            show=False
+            )
+
+
     # Statistical analysis
     # --------------------------------------------------------------------------
     all_stat_options = {
@@ -108,3 +116,6 @@ def post_proc(
         stat_analysis.do_stat_analysis(current_sample, sample_dir, stat_options_req)
 
     return dict_times
+
+
+

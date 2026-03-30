@@ -10,6 +10,7 @@ from contextlib import contextmanager
 import time
 import numpy as np
 from scipy.stats import hmean
+import geommicgen.postproc.plotfuncs.plotting_functions as plot_funcs
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
@@ -18,7 +19,7 @@ import geommicgen.iofuncs.file_handling as fileio
 import geommicgen.iofuncs.printing as print_funcs
 from geommicgen.microstructure.particleclasses import Matrix
 from geommicgen.micgenmethod.microstructure_gen_method import GenerationMethod
-from geommicgen.micgenmethod.integration_methods import verlet_sync_integration
+from geommicgen.micgenmethod import speed_up_schemes
 
 
 class RandomSequentialAdsorption(GenerationMethod):
@@ -37,8 +38,18 @@ class RandomSequentialAdsorption(GenerationMethod):
 
     microstructure_sample: `.Microstructure`
         Microstructure to be generated.
+    
+    max_step: int
+        Maxium number of steps
 
-    to be added
+    min_distance: float
+        Minimum distance between particles.
+
+    RSA_vf_history: history of the volume fraction
+
+    status: bool
+        Status of the simulation. Successfull or failed.
+
     """
 
     def __init__(self,max_step,min_distance):
@@ -50,6 +61,9 @@ class RandomSequentialAdsorption(GenerationMethod):
         self.microstructure_sample = None
         self.max_step = max_step
         self.min_distance = min_distance
+        self.status = False
+        self.RSA_vf_history = []
+
 
     def generate_microstructure(self, microstructure_sample):
         """Generate microstructure."""
@@ -64,6 +78,7 @@ class RandomSequentialAdsorption(GenerationMethod):
             first=True
             )
         
+
         for i_phase in microstructure_sample.phases.values():
             if i_phase.type is not Matrix and not i_phase.inner_phase:
                 try:
@@ -80,14 +95,18 @@ class RandomSequentialAdsorption(GenerationMethod):
                         
                         new_particle = i_phase.generate_single_particle(microstructure_sample.rve_dims)
                         new_particle.dilate(self.min_distance / 2)
-                        # Dilate the particle if there is a minimum distance imposed. It wll later be contracted back to its original size. If there is no minimum distance, min:distance is 0, so the particle will not be dilated.
-                        if not self.check_intersection(new_particle, microstructure_sample.phases):
+                        # Dilate the particle if there is a minimum distance imposed. It will later be contracted back to its original size. If there is no minimum distance, min_distance is 0, so the particle will not be dilated.
+
+                        # Get list of particles
+                        if not self.check_intersection(new_particle,microstructure_sample.particles):
                             i_phase.particles.append(new_particle)
                             n_particles_total += 1
+                        self.RSA_vf_history.append(microstructure_sample.volume_fraction)
                         print_funcs.print_to_terminal_refresh_rsa(
                         n_iterations,
                         n_particles_total
                         )
+
                 if "vf" in i_phase.descriptors and "n" not in i_phase.descriptors:
                     vf_target= i_phase.descriptors["vf"].value             
                     while i_phase.real_volume_fraction < vf_target:
@@ -102,16 +121,22 @@ class RandomSequentialAdsorption(GenerationMethod):
                         if not self.check_intersection(new_particle, microstructure_sample.phases):
                             i_phase.particles.append(new_particle)
                             n_particles_total += 1
+                        self.RSA_vf_history.append(microstructure_sample.volume_fraction)
                         print_funcs.print_to_terminal_refresh_rsa(
                         n_iterations,
                         n_particles_total
                         )
                 # Contract all the particles back to their original. If there is no minimum distance, the particles will not be contracted, since min_distance is 0.
+
                 real_vf = self.microstructure_sample.real_volume_fraction
                 virtual_vf = self.microstructure_sample.volume_fraction
                 self.contract_all_particles(i_phase.particles)
-
-                                             
+        
+                    
+        # if the simulation stopped because it reached the maximum number of iterations, status is Flase, otherwise it is True.
+        if n_iterations < self.max_step:
+            self.status = True
+           
         self.time = time.time() - start
         print("\n\n")
         print_funcs.print_microstructure_info(microstructure_sample)
@@ -120,7 +145,7 @@ class RandomSequentialAdsorption(GenerationMethod):
                 real_vf, virtual_vf, self.min_distance
             )
         print_funcs.print_final_message_rsa(self.time, n_iterations)
-        
+                
 
 
     def set_box(self, particles, rve_dims):
@@ -161,4 +186,6 @@ class RandomSequentialAdsorption(GenerationMethod):
                 if particle.intersection(i_particle, self.microstructure_sample.rve_dims):
                     return True
         return False
+    
+
     

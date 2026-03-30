@@ -338,7 +338,7 @@ class TopLevelReader:
         while True:
             if self.i_line >= len(self.input):
                 break
-            # Remaain inside the file
+            # Remain inside the file
             line = self.input[self.i_line]
             # Save current line
             if (
@@ -652,6 +652,12 @@ top_level_reader.add_top_level_keyword(
     ),
     KeywordTypeA(
         "plot_imts",
+        "post_proc",
+        default_value=False,
+        type_str="bool",
+    ),
+    KeywordTypeA(
+        "plot_rsa_vf_history",
         "post_proc",
         default_value=False,
         type_str="bool",

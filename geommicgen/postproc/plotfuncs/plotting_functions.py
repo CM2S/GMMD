@@ -700,7 +700,7 @@ def plot_paths(particles, box, position_center_history, motion_results_dir):
         #         ]
         #
         #     # Set the mesh size on the geometry points
-        #     # Synchronize the CAD engine (always needed before generating the mesh)
+        #     # Synchronize the CAD engine (alwaygraphs needed before generating the mesh)
         #     # It may also be useful for some intermidate operations, like checking the tags of
         #     # entities
         #     factory.synchronize()
@@ -2337,5 +2337,34 @@ def plot_voronoi_3d_with_imts(
         plt.close()
 
 
-# def rescaleAxis(ax):
-#     for line in ax.lines:
+def plot_RSA_history(
+    RSA_vf_history,
+    sample_dir,
+    save=True,
+    show=False
+):
+    """Plot the number of particles history as a function of the iteration step."""
+    # Note: ax is returned from your custom create_figure function
+    graph_RSA_vf_history, ax, (w_fig, h_fig) = create_figure(nrows=3, ncols=2)
+
+    ax.plot(
+        range(len(RSA_vf_history)),
+        RSA_vf_history,
+        color=(68 / 255, 119 / 255, 170 / 255, 1)
+    )
+
+    # --- Added Axis Labels ---
+    # Using LaTeX syntax as your create_figure function enables usetex=True
+    ax.set_xlabel(r"Iteration Step")
+    ax.set_ylabel(r"Volume fraction")
+    ax.grid(True, linestyle='--', alpha=0.6)
+
+    if save:
+        # Use fig (graph_RSA_particle_history) to save to ensure the whole canvas is captured
+        plt.savefig(os.path.join(sample_dir, "RSA_vf_history.pdf"), bbox_inches="tight")
+
+        if show:
+            plt.show()
+        plt.close()
+    else:
+        return graph_RSA_vf_history
