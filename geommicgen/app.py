@@ -262,29 +262,22 @@ def run_program():
                     current_mic_generator.set_thermostat(current_thermostat)
                     # Adding a thermostat to the MD simulation
 
-                    try:
-                        if mic_gen_parameters.get("speed_up_scheme") == "Cell":
-                            current_speed_up_scheme = CellList()
-                        elif mic_gen_parameters.get("speed_up_scheme") == "Verlet":
-                            current_speed_up_scheme = VerletList(
-                                mic_gen_parameters["verlet_factor"]
-                            )
-                        elif mic_gen_parameters.get("speed_up_scheme") == "Verlet2":
-                            current_speed_up_scheme = VerletPartialUpdate(
-                                mic_gen_parameters["verlet_factor"]
-                            )
-                        elif mic_gen_parameters["speed_up_scheme"] == "Naive":
-                            current_speed_up_scheme = Naive()
-                        else:
-                            current_speed_up_scheme = CellList()
-                    except KeyError:
-                        print(
-                            "Missing mandatory parameter defining the"
-                            + "{0} speed up scheme.".format(
-                                mic_gen_parameters["speed_up_scheme"]
-                            )
+
+                    if mic_gen_parameters.get("speed_up_scheme") == "Cell" or mic_gen_parameters.get("speed_up_scheme") == None:
+                        # CellList is the default
+                        current_speed_up_scheme = CellList()
+                    elif mic_gen_parameters.get("speed_up_scheme") == "Verlet":
+                        current_speed_up_scheme = VerletList(
+                            mic_gen_parameters["verlet_factor"]
                         )
-                        raise
+                    elif mic_gen_parameters.get("speed_up_scheme") == "Verlet2":
+                        current_speed_up_scheme = VerletPartialUpdate(
+                            mic_gen_parameters["verlet_factor"]
+                        )
+                    elif mic_gen_parameters["speed_up_scheme"] == "Naive":
+                        current_speed_up_scheme = Naive()
+                    else:
+                        raise ValueError(f"Unknown speed up scheme for MD simulation: '{mic_gen_parameters['speed_up_scheme']}'. ")
 
                     current_mic_generator.set_speed_up_scheme(current_speed_up_scheme)
                     # Adding a speed up scheme to the MD simulation

@@ -42,7 +42,7 @@ class Microstructure:
         Parameters
         ----------
         rve_dims: array
-            Array containing the dimnesions of the microstructure in each spatial direction.
+            Array containing the dimensions of the microstructure in each spatial direction.
         """
         self.matrix_phase = None
         self.rve_dims = rve_dims
@@ -152,3 +152,4 @@ class Microstructure:
             vf += i_phase.volume_fraction_circ
 
         return vf
+
