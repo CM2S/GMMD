@@ -10,12 +10,18 @@ import shutil
 import abc
 import time
 
-# GMSH module
-import gmsh
-
 # pylint: disable=import-error
 import geommicgen.iofuncs.printing as print_funcs
-from gmsh2links.main import readMesh
+
+try:
+    import gmsh
+except ImportError:
+    gmsh = None
+
+try:
+    from gmsh2links.main import readMesh
+except ImportError:
+    readMesh = None
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
