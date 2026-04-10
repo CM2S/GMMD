@@ -30,12 +30,16 @@ from geommicgen.micgenmethod.thermostats import (
     MicroCanonicalEnsemble,
     BerendsenForceThermostat,
 )
-from geommicgen.micgenmethod.speed_up_schemes import (
-    CellList,
-    VerletList,
-    VerletPartialUpdate,
-    Naive,
-)
+
+import geommicgen.micgenmethod.speed_up_schemes.MD_speed_up_schemes as MD_speed_up_schemes
+import geommicgen.micgenmethod.speed_up_schemes.RSA_speed_up_schemes as RSA_speed_up_schemes
+
+# from geommicgen.micgenmethod.speed_up_schemes import (
+#     CellList,
+#     VerletList,
+#     VerletPartialUpdate,
+#     Naive,
+# )
 
 
 def run_program():
@@ -265,17 +269,17 @@ def run_program():
 
                     if mic_gen_parameters.get("speed_up_scheme") == "Cell" or mic_gen_parameters.get("speed_up_scheme") == None:
                         # CellList is the default
-                        current_speed_up_scheme = CellList()
+                        current_speed_up_scheme = MD_speed_up_schemes.CellList()
                     elif mic_gen_parameters.get("speed_up_scheme") == "Verlet":
-                        current_speed_up_scheme = VerletList(
+                        current_speed_up_scheme = MD_speed_up_schemes.VerletList(
                             mic_gen_parameters["verlet_factor"]
                         )
                     elif mic_gen_parameters.get("speed_up_scheme") == "Verlet2":
-                        current_speed_up_scheme = VerletPartialUpdate(
+                        current_speed_up_scheme = MD_speed_up_schemes.VerletPartialUpdate(
                             mic_gen_parameters["verlet_factor"]
                         )
                     elif mic_gen_parameters["speed_up_scheme"] == "Naive":
-                        current_speed_up_scheme = Naive()
+                        current_speed_up_scheme = MD_speed_up_schemes.Naive()
                     else:
                         raise ValueError(f"Unknown speed up scheme for MD simulation: '{mic_gen_parameters['speed_up_scheme']}'. ")
 
@@ -291,6 +295,17 @@ def run_program():
                     except KeyError:
                         print("Missing mandatory parameter defining the RSA simulation.")
                         raise
+
+                    if mic_gen_parameters.get("speed_up_scheme") == "Cell" or mic_gen_parameters.get("speed_up_scheme") == None:
+                        current_speed_up_scheme = RSA_speed_up_schemes.CellList()
+                    elif mic_gen_parameters["speed_up_scheme"] == "Naive":
+                        current_speed_up_scheme = RSA_speed_up_schemes.Naive()
+                    else:
+                        raise ValueError(f"Unknown speed up scheme for RSA simulation: '{mic_gen_parameters['speed_up_scheme']}'. ")
+
+                    current_mic_generator.set_speed_up_scheme(current_speed_up_scheme)
+                    # Adding a speed up scheme to the RSA simulation
+
                 else:
                     raise ValueError("Unknown microstructure generation method: {0}".format(mic_gen_method))
             else:
@@ -326,6 +341,8 @@ def run_program():
                     sample_dir,
                     top_level_reader.all_options["post_proc"],
                 )
+                # Print post_proc
+                #print(top_level_reader.all_options["post_proc"], "app.py line 337, delete later")
             finally:
                 print("Finished post-processing. Uncoomment the following lines in modules/iofuncs/printing.py to print the final message and delete the screen if save_min is True.")
                 print_funcs.print_final_message(

@@ -50,6 +50,9 @@ class RandomSequentialAdsorption(GenerationMethod):
     status: bool
         Status of the simulation. Successfull or failed.
 
+    speed_up_scheme: `.SpeedUpScheme`
+        Speed up scheme for intersection computation.
+
     """
 
     def __init__(self,max_step,min_distance):
@@ -63,6 +66,7 @@ class RandomSequentialAdsorption(GenerationMethod):
         self.min_distance = min_distance
         self.status = False
         self.RSA_vf_history = []
+        self.speed_up_scheme = None
 
 
     def generate_microstructure(self, microstructure_sample):
@@ -78,7 +82,9 @@ class RandomSequentialAdsorption(GenerationMethod):
             first=True
             )
         
-
+        self.particle_overlap_areas = [0 for _ in microstructure_sample.particles]
+        # Setting all the overlap areas to zero at the beginning of the iteration as
+        # they are added sequentially as each pair is considered
         for i_phase in microstructure_sample.phases.values():
             if i_phase.type is not Matrix and not i_phase.inner_phase:
                 try:
@@ -98,7 +104,13 @@ class RandomSequentialAdsorption(GenerationMethod):
                         # Dilate the particle if there is a minimum distance imposed. It will later be contracted back to its original size. If there is no minimum distance, min_distance is 0, so the particle will not be dilated.
 
                         # Get list of particles
-                        if not self.check_intersection(new_particle,microstructure_sample.particles):
+                        if len(microstructure_sample.particles) > 0:
+                            self.speed_up_scheme.new_list(microstructure_sample.particles,new_particle)
+                            particles_list = self.speed_up_scheme.particle_list
+                        else:
+                            particles_list = []
+
+                        if not self.check_intersection(new_particle,particles_list):
                             i_phase.particles.append(new_particle)
                             n_particles_total += 1
                         self.RSA_vf_history.append(microstructure_sample.volume_fraction)
@@ -117,8 +129,16 @@ class RandomSequentialAdsorption(GenerationMethod):
                         n_iterations += 1
                         new_particle = i_phase.generate_single_particle(microstructure_sample.rve_dims)
                         new_particle.dilate(self.min_distance / 2)
-                        # Dilate the particle if there is a minimum distance imposed. It wll later be contracted back to its original size. If there is no minimum distance, min:distance is 0, so the particle will not be dilated.
-                        if not self.check_intersection(new_particle, microstructure_sample.phases):
+                        # Dilate the particle if there is a minimum distance imposed. It will later be contracted back to its original size. If there is no minimum distance, min:distance is 0, so the particle will not be dilated.
+
+                        # Get list of particles
+                        if len(microstructure_sample.particles) > 0:
+                            self.speed_up_scheme.new_list(microstructure_sample.particles,new_particle)
+                            particles_list = self.speed_up_scheme.particle_list
+                        else:
+                            particles_list = []
+
+                        if not self.check_intersection(new_particle,particles_list):
                             i_phase.particles.append(new_particle)
                             n_particles_total += 1
                         self.RSA_vf_history.append(microstructure_sample.volume_fraction)
@@ -176,16 +196,34 @@ class RandomSequentialAdsorption(GenerationMethod):
         else:
             self.box = list(rve_dims)
 
+    def set_speed_up_scheme(self, speed_up_scheme):
+        """Set speed up scheme for the random sequential adsorption simulation."""
+        self.speed_up_scheme = speed_up_scheme
+        speed_up_scheme.rsa_sim = self
 
-    def check_intersection(self, particle, particles):
-        """Check if the particle intersects any of the particles in the list.
-        True if it intersects, False otherwise."""
+
+    def check_intersection(self, new_particle, particles_list):
+        """Check if the new_particle intersects any of the particles in the list.
+
+        Input:
+            - new_particle: an object from class particle
+            - particles_list: list of numbers. Each number is the index of the particles that must be checked for intersection
+
+        Output:
+            -True if it intersects with any particle, False otherwise.
+        """
         # check if the particle intersects any of the particles in the list
-        for i_phase in particles.values():
-            for i_particle in i_phase.particles:
-                if particle.intersection(i_particle, self.microstructure_sample.rve_dims):
-                    return True
-        return False
-    
+        # for i_phase in particles.values():
+        #     for i_particle in i_phase.particles:
+        #         if new_particle.intersection(i_particle, self.microstructure_sample.rve_dims):
+        #             return True
 
-    
+        if self.microstructure_sample.particles ==[]:
+            return False
+        else:
+            for i in particles_list:
+                i_particle = self.microstructure_sample.particles[i]
+                if new_particle.intersection(i_particle, self.microstructure_sample.rve_dims):
+                        return True
+           
+        return False
