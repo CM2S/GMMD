@@ -100,7 +100,12 @@ class IsokineticThermostat(Thermostat):
         number_particles = len(particle_velocities)
         # The thermostate used is the isokinetic with constant temperature
         lambda_vel = np.sqrt(
-            0.5 * dim * number_particles * self.k_b * self.reference_temp / kin_energy
+            0.5
+            * dim
+            * number_particles
+            * self.k_b
+            * self.reference_temp
+            / (kin_energy + 1e-15)
         )
         for i_particle_index in range(number_particles):
             # Running through all the particles
