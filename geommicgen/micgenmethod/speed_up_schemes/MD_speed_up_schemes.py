@@ -16,16 +16,16 @@ from geommicgen.microstructure.particleclasses import Particle
 import numpy as np
 
 
-class SpeedUpScheme(abc.ABC):
-    """Abstract class for the speed up schemes."""
+class MD_SpeedUpScheme(abc.ABC):
+    """Abstract class for the molecular dynamics speed up schemes."""
 
     @abc.abstractmethod
     def new_list(self, particles):
         """Compute a new list for force computation."""
 
 
-class CellList(SpeedUpScheme):
-    """Class for the cell list speed up scheme for force computation.
+class CellList(MD_SpeedUpScheme):
+    """Class for the cell list speed up scheme for checking particle intersection.
 
     Attributes
     ----------
@@ -419,7 +419,7 @@ class CellList(SpeedUpScheme):
         return pos_neighbor_cell
 
 
-class VerletList:
+class VerletList(MD_SpeedUpScheme):
     """
     Class for the verlet list used to speed up force computation.
 
@@ -639,7 +639,7 @@ class VerletPartialUpdate(VerletList):
                         self.particle_list[j_particle_index].remove(i_particle_index)
 
 
-class Naive(SpeedUpScheme):
+class Naive(MD_SpeedUpScheme):
     """
     Class for the verlet list used to speed up force computation.
 
@@ -667,4 +667,19 @@ class Naive(SpeedUpScheme):
         ----------
         Particles in the simulatin box, whose cell list is to be computed.
         """
+
         self.particle_list = [list(range(len(particles))) for _ in particles]
+
+    def new_list_new_particle(self, particles,new_particle):
+        """
+        Compute cell list for new_particle,
+        this is, get the indices of all the particles in the neighborhood of the new_particle according to the speed_up_scheme Naive
+
+        Parameters
+        ----------
+        Particles in the simulatin box, whose cell list is to be computed.
+        """
+
+        self.particle_list = [list(range(len(particles)))]
+
+
