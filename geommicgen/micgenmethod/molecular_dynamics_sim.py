@@ -400,11 +400,11 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 # Length of the cells in each direction
                 k_counter = 0
                 # Initializing the counter
-                grid_places = np.arange(n_cells_side ** 3)
+                grid_places = np.arange(n_cells_side**3)
                 # Label of each grid place
                 np.random.shuffle(grid_places)
                 # Distributing the particles randomly to different cells of the grid
-                for (x_cell, y_cell, z_cell) in (
+                for x_cell, y_cell, z_cell in (
                     (x_cell, y_cell, z_cell)
                     for x_cell in range(n_cells_side)
                     for y_cell in range(n_cells_side)
@@ -421,12 +421,12 @@ class MolecularDynamicsSimulation(GenerationMethod):
 
                         # Generating the positions from a random uniform
                         # distribution between
-                        self.particle_velocities[
-                            grid_places[k_counter]
-                        ] = np.random.uniform(low=-0.1, high=0.1, size=3)
-                        self.position_center_history[grid_places[k_counter]][
-                            0
-                        ] = particles[grid_places[k_counter]].position_center
+                        self.particle_velocities[grid_places[k_counter]] = (
+                            np.random.uniform(low=-0.1, high=0.1, size=3)
+                        )
+                        self.position_center_history[grid_places[k_counter]][0] = (
+                            particles[grid_places[k_counter]].position_center
+                        )
                         # Saving particle history
                     k_counter += 1
             elif particles[0].dim == 2:
@@ -436,11 +436,11 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 # Length of the cells in each direction
                 k_counter = 0
                 # Initializing the counter
-                grid_places = np.arange(n_cells_side ** 2)
+                grid_places = np.arange(n_cells_side**2)
                 # Label of each grid place
                 np.random.shuffle(grid_places)
                 # Distributing the particles randomly to different cells of the grid
-                for (x_cell, y_cell) in (
+                for x_cell, y_cell in (
                     (x_cell, y_cell)
                     for x_cell in range(n_cells_side)
                     for y_cell in range(n_cells_side)
@@ -456,9 +456,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
                         self.particle_velocities = np.random.uniform(
                             low=-0.1, high=0.1, size=2
                         )
-                        self.position_center_history[grid_places[k_counter]][
-                            0
-                        ] = particles[grid_places[k_counter]].position_center
+                        self.position_center_history[grid_places[k_counter]][0] = (
+                            particles[grid_places[k_counter]].position_center
+                        )
                     # # Saving particle history
                     k_counter += 1
         elif self.type_init_conf == "bcc":
@@ -466,7 +466,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
             ind_part = 0
             for k_layer in range(8):
                 if np.mod(k_layer, 2) == 0:
-                    for (i_row, j_column) in (
+                    for i_row, j_column in (
                         (i_row, j_column) for i_row in range(4) for j_column in range(4)
                     ):
                         particles[ind_part].position_center = step * np.array(
@@ -478,7 +478,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                         ].position_center
                         ind_part += 1
                 else:
-                    for (i_row, j_column) in (
+                    for i_row, j_column in (
                         (i_row, j_column) for i_row in range(4) for j_column in range(4)
                     ):
                         particles[ind_part].position_center = step * np.array(
@@ -503,7 +503,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
             ind_part = 0
             for k_layer in range(8):
                 if np.mod(k_layer, 2) == 0:
-                    for (i_row, j_column) in (
+                    for i_row, j_column in (
                         (i_row, j_column) for i_row in range(4) for j_column in range(4)
                     ):
                         particles[ind_part].position_center = step * np.array(
@@ -514,7 +514,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                             ind_part
                         ].position_center
                         ind_part += 1
-                    for (i_row, j_column) in (
+                    for i_row, j_column in (
                         (i_row, j_column)
                         for i_row in range(1, 5)
                         for j_column in range(4)
@@ -535,7 +535,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                         # Saving initial configuration
                         ind_part += 1
                 else:
-                    for (i_row, j_column) in (
+                    for i_row, j_column in (
                         (i_row, j_column)
                         for i_row in range(1, 5)
                         for j_column in range(4)
@@ -555,7 +555,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                         ].position_center
                         # Saving initial configuration
                         ind_part += 1
-                    for (i_row, j_column) in (
+                    for i_row, j_column in (
                         (i_row, j_column)
                         for i_row in range(4)
                         for j_column in range(1, 5)
@@ -679,7 +679,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
             average_radius = np.mean([i_particle.radius for i_particle in particles])
             vel = self.initial_vel_coeff * average_radius / self.delta_t
             self.thermostat.reference_temp = (
-                vel ** 2
+                vel**2
                 * np.sum(
                     [particle.mass(self.particle_mass_opt) for particle in particles]
                 )
@@ -818,9 +818,11 @@ class MolecularDynamicsSimulation(GenerationMethod):
         # Computing forces due to damping
         if self.force_rescale:
             self.particle_forces = [
-                force * self.force_rescale_coeff
-                if self.current_max_force != 0
-                else force
+                (
+                    force * self.force_rescale_coeff
+                    if self.current_max_force != 0
+                    else force
+                )
                 for force in self.particle_forces
             ]
 
@@ -1020,7 +1022,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         """Kinetic energy of the system of particles."""
         self.kinetic_energy = 0.5 * np.sum(
             [
-                i_particle.mass(self.particle_mass_opt) * np.sum(velocity ** 2)
+                i_particle.mass(self.particle_mass_opt) * np.sum(velocity**2)
                 for i_particle, velocity in zip(particles, self.particle_velocities)
             ]
         )

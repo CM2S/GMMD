@@ -1,4 +1,5 @@
 """Module containing Ellipoid particle class."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -472,9 +473,9 @@ class Ellipsoid(Particle):
         """Auxiliar matrix to determine intersection points."""
         A_loc = np.array(
             [
-                [1.0 / self.semi_axis_1 ** 2, 0.0, 0.0, 0.0],
-                [0.0, 1.0 / self.semi_axis_2 ** 2, 0.0, 0.0],
-                [0.0, 0.0, 1.0 / self.semi_axis_3 ** 2, 0.0],
+                [1.0 / self.semi_axis_1**2, 0.0, 0.0, 0.0],
+                [0.0, 1.0 / self.semi_axis_2**2, 0.0, 0.0],
+                [0.0, 0.0, 1.0 / self.semi_axis_3**2, 0.0],
                 [0.0, 0.0, 0.0, -1.0],
             ],
             dtype=float,
@@ -524,9 +525,9 @@ class Ellipsoid(Particle):
         if position == "inside":
             # Checking if the point is inside the ellipse
             point_in = (
-                point_loc[0] ** 2 / self.semi_axis_1 ** 2
-                + point_loc[1] ** 2 / self.semi_axis_2 ** 2
-                + point_loc[2] ** 2 / self.semi_axis_3 ** 2
+                point_loc[0] ** 2 / self.semi_axis_1**2
+                + point_loc[1] ** 2 / self.semi_axis_2**2
+                + point_loc[2] ** 2 / self.semi_axis_3**2
                 - 1
                 <= tol
             )
@@ -536,9 +537,9 @@ class Ellipsoid(Particle):
             # Checking if the point is on the ellipse
             point_in = (
                 np.abs(
-                    point_loc[0] ** 2 / self.semi_axis_1 ** 2
-                    + point_loc[1] ** 2 / self.semi_axis_2 ** 2
-                    + point_loc[2] ** 2 / self.semi_axis_3 ** 2
+                    point_loc[0] ** 2 / self.semi_axis_1**2
+                    + point_loc[1] ** 2 / self.semi_axis_2**2
+                    + point_loc[2] ** 2 / self.semi_axis_3**2
                     - 1
                 )
                 <= tol
@@ -653,10 +654,10 @@ class Ellipsoid(Particle):
                 pointsInside,
                 -A,
                 A,
-                lambda x: -B * np.sqrt(1 - x ** 2 / A ** 2),
-                lambda x: B * np.sqrt(1 - x ** 2 / A ** 2),
-                lambda x, y: -C * np.sqrt(1 - x ** 2 / A ** 2 - y ** 2 / B ** 2),
-                lambda x, y: C * np.sqrt(1 - x ** 2 / A ** 2 - y ** 2 / B ** 2),
+                lambda x: -B * np.sqrt(1 - x**2 / A**2),
+                lambda x: B * np.sqrt(1 - x**2 / A**2),
+                lambda x, y: -C * np.sqrt(1 - x**2 / A**2 - y**2 / B**2),
+                lambda x, y: C * np.sqrt(1 - x**2 / A**2 - y**2 / B**2),
                 epsrel=0.1,
             )
 
@@ -843,23 +844,23 @@ class Ellipsoid(Particle):
             p_4_bar = p_5 / p_1
 
             beta_1 = (p_4_bar - p_1_bar * p_3_bar) + 3 * (
-                p_2_bar ** 2 - p_1_bar * p_3_bar
+                p_2_bar**2 - p_1_bar * p_3_bar
             )
             beta_2 = (
                 -p_3_bar * (p_3_bar - p_1_bar * p_2_bar)
-                - p_4_bar * (p_1_bar ** 2 - p_2_bar)
-                - p_2_bar * (p_2_bar ** 2 - p_1_bar * p_3_bar)
+                - p_4_bar * (p_1_bar**2 - p_2_bar)
+                - p_2_bar * (p_2_bar**2 - p_1_bar * p_3_bar)
             )
 
-            eta_1 = beta_1 ** 3 - 27 * beta_2 ** 2
+            eta_1 = beta_1**3 - 27 * beta_2**2
             eta_2 = (
                 -9 * (p_3_bar - p_1_bar * p_2_bar) ** 2
-                + 27 * (p_1_bar ** 2 - p_2_bar) * (p_2_bar ** 2 - p_1_bar * p_3_bar)
-                - 3 * (p_4_bar - p_1_bar * p_3_bar) * (p_1_bar ** 2 - p_2_bar)
+                + 27 * (p_1_bar**2 - p_2_bar) * (p_2_bar**2 - p_1_bar * p_3_bar)
+                - 3 * (p_4_bar - p_1_bar * p_3_bar) * (p_1_bar**2 - p_2_bar)
             )
             eta_3 = beta_1 * (p_3_bar - p_1_bar * p_2_bar) - 3 * p_1_bar * beta_2
             eta_4 = -(p_4_bar - p_1_bar * p_3_bar)
-            eta_5 = p_1_bar ** 2 - p_2_bar
+            eta_5 = p_1_bar**2 - p_2_bar
             return [eta_1, eta_2, eta_3, eta_4, eta_5]
 
         diff_in_box = self.position_center - other_ellipsoid.position_center
@@ -907,9 +908,9 @@ class Ellipsoid(Particle):
                 # For each point on the surface with its corresponding homogeneous angle
                 normal_vec = np.array(
                     [
-                        i_point[0] / self.semi_axis_1 ** 2,
-                        i_point[1] / self.semi_axis_2 ** 2,
-                        i_point[2] / self.semi_axis_3 ** 2,
+                        i_point[0] / self.semi_axis_1**2,
+                        i_point[1] / self.semi_axis_2**2,
+                        i_point[2] / self.semi_axis_3**2,
                     ]
                 )
                 unit_normal = normal_vec / np.linalg.norm(normal_vec)
@@ -934,7 +935,7 @@ class Ellipsoid(Particle):
         largest_semi_axis = np.max(
             [self.semi_axis_1, self.semi_axis_2, self.semi_axis_3]
         )
-        erosion_thickness = smallest_semi_axis ** 2 / largest_semi_axis
+        erosion_thickness = smallest_semi_axis**2 / largest_semi_axis
         # Semi-latus rectum
         return erosion_thickness
 
@@ -975,9 +976,9 @@ class Ellipsoid(Particle):
         dir_local = self.rotation_mat.T.dot(direction)
         dir_normal = np.array(
             [
-                dir_local[0] * (self.semi_axis_1 ** 2),
-                dir_local[1] * (self.semi_axis_2 ** 2),
-                dir_local[2] * (self.semi_axis_3 ** 2),
+                dir_local[0] * (self.semi_axis_1**2),
+                dir_local[1] * (self.semi_axis_2**2),
+                dir_local[2] * (self.semi_axis_3**2),
             ]
         )
         rescale_factor = np.sqrt(

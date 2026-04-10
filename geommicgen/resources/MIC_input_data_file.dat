@@ -93,7 +93,7 @@
 #        Disk (2): Choose 2 of the parameters
 #        -----------------------------------------------------------------------
 #        r                    float        Radius of the disk
-#	       area                 float        Area of the disk
+#	     area                 float        Area of the disk
 #        n                    integer      Number of particles
 #        vf                   float        Volume fraction (decimal)
 #        ==================== ============ ======================================
@@ -103,7 +103,7 @@
 #        -----------------------------------------------------------------------
 #        major_axis           float        Major principal axis
 #        minor_axis           float        Minor principal axis
-#	       ratio      		      float	       Ratio between the major and minor axis
+#	     ratio      		  float	       Ratio between the major and minor axis
 #        angle                float        Angle between the major semi-axis and
 #					                                 the positive x semi-axis.
 #        n                    integer      Number of particles

@@ -138,7 +138,7 @@ class CellList(SpeedUpScheme):
             self.cell_list[pos_cell_list].add(i_index)
             self.pos_cell_list[i_index] = pos_cell_list
         for i_particle_index, _ in enumerate(particles):
-            for k_neighbor_cell in range(3 ** dim):
+            for k_neighbor_cell in range(3**dim):
                 # Running through the neighbor cells
                 pos_neighbor_cell = self.neighbor_cell(
                     self.pos_cell_list[i_particle_index],
@@ -230,7 +230,7 @@ class CellList(SpeedUpScheme):
             already_rem.add(i_particle_index)
             if pos_cell_list_old[i_particle_index] is not None:
                 # Removing old
-                for k_neighbor_cell in range(3 ** dim):
+                for k_neighbor_cell in range(3**dim):
                     # Running through the neighbor cells
                     pos_neighbor_cell = self.neighbor_cell(
                         pos_cell_list_old[i_particle_index],
@@ -249,7 +249,7 @@ class CellList(SpeedUpScheme):
                                 i_particle_index
                             )
             # Adding new
-            for k_neighbor_cell in range(3 ** dim):
+            for k_neighbor_cell in range(3**dim):
                 # Running through the neighbor cells
                 pos_neighbor_cell = self.neighbor_cell(
                     self.pos_cell_list[i_particle_index],
@@ -495,9 +495,9 @@ class VerletList:
             self.cell_list.new_list(self.verlet_neighborhoods)
             self.particle_list = [[] for _ in particles]
             for i_particle_index, i_particle in enumerate(particles):
-                self.verlet_neighborhoods[
-                    i_particle_index
-                ].position_center = i_particle.position_center
+                self.verlet_neighborhoods[i_particle_index].position_center = (
+                    i_particle.position_center
+                )
             for i_particle_index, i_particle in enumerate(particles):
                 for j_particle_index in self.cell_list.particle_list[i_particle_index]:
 
@@ -609,12 +609,12 @@ class VerletPartialUpdate(VerletList):
                 if i_particle not in lists_to_recalc:
                     continue
                 # Running though all the particles
-                self.verlet_neighborhoods[
-                    i_particle_index
-                ].position_center = i_particle.position_center
-                self.verlet_neighborhoods_move[
-                    i_particle_index
-                ].position_center = i_particle.position_center
+                self.verlet_neighborhoods[i_particle_index].position_center = (
+                    i_particle.position_center
+                )
+                self.verlet_neighborhoods_move[i_particle_index].position_center = (
+                    i_particle.position_center
+                )
                 # Updating the position of all the Verlet neighborhoods to coincide with
                 # the particles current position
             super().new_list_partial(particles, lists_to_recalc)

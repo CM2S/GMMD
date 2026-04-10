@@ -387,9 +387,7 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
                 self.ratio.append(
                     np.abs(self.inc_history[-1] / self.dec_history[-1])
                     if self.dec_history[-1] != 0
-                    else 1e12
-                    if self.inc_history[-1] != 0
-                    else 1
+                    else 1e12 if self.inc_history[-1] != 0 else 1
                 )
                 if (self.ratio[-1] - 1) * (self.ratio[-2] - 1) <= 0:
                     self._count += 1

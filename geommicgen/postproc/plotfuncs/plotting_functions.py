@@ -238,7 +238,7 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
     phase_colors = dict(zip(phases, colors))
 
     for i_particle in particles:
-        for (j_dim, k_dim) in [
+        for j_dim, k_dim in [
             (j_dim, k_dim) for j_dim in range(-1, 2) for k_dim in range(-1, 2)
         ]:
             ellip = mpatches.Ellipse(
@@ -357,6 +357,7 @@ def plot_particles_3d_one_by_one(particles, rve_dims, sample_dir, **kwargs):
 
         model = gmsh.model
         factory = model.occ
+
         # occ - OpenCASCADE CAD (more advanced)
 
         model.add(sample_dir)
@@ -756,7 +757,7 @@ def plot_ratio_new_old_overlap(
         for inc_hist, dec_hist in zip(inc_history, dec_history)
     ]
     count = 0
-    for (ind, (rat_1, rat_2)) in enumerate(zip(ratio[:-1], ratio[1:])):
+    for ind, (rat_1, rat_2) in enumerate(zip(ratio[:-1], ratio[1:])):
         if (rat_1 - 1) * (rat_2 - 1) <= 0:
             count += 1
         if count == 2:
@@ -818,7 +819,7 @@ def plot_ripleys_k_func(vals, radii_vec, **kwargs):
 
     artists = []
     artists += plt.plot(radii_vec, vals)
-    artists += plt.plot(radii_vec, np.pi * radii_vec ** 2)
+    artists += plt.plot(radii_vec, np.pi * radii_vec**2)
     # artists += plt.plot(list(range(len(vals))))
 
     # Save and/or show if no axes was supplied
@@ -940,7 +941,7 @@ def plot_voronoi_2d(
     phase_colors = dict(zip(phases, colors))
 
     for i_particle in particles:
-        for (j_dim, k_dim) in [
+        for j_dim, k_dim in [
             (j_dim, k_dim) for j_dim in range(-1, 2) for k_dim in range(-1, 2)
         ]:
             ellip = mpatches.Ellipse(
@@ -1118,7 +1119,7 @@ def plot_voronoi_2d_with_imts(
         phase_colors = dict(zip(phases, colors))
 
         for i_particle in particles:
-            for (j_dim, k_dim) in [
+            for j_dim, k_dim in [
                 (j_dim, k_dim) for j_dim in range(-1, 2) for k_dim in range(-1, 2)
             ]:
                 ellip = mpatches.Ellipse(
@@ -1668,8 +1669,8 @@ def plot_voronoi_3d(particles, voronoi, rve_dims, sample_dir, save=True, show=Fa
 
         ridge = voronoi.ridge_vertices[ridge_ind]
         if -1 in ridge or (
-            ridge_pt_1 not in range(13, 3 ** 3 * len(particles), 27)
-            and ridge_pt_2 not in range(13, 3 ** 3 * len(particles), 27)
+            ridge_pt_1 not in range(13, 3**3 * len(particles), 27)
+            and ridge_pt_2 not in range(13, 3**3 * len(particles), 27)
         ):
             continue
         points.add(ridge_pt_1)
