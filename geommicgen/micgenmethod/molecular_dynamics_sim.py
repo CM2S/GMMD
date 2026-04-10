@@ -393,7 +393,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
             # number of cells in each direction and a total number of cells larger than the
             # number of particles
             if particles[0].dim == 3:
-                # n_cells_side = np.int(np.ceil(np.cbrt(len(particles))))
+                # n_cells_side = int(np.ceil(np.cbrt(len(particles))))
                 n_cells_side = 6
                 # Number of cells in each direction
                 cell_length = np.array(self.box) / n_cells_side
@@ -430,7 +430,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                         # Saving particle history
                     k_counter += 1
             elif particles[0].dim == 2:
-                n_cells_side = np.int(np.ceil(np.sqrt(len(particles))))
+                n_cells_side = int(np.ceil(np.sqrt(len(particles))))
                 # Number of cells in each direction
                 cell_length = self.box / n_cells_side
                 # Length of the cells in each direction
