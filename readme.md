@@ -79,17 +79,29 @@ Some software must be installed to successfully run GMMD:
   > In Linux/UNIX operative systems, ParaView can be installed by placing the tarball in the installation directory and extracting it by executing the following command:  
   `sudo tar -xvf ParaView-< version >.tar.gz`
 
-* Gmsh e gmsh2links (see [here](https://github.com/CM2S/Utilities/tree/master/gmsh)) - Required to produce meshes of the microstructures to be used in FEM analysis through LINKS.
+* Gmsh 4.5.5 SDK and gmsh2links (see [here](https://github.com/CM2S/Utilities/tree/master/gmsh)) - Required to produce finite element meshes of the microstructures to be used in FEM analysis through LINKS. The Gmsh SDK must be downloaded from [gmsh.info](https://gmsh.info/bin/Linux/) (version 4.5.5) and installed manually — it is not included in the pip dependencies. After extracting the SDK, add the Gmsh Python API to your `PYTHONPATH`:
+  ```bash
+  export PYTHONPATH=$PYTHONPATH:/path/to/gmsh/lib
+  ```
 
 ### Installation
-`GMMD` can be installed system-wide by first cloning this repository
-```
+`GMMD` can be installed by first cloning this repository:
+```bash
 git clone git@github.com:CM2S/GMMD.git
 ```
-Second, change directory into the freshly cloned repository, where the `setup.py` is located, and install the package (and the respective dependencies, automatically):
+Then, change directory into the cloned repository (where the `setup.py` is located) and install the package. The `setup.py` file defines the package metadata, dependencies, and a command-line entry point. Running `pip install` will automatically install all required dependencies and register the `geommicgen` command on your system.
+
+For a **regular install**:
+```bash
+pip3 install .
+```
+
+For an **editable (development) install**, where changes to the source code are reflected immediately without reinstalling:
 ```bash
 pip3 install -e .
 ```
+
+After installation, the `geommicgen` command becomes available system-wide and can be called from any directory.
 
 ### GMMD workflow
 In what follows, the general workflow of GMMD in the generation of a set of samples with a given set of microstructural descriptors:
@@ -99,17 +111,17 @@ A complete GMMD input data file where each parameter specification (either manda
 
 2. **Run GMMD.**
 
-  2.1. *New set of microstructures:* To generate a new microstructure using GMMD, one must simply execute the module (`geommicgen`) with Python 3.X and provide the input data file (argument parsing).
-    > In Linux/UNIX operative systems, open a terminal console window and execute the following command:  
-    `geommicgen input_data_file.mdsim`
-     <br/><br/>
-    The program execution can be followed in the terminal console window, where the data associated with the program launch, to the progress of the main execution phases, and the program end is output.
+  2.1. *New set of microstructures:* To generate a new microstructure, provide the input data file as an argument to the `geommicgen` command:
+    ```bash
+    geommicgen input_data_file.mdsim
+    ```
+    The program execution can be followed in the terminal, where data associated with the program launch, progress of the main execution phases, and the program end is output.
 
-  2.2. *Meshing/analysis of microstructures:* To generate a new mesh or perform statistical analysis on a previously generated microstructure using GMMD, one must simply execute the module (`geommicgen`) with Python 3.X, provide the input data file (`.mdsim`) and the microstructure file (`.mic`), in this order.
-    > In Linux/UNIX operative systems, open a terminal console window and execute the following command:  
-    `geommicgen input_data_file.mdsim previous_mic.mic`
-     <br/><br/>
-    The program execution can be followed in the terminal console window, where the data associated with the program launch, to the progress of the main execution phases, and the program end is output.
+  2.2. *Meshing/analysis of microstructures:* To generate a new mesh or perform statistical analysis on a previously generated microstructure, provide both the input data file (`.mdsim`) and the microstructure file (`.mic`), in this order:
+    ```bash
+    geommicgen input_data_file.mdsim previous_mic.mic
+    ```
+    The program execution can be followed in the terminal, where data associated with the program launch, progress of the main execution phases, and the program end is output.
 
 3. **Get results.** As soon as GMMD is executed according to an input data file (let us say, `input_data_file.mdsim`), a folder with the same name is created in the same directory (`input_data_file/`). This folder contains all the output data related to the microstructure generation, namely:
   * a folder `mic_*` for each microstructure generated.
