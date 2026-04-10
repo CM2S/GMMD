@@ -185,6 +185,7 @@ class Ellipsoid(Particle):
         {"vf", "semi_axis_1", "ratio_32", "ratio_21", "p_3", "phi_z"},
         {"vf", "axis_2", "ratio_32", "ratio_21", "p_3", "phi_z"},
         {"vf", "axis_1", "ratio_321", "p_3", "phi_z"},
+        {"vf", "axis_1", "axis_2", "axis_3", "p_3", "phi_z"},
     ]
     # List of acceptable collections of parameters
     dim = 3
