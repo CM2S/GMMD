@@ -65,11 +65,40 @@ class RandomSequentialAdsorption(GenerationMethod):
 
     accepted_particles_history: list
         Number of particles accepeted in the microstructure per step
+    
+    Keyword Parameters
+        ------------------
+
+    simulation_gif: bool
+            Make a gif of the simulation.
 
     """
 
     def __init__(self,max_step,min_distance,save_history, sample_dir, **kwargs):
-        """Initialize the random sequential adsorption simulation class."""
+        """Initialize the random sequential adsorption simulation class.
+        
+        Parameters
+        ----------
+        
+        max_step: int
+            Maxium number of steps
+
+        min_distance: float
+            Minimum distance between particles.
+
+        save_history: bool
+            Save all the trajectories of the particles, the history of the relative and
+            kinetic energy.
+
+        sample_dir: str
+            Directory of the sample for which the microstructure is being generated.
+
+        Keyword Parameters
+            ------------------
+            
+        simulation_gif: bool
+                Make a gif of the simulation.
+        """
         #self.mic_gen_parameters = mic_gen_parameters
         #self.mic_gen_descriptors = mic_gen_descriptors
         #self.microstructure_sample = None
@@ -84,7 +113,7 @@ class RandomSequentialAdsorption(GenerationMethod):
         self.intersection_check_history = []
         self.accepted_particles_history = []
         self.sample_dir = sample_dir
-        self.RSA_gif = kwargs.get("rsa_gif")
+        self.make_gif = kwargs.get("simulation_gif")
 
 
     def generate_microstructure(self, microstructure_sample):
@@ -100,10 +129,10 @@ class RandomSequentialAdsorption(GenerationMethod):
             first=True
             )
         
-        if self.RSA_gif:
-            # Create folder for the RSA gif if it does not exist
-            RSA_gif_dir = os.path.join(self.sample_dir, "RSA_gif")
-            os.makedirs(RSA_gif_dir)
+        if self.make_gif:
+            # Create folder for the gif if it does not exist
+            gif_dir = os.path.join(self.sample_dir, "Simulation_gif")
+            os.makedirs(gif_dir)
         
         self.particle_overlap_areas = [0 for _ in microstructure_sample.particles]
         # Setting all the overlap areas to zero at the beginning of the iteration as
@@ -154,9 +183,8 @@ class RandomSequentialAdsorption(GenerationMethod):
                     )
 
                     # save image of every step of simulation
-                    if self.RSA_gif:
-                        kwargs = {"rsa_gif": True, "RSA_gif_dir" : RSA_gif_dir, "iteration": n_iteration, "save": False}
-                        #raise NotImplementedError("RSA_gif option is not implemented yet.")
+                    if self.make_gif:
+                        kwargs = {"simulation_gif": True, "simulation_gif_dir" : gif_dir, "iteration": n_iteration, "save": False}
                         plot_funcs.plot_particles(microstructure_sample.particles, microstructure_sample.rve_dims, self.sample_dir, **kwargs)
  
                 # Contract all the particles back to their original. If there is no minimum distance, the particles will not be contracted, since min_distance is 0.

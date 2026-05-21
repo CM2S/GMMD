@@ -120,30 +120,36 @@ def post_proc(
         print_funcs.print_to_file("-" * 80 + "\n")
         stat_analysis.do_stat_analysis(current_sample, sample_dir, stat_options_req)
 
-    if post_proc_opts.get("rsa_gif", False):
+    if post_proc_opts.get("simulation_gif", False):
+        print_funcs.print_to_file("Simulation GIF")
+        print_funcs.print_to_file("-" * 80 + "\n")
+        start = time.time()
+
         import re
         
-        input_folder = os.path.join(sample_dir, "RSA_gif")
-        output_gif_path = os.path.join(sample_dir, "RSA_simulation.gif")
-        duration = 150  # Duration between frames in milliseconds
-        print("Add option for user to specify duration between frames/gif total time and loop option, postproc.py, post_proc function, RSA gif option.")
+        input_folder = os.path.join(sample_dir, "Simulation_gif")
+        output_gif_path = os.path.join(sample_dir, "Simulation.gif")
+        duration = 300  # Duration between frames in milliseconds
+        print("Add option for user to specify duration between frames/gif total time and loop option, postproc.py, post_proc function, simulation gif option.")
         
-        # 1. Gather all PNG files
+        # Gather all PNG files
         images = [f for f in os.listdir(input_folder) if f.lower().endswith('.png')]
         
-        # 2. Sort numerically by frame number
+        # Sort numerically by frame number
         def extract_frame_number(filename):
             match = re.search(r'iteration_(\d+)', filename)
             return int(match.group(1)) if match else 0
         
         images.sort(key=extract_frame_number)
         
-        # 3. Build full file paths and load frames
+        # Build full file paths and load frames
         image_paths = [os.path.join(input_folder, img) for img in images]
         frames = [Image.open(image) for image in image_paths]
         first_image = frames[0]
         
-        # 4. Save as GIF
+        # Save as GIF
+        print_funcs.print_to_file("\t> Generating GIF.")
+        print_funcs.print_to_file("\t\t- {0}".format(output_gif_path))
         first_image.save(
             output_gif_path,
             format="GIF",
@@ -153,8 +159,20 @@ def post_proc(
             loop=0  # 0 = infinite, 1 = play once
         )
 
-        # 5. Delete the individual PNG files
+
+
+        # Delete the individual PNG files
+        print_funcs.print_to_file("\n\t> Deleting individual PNG files.")
         shutil.rmtree(input_folder)
+
+        plot_particles_time = time.time() - start
+        print_funcs.print_to_file(
+            "\nTime ellapsed: {0:.3f}s\n".format(plot_particles_time)
+        )
+
+        dict_times[
+            "Generating GIF from simulation frames"
+        ] = plot_particles_time
     return dict_times
 
 

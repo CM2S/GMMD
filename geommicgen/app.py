@@ -177,7 +177,7 @@ def run_program():
 
             current_sample = Microstructure(rve_dims)
             # Initializing the current sample
-
+            
             if ext == ".mdsim":
                 if mic_gen_method == "MD":
                     # Molecular dynamics simulation
@@ -191,12 +191,16 @@ def run_program():
                         "fixed_seed",
                         "initial_vel_coeff",
                         "final_overlap_check",
+                        "simulation_gif",
                     }
                     md_kwargs = {
                         key: value
                         for key, value in mic_gen_parameters.items()
                         if key in md_kwargs_keys
                     }
+                    md_kwargs["simulation_gif"] = post_proc_parameters.get("simulation_gif", False)
+                    #if md_kwargs["simulation_gif"]:
+                        #raise NotImplementedError("The simulation_gif option for MD simulations is not implemented yet.")
                     try: 
                         current_mic_generator = MolecularDynamicsSimulation(
                             mic_gen_parameters["max_residue_per_particle"],
@@ -206,6 +210,7 @@ def run_program():
                             mic_gen_parameters["min_distance"],
                             mic_gen_parameters["type_initial_configuration"],
                             mic_gen_parameters["save_history"],
+                            sample_dir,
                             **md_kwargs
                         )
                     except KeyError:
@@ -290,14 +295,14 @@ def run_program():
                     # Random sequential adsorption method
 
                     # Uncomment following lines if kwargs from mic_gen_parameters are needed in the RSA simulation
-                    #rsa_kwargs_keys = {"rsa_gif"}
+                    #rsa_kwargs_keys = {"simulation_gif"}
                     #rsa_kwargs = {
                         #key: value
                         #for key, value in mic_gen_parameters.items()
                         #if key in rsa_kwargs_keys
                     #}
                     rsa_kwargs={} # delete this line if the above lines are uncommented
-                    rsa_kwargs["rsa_gif"] = post_proc_parameters.get("rsa_gif", False)
+                    rsa_kwargs["simulation_gif"] = post_proc_parameters.get("simulation_gif", False)
                     try:
                         current_mic_generator = RandomSequentialAdsorption(
                             mic_gen_parameters["max_step"],

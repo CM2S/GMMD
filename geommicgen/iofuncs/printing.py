@@ -124,9 +124,6 @@ def print_to_terminal_refresh_rsa(step, number_particles, **kwargs):
         print("Number of particles: {0}".format(number_particles))
 
 
-
-
-
 def print_microstructure_info(microstructure):
     """Print microstructure info."""
     print_to_file("Microstructure descriptors")

@@ -663,7 +663,7 @@ top_level_reader.add_top_level_keyword(
         type_str="bool",
     ),
     KeywordTypeA(
-        "rsa_gif",
+        "simulation_gif",
         "post_proc",
         default_value=False,
         type_str="bool",

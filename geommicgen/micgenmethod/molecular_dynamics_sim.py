@@ -10,6 +10,7 @@ Thermostat and SpeedUpScheme abstract classes to work.
 """
 
 from contextlib import contextmanager
+import os
 import time
 import numpy as np
 from scipy.stats import hmean
@@ -22,6 +23,7 @@ import geommicgen.iofuncs.printing as print_funcs
 from geommicgen.microstructure.particleclasses import Matrix
 from geommicgen.micgenmethod.microstructure_gen_method import GenerationMethod
 from geommicgen.micgenmethod.integration_methods import verlet_sync_integration
+import geommicgen.postproc.plotfuncs.plotting_functions as plot_funcs
 
 
 class MolecularDynamicsSimulation(GenerationMethod):
@@ -164,6 +166,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         min_distance,
         type_init_conf,
         save_history,
+        sample_dir,
         **kwargs
     ):
         """
@@ -194,6 +197,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
         save_history: bool
             Save all the trajectories of the particles, the history of the relative and
             kinetic energy.
+        
+        sample_dir: str
+            Directory of the sample for which the microstructure is being generated.
 
         Keyword Parameters
         ------------------
@@ -224,6 +230,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
 
         final_overlap_check: bool
             Do a final check using a naive approach for the particle overlap.
+
+        simulation_gif: bool
+            Make a gif of the simulation.
         """
         self.box = None
         self.particle_velocities = None
@@ -256,6 +265,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.fixed_seed = kwargs.get("fixed_seed", None)
         self.initial_vel_coeff = kwargs.get("initial_vel_coeff", 0.25)
         self.final_overlap_check = kwargs.get("final_overlap_check", False)
+        self.make_gif = kwargs.get("simulation_gif")
+        self.sample_dir = sample_dir
         self.microstructure_sample = None
         self.force_rescale_coeff = 1
         self.coord_number = None
@@ -277,6 +288,11 @@ class MolecularDynamicsSimulation(GenerationMethod):
         microstructure_sample: `.Microstructure`
             Microstructure sample to be generated
         """
+        
+        if self.make_gif:
+            # Create folder for the gif if it does not exist
+            self.gif_dir = os.path.join(self.sample_dir, "Simulation_gif")
+            os.makedirs(self.gif_dir)
 
         self.microstructure_sample = microstructure_sample
         for phase in microstructure_sample.phases.values():
@@ -719,6 +735,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     self.status = False
                     print_funcs.print_to_file("Failed sample")
                     break
+                if self.make_gif:
+                        kwargs = {"simulation_gif": True, "simulation_gif_dir" : self.gif_dir, "iteration": self.step, "save": False}
+                        plot_funcs.plot_particles(self.microstructure_sample.particles, self.microstructure_sample.rve_dims, self.sample_dir, **kwargs)
 
     @contextmanager
     def virtual_particle_sizes(self, particles):
