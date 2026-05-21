@@ -6,29 +6,35 @@
 # available options). Note that it can be readily used by replacing the '[insert here]'
 # boxes with the suitable specification!
 #
-# Note: Mandatory and optional specifications are denoted by [M] and [O], respectively,
+# Note: Mandatory and optional specifications are denoted by (M) and (O), respectively,
 #       being the former presented first for practical use.
 # ==========================================================================================
 # Development history:
 # José Luís P. Vila-Chã     | June  2020 | Initial version
 # José Luís P. Vila-Chã     | June  2021 | Updated version
-# João António G. C. Morais | March 2026 | Updated version
+# João António G. C. Morais | May   2026 | Updated version
 # ==========================================================================================
 
 
-# The input file is divided in the following main categories:
-#	[P]- Problem type
-#	[Mic]- Microstructure definition
-#	[G]- Generation parameters
+# The input file options are divided in the following main categories:
+#	[P] - Problem type
+#	[Mic] - Microstructure definition
+#	[G] - Generation parameters
 #		[G-MD] - microsructure generation parameters for molecular dynamics simulation
 #			[G-MD-T]  - thermostat
-#			[G-MD-MA] - motion analysis
 #			[G-MD-DC] - Deep cuts
-#		[G-RSA] - microsructure generation parameters for random sequential adsorption simulation
-#			[G-RSA-Plt] - plot options
-#	[SA] - Statistical analysis
+#	[PP]- Post-processing
+#		[PP-SA] - Statistical analysis
+#		[PP-MD-MA] - Molecular dynamics- motion analysis
+#		[PP-RSA] - Random sequential adsorption
 #	[MO]- Mesh options
-#
+#	[D]- Options for data driven framework
+
+
+
+# Problem type
+# ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
 #                                                                       Problem Type [P] (M)
 # ==========================================================================================
 # Meaning:   Problem type (2D: plain strain, plain stress or axisymmetric and 3D).
@@ -64,6 +70,8 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
+# MICROSTRUCTURE DEFINITION
+# ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 #                                            Microstructure Generation Descriptors [Mic] (M)
 # ==========================================================================================
@@ -241,9 +249,12 @@
 [insert here]
 
 
-#						   Microstructure generation method  [G] (M)
+# GENERATION PARAMETERS
+# ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+#						                           Microstructure generation method  [G] (M)
 # ==========================================================================================
-# Meaning:   It is the microstructure generation method to be used.
+# Meaning:   Microstructure generation method to be used.
 #
 # Syntax:    Mic_Gen_Method x
 #
@@ -268,7 +279,7 @@
 [insert here]
 
 
-#                                                Minimum distance between particles [G] (O)
+#                                                 Minimum distance between particles [G] (O)
 # ==========================================================================================
 # Meaning:   Minimum distance between particles.
 #
@@ -278,45 +289,35 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-
-#                              Maximum allowable overlap area/volume per particle [G-MD] (M)
+#                                           						 Speed-up scheme [G] (O)
 # ==========================================================================================
-# Note: mandatory only in case of using Molecular Dynamics simulation.
-# Meaning:   It is the maximum allowable overlap area/volume per particle, i.e. the total
-#	           overlap area/volume divided by the number of particles, such that a given
-#            configuration is considered legal.
-#
-# Syntax:    Max_Residue_Per_Particle x
-#
-# x:         float
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-
-#                                           Speed-up scheme for force computation [G-MD] (O)
-# ==========================================================================================
-# Meaning:   Speed-up scheme for force computation, avoiding computing interactions between
-#      	     between particles that can be shown a priori not to interact.
+# Meaning:	Speed-up scheme for particle interaction, avoiding computing interactions between
+#      	     between particles that can be shown a priori not to interact. Used in
 #
 # Syntax:    Speed_Up_Scheme x
 #            parameter_scheme_1 y
 #            parameter_scheme_2 y
 #
 # x:         {'Naive', 'Cell', 'Verlet} (default to 'Cell')
-#	     'Naive' - no scheme is used. Interaction checks are computed for every pair of
-#	     	particles. O(N**2), where N is the number of particles.
+#
+#	     'Naive' - no scheme is used.
 #	        It doesn't need any extra parameters.
+#			- For MD simulation, interaction checks are computed for every pair of
+#	     		particles. O(N**2), where N is the number of particles.
+#			- For RSA simulations, intersection checks for the new particle are done
+#				against every other particle. O(N), where N is the number of particles.
 #
 #			Speed_Up_Scheme Naive
 #
-#	     'Cell'  - the cell list scheme is used. O(N), where N is the number of
-#               particles.
+#	     'Cell'  - the cell list scheme is used.
 #	        It doesn't need any extra parameters.
+#			- For MD simulations: O(N), where N is the number of particles.
+#			- For RSA simulations: O(1)
 #
 #			Speed_Up_Scheme Cell
 #
 #	     'Verlet'- the verlet list method is used, computing each Verlet list from a
-#		cell list.
+#		cell list. Only applicable to MD simulations
 #		An extra parameter must be specified:
 #
 # parameter_scheme_Y: str
@@ -348,6 +349,20 @@
 
 
 
+#                              Maximum allowable overlap area/volume per particle [G-MD] (M)
+# ==========================================================================================
+# Note: mandatory only in case of using Molecular Dynamics simulation.
+# Meaning:   It is the maximum allowable overlap area/volume per particle, i.e. the total
+#	           overlap area/volume divided by the number of particles, such that a given
+#            configuration is considered legal.
+#
+# Syntax:    Max_Residue_Per_Particle x
+#
+# x:         float
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
 #                                                   Type of initial configuration [G-MD] (O)
 # ==========================================================================================
 # Meaning:   Type of initial configuration for the center of mass of the particles in the
@@ -365,7 +380,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                      			Final naive overlap check [G-MD] (O)
+#                                      			        Final naive overlap check [G-MD] (O)
 # ==========================================================================================
 # Meaning:   Check the final overlap considering every pair of particles.
 #
@@ -375,7 +390,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                       		       Adaptive time step [G-MD] (O)
+#                                       		               Adaptive time step [G-MD] (O)
 # ==========================================================================================
 # Meaning:   Flag for the use of the adaptive time step scheme.
 #
@@ -421,7 +436,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                         	     Temperature lowering ratio [G-MD-T] (O)
+#                                         	         Temperature lowering ratio [G-MD-T] (O)
 # ==========================================================================================
 # Meaning:   When using the Mulitemperature Isokinetic thermostat is the ratio used to
 #            compute the next temperature from the current temperature.
@@ -432,7 +447,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                         	 Number of overlap oscillations [G-MD-T] (O)
+#                                         	     Number of overlap oscillations [G-MD-T] (O)
 # ==========================================================================================
 # Meaning:   Number of sign changes of the overlap ratio (increase/decrease) accepted as
 #            signaling that thermal equilibrium has been reached.
@@ -465,7 +480,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                         	Initial temperature coefficient [G-MD-T] (O)
+#                                         	    Initial temperature coefficient [G-MD-T] (O)
 # ==========================================================================================
 # Meaning:   Coefficient used to set the initial temperature through the connection with the
 #						 kinetic energy expressed in the equipartition theorem.
@@ -476,7 +491,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                         		  Berendsen coefficient [G-MD-T] (O)
+#                                         		          Berendsen coefficient [G-MD-T] (O)
 # ==========================================================================================
 # Meaning:   Value of the coefficient used in the Berendsen thermostat.
 #
@@ -494,118 +509,6 @@
 # Syntax:    Min_Eq_Steps_At_Temp x (default to 25)
 #
 # x:         int
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-
-# MOTION ANALYSIS
-# ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-
-#                                                     Save the complete motion [G-MD-MA] (O)
-# ==========================================================================================
-# Meaning:   If True all the positions of all the particles through the complete motion are
-#	     saved, else only the initial and final configurations are saved.
-#
-# Syntax:    Save_History x (default to 'False')
-#
-# x:         {'True', 'False'}
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                                              Motion analysis [G-MD-MA] (O)
-# ==========================================================================================
-# Meaning:   Do motion analysis, including "plotting" the particle paths, kinetic energy,
-#            total overlap and time step used.
-#
-# Syntax:    Motion_Analysis x
-#
-# x:         bool
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-# STATISTICAL ANALYSIS
-# ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-
-#                                            	  Ripley's K statistical descriptor [SA] (O)
-# ==========================================================================================
-# Meaning:   Compute and plot the Ripley's K function of the microstructure.
-#
-# Syntax:    stat_ripleys_k x
-#
-# x:         bool
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                      	    Nearest neighbor statistical descriptor [SA] (O)
-# ==========================================================================================
-# Meaning:   Compute and plot the nearest neighbor function of the microstructure.
-#
-# Syntax:    stat_nearest_neighbor x
-#
-# x:         bool
-# ------------------------------------------------------------------------------------------
-[insert here][G-MG-DC]
-
-
-
-#                                      Two point correlation statistical descriptor [SA] (O)
-# ==========================================================================================
-# Meaning:   Compute and plot the two point correlation function of the microstructure.
-#
-# Syntax:    stat_two_pt_corr x
-#
-# x:         bool
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                                             	   Voronoi analysis [SA] (O)
-# ==========================================================================================
-# Meaning:   Do a Voronoi analysis.
-#
-# Syntax:    voronoi_analysis x
-#
-# x:         bool
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                                                      Voronoi type [SA] (O)
-# ==========================================================================================
-# Meaning:   Voronoi type to be used in the Voronoi analysis.
-#
-# Syntax:    voronoi_type x (defaults to "standard")
-#
-# x:         {"standard", "set"}
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                                  Number of points for set Voronoi [SA] (O)
-# ==========================================================================================
-# Meaning:   Number of points on the surface used to construct the set Voronoi diagram.
-#
-# Syntax:    n_surf_points x (defaults to 10)
-#
-# x:         int
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                                         Plot the Voronoi diagrams [SA] (O)
-# ==========================================================================================
-# Meaning:   Flag used to plot the Voronoi diagrams.
-#
-# Syntax:    plot_voronoi x
-#
-# x:         bool
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-#                                            Plot the Voronoi diagram with the IMTs [SA] (O)
-# ==========================================================================================
-# Meaning:   Plot the Voronoi diagram including the values of the Irreducible Minkowski
-#            tensors corresponding to each cell.
-#
-# Syntax:    plot_imts x
-#
-# x:         bool
 # ------------------------------------------------------------------------------------------
 [insert here]
 
@@ -668,7 +571,7 @@
 #            "unit"   - unit mass for all particles.
 # ------------------------------------------------------------------------------------------
 
-#                                         	    Type of interaction forces [G-MG-DC] (O)
+#                                         	        Type of interaction forces [G-MG-DC] (O)
 # ==========================================================================================
 # Meaning:   Type of the interaction forces prescribed for intersection particles.
 #
@@ -694,14 +597,157 @@
 [insert here]
 
 
-# RSA OPTIONS
+# POST-PROCESSING
 # ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-#                                                     		    Save history [G-RSA] (O)
+#                                  									 Simulation GIF [PP] (O)
+# ==========================================================================================
+# Meaning:   If True, creates a GIF of the simulation. Default to False.
+#
+# Syntax:    simulation_gif x
+#
+# x:         bool
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+#                                                               Final configuration [PP] (O)
+# ==========================================================================================
+# Meaning:   Plot the final configuration of the micro-structure.
+#
+# Syntax:    final_config x
+#
+# x:         bool
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                                    Save the complete motion [PP-MD-MA] (O)
+# ==========================================================================================
+# Meaning:   If True all the positions of all the particles through the complete motion are
+#	     saved, else only the initial and final configurations are saved.
+#
+# Syntax:    Save_History x (default to 'False')
+#
+# x:         {'True', 'False'}
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                                             Motion analysis [PP-MD-MA] (O)
+# ==========================================================================================
+# Meaning:   Do motion analysis, including "plotting" the particle paths, kinetic energy,
+#            total overlap and time step used.
+#
+# Syntax:    Motion_Analysis x
+#
+# x:         bool
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+# STATISTICAL ANALYSIS
+# ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+#                                              Ripley's K statistical descriptor [PP-SA] (O)
+# ==========================================================================================
+# Meaning:   Compute and plot the Ripley's K function of the microstructure.
+#
+# Syntax:    stat_ripleys_k x
+#
+# x:         bool
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                      	 Nearest neighbor statistical descriptor [PP-SA] (O)
+# ==========================================================================================
+# Meaning:   Compute and plot the nearest neighbor function of the microstructure.
+#
+# Syntax:    stat_nearest_neighbor x
+#
+# x:         bool
+# ------------------------------------------------------------------------------------------
+[insert here][G-MG-DC]
+
+
+
+#                                   Two point correlation statistical descriptor [PP-SA] (O)
+# ==========================================================================================
+# Meaning:   Compute and plot the two point correlation function of the microstructure.
+#
+# Syntax:    stat_two_pt_corr x
+#
+# x:         bool
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                                             	Voronoi analysis [PP-SA] (O)
+# ==========================================================================================
+# Meaning:   Do a Voronoi analysis.
+#
+# Syntax:    voronoi_analysis x
+#
+# x:         bool
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                                                    Voronoi type [PP-SA] (O)
+# ==========================================================================================
+# Meaning:   Voronoi type to be used in the Voronoi analysis.
+#
+# Syntax:    voronoi_type x (defaults to "standard")
+#
+# x:         {"standard", "set"}
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                              Number of points for set Voronoi [PP- SA] (O)
+# ==========================================================================================
+# Meaning:   Number of points on the surface used to construct the set Voronoi diagram.
+#
+# Syntax:    n_surf_points x (defaults to 10)
+#
+# x:         int
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                                      Plot the Voronoi diagrams [PP-SA] (O)
+# ==========================================================================================
+# Meaning:   Flag used to plot the Voronoi diagrams.
+#
+# Syntax:    plot_voronoi x
+#
+# x:         bool
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                         Plot the Voronoi diagram with the IMTs [PP-SA] (O)
+# ==========================================================================================
+# Meaning:   Plot the Voronoi diagram including the values of the Irreducible Minkowski
+#            tensors corresponding to each cell.
+#
+# Syntax:    plot_imts x
+#
+# x:         bool
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                                     		Plot vf history [PP-RSA] (O)
+# ==========================================================================================
+# Meaning:   If True all, plots the volume fraction as a function of the step.
+#
+# Syntax:    plot_rsa_vf_history x (default to 'False')
+#
+# x:         {'True', 'False'}
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+
+
+
+#                                                     		       Save history [PP-RSA] (O)
 # ==========================================================================================
 # Meaning:   If True all, the number of intersection checks and number of particles accepted
-#		into the microstructure history is saved. (There is a similar option for MD
-#		simulations)
+#		into the microstructure history is saved. There is an option with the same sintax but
+#		slightly different meaning for MD simulations.
 #
 # Syntax:    Save_History x (default to 'False')
 #
@@ -710,28 +756,10 @@
 [insert here]
 
 
-# RSA plot options
+# MESH OPTIONS
+# ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-#                                                     		Save history [G-RSA-Plt] (O)
-# ==========================================================================================
-# Meaning:   If True all, the number of intersection checks and number of particles accepted
-#		into the microstructure history is saved. (There is a similar option for MD
-#		simulations)
-#
-# Syntax:    RSA_save_vf_history x (default to 'False')
-#
-# x:         {'True', 'False'}
-# ------------------------------------------------------------------------------------------
-[insert here]
-
-
-
-
-
-
-
-
-#                                                     			   Mesh options [MO]
+#                                                     			           Mesh options [MO]
 # ==========================================================================================
 # Meaning:   Mesh options.
 #
@@ -793,7 +821,7 @@
 
 
 
-#                                       		   Offset use for better meshing (O)
+#                                       		      Offset use for better meshing [MO] (O)
 # ==========================================================================================
 # Meaning:   Flag for the use of an offset for better FEM meshing.
 #
@@ -803,19 +831,10 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                                                    Final configuration (O)
-# ==========================================================================================
-# Meaning:   Plot the final configuration of the micro-structure.
-#
-# Syntax:    final_config x
-#
-# x:         bool
-# ------------------------------------------------------------------------------------------
-[insert here]
 
-#                                                                 Produce minimal output (O)
+#                                                              Produce minimal output [D] (O)
 # ==========================================================================================
-# Meaning:   Produce minimal output. To be in data-driven frameworks.
+# Meaning:   Produce minimal output. To be used in data-driven frameworks.
 #
 # Syntax:    save_min x
 #
