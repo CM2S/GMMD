@@ -117,6 +117,7 @@ def run_program():
             _ = top_level_reader.all_options["problem_type"]
             mic_gen_descriptors = top_level_reader.all_options["mic_gen_descriptors"]
             mic_gen_parameters = top_level_reader.all_options["mic_gen_parameters"]
+            post_proc_parameters = top_level_reader.all_options["post_proc"]
             rve_dims = mic_gen_parameters["rve_dimensions"]
             mic_gen_method = mic_gen_parameters["mic_gen_method"]
             # Mandatory top level parameters
@@ -287,10 +288,23 @@ def run_program():
                     # Adding a speed up scheme to the MD simulation
                 elif mic_gen_method == "RSA":
                     # Random sequential adsorption method
-                    try: 
+
+                    # Uncomment following lines if kwargs from mic_gen_parameters are needed in the RSA simulation
+                    #rsa_kwargs_keys = {"rsa_gif"}
+                    #rsa_kwargs = {
+                        #key: value
+                        #for key, value in mic_gen_parameters.items()
+                        #if key in rsa_kwargs_keys
+                    #}
+                    rsa_kwargs={} # delete this line if the above lines are uncommented
+                    rsa_kwargs["rsa_gif"] = post_proc_parameters.get("rsa_gif", False)
+                    try:
                         current_mic_generator = RandomSequentialAdsorption(
                             mic_gen_parameters["max_step"],
-                            mic_gen_parameters["min_distance"]
+                            mic_gen_parameters["min_distance"],
+                            mic_gen_parameters["save_history"],
+                            sample_dir,
+                            **rsa_kwargs
                             )
                     except KeyError:
                         print("Missing mandatory parameter defining the RSA simulation.")
@@ -344,7 +358,7 @@ def run_program():
                 # Print post_proc
                 #print(top_level_reader.all_options["post_proc"], "app.py line 337, delete later")
             finally:
-                print("Finished post-processing. Uncoomment the following lines in modules/iofuncs/printing.py to print the final message and delete the screen if save_min is True.")
+                print("Finished post-processing. Uncomment the following lines in modules/iofuncs/printing.py to print the final message and delete the screen if save_min is True.")
                 print_funcs.print_final_message(
                     current_mic_generator, mesh_generators, times_dict
                 )

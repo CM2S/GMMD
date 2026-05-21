@@ -7,6 +7,7 @@ It includes a naive scheme and a cell list class.
 import abc
 from functools import cached_property
 from copy import deepcopy
+import time
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
@@ -54,6 +55,8 @@ class CellList(RSA_SpeedUpScheme):
         self.cell_particle_list = None
         self.cell_list = None
         self.pos_cell_list = []
+        self.number_particles_previous_step = 0
+        self.number_particles_current_step = 0
         
 
 
@@ -117,23 +120,23 @@ class CellList(RSA_SpeedUpScheme):
 
     def new_list(self, particles,new_particle):
         """List of particles in the neighborhood of the new particle."""
+        start = time.perf_counter()
+        
         dim = particles[0].dim
 
         if self.max_radius is None:
             self.max_radius = np.max(
                 np.array([particle.radius for particle in particles])
             )
-        
+
         if self.cell_list is None:
             self.cell_list = [set() for _ in range(np.prod(self.n_cell_dim))]
 
-        # Number of particles in the simulation box
-        number_particles = len(self.rsa_sim.microstructure_sample.particles)
-        # Number of particles in the cell list
-        number_particles_cell_list = sum( len(set) for set in self.cell_list )
+        self.number_particles_current_step = len(particles)
+
         # If a particle was added to the microstructure in the previous iteration, update the cell list.
         # Otherwise, the cell list remains the same.
-        if number_particles_cell_list != number_particles:
+        if self.number_particles_current_step!= self.number_particles_previous_step:
             particle_cell_index = self.get_particle_cell(particles[-1])
             self.cell_list[particle_cell_index].add(len(particles)-1)
 
@@ -148,13 +151,17 @@ class CellList(RSA_SpeedUpScheme):
                 )
             )
 
-
         # Get the list of particles in the neighbor cells
         self.particle_list = []
         for i_neighbor_cell_index in neighbor_cell_index:
             self.particle_list.append(self.cell_list[i_neighbor_cell_index])
         # Flattens the list of sets into one long list of particle indices
         self.particle_list = [p for particle_set in self.particle_list for p in particle_set]
+
+        self.number_particles_previous_step = len(self.particle_list)
+        duration = time.perf_counter() - start
+        with open("Cell_new_list_times.txt", "a") as f:
+            f.write(f"{duration}, ")
 
 
     
@@ -338,9 +345,12 @@ class Naive(RSA_SpeedUpScheme):
         ----------
         Particles in the simulatin box, whose cell list is to be computed.
         """
-
+        start = time.perf_counter()
         # Note: new particle is here because other RSA speed up schemes use it to compute the new list, but for the naive scheme we just ignore it and use all the particles in the simulation box. This way, we can use the same function for all the RSA speed up schemes, which is convenient for the code structure.
         self.particle_list = list(range(len(particles)))
 
+        duration = time.perf_counter() - start
+        with open("Naive_new_list_times.txt", "a") as f:
+            f.write(f"{duration}, ")
 
 

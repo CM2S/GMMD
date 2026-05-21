@@ -662,6 +662,12 @@ top_level_reader.add_top_level_keyword(
         default_value=False,
         type_str="bool",
     ),
+    KeywordTypeA(
+        "rsa_gif",
+        "post_proc",
+        default_value=False,
+        type_str="bool",
+    )
 )
 
 # General keywords

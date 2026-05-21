@@ -25,6 +25,7 @@
 #			[G-MD-MA] - motion analysis
 #			[G-MD-DC] - Deep cuts
 #		[G-RSA] - microsructure generation parameters for random sequential adsorption simulation
+#			[G-RSA-Plt] - plot options
 #	[SA] - Statistical analysis
 #	[MO]- Mesh options
 #
@@ -691,6 +692,43 @@
 # x:         float
 # ------------------------------------------------------------------------------------------
 [insert here]
+
+
+# RSA OPTIONS
+# ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+#                                                     		    Save history [G-RSA] (O)
+# ==========================================================================================
+# Meaning:   If True all, the number of intersection checks and number of particles accepted
+#		into the microstructure history is saved. (There is a similar option for MD
+#		simulations)
+#
+# Syntax:    Save_History x (default to 'False')
+#
+# x:         {'True', 'False'}
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+# RSA plot options
+
+#                                                     		Save history [G-RSA-Plt] (O)
+# ==========================================================================================
+# Meaning:   If True all, the number of intersection checks and number of particles accepted
+#		into the microstructure history is saved. (There is a similar option for MD
+#		simulations)
+#
+# Syntax:    RSA_save_vf_history x (default to 'False')
+#
+# x:         {'True', 'False'}
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+
+
+
+
+
 
 
 #                                                     			   Mesh options [MO]

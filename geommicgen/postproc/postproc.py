@@ -1,6 +1,9 @@
 """Module containing the main function relative to post processsing."""
 
+import shutil
 import time
+import os
+from PIL import Image
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
@@ -97,6 +100,8 @@ def post_proc(
             show=False
             )
 
+    #if post_proc_opts.get("rsa_gif", False):
+        #raise NotImplementedError("RSA gif not implemented yet")
 
     # Statistical analysis
     # --------------------------------------------------------------------------
@@ -115,7 +120,41 @@ def post_proc(
         print_funcs.print_to_file("-" * 80 + "\n")
         stat_analysis.do_stat_analysis(current_sample, sample_dir, stat_options_req)
 
-    return dict_times
+    if post_proc_opts.get("rsa_gif", False):
+        import re
+        
+        input_folder = os.path.join(sample_dir, "RSA_gif")
+        output_gif_path = os.path.join(sample_dir, "RSA_simulation.gif")
+        duration = 150  # Duration between frames in milliseconds
+        print("Add option for user to specify duration between frames/gif total time and loop option, postproc.py, post_proc function, RSA gif option.")
+        
+        # 1. Gather all PNG files
+        images = [f for f in os.listdir(input_folder) if f.lower().endswith('.png')]
+        
+        # 2. Sort numerically by frame number
+        def extract_frame_number(filename):
+            match = re.search(r'iteration_(\d+)', filename)
+            return int(match.group(1)) if match else 0
+        
+        images.sort(key=extract_frame_number)
+        
+        # 3. Build full file paths and load frames
+        image_paths = [os.path.join(input_folder, img) for img in images]
+        frames = [Image.open(image) for image in image_paths]
+        first_image = frames[0]
+        
+        # 4. Save as GIF
+        first_image.save(
+            output_gif_path,
+            format="GIF",
+            append_images=frames[1:],
+            save_all=True,
+            duration=duration,
+            loop=0  # 0 = infinite, 1 = play once
+        )
 
+        # 5. Delete the individual PNG files
+        shutil.rmtree(input_folder)
+    return dict_times
 
 

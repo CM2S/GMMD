@@ -210,10 +210,10 @@ def generate_colors(n_colors):
 def plot_particles(particles, rve_dims, sample_dir, **kwargs):
     """Plot the particles."""
     if len(rve_dims) == 2:
-        plot_particles_2d(particles, rve_dims, sample_dir)
+        plot_particles_2d(particles, rve_dims, sample_dir,**kwargs)
     elif len(rve_dims) == 3:
         # plot_particles_3d_one_by_one(particles, rve_dims, sample_dir)
-        plot_particles_3d(particles, rve_dims, sample_dir)
+        plot_particles_3d(particles, rve_dims, sample_dir,**kwargs)
 
 
 def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
@@ -233,6 +233,20 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
     ax.set_ylim(0, rve_dims[1])
     ax.set_xlim(0, rve_dims[0])
     # Setting the correct proportions
+
+    if kwargs.get("rsa_gif", False):
+        step = kwargs.get("iteration", 0)
+        ax.text(
+            1.05, 0.5, 
+            f"Step: {step:04d}",  # Pad to 4 digits (0000, 0001, ..., 0999, 1000)
+            transform=ax.transAxes, 
+            verticalalignment='center', 
+            horizontalalignment='left',
+            fontsize=12, 
+            fontweight='bold',
+            bbox=dict(boxstyle="square,pad=0.3", facecolor="white", edgecolor="gray", alpha=0.5)
+        )
+    # Adding a text box with the step number for the gif images
 
     phases = list({i_particle.phase for i_particle in particles})
     colors = generate_colors(len(phases))
@@ -269,6 +283,7 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
                     edgecolor=None,
                     facecolor=phase_colors[i_particle.phase],
                 )
+
                 ax.add_artist(ellip)
 
             ####    Comment or uncomment to show particle index at the center   #####
@@ -281,6 +296,14 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
             ####    end particle indexing   ####
 
 
+    if kwargs.get("rsa_gif", False):
+        RSA_gif_dir = kwargs.get("RSA_gif_dir")
+        step = kwargs.get("iteration", 0)
+        plt.savefig(os.path.join(RSA_gif_dir, "iteration_{0}.png".format(step)), bbox_inches="tight")
+        print_funcs.print_to_file(
+            "\t\t- {0}".format(os.path.join(RSA_gif_dir, "iteration_{0}.png".format(step)))
+        )
+        plt.close()
 
     if kwargs.get("save", True):
         plt.savefig(os.path.join(sample_dir, "final_config.pdf"), bbox_inches="tight")
@@ -293,6 +316,9 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
 
 
 def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
+
+    if kwargs.get("rsa_gif", False):
+        raise NotImplementedError("RSA gif for 3D particles is not implemented.")
 
     dim = len(rve_dims)
     mesh_generator = FEMMeshGenerator(
@@ -1175,7 +1201,7 @@ def plot_voronoi_2d_with_imts(
 
         plt.axis([0, rve_dims[0], 0, rve_dims[1]])
 
-        # cmap = matplotlib.cm.get_cmap("jet")
+        # cmap = matplotlib.cm. map("jet")
         cmap = matplotlib.cm.get_cmap("Blues")
         # Initializing the list containing the list of imts for each Voronoi cell
         k_cell = 0
@@ -2344,7 +2370,6 @@ def plot_RSA_history(
     show=False
 ):
     """Plot the number of particles history as a function of the iteration step."""
-    # Note: ax is returned from your custom create_figure function
     graph_RSA_vf_history, ax, (w_fig, h_fig) = create_figure(nrows=3, ncols=2)
 
     ax.plot(
