@@ -603,8 +603,31 @@
 #                                  									 Simulation GIF [PP] (O)
 # ==========================================================================================
 # Meaning:   If True, creates a GIF of the simulation. Default to False.
+#			 Note: in case of a minimum distance between particles being imposed, dilating
+#		 	 and contracting of the particles is not included in the GIF and the animatioN
+#			 is made for the virtual particle sizes.
 #
 # Syntax:    simulation_gif x
+#
+# x:         bool
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                  					  Simulation GIF frame duration [PP] (O)
+# ==========================================================================================
+# Meaning:   Duration of each frame in milliseconds. Default to 200ms
+#
+# Syntax:    sim_gif_frame_duration x
+#
+# x:         int
+# ------------------------------------------------------------------------------------------
+[insert here]
+
+#                                  					  Simulation GIF cleanup frames [PP] (O)
+# ==========================================================================================
+# Meaning:   If True, deletes frame PNG files. Default to True.
+#
+# Syntax:    sim_gif_cleanup_frames x
 #
 # x:         bool
 # ------------------------------------------------------------------------------------------

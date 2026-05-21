@@ -234,7 +234,7 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
     ax.set_xlim(0, rve_dims[0])
     # Setting the correct proportions
 
-    if kwargs.get("simulation_gif", False):
+    if kwargs.get("sim_gif", False):
         step = kwargs.get("iteration", 0)
         ax.text(
             1.05, 0.5, 
@@ -296,7 +296,7 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
             ####    end particle indexing   ####
 
 
-    if kwargs.get("simulation_gif", False):
+    if kwargs.get("sim_gif", False):
         gif_dir = kwargs.get("simulation_gif_dir")
         step = kwargs.get("iteration", 0)
         plt.savefig(os.path.join(gif_dir, "iteration_{0}.png".format(step)), bbox_inches="tight")
@@ -314,7 +314,7 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
 
 def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
 
-    if kwargs.get("simulation_gif", False):
+    if kwargs.get("sim_gif", False):
         raise NotImplementedError("Simulation GIF for 3D particles is not implemented.")
 
     dim = len(rve_dims)

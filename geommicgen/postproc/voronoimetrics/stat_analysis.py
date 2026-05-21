@@ -7,7 +7,6 @@ import pickle
 import os
 import sys
 import numpy as np
-
 from PIL import Image
 
 from geommicgen.iofuncs.file_handling import create_design_point_results_directory
@@ -413,7 +412,7 @@ def ripleys_k_func(microstructure, max_radius=10, n_points=20):
     )
     adj_rve_dims = adjust_rve_dims(rem_particles)
 
-    from postproc.plotfuncs.plotting_functions import plot_particles_2d
+    from geommicgen.postproc.plotfuncs.plotting_functions import plot_particles_2d
 
     plot_particles_2d(rem_particles, adj_rve_dims, "", save=False, show=False)
 

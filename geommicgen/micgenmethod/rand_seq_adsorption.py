@@ -113,7 +113,7 @@ class RandomSequentialAdsorption(GenerationMethod):
         self.intersection_check_history = []
         self.accepted_particles_history = []
         self.sample_dir = sample_dir
-        self.make_gif = kwargs.get("simulation_gif")
+        self.make_gif = kwargs.get("sim_gif")
 
 
     def generate_microstructure(self, microstructure_sample):
@@ -131,7 +131,7 @@ class RandomSequentialAdsorption(GenerationMethod):
         
         if self.make_gif:
             # Create folder for the gif if it does not exist
-            gif_dir = os.path.join(self.sample_dir, "Simulation_gif")
+            gif_dir = os.path.join(self.sample_dir, "sim_gif")
             os.makedirs(gif_dir)
         
         self.particle_overlap_areas = [0 for _ in microstructure_sample.particles]
@@ -184,7 +184,7 @@ class RandomSequentialAdsorption(GenerationMethod):
 
                     # save image of every step of simulation
                     if self.make_gif:
-                        kwargs = {"simulation_gif": True, "simulation_gif_dir" : gif_dir, "iteration": n_iteration, "save": False}
+                        kwargs = {"sim_gif": True, "simulation_gif_dir" : gif_dir, "iteration": n_iteration, "save": False}
                         plot_funcs.plot_particles(microstructure_sample.particles, microstructure_sample.rve_dims, self.sample_dir, **kwargs)
  
                 # Contract all the particles back to their original. If there is no minimum distance, the particles will not be contracted, since min_distance is 0.

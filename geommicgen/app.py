@@ -191,15 +191,15 @@ def run_program():
                         "fixed_seed",
                         "initial_vel_coeff",
                         "final_overlap_check",
-                        "simulation_gif",
+                        "sim_gif",
                     }
                     md_kwargs = {
                         key: value
                         for key, value in mic_gen_parameters.items()
                         if key in md_kwargs_keys
                     }
-                    md_kwargs["simulation_gif"] = post_proc_parameters.get("simulation_gif", False)
-                    #if md_kwargs["simulation_gif"]:
+                    md_kwargs["sim_gif"] = post_proc_parameters.get("sim_gif", False)
+                    #if md_kwargs["sim_gif"]:
                         #raise NotImplementedError("The simulation_gif option for MD simulations is not implemented yet.")
                     try: 
                         current_mic_generator = MolecularDynamicsSimulation(
@@ -295,14 +295,14 @@ def run_program():
                     # Random sequential adsorption method
 
                     # Uncomment following lines if kwargs from mic_gen_parameters are needed in the RSA simulation
-                    #rsa_kwargs_keys = {"simulation_gif"}
+                    #rsa_kwargs_keys = {"sim_gif"}
                     #rsa_kwargs = {
                         #key: value
                         #for key, value in mic_gen_parameters.items()
                         #if key in rsa_kwargs_keys
                     #}
                     rsa_kwargs={} # delete this line if the above lines are uncommented
-                    rsa_kwargs["simulation_gif"] = post_proc_parameters.get("simulation_gif", False)
+                    rsa_kwargs["sim_gif"] = post_proc_parameters.get("sim_gif", False)
                     try:
                         current_mic_generator = RandomSequentialAdsorption(
                             mic_gen_parameters["max_step"],

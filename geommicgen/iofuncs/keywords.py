@@ -663,10 +663,22 @@ top_level_reader.add_top_level_keyword(
         type_str="bool",
     ),
     KeywordTypeA(
-        "simulation_gif",
+        "sim_gif",
         "post_proc",
         default_value=False,
         type_str="bool",
+    ),
+    KeywordTypeA(
+        "sim_gif_frame_duration",
+        "post_proc",
+        default_value=200,
+        type_str="int"
+    ),
+    KeywordTypeA(
+        "sim_gif_cleanup_frames",
+        "post_proc",
+        default_value=True,
+        type_str="bool"
     )
 )
 

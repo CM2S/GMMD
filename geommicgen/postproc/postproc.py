@@ -100,8 +100,6 @@ def post_proc(
             show=False
             )
 
-    #if post_proc_opts.get("rsa_gif", False):
-        #raise NotImplementedError("RSA gif not implemented yet")
 
     # Statistical analysis
     # --------------------------------------------------------------------------
@@ -120,16 +118,16 @@ def post_proc(
         print_funcs.print_to_file("-" * 80 + "\n")
         stat_analysis.do_stat_analysis(current_sample, sample_dir, stat_options_req)
 
-    if post_proc_opts.get("simulation_gif", False):
+    if post_proc_opts.get("sim_gif", False):
         print_funcs.print_to_file("Simulation GIF")
         print_funcs.print_to_file("-" * 80 + "\n")
         start = time.time()
 
         import re
         
-        input_folder = os.path.join(sample_dir, "Simulation_gif")
+        input_folder = os.path.join(sample_dir, "sim_gif")
         output_gif_path = os.path.join(sample_dir, "Simulation.gif")
-        duration = 300  # Duration between frames in milliseconds
+        duration = post_proc_opts.get("sim_gif_frame_duration")
         print("Add option for user to specify duration between frames/gif total time and loop option, postproc.py, post_proc function, simulation gif option.")
         
         # Gather all PNG files
@@ -162,8 +160,9 @@ def post_proc(
 
 
         # Delete the individual PNG files
-        print_funcs.print_to_file("\n\t> Deleting individual PNG files.")
-        shutil.rmtree(input_folder)
+        if post_proc_opts.get("sim_gif_cleanup_frames"):
+            print_funcs.print_to_file("\n\t> Deleting individual PNG files.")
+            shutil.rmtree(input_folder)
 
         plot_particles_time = time.time() - start
         print_funcs.print_to_file(

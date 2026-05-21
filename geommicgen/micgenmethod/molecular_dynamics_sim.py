@@ -265,7 +265,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.fixed_seed = kwargs.get("fixed_seed", None)
         self.initial_vel_coeff = kwargs.get("initial_vel_coeff", 0.25)
         self.final_overlap_check = kwargs.get("final_overlap_check", False)
-        self.make_gif = kwargs.get("simulation_gif")
+        self.make_gif = kwargs.get("sim_gif")
         self.sample_dir = sample_dir
         self.microstructure_sample = None
         self.force_rescale_coeff = 1
@@ -291,7 +291,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         
         if self.make_gif:
             # Create folder for the gif if it does not exist
-            self.gif_dir = os.path.join(self.sample_dir, "Simulation_gif")
+            self.gif_dir = os.path.join(self.sample_dir, "sim_gif")
             os.makedirs(self.gif_dir)
 
         self.microstructure_sample = microstructure_sample
@@ -736,7 +736,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     print_funcs.print_to_file("Failed sample")
                     break
                 if self.make_gif:
-                        kwargs = {"simulation_gif": True, "simulation_gif_dir" : self.gif_dir, "iteration": self.step, "save": False}
+                        kwargs = {"sim_gif": True, "simulation_gif_dir" : self.gif_dir, "iteration": self.step, "save": False}
                         plot_funcs.plot_particles(self.microstructure_sample.particles, self.microstructure_sample.rve_dims, self.sample_dir, **kwargs)
 
     @contextmanager
