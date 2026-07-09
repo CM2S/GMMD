@@ -17,7 +17,9 @@ import numpy as np
 
 
 class RSA_SpeedUpScheme(abc.ABC):
-    """Abstract class for the speed up schemes."""
+    """Abstract class for the speed up schemes.
+    Given a trial particle introduced in the simulation box, this class computes the list of particles against which intersection will be checked.
+    """
 
     @abc.abstractmethod
     def new_list(self, particles):
@@ -50,7 +52,6 @@ class CellList(RSA_SpeedUpScheme):
         """Initialize a cell list for the *rsa_sim* acting on *particles."""
         self.rsa_sim = None
         self.max_radius = None
-        # Saving the maximum radius of the circunscribing disk/sphere
         self.particle_list = None
         self.cell_particle_list = None
         self.cell_list = None
@@ -120,48 +121,42 @@ class CellList(RSA_SpeedUpScheme):
 
     def new_list(self, particles,new_particle):
         """List of particles in the neighborhood of the new particle."""
-        start = time.perf_counter()
+        # Uncomment the lines bellow if I am running Delete_later/plot.py
+        # start = time.perf_counter()
         
         dim = particles[0].dim
 
         if self.max_radius is None:
-            self.max_radius = np.max(
-                np.array([particle.radius for particle in particles])
-            )
+            self.max_radius = max(p.radius for p in particles) 
 
         if self.cell_list is None:
             self.cell_list = [set() for _ in range(np.prod(self.n_cell_dim))]
 
-        self.number_particles_current_step = len(particles)
+        number_particles_current_step = len(particles)
 
-        # If a particle was added to the microstructure in the previous iteration, update the cell list.
-        # Otherwise, the cell list remains the same.
-        if self.number_particles_current_step!= self.number_particles_previous_step:
+        # Update cell list for added particle (only if particle count changed)
+        if number_particles_current_step!= self.number_particles_previous_step:
             particle_cell_index = self.get_particle_cell(particles[-1])
             self.cell_list[particle_cell_index].add(len(particles)-1)
 
         # Get the cell index of the new particle
         new_particle_cell_index = self.get_particle_cell(new_particle)
         # Get the cell indexes of the neighbor cells
-        neighbor_cell_index = []
-        for i in range(3 ** dim):
-            neighbor_cell_index.append(
-                self.neighbor_cell(
-                    new_particle_cell_index, i, dim, self.n_cell_dim
-                )
-            )
+        neighbor_cells_index = [self.neighbor_cell(new_particle_cell_index, i, dim, self.n_cell_dim) 
+                          for i in range(3**dim)]
 
         # Get the list of particles in the neighbor cells
         self.particle_list = []
-        for i_neighbor_cell_index in neighbor_cell_index:
-            self.particle_list.append(self.cell_list[i_neighbor_cell_index])
-        # Flattens the list of sets into one long list of particle indices
-        self.particle_list = [p for particle_set in self.particle_list for p in particle_set]
+        extend = self.particle_list.extend
+        for idx in neighbor_cells_index:
+            extend(self.cell_list[idx])
 
-        self.number_particles_previous_step = len(self.particle_list)
-        duration = time.perf_counter() - start
-        with open("Cell_new_list_times.txt", "a") as f:
-            f.write(f"{duration}, ")
+        self.number_particles_previous_step = number_particles_current_step
+        
+        # Uncomment the lines bellow if I am running Delete_later/plot.py
+        # duration = time.perf_counter() - start
+        # with open("Cell_new_list_times.txt", "a") as f:
+        #         f.write(f", {duration}")
 
 
     
@@ -319,18 +314,14 @@ class CellList(RSA_SpeedUpScheme):
 
 class Naive(RSA_SpeedUpScheme):
     """
-    Class for the verlet list used to speed up force computation.
+    Class for the Naive speed up scheme.
 
-    This Verlet list is computed from a cell list to achieve for computation of order
-    O(n), where n is the number of particles in the simulation box.
+    The trial particle is checked for intersection against all the particles in the simulation box. The entire Random Sequential Adsorption method has a computational complexity of O(n), where n is the number of particles in the simulation box.
 
     Attributes
-    ----------
-    verlet_factor: float
-        Multiplicative factor used to compute the neighborhood of the particle.
-
-    a_new_verlet_list_has_to_be_computed: bool
-        Flag to signal the computation of a new Verlet list.
+    ----------.
+    particle_list: list(set)
+        List containing the set of particles in the neighborhood of each particle.
     """
 
     def __init__(self):
@@ -339,18 +330,18 @@ class Naive(RSA_SpeedUpScheme):
 
     def new_list(self, particles,new_particle):
         """
-        Use all the particles.
+        Creates a list containing all the particles.
 
         Parameters
         ----------
         Particles in the simulatin box, whose cell list is to be computed.
         """
-        start = time.perf_counter()
+        # Uncomment the lines bellow if I am running Delete_later/plot.py
+        # start = time.perf_counter()
         # Note: new particle is here because other RSA speed up schemes use it to compute the new list, but for the naive scheme we just ignore it and use all the particles in the simulation box. This way, we can use the same function for all the RSA speed up schemes, which is convenient for the code structure.
         self.particle_list = list(range(len(particles)))
 
-        duration = time.perf_counter() - start
-        with open("Naive_new_list_times.txt", "a") as f:
-            f.write(f"{duration}, ")
-
-
+        # Uncomment the lines bellow if I am running Delete_later/plot.py
+        # duration = time.perf_counter() - start
+        # with open("Naive_new_list_times.txt", "a") as f:
+        #     f.write(f", {duration}")

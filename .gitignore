@@ -127,3 +127,10 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Temporary folders
+Delete_later/
+Result_analysis/
+
+# Result folders I want to save but will not go to the repository
+geommicgen/resources/examples/Results

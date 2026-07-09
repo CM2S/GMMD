@@ -1,8 +1,7 @@
 """
-Alterar descrição mais tarde
 Module containing the RandomSequentialAdsorption class.
 
-It provides a class whose methods allow the performance of a random sequential adsorption method. In this method, particles are generated one by one and added to the system if they do not intersect with any of the particles already present in the system. The process is repeated until a certain number of particles is reached or until a certain volume fraction is reached.
+It provides a class whose methods allow the performance of a random sequential adsorption method. In this method, a trial particle is randomly placed in the simulation box in each step. Intersection of the trial particle with the already present particles is checked. If there is no intersection, the trial particle is added to the microstructure. The process is repeated until a certain number of particles is reached or until a certain volume fraction is reached.
 
 """
 
@@ -70,7 +69,7 @@ class RandomSequentialAdsorption(GenerationMethod):
         ------------------
 
     simulation_gif: bool
-            Make a gif of the simulation.
+            If true, creates a gif of the simulation.
 
     """
 
@@ -97,7 +96,7 @@ class RandomSequentialAdsorption(GenerationMethod):
             ------------------
             
         simulation_gif: bool
-                Make a gif of the simulation.
+                If true, creates a gif of the simulation.
         """
         #self.mic_gen_parameters = mic_gen_parameters
         #self.mic_gen_descriptors = mic_gen_descriptors
@@ -158,21 +157,21 @@ class RandomSequentialAdsorption(GenerationMethod):
                         break
                     n_iteration += 1
                         
-                    new_particle = i_phase.generate_single_particle(microstructure_sample.rve_dims)
-                    new_particle.dilate(self.min_distance / 2)
+                    trial_particle = i_phase.generate_single_particle(microstructure_sample.rve_dims)
+                    trial_particle.dilate(self.min_distance / 2)
                     # Dilate the particle if there is a minimum distance imposed. It will later be contracted back to its original size. If there is no minimum distance, min_distance is 0, so the particle will not be dilated.
 
                     # Get list of particles
                     if len(microstructure_sample.particles) > 0:
-                        self.speed_up_scheme.new_list(microstructure_sample.particles,new_particle)
+                        self.speed_up_scheme.new_list(microstructure_sample.particles,trial_particle)
                         particles_list = self.speed_up_scheme.particle_list
                         if self.save_history:
                             self.intersection_check_history.append( len(particles_list) )
                     else:
                         particles_list = []
 
-                    if not self.check_intersection(new_particle,particles_list):
-                        i_phase.particles.append(new_particle)
+                    if not self.check_intersection(trial_particle,particles_list):
+                        i_phase.particles.append(trial_particle)
                         n_particles_total += 1                       
                     if self.save_history:
                         self.RSA_vf_history.append(microstructure_sample.volume_fraction)
@@ -256,20 +255,22 @@ class RandomSequentialAdsorption(GenerationMethod):
 
         if self.microstructure_sample.particles ==[]:
             duration = time.perf_counter() - start
-            with open("check_intersection_times.txt", "a") as f:
-                f.write(f"{duration}, ")
+            # with open("check_intersection_times.txt", "a") as f:
+            #     f.write(f", {duration}")
             return False
         else:
             for i in particles_list:
                 i_particle = self.microstructure_sample.particles[i]
+                
                 if new_particle.intersection(i_particle, self.microstructure_sample.rve_dims):
-                    duration = time.perf_counter() - start
-                    with open("check_intersection_times.txt", "a") as f:
-                        f.write(f"{duration}, ")
-                        return True
-        
-        duration = time.perf_counter() - start
-        with open("check_intersection_times.txt", "a") as f:
-            f.write(f"{duration}, ")
+                    # Uncomment the lines bellow if I am running Delete_later/plot.py
+                    # duration = time.perf_counter() - start
+                    # with open("check_intersection_times.txt", "a") as f:
+                    #     f.write(f", {duration}")
+                    return True
+        # Uncomment the lines bellow if I am running Delete_later/plot.py
+        # duration = time.perf_counter() - start
+        # with open("check_intersection_times.txt", "a") as f:
+        #     f.write(f", {duration}")
            
         return False
