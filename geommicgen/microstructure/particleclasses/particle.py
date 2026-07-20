@@ -98,7 +98,7 @@ class Particle(abc.ABC):
     @property
     @abc.abstractmethod
     def radius(self):
-        """Radius of the circumscribed circle to the ellipse."""
+        """Radius of the circumscribed circle to the particle."""
         radius = self._radius
 
         return radius

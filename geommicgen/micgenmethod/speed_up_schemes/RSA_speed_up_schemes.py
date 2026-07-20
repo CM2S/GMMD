@@ -12,6 +12,7 @@ import time
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 from geommicgen.microstructure.particleclasses import Particle
+from geommicgen.microstructure.particleclasses import Matrix
 
 import numpy as np
 
@@ -31,9 +32,27 @@ class CellList(RSA_SpeedUpScheme):
 
     Attributes
     ----------
+    cell_list: list(set)
+        List containing the set of particles in each cell.
+
+    pos_cell_list: list(int)
+        List containing the cell location for each particle.
+
+    number_particles_previous_step: int
+        Number of particles in the previous step
+
+    number_particles_current_step: int
+        Number of particles in the currrent step
+    
     max_radius: float
         Maximum radius of the all the circumscribed disks/spheres to the particles in the
         simulation box.
+
+    n_cell_dim: list
+        List containing the number of cells in each direction.
+
+    cell_side_length: list
+        List containing the length of the cells in each direction.
 
     rsa_sim: `.RSA_Simulation`
         RSA simulation using the cell list for intersection computation.
@@ -41,33 +60,22 @@ class CellList(RSA_SpeedUpScheme):
     particle_list: list(set)
         List containing the set of particles in the neighborhood of each particle.
 
-    cell_list: list(set)
-        List containing the set of particles in each cell.
 
-    pos_cell_list: list(int)
-        List containing the cell location for each particle.
     """
 
     def __init__(self):
         """Initialize a cell list for the *rsa_sim* acting on *particles."""
         self.rsa_sim = None
-        self.max_radius = None
         self.particle_list = None
-        self.cell_particle_list = None
+        #self.cell_particle_list = None
         self.cell_list = None
         self.pos_cell_list = []
         self.number_particles_previous_step = 0
         self.number_particles_current_step = 0
-        
+        self.max_radius = None
+        self.n_cell_dim = []
+        self.cell_side_length = []
 
-
-    @cached_property
-    def max_radius(self):
-        """Get the maximum circunscribed radius of the particles in the simulation box.    
-        Only used in the beggining of the simulation where there is a single particle in the simulation box."""
-        self.max_radius = self.rsa_sim.microstructure_sample.particles[0].radius
-        return self.max_radius
-    
     @cached_property
     def box(self):
         """Get the dimensions of the simulation box."""
@@ -77,26 +85,47 @@ class CellList(RSA_SpeedUpScheme):
             box = None
         return box
 
-    @cached_property
-    def n_cell_dim(self):
-        """List containing the number of cells in each direction."""
+    def update_max_radius(self,particles,trial_particle):
+        """
+        If the trial particle has a higher radius than max_radius, max_radius is updated.
+        It returns True if there has been an update.
+        """
+        if self.max_radius is None:
+            self.max_radius = max(p.radius for p in particles)
+            return True       
+        if trial_particle.radius > self.max_radius:
+            self.max_radius = trial_particle.radius
+            return True
+        return False
+
+    
+    def update_n_cell_dim(self):
+        """
+        It is called when the trial particle is bigger than the cells.
+        It updates the variable n_cell_dim when called.
+        It returns nothing.
+        """
         if self.box is None:
             raise ValueError("The simulation box has not been defined")
-        n_cell_dim = [
+        self.n_cell_dim = [
             np.int_(np.floor(self.box[i_dim] / (2 * self.max_radius)))
             for i_dim in range(len(self.box))
         ]
-        return n_cell_dim
 
-    @cached_property
-    def cell_side_length(self):
-        """List containing the length of the cells in each direction."""
+
+    def update_cell_side_length(self):
+        """
+        It is called when the trial particle is bigger than the cells.
+        It updates the variable self.sell_side_legth when called.
+        self.cell_side_lenght is a list containing the length of the cells in each direction.
+        It returns nothing.
+        """
         if self.box is None:
             raise ValueError("The simulation box has not been defined")
         cell_side_length = [
             self.box[i_dim] / self.n_cell_dim[i_dim] for i_dim in range(len(self.box))
         ]
-        return cell_side_length
+        self.cell_side_length = cell_side_length
 
     
     def get_particle_cell(self, particle):
@@ -118,31 +147,44 @@ class CellList(RSA_SpeedUpScheme):
             )
         return cell_index
 
+    def update_cell_list(self,particles):
+        """
+        When the trial particle is bigger than the cells, the cell size is updated.
+        This method assigns the new cells for the particles already in the simulation box, it updates cell_list.
+        It returns nothing.
+        """
+        self.cell_list = [set() for _ in range(np.prod(self.n_cell_dim))]
 
-    def new_list(self, particles,new_particle):
+        for idx,particle in enumerate(particles):
+            particle_cell_index = self.get_particle_cell(particle)
+            self.cell_list[particle_cell_index].add(idx)
+
+
+    def new_list(self, particles,trial_particle):
         """List of particles in the neighborhood of the new particle."""
         # Uncomment the lines bellow if I am running Delete_later/plot.py
         # start = time.perf_counter()
-        
+
         dim = particles[0].dim
+        max_radius_was_updated = self.update_max_radius(particles,trial_particle)
 
-        if self.max_radius is None:
-            self.max_radius = max(p.radius for p in particles) 
-
-        if self.cell_list is None:
-            self.cell_list = [set() for _ in range(np.prod(self.n_cell_dim))]
+        if max_radius_was_updated:
+            self.update_n_cell_dim()
+            self.update_cell_side_length()
+            self.update_cell_list(particles)
 
         number_particles_current_step = len(particles)
 
-        # Update cell list for added particle (only if particle count changed)
-        if number_particles_current_step!= self.number_particles_previous_step:
-            particle_cell_index = self.get_particle_cell(particles[-1])
-            self.cell_list[particle_cell_index].add(len(particles)-1)
+        if not max_radius_was_updated:
+            # Update the cell list only if a particle was added.
+            if number_particles_current_step!= self.number_particles_previous_step:
+                particle_cell_index = self.get_particle_cell(particles[-1])
+                self.cell_list[particle_cell_index].add(len(particles)-1)
 
         # Get the cell index of the new particle
-        new_particle_cell_index = self.get_particle_cell(new_particle)
+        trial_particle_cell_index = self.get_particle_cell(trial_particle)
         # Get the cell indexes of the neighbor cells
-        neighbor_cells_index = [self.neighbor_cell(new_particle_cell_index, i, dim, self.n_cell_dim) 
+        neighbor_cells_index = [self.neighbor_cell(trial_particle_cell_index, i, dim, self.n_cell_dim) 
                           for i in range(3**dim)]
 
         # Get the list of particles in the neighbor cells
@@ -328,7 +370,7 @@ class Naive(RSA_SpeedUpScheme):
         """Initialize a Naive class object. It does nothing."""
         self.particle_list = []
 
-    def new_list(self, particles,new_particle):
+    def new_list(self, particles,trial_particle):
         """
         Creates a list containing all the particles.
 

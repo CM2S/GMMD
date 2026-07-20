@@ -196,7 +196,7 @@ class Sphere(Ellipsoid):
         volume = 4 * np.pi / 3 * (self.radius + self.delta) ** 3
 
         return volume
-
+    
     def intersection(self, other_particle: Particle, box: list, **kwargs) -> bool:
         """
         Check if the Sphere intersects the other particle.

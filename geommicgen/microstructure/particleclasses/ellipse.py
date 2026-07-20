@@ -167,7 +167,7 @@ class Ellipse(Particle):
 
     @property
     def volume(self):
-        """Area(volume) of the real ellipse. Only approximate if *self.delta*!=0."""
+        """Area(volume) of the real ellipse."""
         volume = (
             np.pi
             * (self.semi_major_axis)
@@ -178,14 +178,14 @@ class Ellipse(Particle):
 
     @property
     def real_volume(self):
-        """Real area(volume) of the ellipse. Only approximate if *self.delta*!=0."""
-        virtual_volume = (
+        """Real area(volume) of the ellipse."""
+        volume = (
             np.pi
             * (self.semi_major_axis - self.delta)
             * (self.semi_minor_axis - self.delta)
         )
 
-        return virtual_volume
+        return volume
     
 
     @property

@@ -600,14 +600,14 @@
 # POST-PROCESSING
 # ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-#                                  									 Simulation GIF [PP] (O)
+#                                  				     Simulation GIF [PP] (O)
 # ==========================================================================================
 # Meaning:   If True, creates a GIF of the simulation. Default to False.
 #			 Note: in case of a minimum distance between particles being imposed, dilating
 #		 	 and contracting of the particles is not included in the GIF and the animatioN
 #			 is made for the virtual particle sizes.
 #
-# Syntax:    simulation_gif x
+# Syntax:    sim_gif x
 #
 # x:         bool
 # ------------------------------------------------------------------------------------------

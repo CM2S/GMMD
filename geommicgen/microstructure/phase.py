@@ -209,7 +209,8 @@ class Phase:
     
     @property
     def real_volume_fraction(self):
-        """Real volume fraction in decimal."""
+        """Real volume fraction in decimal.
+        It is the volume fraction of the phase considering non dilated particles."""
         real_volume_fraction = 0
         for particle in self.particles:
             real_volume_fraction += particle.real_volume / self.microstructure.volume
@@ -300,7 +301,7 @@ class Phase:
             new_particle.position_center = np.random.rand(3) * rve_dims
         else:
             raise ValueError(
-                "The random sequential adsorption method is not implemented for "
+                "generate_single_particle method is not implemented for "
                 + "particles of type {0}.".format(self.type.__name__)
             )
         return new_particle

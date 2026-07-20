@@ -129,7 +129,6 @@ dmypy.json
 .pyre/
 
 # Temporary folders
-Delete_later/
 Result_analysis/
 
 # Result folders I want to save but will not go to the repository

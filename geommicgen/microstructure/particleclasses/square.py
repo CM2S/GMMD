@@ -104,7 +104,6 @@ class Square(Particle):
     def radius(self):
         """Radius of the circumscribed circle to the square."""
         radius = ( (self.side)**2 * 2)**0.5 / 2
-        #radius =  (self.side**2 * 2)**0.5 / 2
         return radius
     
 

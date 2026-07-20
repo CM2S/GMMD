@@ -20,7 +20,7 @@ import geommicgen.iofuncs.file_handling as fileio
 import geommicgen.iofuncs.printing as print_funcs
 from geommicgen.microstructure.particleclasses import Matrix
 from geommicgen.micgenmethod.microstructure_gen_method import GenerationMethod
-from geommicgen.micgenmethod import speed_up_schemes
+from geommicgen.micgenmethod.speed_up_schemes import RSA_speed_up_schemes
 
 
 class RandomSequentialAdsorption(GenerationMethod):
@@ -105,7 +105,7 @@ class RandomSequentialAdsorption(GenerationMethod):
         self.microstructure_sample = None
         self.max_step = max_step
         self.min_distance = min_distance
-        self.status = False
+        self.status = True
         self.RSA_vf_history = []
         self.speed_up_scheme = None
         self.save_history = save_history
@@ -132,10 +132,7 @@ class RandomSequentialAdsorption(GenerationMethod):
             # Create folder for the gif if it does not exist
             gif_dir = os.path.join(self.sample_dir, "sim_gif")
             os.makedirs(gif_dir)
-        
-        self.particle_overlap_areas = [0 for _ in microstructure_sample.particles]
-        # Setting all the overlap areas to zero at the beginning of the iteration as
-        # they are added sequentially as each pair is considered
+
         for i_phase in microstructure_sample.phases.values():
             if i_phase.type is not Matrix and not i_phase.inner_phase:
                 # Determine which target to use
@@ -153,6 +150,7 @@ class RandomSequentialAdsorption(GenerationMethod):
                 while condition():
                     # if number of iterations is higher than the maximum number of iterations
                     if n_iteration > self.max_step:
+                        self.status = False
                         print("Simulation reached the maximum number of iterations.")
                         break
                     n_iteration += 1
@@ -191,10 +189,6 @@ class RandomSequentialAdsorption(GenerationMethod):
                 virtual_vf = self.microstructure_sample.volume_fraction
                 self.contract_all_particles(i_phase.particles)
         
-                    
-        # if the simulation stopped because it reached the maximum number of iterations, status is Flase, otherwise it is True.
-        if n_iteration < self.max_step:
-            self.status = True
            
         self.time = time.time() - start
         print("\n\n")

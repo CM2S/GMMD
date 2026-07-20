@@ -46,8 +46,7 @@ class Disk(Ellipse):
             ),
         },
     }
-    #
-    # )
+
     # all possible_parameters
     acceptable_descriptions = [
         {"r", "n"},
