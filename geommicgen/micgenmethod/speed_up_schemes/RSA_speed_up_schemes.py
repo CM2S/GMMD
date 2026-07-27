@@ -18,13 +18,13 @@ import numpy as np
 
 
 class RSA_SpeedUpScheme(abc.ABC):
-    """Abstract class for the speed up schemes.
-    Given a trial particle introduced in the simulation box, this class computes the list of particles against which intersection will be checked.
-    """
+    """Abstract class for the Random Sequential Adsorption speed up schemes."""
 
     @abc.abstractmethod
-    def new_list(self, particles):
-        """Compute a new list for RSA simulation."""
+    def new_list(self, particles,trial_particle):
+        """
+        Given a trial particle introduced in the RSA simulation box, this method computes the list of particles against which intersection will be checked.
+        """
 
 
 class CellList(RSA_SpeedUpScheme):
@@ -67,7 +67,6 @@ class CellList(RSA_SpeedUpScheme):
         """Initialize a cell list for the *rsa_sim* acting on *particles."""
         self.rsa_sim = None
         self.particle_list = None
-        #self.cell_particle_list = None
         self.cell_list = None
         self.pos_cell_list = []
         self.number_particles_previous_step = 0
@@ -87,8 +86,14 @@ class CellList(RSA_SpeedUpScheme):
 
     def update_max_radius(self,particles,trial_particle):
         """
-        If the trial particle has a higher radius than max_radius, max_radius is updated.
-        It returns True if there has been an update.
+        This method updates the attribute max_radius if the trial particle has a higher radius than max_radius.
+
+        Args:
+            particles (list of instances from the class Particle):  All particles in the simulatin box.
+            trial_particle (instance from the class Particle): trial particle
+
+        Returns:
+            bool: True if there has been an update
         """
         if self.max_radius is None:
             self.max_radius = max(p.radius for p in particles)
@@ -102,7 +107,8 @@ class CellList(RSA_SpeedUpScheme):
     def update_n_cell_dim(self):
         """
         It is called when the trial particle is bigger than the cells.
-        It updates the variable n_cell_dim when called.
+        It updates the attribute n_cell_dim when called.
+
         It returns nothing.
         """
         if self.box is None:
@@ -116,8 +122,8 @@ class CellList(RSA_SpeedUpScheme):
     def update_cell_side_length(self):
         """
         It is called when the trial particle is bigger than the cells.
-        It updates the variable self.sell_side_legth when called.
-        self.cell_side_lenght is a list containing the length of the cells in each direction.
+        It updates the attribute cell_side_legth when called.
+
         It returns nothing.
         """
         if self.box is None:
@@ -161,7 +167,7 @@ class CellList(RSA_SpeedUpScheme):
 
 
     def new_list(self, particles,trial_particle):
-        """List of particles in the neighborhood of the new particle."""
+        """List of particles in the neighborhood of the trial particle."""
         # Uncomment the lines bellow if I am running Delete_later/plot.py
         # start = time.perf_counter()
 

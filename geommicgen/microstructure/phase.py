@@ -199,8 +199,13 @@ class Phase:
 
     @property
     def volume_fraction(self):
-        """Volume fraction in decimal.
-        Its the real volume fraction if the particles are not dilated, and the virtual volume fraction if the particles are dilated."""
+        """
+        Volume fraction in decimal.
+
+        When a minimum distance between paeticles is imposed, the algorithm dilates the particles, runs the generation method and then contracts the particles.
+        The volume fraction accounts for the dilated particles.
+        """
+
         volume_fraction = 0
         for particle in self.particles:
             volume_fraction += particle.volume / self.microstructure.volume
@@ -209,8 +214,12 @@ class Phase:
     
     @property
     def real_volume_fraction(self):
-        """Real volume fraction in decimal.
-        It is the volume fraction of the phase considering non dilated particles."""
+        """
+        Real volume fraction in decimal.
+
+        When a minimum distance between paeticles is imposed, the algorithm dilates the particles, runs the generation method and then contracts the particles.
+        The real volume fraction accounts for the non dilated particles.
+        """
         real_volume_fraction = 0
         for particle in self.particles:
             real_volume_fraction += particle.real_volume / self.microstructure.volume
