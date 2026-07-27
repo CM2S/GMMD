@@ -149,11 +149,13 @@ class Square(Particle):
         """Compute the intersection area between two squares."""
 
         # Nearest periodic image of the other square relative to self square
-        diff_center = self.position_center - other_square.position_center
-        diff_center = diff_center - box * np.round(diff_center / box)
-        other_square_nearest_pbc_center = self.position_center - diff_center
+        #diff_center = self.position_center - other_square.position_center
+        #diff_center = diff_center - box * np.round(diff_center / box)
+        #other_square_nearest_pbc_center = self.position_center - diff_center
 
-        
+        other_square_nearest_pbc_center=Particle.nearest_periodic_image(
+                        other_square.position_center, self.position_center, box
+                    )
         x_min = max(self.position_center[0] - self.side / 2, other_square_nearest_pbc_center[0] - other_square.side / 2)
         x_max = min(self.position_center[0] + self.side / 2, other_square_nearest_pbc_center[0] + other_square.side / 2)
         y_min = max(self.position_center[1] - self.side / 2, other_square_nearest_pbc_center[1] - other_square.side / 2)
@@ -182,10 +184,10 @@ class Square(Particle):
         x_max_self = self.position_center[0] + (self.side) / 2
         y_min_self = self.position_center[1] - (self.side) / 2
         y_max_self = self.position_center[1] + (self.side) / 2
-        # Periodic image of the other square closest to self square
-        diff_center = self.position_center - other_square.position_center
-        diff_center = diff_center - box * np.round(diff_center / box)
-        other_square_nearest_pbc_center = self.position_center - diff_center
+
+        other_square_nearest_pbc_center=Particle.nearest_periodic_image(
+                                other_square.position_center, self.position_center, box
+                            )
 
         # Vertices of the nearest periodic image of the other_square
         x_min_other = other_square_nearest_pbc_center[0] - (other_square.side) / 2
