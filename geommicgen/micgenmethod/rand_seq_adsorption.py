@@ -135,8 +135,6 @@ class RandomSequentialAdsorption(GenerationMethod):
 
         self.check_volume_fraction(microstructure_sample)
 
-               
-
         for i_phase in microstructure_sample.phases.values():
             if i_phase.type is not Matrix and not i_phase.inner_phase:
                 # Determine which target to use

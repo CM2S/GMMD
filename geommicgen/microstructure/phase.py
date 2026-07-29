@@ -267,7 +267,7 @@ class Phase:
                 particles.append(self.type(self.name, current_sample, rve_dims))
                 vf_real += particles[-1].volume / np.prod(rve_dims)
         else:
-            # The desired number of disks was specified
+            # The desired number of particles was specified
             samples = {}
             # Initializing the dictionary containing the samples for each parameter used
             for i_descriptor_name, i_descriptor in self.descriptors.items():
@@ -304,15 +304,10 @@ class Phase:
         new_particle = self.type(self.name, current_sample, rve_dims)
 
         # Assign a random center position to the single new particle
-        if self.type.__name__ in ("Disk", "Ellipse", "Square"):
-            new_particle.position_center = np.random.rand(2) * rve_dims
-        elif self.type.__name__ in ("Sphere", "Ellipsoid", "Cylinder", "CylindricalFiber"):
-            new_particle.position_center = np.random.rand(3) * rve_dims
-        else:
-            raise ValueError(
-                "generate_single_particle method is not implemented for "
-                + "particles of type {0}.".format(self.type.__name__)
-            )
+        # print(new_particle.dim)
+        new_particle.position_center = np.random.rand( new_particle.dim ) * rve_dims
+        print("Em vez de rve_dims, colocar box. Falta definir a box aqui. Ela está definida em rand_seq_adsorption.")
+
         return new_particle
 
         ##  Prints bellow for debugging. Delete later.  ##
@@ -444,6 +439,7 @@ class FixedValue(PhaseDescriptor):
         """Return the fixed value of the descriptor."""
         sample = np.full((int(n_samples)), self.value)
         return sample if len(sample) > 1 else sample[0]
+
 
 
 class NormalDistribution(PhaseDescriptor):

@@ -360,10 +360,8 @@ def run_program():
                     sample_dir,
                     top_level_reader.all_options["post_proc"],
                 )
-                # Print post_proc
-                #print(top_level_reader.all_options["post_proc"], "app.py line 337, delete later")
+
             finally:
-                print("Finished post-processing. Uncomment the following lines in modules/iofuncs/printing.py to print the final message and delete the screen if save_min is True.")
                 print_funcs.print_final_message(
                     current_mic_generator, mesh_generators, times_dict
                 )
