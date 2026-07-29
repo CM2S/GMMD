@@ -133,6 +133,10 @@ class RandomSequentialAdsorption(GenerationMethod):
             gif_dir = os.path.join(self.sample_dir, "sim_gif")
             os.makedirs(gif_dir)
 
+        self.check_volume_fraction(microstructure_sample)
+
+               
+
         for i_phase in microstructure_sample.phases.values():
             if i_phase.type is not Matrix and not i_phase.inner_phase:
                 # Determine which target to use
@@ -200,6 +204,24 @@ class RandomSequentialAdsorption(GenerationMethod):
         print_funcs.print_final_message_rsa(self.time, n_iteration)
                 
 
+    def check_volume_fraction(self,microstructure_sample):
+        # This method populates the simulation box with particles in random positions (regardless of overlaping) and computes the volume fraction. If it is over 1, an error is raised, otherwise, the particles in the simulation box are deleted and the simulation procedes.
+
+        # If a phase is described by a distribution, the number of particles is given and the volume fraction is not, the final volume fraction may vary from run to run. However, if in this single run the volume fraction goes over 1, even if it could be slightly lower, the simulation does not run. This is ok because RSA simulations have a jamming limmit well bellow vf=1.
+        for phase in microstructure_sample.phases.values():
+            if phase.type is not Matrix and not phase.inner_phase:
+                phase.generate_particles(microstructure_sample.rve_dims)
+        if microstructure_sample.volume_fraction > 1:
+            raise ValueError(
+                "The volume fraction goes over 1: {0}".format(
+                    microstructure_sample.volume_fraction
+                )
+            )
+        else:
+            # Delete the particles
+            for phase in microstructure_sample.phases.values():
+                if phase.type is not Matrix and not phase.inner_phase:
+                    phase.particles = []
 
     def set_box(self, particles, rve_dims):
         """
@@ -245,10 +267,13 @@ class RandomSequentialAdsorption(GenerationMethod):
         Output:
             -True if it intersects with any particle, False otherwise.
         """
-        start = time.perf_counter()
 
-        if self.microstructure_sample.particles ==[]:
-            duration = time.perf_counter() - start
+        # Uncomment the lines bellow if I am running Delete_later/plot.py
+        #start = time.perf_counter()
+
+        if self.microstructure_sample.particles == []:
+            # Uncomment the lines bellow if I am running Delete_later/plot.py
+            # duration = time.perf_counter() - start
             # with open("check_intersection_times.txt", "a") as f:
             #     f.write(f", {duration}")
             return False
