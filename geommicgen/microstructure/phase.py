@@ -306,7 +306,6 @@ class Phase:
         # Assign a random center position to the single new particle
         # print(new_particle.dim)
         new_particle.position_center = np.random.rand( new_particle.dim ) * box
-        print("Em vez de rve_dims, colocar box. Falta definir a box aqui. Ela está definida em rand_seq_adsorption.")
 
         return new_particle
 

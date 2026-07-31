@@ -100,7 +100,6 @@ class RandomSequentialAdsorption(GenerationMethod):
         """
         #self.mic_gen_parameters = mic_gen_parameters
         #self.mic_gen_descriptors = mic_gen_descriptors
-        #self.microstructure_sample = None
         self.time= None
         self.microstructure_sample = None
         self.max_step = max_step
