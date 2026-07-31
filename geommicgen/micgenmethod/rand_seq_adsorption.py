@@ -118,7 +118,6 @@ class RandomSequentialAdsorption(GenerationMethod):
     def generate_microstructure(self, microstructure_sample):
         """Generate microstructure."""
         self.microstructure_sample = microstructure_sample
-        self.set_box(microstructure_sample.particles, microstructure_sample.rve_dims)
         start = time.time()
         n_particles_total = 0
         n_iteration = 0
@@ -133,7 +132,23 @@ class RandomSequentialAdsorption(GenerationMethod):
             gif_dir = os.path.join(self.sample_dir, "sim_gif")
             os.makedirs(gif_dir)
 
-        self.check_volume_fraction(microstructure_sample)
+        # Create trial microstructure in order to check volume fraction and set box.
+        for phase in microstructure_sample.phases.values():
+            if phase.type is not Matrix and not phase.inner_phase:
+                phase.generate_particles(microstructure_sample.rve_dims)
+        if microstructure_sample.volume_fraction > 1:
+            raise ValueError(
+                "The volume fraction goes over 1: {0}".format(
+                    microstructure_sample.volume_fraction
+                )
+            )
+        else:
+            # Set box
+            self.set_box(microstructure_sample.particles, microstructure_sample.rve_dims)
+            # Delete trial microstructure
+            for phase in microstructure_sample.phases.values():
+                if phase.type is not Matrix and not phase.inner_phase:
+                    phase.particles = []
 
         for i_phase in microstructure_sample.phases.values():
             if i_phase.type is not Matrix and not i_phase.inner_phase:
@@ -157,7 +172,7 @@ class RandomSequentialAdsorption(GenerationMethod):
                         break
                     n_iteration += 1
                         
-                    trial_particle = i_phase.generate_single_particle(microstructure_sample.rve_dims)
+                    trial_particle = i_phase.generate_single_particle(self.box)
                     trial_particle.dilate(self.min_distance / 2)
                     # Dilate the particle if there is a minimum distance imposed. It will later be contracted back to its original size. If there is no minimum distance, min_distance is 0, so the particle will not be dilated.
 
@@ -200,54 +215,7 @@ class RandomSequentialAdsorption(GenerationMethod):
                 real_vf, virtual_vf, self.min_distance
             )
         print_funcs.print_final_message_rsa(self.time, n_iteration)
-                
 
-    def check_volume_fraction(self,microstructure_sample):
-        # This method populates the simulation box with particles in random positions (regardless of overlaping) and computes the volume fraction. If it is over 1, an error is raised, otherwise, the particles in the simulation box are deleted and the simulation procedes.
-
-        # If a phase is described by a distribution, the number of particles is given and the volume fraction is not, the final volume fraction may vary from run to run. However, if in this single run the volume fraction goes over 1, even if it could be slightly lower, the simulation does not run. This is ok because RSA simulations have a jamming limmit well bellow vf=1.
-        for phase in microstructure_sample.phases.values():
-            if phase.type is not Matrix and not phase.inner_phase:
-                phase.generate_particles(microstructure_sample.rve_dims)
-        if microstructure_sample.volume_fraction > 1:
-            raise ValueError(
-                "The volume fraction goes over 1: {0}".format(
-                    microstructure_sample.volume_fraction
-                )
-            )
-        else:
-            # Delete the particles
-            for phase in microstructure_sample.phases.values():
-                if phase.type is not Matrix and not phase.inner_phase:
-                    phase.particles = []
-
-    def set_box(self, particles, rve_dims):
-        """
-        Set the dimensions of the simulation box.
-
-        Set the dimensions of the box according to the particles present and the
-        dimensions of the microstructure.
-
-        It is assumed that there are no incompatible particles.
-
-        Parameters
-        ----------
-        particles: list(`.Particle`)
-            List of particles in the simulation.
-
-        rve_dims: list(floats)
-            Dimensions of the microstructure in each spatial direction.
-        """
-        if any(
-            [
-                particle.__class__.__name__ == "CylindricalFiber"
-                for particle in particles
-            ]
-        ):
-            self.box = list(rve_dims)
-            del self.box[particles[0].direction_fibers]
-        else:
-            self.box = list(rve_dims)
 
     def set_speed_up_scheme(self, speed_up_scheme):
         """Set speed up scheme for the random sequential adsorption simulation."""
@@ -279,7 +247,7 @@ class RandomSequentialAdsorption(GenerationMethod):
             for i in particles_list:
                 i_particle = self.microstructure_sample.particles[i]
                 
-                if new_particle.intersection(i_particle, self.microstructure_sample.rve_dims):
+                if new_particle.intersection(i_particle, self.box):
                     # Uncomment the lines bellow if I am running Delete_later/plot.py
                     # duration = time.perf_counter() - start
                     # with open("check_intersection_times.txt", "a") as f:

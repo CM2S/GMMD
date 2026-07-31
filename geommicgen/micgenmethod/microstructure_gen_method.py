@@ -223,3 +223,30 @@ class GenerationMethod(abc.ABC):
             i_particle.dilate(self.min_distance / 2)
             # Dilate i_particle
 
+    def set_box(self, particles, rve_dims):
+        """
+        Set the dimensions of the simulation box.
+
+        Set the dimensions of the box according to the particles present and the
+        dimensions of the microstructure.
+
+        It is assumed that there are no incompatible particles.
+
+        Parameters
+        ----------
+        particles: list(`.Particle`)
+            List of particles in the simulation.
+
+        rve_dims: list(floats)
+            Dimensions of the microstructure in each spatial direction.
+        """
+        if any(
+            [
+                particle.__class__.__name__ == "CylindricalFiber"
+                for particle in particles
+            ]
+        ):
+            self.box = list(rve_dims)
+            del self.box[particles[0].direction_fibers]
+        else:
+            self.box = list(rve_dims)

@@ -289,7 +289,7 @@ class Phase:
 
 
 
-    def generate_single_particle(self, rve_dims):
+    def generate_single_particle(self, box):
         """
         Output: an object from class particle with the descriptors according to the input and a random position.
         Used in random sequential adsorption method.
@@ -301,11 +301,11 @@ class Phase:
         current_sample = {}
         for i_descriptor_name, i_descriptor in self.descriptors.items():
             current_sample[i_descriptor_name] = i_descriptor.generate_sample()
-        new_particle = self.type(self.name, current_sample, rve_dims)
+        new_particle = self.type(self.name, current_sample, box)
 
         # Assign a random center position to the single new particle
         # print(new_particle.dim)
-        new_particle.position_center = np.random.rand( new_particle.dim ) * rve_dims
+        new_particle.position_center = np.random.rand( new_particle.dim ) * box
         print("Em vez de rve_dims, colocar box. Falta definir a box aqui. Ela está definida em rand_seq_adsorption.")
 
         return new_particle
