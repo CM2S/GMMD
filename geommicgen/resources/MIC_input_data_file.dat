@@ -143,7 +143,7 @@
 #        ==================== ============ ======================================
 #
 #        ==================== ============ ======================================
-#        Ellipse (5): Choose 8 of the parameters, always including
+#        Ellipsoid (5): Choose 8 of the parameters, always including
 #        'rot_axis_comp_x', 'rot_axis_comp_y', 'rot_axis_comp_z' and 'angle'.
 #        -----------------------------------------------------------------------
 #        axis_1               float        Principal axis along xx before
