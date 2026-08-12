@@ -707,6 +707,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         real_vf = self.microstructure_sample.volume_fraction
         self.dilate_all_particles(particles)
         virtual_vf = self.microstructure_sample.volume_fraction
+        #self.resize_sim_box_and_all_particles_inside(particles, size="unitary")
         if self.min_distance != 0:
             print_funcs.print_virtual_total_volume_fraction(
                 real_vf, virtual_vf, self.min_distance
