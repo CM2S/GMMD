@@ -178,7 +178,7 @@ def run_program():
             current_sample = Microstructure(rve_dims)
             # Initializing the current sample
             
-            if ext == ".mdsim":
+            if ext == ".mgsim":
                 if mic_gen_method == "MD":
                     # Molecular dynamics simulation
                     md_kwargs_keys = {
