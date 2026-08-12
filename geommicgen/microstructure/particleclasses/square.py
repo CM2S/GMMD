@@ -324,9 +324,3 @@ class Square(Particle):
         intersection_length = overlap_x *overlap_y
         return intersection_length
         # Returning the intersection length
-
-    def rescale(self, rescale_parameter):
-        """Rescale all size parameters and the position according to *rescale_parameter*."""
-        self.side *= rescale_parameter
-        self.position_center *= rescale_parameter
-

@@ -196,13 +196,11 @@ class Disk(Ellipse):
                 other_particle, box, inside=inside
             )
             # Computing the intersection area
-        elif isinstance(other_particle, Ellipse):
-            # The other particle is an Ellipse
-            other_particle: Ellipse
+        else:
+            # The other particle is not a Disk
             intersection = other_particle.intersection(self, box)
-            # Computing the intersection area
         return intersection
-        # Returning the intersection area
+        # Returning the intersection boolean
 
     def point_inside(self, point, box):
         """Check if some point is inside the Disk."""
@@ -295,7 +293,7 @@ class Disk(Ellipse):
             )
             unit_vector = self.intersection_vector(other_particle, box)
         else:
-            intersection = self.intersection_gjk(other_particle, box, tol=tol)
+            intersection = self.intersection_gjk(other_particle, box)
             overlap_length, unit_vector = self.intersection_length_mink_diff(
                 other_particle, box, dist_met=dist_met
             )

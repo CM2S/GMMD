@@ -570,27 +570,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
             except errors.UnsupportedInitialConfigurationType as error:
                 error.message()
 
-    
-
-    def resize_sim_box_and_all_particles_inside(self, particles, size):
-        """Resize the simulation box and all the particles inside."""
-        if size == "unitary":
-            if self._original_box is None:
-                self._original_box = list(self.box)
-                self.box = [1 for _ in self._original_box]
-                rescale_parameter = 1 / min(self._original_box)
-                for i_particle in particles:
-                    i_particle.rescale(rescale_parameter)
-        elif size == "original":
-            if self._original_box is not None:
-                rescale_parameter = min(self._original_box)
-                self.box = list(self._original_box)
-                self._original_box = None
-                for i_particle in particles:
-                    i_particle.rescale(rescale_parameter)
-
-        else:
-            raise ValueError("Size choice for simulation box unknown: {0}".format(size))
 
     def set_initial_temp(self, particles):
         """Set the intial temperature if it was not already specified.
@@ -728,7 +707,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
         real_vf = self.microstructure_sample.volume_fraction
         self.dilate_all_particles(particles)
         virtual_vf = self.microstructure_sample.volume_fraction
-        self.resize_sim_box_and_all_particles_inside(particles, size="unitary")
         if self.min_distance != 0:
             print_funcs.print_virtual_total_volume_fraction(
                 real_vf, virtual_vf, self.min_distance
@@ -746,7 +724,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     )
                     # Saving the final configuration
             self.contract_all_particles(particles)
-            self.resize_sim_box_and_all_particles_inside(particles, size="original")
             if self.offset:
                 offset = self.compute_rve_offset(particles, self.box)
                 for i_particle in particles:

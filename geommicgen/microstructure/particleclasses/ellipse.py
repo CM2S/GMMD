@@ -835,13 +835,6 @@ class Ellipse(Particle):
         )
         return np.append(point_on_ellipse_glob, [0])
 
-    def rescale(self, rescale_parameter):
-        """Rescale all size parameters and the position according to *rescale_parameter*."""
-        self.major_axis *= rescale_parameter
-        self.minor_axis *= rescale_parameter
-        self.position_center *= rescale_parameter
-
-
 def intersection_points_ellipses(
     A1, B1, center_1, angle_1, A2, B2, center_2, angle_2, tol=1e-10
 ):
