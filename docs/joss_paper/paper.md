@@ -60,19 +60,16 @@ The undestanding of the behaviour of complex materials is fundamental to use the
 These complex materials often are heterogenous, as is nearly every material at a small enough schale. Simulating an entire structural part considering all its heterogeneities, often very small comparative to the part size, can be very time consuming and extremely impractical.
 
 Thus, a multiscale approach was created, where if one knows the microstrcutural features of the material:
-    1. the properties of the constituents
-    2. the properties of the interface
-    3. and the geometry of each phase in 
+  1. the properties of the constituents,
+  2. the properties of the interface,
+  3. and the geometry of each phase,
 one can obtain its macroscale properties using a process known as computational homogenization.
-This requires the generation of a representative volume element (RVE), that is, in broad terms, a small volume element representative of the entire microstructure in an average sense `[@HILL1963357]`.
+This requires the generation of a representative volume element (RVE), that is, in broad terms, a small volume element representative of the entire microstructure in an average sense [@HILL1963357].
 
 GMG enters as a solution to generating the geometry of a RVE, saving researchers much time, especially if a large number of samples is required.
 It is a python package that generates microstrucutre geometry depending on the user input, such as particle (or void) shape, volume fraction and more descriptors. 
 
-The generation of the microstructure is not based on the physical process of which it arised, it is purely geometric. GMG can, for now, use one of two methods for generating the RVE: 1) molecular dynamics and 2) random sequential addition.
-
-It falls under the user to ensure that the virtual geometry, also known as RVE (representative volume element), is representative of the real geometry whose properties are to be determined.
-
+The generation of the microstructure is not based on the physical process of which it arised, it is purely geometric. GMG can, for now, use one of two methods for generating the RVE: molecular dynamics and random sequential addition.
 
 
 !!Falta adicionar os artigos em que o software já foi utilizado.
