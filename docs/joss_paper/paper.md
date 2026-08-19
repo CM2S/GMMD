@@ -35,14 +35,16 @@ bibliography: paper.bib
 #
 # If you are not making a joint submission you should remove these lines.
 #
-aas-doi: 10.3847/xxxxx <- update this with the DOI from AAS once you know it.
-aas-journal: Astrophysical Journal <- The name of the AAS journal.
+#aas-doi: 10.3847/xxxxx <- update this with the DOI from AAS once you know it.
+#aas-journal: Astrophysical Journal <- The name of the AAS journal.
+
+
+# Note: the outline of this paper was copied from the JOSS example paper. To be changed later.
+# Work log:
+#  - First draft of the summary and statement of need
+
 ---
 
-# Work log
-Note: the outline of this paper was copied from the JOSS example paper. To be changed later.
-Work log:
-  - First draft of the summary and statement of need
 
 # Summary
 GMMD is an open-source Python tool to generate microstructures. It can generate single or multiphase 2D or 3D microstructures with varying RVE (representative volume element) dimensions. At the moment, the particle (or void) shapes available are disks, ellipses, squares, spheres, ellipsoids, fibers and cylinders. Moreover, the code was designed so that further shapes can be easily added. GMG can, for now, use one of two methods for generating the RVE: 1) molecular dynamics and 2) random sequential addition.
@@ -123,28 +125,6 @@ You can also use plain \LaTeX for equations
 \end{equation}
 and refer to \autoref{eq:fourier} from text.
 
-# Citations
-
-Citations to entries in paper.bib should be in
-[rMarkdown](http://rmarkdown.rstudio.com/authoring_bibliographies_and_citations.html)
-format.
-
-If you want to cite a software repository URL (e.g. something on GitHub without a preferred
-citation) then you can do it with the example BibTeX entry below for @fidgit.
-
-For a quick reference, the following citation commands can be used:
-- `@author:2001`  ->  "Author et al. (2001)"
-- `[@author:2001]` -> "(Author et al., 2001)"
-- `[@author1:2001; @author2:2001]` -> "(Author1 et al., 2001; Author2 et al., 2002)"
-
-# Figures
-
-Figures can be included like this:
-![Caption for example figure.\label{fig:example}](figure.png)
-and referenced from text using \autoref{fig:example}.
-
-Figure sizes can be customized by adding an optional second parameter:
-![Caption for example figure.](figure.png){ width=20% }
 
 # AI usage disclosure
 
