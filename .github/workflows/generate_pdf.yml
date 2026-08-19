@@ -1,7 +1,7 @@
 on:
   push:
     paths:
-      - joss_paper/**
+      - docs/joss_paper/**
       - .github/workflows/generate_pdf.yml
 
 name: Compile JOSS paper
@@ -18,7 +18,7 @@ jobs:
         with:
           journal: joss
           # This should be the path to the paper within your repo.
-          paper-path: paper.md
+          paper-path: docs/joss_paper/paper.md
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
