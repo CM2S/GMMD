@@ -1,8 +1,7 @@
 on:
   push:
-    paths:
-      - docs/joss_paper/**
-      - .github/workflows/generate_pdf.yml
+    branches:
+      - '*JOSS_paper*'
 
 name: Compile JOSS paper
 
@@ -20,7 +19,7 @@ jobs:
           # This should be the path to the paper within your repo.
           paper-path: docs/joss_paper/paper.md
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v1
         with:
           name: paper
           # This is the output path where Pandoc will write the compiled
