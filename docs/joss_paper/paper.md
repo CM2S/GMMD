@@ -4,7 +4,7 @@ tags:
   - Python
 
 authors:
-  - name: Adrian M. Price-Whelan
+  - name: Some author
     orcid: 0000-0000-0000-0000
     equal-contrib: true
     affiliation: "1, 2" # (Multiple affiliations must be quoted)
@@ -19,10 +19,10 @@ authors:
     surname: Beethoven
     affiliation: 3
 affiliations:
- - name: Lyman Spitzer, Jr. Fellow, Princeton University, United States
+ - name: Faculty of Engineering, University of Porto, Porto, Portugal
    index: 1
    ror: 00hx57361
- - name: Institution Name, Country
+ - name: Institute of Science and Innovation in Mechanical and Industrial Engineering, Porto, Portugal 
    index: 2
  - name: Independent Researcher, Country
    index: 3
@@ -53,25 +53,21 @@ After the generation procedure, the RVE can be discretized in a suitable finite 
 
 
 
-
-
 # Statement of need
 
-Modeling the behaviour of materials and finding their mechanical properties is paramount for structural design. Some materials are easy to characterize (due to the past work of great minds), but the more complex the material, the harder is its characterization.
+The undestanding of the behaviour of complex materials is fundamental to use them in the limits of its capabilities, whether the material is natural and traditional, such as wood and soils, or modern synthetics, as is a fiber reinforced polymer, for example.
 
-!!Examples of complex materials and their applications.
+These complex materials often are heterogenous, as is nearly every material at a small enough schale. Simulating an entire structural part considering all its heterogeneities, often very small comparative to the part size, can be very time consuming and extremely impractical.
 
-Every material is heteregenous at a small enough scale. Thus, in order to obtain the properties of certain materials, a multiscale aproach can be followed.
-Lets take the example of a single ply of a composite material. At the microscale, one can distinguish matrix from fiber and even interface.
-If we know:
-    1. the material model and its properties for both matrix and reinforcement
-    2. the interface model and properties
-    3. the geometry of the fibers and the matrix
-we can obtain the material properties at the ply scale (using a process known as computational homegenization).
+Thus, a multiscale approach was created, where if one knows the microstrcutural features of the material:
+    1. the properties of the constituents
+    2. the properties of the interface
+    3. and the geometry of each phase in 
+one can obtain its macroscale properties using a process known as computational homogenization.
+This requires the generation of a representative volume element (RVE), that is, in broad terms, a small volume element representative of the entire microstructure in an average sense `[@HILL1963357]`.
 
-On the other hand, if the material properties, the fiber and matrix geometry and the behaviour of the lamina is known (through physical testing), one can, perhaps, find a possible interface model.
-
-GMG tackles the third point. It is a python package that generates microstrucutre geometry depending on the user input, such as particle (or void) shape, volume fraction and more descriptors. 
+GMG enters as a solution to generating the geometry of a RVE, saving researchers much time, especially if a large number of samples is required.
+It is a python package that generates microstrucutre geometry depending on the user input, such as particle (or void) shape, volume fraction and more descriptors. 
 
 The generation of the microstructure is not based on the physical process of which it arised, it is purely geometric. GMG can, for now, use one of two methods for generating the RVE: 1) molecular dynamics and 2) random sequential addition.
 
@@ -91,21 +87,6 @@ It falls under the user to ensure that the virtual geometry, also known as RVE (
 - TexGen: Woven / Braided Composites
 - MicroStructPy: Particulate / Inclusions / Foams
 
-
-
-
-
-
-
-# State of the field                                                                                                                  
-
-
-
-# Software design
-
-
-
-# Research impact statement
 
 
 # Mathematics
