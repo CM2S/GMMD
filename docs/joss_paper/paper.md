@@ -1,5 +1,5 @@
 ---
-title: 'GMG: A Python package for geometric microstructure generation'
+title: 'GMMD: A Python package for geometric microstructure generation'
 tags:
   - Python
 
@@ -47,8 +47,8 @@ bibliography: paper.bib
 
 
 # Summary
-GMMD is an open-source Python tool to generate microstructures. It can generate single or multiphase 2D or 3D microstructures with varying RVE (representative volume element) dimensions. At the moment, the particle (or void) shapes available are disks, ellipses, squares, spheres, ellipsoids, fibers and cylinders. Moreover, the code was designed so that further shapes can be easily added. GMG can, for now, use one of two methods for generating the RVE: 1) molecular dynamics and 2) random sequential addition.
-GMG can export the final microstructure configuration (PDF for 2D, VTK for 2D and 3D) and can generate 2D simulation GIFs. It also includes built-in tools for performing statistical analyses on the microstructure.
+GMMD is an open-source Python tool to generate microstructures. It can generate single or multiphase 2D or 3D microstructures with varying RVE (representative volume element) dimensions. At the moment, the particle (or void) shapes available are disks, ellipses, squares, spheres, ellipsoids, fibers and cylinders. Moreover, the code was designed so that further shapes can be easily added. GMMD can, for now, use one of two methods for generating the RVE: molecular dynamics and random sequential addition.
+GMMD can export the final microstructure configuration (PDF for 2D, VTK for 2D and 3D) and can generate 2D simulation GIFs. It also includes built-in tools for performing statistical analyses on the microstructure.
 After the generation procedure, the RVE can be discretized in a suitable finite element mesh in order to perform microscale analyses through computational homogenization.
 
 
@@ -59,21 +59,23 @@ The undestanding of the behaviour of complex materials is fundamental to use the
 
 These complex materials often are heterogenous, as is nearly every material at a small enough schale. Simulating an entire structural part considering all its heterogeneities, often very small comparative to the part size, can be very time consuming and extremely impractical.
 
-Thus, a multiscale approach was created, where if one knows the microstrcutural features of the material:
-  1. the properties of the constituents,
-  2. the properties of the interface,
-  3. and the geometry of each phase,
+Thus, a multiscale approach emerged, where if one knows the microstructural features of the material:
+
+1. the properties of the constituents,
+2. the properties of the interface,
+3. and the geometry of each phase,
+
 one can obtain its macroscale properties using a process known as computational homogenization.
-This requires the generation of a representative volume element (RVE), that is, in broad terms, a small volume element representative of the entire microstructure in an average sense [@HILL1963357].
+Thus, this requires the generation of a representative volume element (RVE), that is, in broad terms, a small volume element representative of the entire microstructure in an average sense [@HILL1963357].
 
-GMG enters as a solution to generating the geometry of a RVE, saving researchers much time, especially if a large number of samples is required.
-It is a python package that generates microstrucutre geometry depending on the user input, such as particle (or void) shape, volume fraction and more descriptors. 
+GMMD enters as a solution for generating RVEs for particle reinforced materials, saving researchers and designers much time, especially if a large number of samples is required.
+It also facilitates AI material design, since it can generate the datasets to train machine learning models. This can replace slow, iterative design cycles with a much faster, automated process.
 
-The generation of the microstructure is not based on the physical process of which it arised, it is purely geometric. GMG can, for now, use one of two methods for generating the RVE: molecular dynamics and random sequential addition.
+GMMD is, thus, a python package that generates microstrucutre geometry depending on the user input, such as particle (or void) shape and a broad range of microstructure descriptors following different statistical distributions.
 
+The generation of the microstructure is not based on the physical process of which it arised, it is purely geometric. GMMD can, for now, use one of two methods for generating the RVE: molecular dynamics and random sequential addition.
 
-!!Falta adicionar os artigos em que o software já foi utilizado.
-!! Vale a pena fazer referência à tese do Zé?
+@VILACHA2021104069 presents the theory behind the molecular dynamics simulation, while the Numerical assessment and statistical analysis of the microstructures obtained via molecular dynamics is provided in the article @FERREIRA2022104068.
 
 !!Talk about other softwares and how this software brings something new and useful.
 (Softwares que o gemini indicou, por ordem de prioridade de pesquisa.)
