@@ -69,10 +69,10 @@ After the generation procedure, the RVE can be discretized in a suitable finite 
 
 @VILACHA2021104069 presents the theory behind the molecular dynamics simulation, while the numerical assessment and statistical analysis of the microstructures obtained via molecular dynamics simulation is provided by @FERREIRA2022104068.
 
-Several open-source software packages generate microstructures, each with different features and targeting distinct materials: Neper and Kanapy focus on polycrystalline microstructures; PoreSpy is tailored for porous materials (albeit microstructure generation not being its main functionality); and MicroStructPy supports a narrower range of particle geometries comparing to GMMD.
+Several open-source software packages generate microstructures, each with different features and targeting distinct materials: Neper and Kanapy focus on polycrystalline microstructures; PoreSpy is tailored for porous materials (albeit not primarily designed for microstructure generation); and MicroStructPy supports a narrower range of particle geometries comparing to GMMD.
 Thus, GMMD tackles the problem of generating microstructures for particle reinforced materials, it supports a broad library of particle shapes and its architecture allows for easy integration of new particle shapes.
 
-For more information on how to use and/or contribute to this code, consult its documentation and repository.
+For more information on how to use and/or contribute to this code, visit our documentation and  repository.
 <!-- A documentação não está feita-->
 
 
