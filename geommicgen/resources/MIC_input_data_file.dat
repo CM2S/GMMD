@@ -101,7 +101,7 @@
 #		5 - Ellipsoids (3D)
 #		6 - Long cilyndrical fibers (3D)
 #       	7 - Cyliner (3D)
-#       	8 - Square
+#       	8 - Square (2D)
 #
 # 	Note: 2D and 3D shapes are incompatible and long cylindrical fibers (6) are
 #	incompatible with all other particle shapes except matrix (1).
@@ -252,10 +252,15 @@
 # GENERATION PARAMETERS
 # ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-#						                           Microstructure generation method  [G] (M)
+#						   Microstructure generation method  [G] (M)
 # ==========================================================================================
 # Meaning:   Microstructure generation method to be used.
 #
+GMG tackles the third point. It is a python package that generates microstrucutre geometry depending on the user input, such as particle (or void) shape, volume fraction and more descriptors. 
+
+The generation of the microstructure is not based on the physical process of which it arised, it is purely geometric. GMG can, for now, use one of two methods for generating the RVE: 1) molecular dynamics and 2) random sequential addition.
+
+
 # Syntax:    Mic_Gen_Method x
 #
 # x:         {'MD', 'RSA'}
@@ -289,7 +294,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                           						 Speed-up scheme [G] (O)
+#                                           			     Speed-up scheme [G] (O)
 # ==========================================================================================
 # Meaning:	Speed-up scheme for particle interaction, avoiding computing interactions between
 #      	     between particles that can be shown a priori not to interact. Used in
@@ -380,7 +385,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                      			        Final naive overlap check [G-MD] (O)
+#                                      			Final naive overlap check [G-MD] (O)
 # ==========================================================================================
 # Meaning:   Check the final overlap considering every pair of particles.
 #
@@ -390,7 +395,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                       		               Adaptive time step [G-MD] (O)
+#                                       		       Adaptive time step [G-MD] (O)
 # ==========================================================================================
 # Meaning:   Flag for the use of the adaptive time step scheme.
 #
@@ -436,7 +441,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                         	         Temperature lowering ratio [G-MD-T] (O)
+#                                         	     Temperature lowering ratio [G-MD-T] (O)
 # ==========================================================================================
 # Meaning:   When using the Mulitemperature Isokinetic thermostat is the ratio used to
 #            compute the next temperature from the current temperature.
@@ -447,7 +452,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                         	     Number of overlap oscillations [G-MD-T] (O)
+#                                         	 Number of overlap oscillations [G-MD-T] (O)
 # ==========================================================================================
 # Meaning:   Number of sign changes of the overlap ratio (increase/decrease) accepted as
 #            signaling that thermal equilibrium has been reached.
@@ -480,10 +485,10 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                         	    Initial temperature coefficient [G-MD-T] (O)
+#                                         	Initial temperature coefficient [G-MD-T] (O)
 # ==========================================================================================
 # Meaning:   Coefficient used to set the initial temperature through the connection with the
-#						 kinetic energy expressed in the equipartition theorem.
+#		kinetic energy expressed in the equipartition theorem.
 #
 # Syntax:    final_overlap_check x
 #
@@ -491,7 +496,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                         		          Berendsen coefficient [G-MD-T] (O)
+#                                         		  Berendsen coefficient [G-MD-T] (O)
 # ==========================================================================================
 # Meaning:   Value of the coefficient used in the Berendsen thermostat.
 #
@@ -571,7 +576,7 @@
 #            "unit"   - unit mass for all particles.
 # ------------------------------------------------------------------------------------------
 
-#                                         	        Type of interaction forces [G-MG-DC] (O)
+#                                         	    Type of interaction forces [G-MG-DC] (O)
 # ==========================================================================================
 # Meaning:   Type of the interaction forces prescribed for intersection particles.
 #
@@ -613,7 +618,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                  					  Simulation GIF frame duration [PP] (O)
+#                                		      Simulation GIF frame duration [PP] (O)
 # ==========================================================================================
 # Meaning:   Duration of each frame in milliseconds. Default to 200ms
 #
@@ -623,9 +628,9 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                  					  Simulation GIF cleanup frames [PP] (O)
+#                                                     Simulation GIF cleanup frames [PP] (O)
 # ==========================================================================================
-# Meaning:   If True, deletes frame PNG files. Default to True.
+# Meaning:   If True, deletes frame PNG files used to generate the gif. Default to True.
 #
 # Syntax:    sim_gif_cleanup_frames x
 #
@@ -766,11 +771,11 @@
 
 
 
-#                                                     		       Save history [PP-RSA] (O)
+#                                                     		   Save history [PP-RSA] (O)
 # ==========================================================================================
 # Meaning:   If True all, the number of intersection checks and number of particles accepted
-#		into the microstructure history is saved. There is an option with the same sintax but
-#		slightly different meaning for MD simulations.
+#		into the microstructure history is saved. There is an option with the same
+#		sintax but slightly different meaning for MD simulations.
 #
 # Syntax:    Save_History x (default to 'False')
 #
@@ -782,7 +787,7 @@
 # MESH OPTIONS
 # ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-#                                                     			           Mesh options [MO]
+#                                                     			   Mesh options [MO]
 # ==========================================================================================
 # Meaning:   Mesh options.
 #
@@ -844,7 +849,7 @@
 
 
 
-#                                       		      Offset use for better meshing [MO] (O)
+#                                       	      Offset use for better meshing [MO] (O)
 # ==========================================================================================
 # Meaning:   Flag for the use of an offset for better FEM meshing.
 #
