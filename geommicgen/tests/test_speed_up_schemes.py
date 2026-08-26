@@ -13,6 +13,11 @@ import pickle
 import numpy as np
 
 from geommicgen.micgenmethod.speed_up_schemes.MD_speed_up_schemes import MD_SpeedUpScheme, CellList, VerletList
+from geommicgen.micgenmethod.speed_up_schemes.RSA_speed_up_schemes import (
+    RSA_SpeedUpScheme,
+    CellList as RSACellList,
+    Naive as RSANaive,
+)
 from geommicgen.microstructure.particleclasses import Ellipse, Disk
 
 from geommicgen.micgenmethod.microstructure_gen_method import (
@@ -25,8 +30,8 @@ from geommicgen.micgenmethod.molecular_dynamics_sim import (
 import numpy as np
 
 
-class TestSpeedUpScheme(unittest.TestCase):
-    """Class for the unit test regarding the speed up schemes"""
+class TestMDSpeedUpScheme(unittest.TestCase):
+    """Class for the unit tests regarding the molecular dynamics (MD) speed up schemes."""
 
     def test_new_list_abstract(self):
         """Test if generateMicrostructure is an abstract method."""
@@ -336,7 +341,9 @@ class TestSpeedUpScheme(unittest.TestCase):
         self.assertEqual(8, current_cell_list.neighbor_cell(26, 22, 3, [3, 3, 3]))
 
 
-class TestVerlet(unittest.TestCase):
+class TestMDVerletList(unittest.TestCase):
+    """Class for the unit tests regarding the MD Verlet list speed up scheme."""
+
     def test_intersection_issue_small_large_2(self):
         """Test for the Verlet list with two small ellipses inside a larger one."""
 
@@ -422,6 +429,168 @@ class TestVerlet(unittest.TestCase):
                 == np.array([0.5, 0.5])
             )
         )
+
+
+class TestRSASpeedUpScheme(unittest.TestCase):
+    """Class for the unit tests regarding the Random Sequential Adsorption (RSA) speed up schemes."""
+
+    # def test_new_list_abstract(self):
+    #     """Test if new_list is an abstract method of RSA_SpeedUpScheme."""
+
+    #     class SpeedUpSchemeTest(RSA_SpeedUpScheme):
+    #         pass
+
+    #     with self.assertRaises(TypeError):
+
+    #         _ = SpeedUpSchemeTest()
+
+    # def test_box_property_uses_rsa_sim_box(self):
+    #     """Test that the box property is read from the rsa_sim attribute."""
+    #     cell_list = RSACellList()
+    #     cell_list.rsa_sim = Mock(box=[3.0, 4.0])
+    #     self.assertEqual(cell_list.box, [3.0, 4.0])
+
+    # def test_box_property_none_without_rsa_sim(self):
+    #     """Test that the box property is None when no rsa_sim has been set."""
+    #     cell_list = RSACellList()
+    #     self.assertIsNone(cell_list.box)
+
+    # def test_update_max_radius_initial(self):
+    #     """Test that the first call to update_max_radius uses the particles already in the box."""
+    #     particles = [Mock(radius=0.1), Mock(radius=0.3), Mock(radius=0.2)]
+    #     trial_particle = Mock(radius=0.15)
+    #     cell_list = RSACellList()
+
+    #     was_updated = cell_list.update_max_radius(particles, trial_particle)
+
+    #     self.assertTrue(was_updated)
+    #     self.assertEqual(cell_list.max_radius, 0.3)
+
+    def test_update_max_radius_trial_particle_larger(self):
+        """Test that max_radius is updated when the trial particle is bigger."""
+        cell_list = RSACellList()
+        cell_list.max_radius = 0.3
+        trial_particle = Mock(radius=0.5)
+
+        was_updated = cell_list.update_max_radius([], trial_particle)
+
+        self.assertTrue(was_updated)
+        self.assertEqual(cell_list.max_radius, 0.5)
+
+    def test_update_max_radius_trial_particle_smaller(self):
+        """Test that max_radius is left unchanged when the trial particle is smaller."""
+        cell_list = RSACellList()
+        cell_list.max_radius = 0.3
+        trial_particle = Mock(radius=0.2)
+
+        was_updated = cell_list.update_max_radius([], trial_particle)
+
+        self.assertFalse(was_updated)
+        self.assertEqual(cell_list.max_radius, 0.3)
+
+    def test_update_n_cell_dim_without_box_raises(self):
+        """Test that update_n_cell_dim raises when the simulation box is undefined."""
+        cell_list = RSACellList()
+        cell_list.max_radius = 0.25
+
+        with self.assertRaises(ValueError):
+            cell_list.update_n_cell_dim()
+
+    def test_update_n_cell_dim_and_cell_side_length(self):
+        """Test the computation of n_cell_dim and cell_side_length."""
+        cell_list = RSACellList()
+        cell_list.box=[2,1]
+        cell_list.max_radius = 0.25
+        cell_list.update_n_cell_dim()
+        cell_list.update_cell_side_length()
+        self.assertEqual(cell_list.n_cell_dim, [4,2])
+        self.assertEqual(cell_list.cell_side_length,[0.5,0.5])
+
+    def test_get_particle_cell_2d(self):
+        """Test the cell index computation for a 2D particle."""
+        cell_list = RSACellList()
+        cell_list.n_cell_dim = [4, 4]
+        cell_list.cell_side_length = [0.5, 0.5]
+        particle = Mock(position_center=np.array([1.1, 1.1]), dim=2)
+        self.assertEqual(cell_list.get_particle_cell(particle), 10)
+
+    def test_get_particle_cell_3d(self):
+        """Test the cell index computation for a 3D particle."""
+        cell_list = RSACellList()
+        cell_list.n_cell_dim = [2, 2, 2]
+        cell_list.cell_side_length = [0.5, 0.5, 0.5]
+        particle = Mock(position_center=np.array([0.6, 0.6, 0.6]), dim=3)
+
+        self.assertEqual(cell_list.get_particle_cell(particle), 7)
+
+    def test_new_list_builds_cell_list_and_particle_list(self):
+        """Test that new_list assigns the particles to cells and finds the trial particle's neighbors."""
+        particles = [
+            Mock(radius=0.25, position_center=np.array([0.1, 0.1]), dim=2),
+            Mock(radius=0.25, position_center=np.array([0.6, 0.1]), dim=2),
+            Mock(radius=0.25, position_center=np.array([1.1, 1.1]), dim=2),
+            Mock(radius=0.25, position_center=np.array([1.9, 1.9]), dim=2),
+        ]
+        trial_particle = Mock(radius=0.25, position_center=np.array([0.55, 0.55]), dim=2)
+        cell_list = RSACellList()
+        cell_list.rsa_sim = Mock(box=[2.0, 2.0])
+
+        cell_list.new_list(particles, trial_particle)
+
+        self.assertEqual(cell_list.max_radius, 0.25)
+        correct_cell_list = 16 * [set()]
+        correct_cell_list[0] = {0}
+        correct_cell_list[1] = {1}
+        correct_cell_list[10] = {2}
+        correct_cell_list[15] = {3}
+        self.assertTrue(cell_list.cell_list == correct_cell_list)
+        # Particle 3 (cell 15) is not a neighbor of the trial particle's cell (cell 5).
+        self.assertEqual(sorted(cell_list.particle_list), [0, 1, 2])
+
+    def test_new_list_incrementally_adds_accepted_particle(self):
+        """Test that a particle accepted between two calls is added to the cell list without a full rebuild."""
+        particles = [
+            Mock(radius=0.25, position_center=np.array([0.1, 0.1]), dim=2),
+            Mock(radius=0.25, position_center=np.array([0.6, 0.1]), dim=2),
+            Mock(radius=0.25, position_center=np.array([1.1, 1.1]), dim=2),
+            Mock(radius=0.25, position_center=np.array([1.9, 1.9]), dim=2),
+        ]
+        trial_particle_1 = Mock(radius=0.25, position_center=np.array([0.55, 0.55]), dim=2)
+        cell_list = RSACellList()
+        cell_list.rsa_sim = Mock(box=[2.0, 2.0])
+        cell_list.new_list(particles, trial_particle_1)
+        self.assertEqual(sorted(cell_list.particle_list), [0, 1, 2])
+
+        # trial_particle_1 got accepted, so it now belongs to the simulation box.
+        particles_with_accepted = particles + [trial_particle_1]
+        trial_particle_2 = Mock(radius=0.25, position_center=np.array([0.55, 0.55]), dim=2)
+
+        cell_list.new_list(particles_with_accepted, trial_particle_2)
+
+        # max_radius did not grow, so the cell list should have been updated incrementally.
+        self.assertEqual(cell_list.cell_list[5], {4})
+        self.assertEqual(sorted(cell_list.particle_list), [0, 1, 2, 4])
+
+    def test_new_list_rebuilds_cell_list_when_max_radius_grows(self):
+        """Test that a bigger trial particle triggers a full rebuild of the cell list."""
+        particles = [
+            Mock(radius=0.1, position_center=np.array([0.1, 0.1]), dim=2),
+            Mock(radius=0.1, position_center=np.array([1.9, 1.9]), dim=2),
+        ]
+        cell_list = RSACellList()
+        cell_list.rsa_sim = Mock(box=[2.0, 2.0])
+        trial_particle_1 = Mock(radius=0.1, position_center=np.array([1.0, 1.0]), dim=2)
+        cell_list.new_list(particles, trial_particle_1)
+        self.assertEqual(cell_list.max_radius, 0.1)
+
+        trial_particle_2 = Mock(radius=0.5, position_center=np.array([1.0, 1.0]), dim=2)
+        cell_list.new_list(particles, trial_particle_2)
+
+        self.assertEqual(cell_list.max_radius, 0.5)
+        self.assertTrue(all(np.array(cell_list.n_cell_dim) == np.array([2, 2])))
+        self.assertEqual(len(cell_list.cell_list), 4)
+        self.assertEqual(cell_list.cell_list[0], {0})
+        self.assertEqual(cell_list.cell_list[3], {1})
 
 
 def load_a_troublesome_example(previous_mic_path):
