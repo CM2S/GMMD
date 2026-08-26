@@ -1,10 +1,11 @@
 # 2D Example
-# Microstructure containing a single phase with squares.
-
+# Microstructure containing a single phase with 100 ellipses. Its volume fraction is 50%.
+# The orientation of the ellipses varies according to a Normal distribution and the ratio
+# between principal axis is 1.2.
 
 Problem_Type 1
 N_DP_Samples 1
-RVE_Dimensions [1, 1]
+RVE_Dimensions [1, 2]
 
 # Microstructure definition
 # ------------------------------------------------------------------------------------------
@@ -12,25 +13,31 @@ Mic_Gen_Descriptors
 Phase 0
 Phase_Type 1
 Phase 1
-Phase_Type 8
-vf 0.2
-side_distribution normal
-side_mean 0.1
-side_sigma 0.02
-Min_Distance 0.05
-
-
-
+Phase_Type 3
+n 30
+angle_distribution normal
+angle_mean 0
+angle_sigma 0.2
+major_axis 0.2
+ratio 1.5
+#Min_Distance 0.05
 
 # Generation parameters
 # ------------------------------------------------------------------------------------------
 Mic_Gen_Method MD
 Max_Residue_Per_Particle 0
-Max_Step 50
+Max_Step 100
 Speed_Up_Scheme Verlet
 Verlet_Factor 1.1
 Save_History True
 final_config True
+#stat_ripleys_k True
+#stat_nearest_neighbor True
+#stat_two_pt_corr True
+voronoi_analysis True
+plot_voronoi True
+
+
 
 
 # Mesh generation

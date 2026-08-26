@@ -1,0 +1,32 @@
+# 3D Example
+# Microstructure containing a single phase with ellipsoids. Its volume fraction is 10%.
+
+Problem_Type 1
+N_DP_Samples 1
+RVE_Dimensions [1.2, 0.9, 0.7]
+
+# Microstructure definition
+# ------------------------------------------------------------------------------------------
+Mic_Gen_Descriptors
+Phase 0
+Phase_Type 1
+Phase 1
+Phase_Type 4
+vf 0.05
+r 0.04
+
+# Generation parameters
+# ------------------------------------------------------------------------------------------
+Mic_Gen_Method RSA
+Min_Distance 0.002
+Max_Step 20000
+Speed_Up_Scheme Cell
+#Save_History True
+#Motion_Analysis True
+final_config True
+
+# Mesh generation
+# ------------------------------------------------------------------------------------------
+#Mesh_Options
+#rgmsh
+#n_voxels_dims [70, 70, 70]

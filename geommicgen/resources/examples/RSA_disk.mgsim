@@ -6,7 +6,7 @@
 
 Problem_Type 1
 N_DP_Samples 1
-RVE_Dimensions [1, 1]
+RVE_Dimensions [1.5, 1.2]
 
 # Microstructure definition
 # ------------------------------------------------------------------------------------------
@@ -15,15 +15,8 @@ Phase 0
 Phase_Type 1
 Phase 1
 Phase_Type 2
-r 0.05
-vf 0.2
-Phase 2
-Phase_Type 8
-vf 0.2
-side_distribution normal
-side_mean 0.1
-side_sigma 0.01
-
+r 0.04
+vf 0.3
 
 
 # Generation parameters
@@ -33,9 +26,10 @@ Max_Step 10000
 Save_History True # For now this is not being used
 final_config True # For now this is not being used
 
+
 # Mesh generation
 # ------------------------------------------------------------------------------------------
 Mesh_Options
 
-rgmsh
-n_voxels_dims [1000, 1000]
+#rgmsh
+#n_voxels_dims [1000, 1000]
