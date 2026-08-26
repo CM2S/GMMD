@@ -171,7 +171,9 @@ class RandomSequentialAdsorption(GenerationMethod):
                         break
                     n_iteration += 1
                         
-                    trial_particle = i_phase.generate_single_particle(self.box)
+                    trial_particle = i_phase.generate_single_particle(
+                        microstructure_sample.rve_dims, self.box
+                    )
                     trial_particle.dilate(self.min_distance / 2)
                     # Dilate the particle if there is a minimum distance imposed. It will later be contracted back to its original size. If there is no minimum distance, min_distance is 0, so the particle will not be dilated.
 

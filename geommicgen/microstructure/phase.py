@@ -289,7 +289,7 @@ class Phase:
 
 
 
-    def generate_single_particle(self, box):
+    def generate_single_particle(self, rve_dims, box):
         """
         Output: an object from class particle with the descriptors according to the input and a random position.
         Used in random sequential adsorption method.
@@ -297,14 +297,21 @@ class Phase:
         Parameters
         ----------
         rve_dims: list
+            Full dimensions of the microstructure. Needed to construct the particle (e.g. a
+            CylindricalFiber needs the microstructure's extent along its own axis, which is
+            not part of the reduced simulation box).
+
+        box: list
+            Simulation box used for the random sequential adsorption method. Equal to
+            *rve_dims*, except for CylindricalFibers, for which it has the fiber direction
+            removed (see `.GenerationMethod.set_box`).
         """
         current_sample = {}
         for i_descriptor_name, i_descriptor in self.descriptors.items():
             current_sample[i_descriptor_name] = i_descriptor.generate_sample()
-        new_particle = self.type(self.name, current_sample, box)
+        new_particle = self.type(self.name, current_sample, rve_dims)
 
         # Assign a random center position to the single new particle
-        # print(new_particle.dim)
         new_particle.position_center = np.random.rand( new_particle.dim ) * box
 
         return new_particle
@@ -322,7 +329,6 @@ class Phase:
         #    print("\t- Particle with descriptors:")
         #    for i_descriptor_name, i_descriptor in vars(i_particle).items():
         #        print("\t\t- {0}: {1}".format(i_descriptor_name, i_descriptor))
-
 
 
 class PhaseDescriptor(abc.ABC):
