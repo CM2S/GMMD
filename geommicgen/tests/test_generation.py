@@ -55,6 +55,7 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
                 "min_distance",
                 "type_init_conf",
                 "save_history",
+                "sample_dir",
             ]
         }
 
@@ -318,6 +319,7 @@ class TestMolecularDynamicSimulationForce(unittest.TestCase):
                 "min_distance",
                 "type_init_conf",
                 "save_history",
+                "sample_dir",
             ]
         }
 
