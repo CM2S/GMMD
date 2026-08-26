@@ -12,7 +12,7 @@ from geommicgen.postproc.plotfuncs.plotting_functions import (
 import pickle
 import numpy as np
 
-from geommicgen.micgenmethod.speed_up_schemes import SpeedUpScheme, CellList, VerletList
+from geommicgen.micgenmethod.speed_up_schemes.MD_speed_up_schemes import MD_SpeedUpScheme, CellList, VerletList
 from geommicgen.microstructure.particleclasses import Ellipse, Disk
 
 from geommicgen.micgenmethod.microstructure_gen_method import (
@@ -33,7 +33,7 @@ class TestSpeedUpScheme(unittest.TestCase):
 
         # with self.assertRaises(ValueError):
 
-        class SpeedUpSchemeTest(SpeedUpScheme):
+        class SpeedUpSchemeTest(MD_SpeedUpScheme):
             pass
 
         with self.assertRaises(TypeError):
@@ -377,7 +377,7 @@ class TestVerlet(unittest.TestCase):
 
         verlet_list = VerletList(1.5)
         molecular_dynamics_sim = MolecularDynamicsSimulation(
-            0, 500, 0, 0.01, 0, "random", True
+            0, 500, 0, 0.01, 0, "random", True, ""
         )
         molecular_dynamics_sim.box = rve_dims
         molecular_dynamics_sim.set_speed_up_scheme(verlet_list)
@@ -403,7 +403,7 @@ class TestVerlet(unittest.TestCase):
 
         verlet_list = VerletList(1.5)
         molecular_dynamics_sim = MolecularDynamicsSimulation(
-            0, 500, 0, 0.01, 0, "random", True
+            0, 500, 0, 0.01, 0, "random", True, ""
         )
         molecular_dynamics_sim.box = rve_dims
         molecular_dynamics_sim.set_speed_up_scheme(verlet_list)
