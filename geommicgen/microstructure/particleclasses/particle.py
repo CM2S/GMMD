@@ -740,6 +740,7 @@ class Point(Particle):
 
     radius = 0
     volume = 0
+    real_volume = 0
 
     def intersection(self, other_particle: Particle, box: list) -> bool:
         """Check if the two particles intersect."""
