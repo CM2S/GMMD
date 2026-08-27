@@ -109,7 +109,7 @@ class Square(Particle):
 
     def generate_points_on_surface(self):
         """Generate *n_points* on the surface of the square."""
-        raise NotImplementedError("To be implemented later.")
+        raise NotImplementedError("generate_points_on_surface method not implemented for Square class.")
 
     def intersection_area(self, other_particle: Particle, box: list) -> float:
         """
@@ -261,7 +261,6 @@ class Square(Particle):
         """Generate a random point inside the square."""
         raise NotImplementedError("To be implemented later.")
         return self.uniform_sample_square()[0]
-
 
 
     def intersection_length(

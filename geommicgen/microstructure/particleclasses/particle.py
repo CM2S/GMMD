@@ -128,8 +128,6 @@ class Particle(abc.ABC):
 
         return volume
     
-
-
     @staticmethod
     def nearest_periodic_image(
         point_1: np.array, point_2: np.array, box: list
@@ -596,6 +594,13 @@ class Particle(abc.ABC):
     @abc.abstractmethod
     def generate_point_inside(self):
         """Generate a random point inside the particle."""
+
+    @abc.abstractmethod
+    def contract(self,distance):
+        """Contract the particle by a given distance."""
+
+    def dilate(self,distance):
+        """Dilate the particle by a given distance."""
 
     def intersection_area_monte_carlo(
         self, other_particle: Particle, box: list, **kwargs
