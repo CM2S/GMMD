@@ -67,6 +67,8 @@ The generation of the microstructure is not based on the physical process of whi
 GMMD can export the final microstructure configuration (PDF for 2D, VTK for 2D and 3D) and can generate 2D simulation GIFs. It also includes built-in tools for performing statistical analyses on the microstructure.
 After the generation procedure, the RVE can be discretized in a suitable finite element mesh in order to perform microscale analyses through computational homogenization.
 
+![Example of microstructure with spheres and ellipsoids. \label{fig:microstructure example}](mic_example.png){width=50%}
+
 @VILACHA2021104069 presents the theory behind the molecular dynamics simulation, while the numerical assessment and statistical analysis of the microstructures obtained via molecular dynamics simulation is provided by @FERREIRA2022104068.
 
 
