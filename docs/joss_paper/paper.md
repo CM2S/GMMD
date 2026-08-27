@@ -69,8 +69,14 @@ After the generation procedure, the RVE can be discretized in a suitable finite 
 
 @VILACHA2021104069 presents the theory behind the molecular dynamics simulation, while the numerical assessment and statistical analysis of the microstructures obtained via molecular dynamics simulation is provided by @FERREIRA2022104068.
 
-Several open-source software packages generate microstructures, each with different features and targeting distinct materials: Neper and Kanapy focus on polycrystalline microstructures; PoreSpy is tailored for porous materials (albeit not primarily designed for microstructure generation); and MicroStructPy supports a narrower range of particle geometries comparing to GMMD.
-Thus, GMMD tackles the problem of generating microstructures for particle reinforced materials, it supports a broad library of particle shapes and its architecture allows for easy integration of new particle shapes.
+
+GMMD is part of an ecosystem of open source microstructure generators.
+Neper [@Neper2011; @Neper2018], for instance, generates polycrystalline microstructures via Laguerre tessellations. The seed positions and weights for tesselation are adjusted via an optimization algorithm until the resulting tesselation converges to the desired morphology.
+Kanapy [@Kanapy2019], also taylored for polycrystalline microstructures,  generates microstructures via collision driven particle dynamics.
+Albeit not primarily designed for microstructure generation, PoreSpy [@gostick2019porespy] is tailored for porous materials.
+Lastly, MicroStrucPy [@hart2020microstructpy] generates microstructures via packing geometries (with controled overlap), approximating them by multi-circles and them using them as seeds to tesselate the domain. It is suitable for polycristaline materials while also handling porous and particle reinforced materials.
+
+GMMD is unique in that it generates microstructures for particle reinforced materials, it supports a broad library of particle shapes and its architecture allows for easy integration of new ones and can use time driven molecular dynamics or random sequentian adsorption as the generation method, not making use of tesselation nor optimization.
 
 For more information on how to use and/or contribute to this code, visit our documentation and  repository.
 <!-- A documentação não está feita-->
@@ -90,6 +96,7 @@ There are several open-source softwares for microstructure generation.
 Nos softwares de geração, vale a pena ver o método de geração?
 
 Incluir imagem de uma microestrutura?
+
 -->
 
 
