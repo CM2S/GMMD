@@ -99,7 +99,6 @@ def remove_particles_at_boundary(particles, rve_dims):
                     i_particle.support_function(direction)[i_dim],
                 ]
             )
-        print(all_lims)
         if any(
             [
                 i_lim[0] < 0 or i_lim[1] > rve_dims[i_dim]
@@ -343,12 +342,6 @@ def ripleys_k_func(microstructure, max_radius=10, n_points=20):
                 ):
                     points_in += 1
             int_area = points_in / len(points) * (np.pi * radius ** 2)
-            # import matplotlib.pyplot as plt
-
-            # plt.figure()
-            # points = np.array(points)
-            # plt.scatter(points[:, 0], points[:, 1])
-            # plt.show()
             return int_area
 
         max_length = np.max(box) / 2
@@ -416,7 +409,6 @@ def ripleys_k_func(microstructure, max_radius=10, n_points=20):
 
     plot_particles_2d(rem_particles, adj_rve_dims, "", save=False, show=False)
 
-    # plt.show()
     radius = np.mean([i_particle.radius for i_particle in rem_particles])
     n_part = len(rem_particles)
     # dist_part = [0 for _ in np.arange(np.ceil(n_part * (n_part - 1) / 2))]
@@ -431,49 +423,25 @@ def ripleys_k_func(microstructure, max_radius=10, n_points=20):
             dist_part[k_pair] = np.linalg.norm(
                 i_particle.position_center - j_particle.position_center
             )
-            if dist_part[k_pair] < radius:
-                print(i_particle.position_center, j_particle.position_center)
-            # print(k_pair)
-            # print(dist_part[k_pair])
+
             correction[k_pair] = ripleys_k_func_edge_corr(
                 i_particle.position_center,
                 dist_part[k_pair],
                 adj_rve_dims,
             )
-            # print("correction", correction[k_pair])
             k_pair += 1
     k_ripleys_func_vals = np.array([0.0 for _ in range(n_points * max_radius)])
-    # print(any(dist_part < radius))
-    # import matplotlib.pyplot as plt
-    #
-    # plt.figure()
-    # plt.hist(dist_part / radius)
-    # plt.show()
+
     for i_ind_length, i_length in enumerate(np.arange(0, max_radius, 1 / n_points)):
-        # for _ in range(1):
-        #     i_ind_length = 0
-        #     i_length = 0
-        # print(i_ind_length, i_length)
         current_val = 0
         for j_dist, j_correction in zip(dist_part, correction):
-            # print(j_dist, j_correction)
             if j_dist < i_length * radius:
                 current_val += 1 / j_correction / n_part
 
-        print(current_val)
         k_ripleys_func_vals[i_ind_length] = current_val
-        print(k_ripleys_func_vals[i_ind_length])
 
     k_ripleys_func_vals = k_ripleys_func_vals * np.prod(adj_rve_dims) / n_part
 
-    print(k_ripleys_func_vals)
-    # k_ripleys_func_vals = np.sqrt(k_ripleys_func_vals / np.pi) - radius * np.arange(
-    #     0, max_radius, 1 / n_points
-    # )
-    print(radius * np.arange(0, max_radius, 1 / n_points))
-    print(k_ripleys_func_vals)
-    print(dist_part)
-    print(correction)
     return k_ripleys_func_vals, radius * np.arange(0, max_radius, 1 / n_points)
 
 
