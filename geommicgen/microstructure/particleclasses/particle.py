@@ -749,14 +749,17 @@ class Point(Particle):
 
     def intersection(self, other_particle: Particle, box: list) -> bool:
         """Check if the two particles intersect."""
+        pass
 
     def intersection_area(self, other_particle: Particle, box: list) -> float:
         """Compute the interesection area/volume between two particles."""
+        pass
 
     def intersection_length(
         self, other_particle: Particle, box: list
     ) -> Union[float, np.array]:
         """Compute the interesection length between two particles."""
+        pass
 
     def support_function(self, direction: np.array) -> np.array:
         """Compute the interesection length between two particles."""
@@ -772,6 +775,15 @@ class Point(Particle):
 
     def generate_point_inside(self):
         """Generate a random point inside the particle."""
+        pass
+
+    def contract(self, distance):
+        """Contract the particle by a given distance."""
+        pass
+
+    def dilate(self, distance):
+        """Dilate the particle by a given distance."""
+        pass
 
 
 class Line(Particle):

@@ -118,6 +118,7 @@ def post_proc(
         print_funcs.print_to_file("-" * 80 + "\n")
         stat_analysis.do_stat_analysis(current_sample, sample_dir, stat_options_req)
 
+    # GIF generation
     if post_proc_opts.get("sim_gif", False):
         print_funcs.print_to_file("Simulation GIF")
         print_funcs.print_to_file("-" * 80 + "\n")
