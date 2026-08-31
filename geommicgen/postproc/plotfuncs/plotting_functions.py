@@ -1007,8 +1007,6 @@ def plot_voronoi_2d(
             ax.add_artist(ellip)
             # plt.annotate(str(k), tuple(i_particle.position_center))
 
-    # print("here2")
-    # voronoi_type = "standard"
     if voronoi_type == "set":
         set_voronoi_plot_2d(
             voronoi, ax=plt.gca(), show_vertices=False, point_size=0, line_width=0.1
