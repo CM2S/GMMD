@@ -16,7 +16,6 @@ documentation for details.
    :caption: Contents:
 
    introduction
-   installation
    Input_file_options/index
-   api
+   papers
 
