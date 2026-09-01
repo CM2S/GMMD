@@ -63,8 +63,11 @@ It can also facilitate machine learning based material design, since it can gene
 
 GMMD is, thus, an open-source Python tool built to generate microstructures of particle reinforced materials.
 It is capable of handling diverse particles (or voids) across both two- and three-dimensional domains (disks, ellipses, squares, spheres, ellipsoids, fibers, and cylinders), supporting variable RVE sizes and numerous microstructure descriptors following different statistical distributions.
-The generation of the microstructure is not based on the physical process of which it arised, it is purely geometric. GMMD can, for now, use one of two methods for generating the RVE: molecular dynamics (MD) and random sequential addition (RSA). In a general sense, MD proves to be faster for large volume fractions, and RSA faster for smaller volume fraction.
-GMMD can export the final microstructure configuration (PDF for 2D, VTK for 2D and 3D) and can generate 2D simulation GIFs. It also includes built-in tools for performing statistical analyses on the microstructure.
+The generation of the microstructure is not based on the physical process of which it arose, it is purely geometric. GMMD can, for now, use one of two methods for generating the RVE: molecular dynamics (MD) and random sequential addition (RSA). In a general sense, MD proves to be faster for large volume fractions, and RSA faster for smaller volume fraction.
+GMMD can export the final microstructure configuration (PDF for 2D, VTK for 2D and 3D) and can generate 2D simulation GIFs. It also includes built-in tools for performing statistical analyses on the microstructure, such as:
+- statistical descriptors (2-point correlation function, Ripley's K function, ...) and
+- Voronoi metrics based on the Minkowski Structure Metrics and the Minkowski Irreducible Tensors.
+
 After the generation procedure, the RVE can be discretized in a suitable finite element mesh in order to perform microscale analyses through computational homogenization.
 
 ![Example of microstructure with spheres and ellipsoids. \label{fig:microstructure example}](mic_example.png){width=50%}
