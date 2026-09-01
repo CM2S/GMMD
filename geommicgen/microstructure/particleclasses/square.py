@@ -148,11 +148,6 @@ class Square(Particle):
     def intersection_area_square_square(self, other_square, box):
         """Compute the intersection area between two squares."""
 
-        # Nearest periodic image of the other square relative to self square
-        #diff_center = self.position_center - other_square.position_center
-        #diff_center = diff_center - box * np.round(diff_center / box)
-        #other_square_nearest_pbc_center = self.position_center - diff_center
-
         other_square_nearest_pbc_center=Particle.nearest_periodic_image(
                         other_square.position_center, self.position_center, box
                     )
@@ -320,6 +315,6 @@ class Square(Particle):
         y_max = min(self.position_center[1] + (self.side) / 2, other_square_nearest_pbc_center[1] + (other_square.side)   / 2)
         overlap_x = max(0, x_max - x_min)
         overlap_y = max(0, y_max - y_min)
-        intersection_length = overlap_x *overlap_y
+        intersection_length = min(overlap_x, overlap_y)
         return intersection_length
         # Returning the intersection length
