@@ -17,6 +17,6 @@ documentation for details.
 
    introduction
    installation
-   usage
+   Input_file_options/index
    api
 
