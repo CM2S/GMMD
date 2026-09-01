@@ -17,5 +17,6 @@ documentation for details.
 
    introduction
    Input_file_options/index
+   tutorials/index
    papers
 
