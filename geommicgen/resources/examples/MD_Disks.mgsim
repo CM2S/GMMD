@@ -1,12 +1,12 @@
 # 2D Example
-# Microstructure containing two phases
+# Microstructure containing one phases
 #	- square phase with 20% volume fraction. Its side varies according to a Normal distribution
 #	- disk phase with 20% volume fraction
 # The microstructure generation method used is Random Sequential Adsorption (RSA)
 
 Problem_Type 1
 N_DP_Samples 1
-RVE_Dimensions [1.5, 1]
+RVE_Dimensions [1, 1]
 
 # Microstructure definition
 # ------------------------------------------------------------------------------------------
@@ -15,15 +15,10 @@ Phase 0
 Phase_Type 1
 Phase 1
 Phase_Type 2
-r 0.05
-vf 0.2
-Phase 2
-Phase_Type 8
-vf 0.2
-side_distribution normal
-side_mean 0.1
-side_sigma 0.01
-
+r normal
+r_mean 0.02
+r_sigma 0.005
+vf 0.5
 
 # Generation parameters
 # ------------------------------------------------------------------------------------------
@@ -38,7 +33,7 @@ Min_Distance 0.005
 
 # Mesh generation
 # ------------------------------------------------------------------------------------------
-Mesh_Options
+#Mesh_Options
 
 #rgmsh
 #n_voxels_dims [1000, 1000]
