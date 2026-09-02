@@ -848,7 +848,7 @@ The generation of the microstructure is not based on the physical process of whi
 #            Syntax: mesh_size x
 #
 #        x: float
-#                ........................................................................
+#        ........................................................................
 #        Element type                                                         (M)
 #
 #        Meaning: Type of element used to mesh the microstructure.
