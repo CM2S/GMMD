@@ -5,9 +5,11 @@ Basic tutorial
 Input file
 ==========
 
-The file for this tutorial is located in the ``geommicgen/resources/examples/2D_examples`` directory and is named ``MD_Disks.mgsim``. The input file can be run by executing the following command in a terminal console window::
+The file for this tutorial is located in the ``geommicgen/resources/examples/2D_examples`` directory and is named ``MD_Disks.mgsim``. The input file can be run by executing the following command in a terminal console window:
 
-    python3 -m geommicgen '../../MD_Disks.mgsim'
+.. code-block:: console
+
+    python3 -m geommicgen '../geommicgen/resources/examples/2D_examples/MD_Disks.mgsim'
 
 Note that the path to the input file must be changed according to the location of the GMMD repository in your computer.
 In order for you to run any other file of your making, you just need to run the command with the location of your input file.
@@ -52,7 +54,7 @@ This example uses a molecular dynamics simulation to generate the microstructure
 Output files
 ============
 After running the command, a folder named ``MD_Disks`` will be created in the same directory as the input file. This folder contains all the output data related to the microstructure generation.
-A .pdf file of the final microstructure is created with the line ``final_config True``.
+A .pdf file of the final microstructure is created with the line ``final_config True`` in the input file.
 
 
 .. figure:: MD_Disks.svg

@@ -16,6 +16,8 @@ In any tutorial, to learn more about a specific line of code in the input file a
     :numbered:
 
     2D_examples/MD_Disks/MD_Disks
+    2D_examples/MD_Ellipses/MD_Ellipses
+    2D_examples/RSA_Disks_Squares/RSA_Disks_Squares
 
 
 3D examples
@@ -25,4 +27,6 @@ In any tutorial, to learn more about a specific line of code in the input file a
     :maxdepth: 1
     :numbered:
 
-    3D_examples/tutorial1
+    3D_examples/MD_Spheres_Ellipsoids
+    3D_examples/MD_Cylinders
+    3D_examples/RSA_Fibers

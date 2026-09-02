@@ -7,17 +7,23 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'GMMD'
-copyright = '2026, José L. P. Vila-Chã and João António G. C. Morais'
-author = 'José L. P. Vila-Chã and João António G. C. Morais'
+copyright = 'CM2S'
+author = 'CM2S'
 release = '1.0.0'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = []
+extensions = ['sphinx_copybutton']
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+
+# -- Options for sphinx-copybutton --------------------------------------------
+# https://sphinx-copybutton.readthedocs.io/en/latest/use.html
+# Only add a copy button to the ``console`` code blocks used for the commands
+# that run the tutorials, not to every literal/code block in the docs.
+copybutton_selector = 'div.highlight-console pre'
 
 
 

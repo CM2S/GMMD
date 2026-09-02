@@ -37,9 +37,6 @@ final_config True
 voronoi_analysis True
 plot_voronoi True
 
-
-
-
 # Mesh generation
 # ------------------------------------------------------------------------------------------
 Mesh_Options

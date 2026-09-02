@@ -1,11 +1,11 @@
+.. _rsa_post_processing_options:
 Random Sequential Addition post processing options
 ---------------------------------------------
 
 Plot vf History (O)
 ~~~~~~~~~~~~~~~~~~~~~
 
-**Meaning:** If ``True``, plots the volume fraction as a function of the
-step.
+**Meaning:** If ``True``, plots the volume fraction as a function of the step.
 
 **Syntax:**
 
@@ -18,8 +18,7 @@ step.
 Save History (O)
 ~~~~~~~~~~~~~~~~~~
 
-**Meaning:** If ``True``, the number of intersection checks and number of
-particles accepted into the microstructure history is saved.
+**Meaning:** If ``True``, the number of intersection checks and number of particles accepted into the microstructure history is saved.
 
 **Syntax:**
 
@@ -30,6 +29,4 @@ particles accepted into the microstructure history is saved.
 - ``x``: ``{'True', 'False'}`` (default: ``'False'``)
 
 .. note::
-   This option shares its keyword with the ``Save_History`` option described
-   above under "Molecular Dynamics - Motion Analysis", but has a slightly
-   different meaning for RSA simulations.
+   This option shares its keyword with the ``Save_History`` option described in :ref:`md_motion_analysis`, but has a slightly different meaning.
