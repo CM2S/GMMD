@@ -16,7 +16,7 @@ In order for you to run any other file of your making, you just need to run the 
 
 The full text of the input file is:
 
-.. literalinclude:: ../../../../geommicgen/resources/examples/2D_examples/MD_Disks.mgsim
+.. literalinclude:: ../../../../../geommicgen/resources/examples/2D_examples/MD_Disks.mgsim
     :language: xml
 
 
