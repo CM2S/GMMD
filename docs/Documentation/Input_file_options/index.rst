@@ -1,3 +1,4 @@
+.. _input_file_options:
 Input file options
 ===================
 

@@ -15,9 +15,13 @@ Phase 0
 Phase_Type 1
 Phase 1
 Phase_Type 2
-r normal
-r_mean 0.02
-r_sigma 0.005
+r_distribution discrete
+    r_value_1 0.05
+    r_prob_1 0.4
+    r_value_2 0.02
+    r_prob_2 0.5
+    r_value_3 0.1
+    r_prob_3 0.1
 vf 0.5
 
 # Generation parameters
