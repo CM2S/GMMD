@@ -1234,10 +1234,13 @@ def plot_voronoi_2d_with_imts(
         plt.yticks([])
 
         if i_order == 0:
-            plt.colorbar(matplotlib.cm.ScalarMappable(cmap=cmap), label=r"Perimeter")
+            plt.colorbar(
+                matplotlib.cm.ScalarMappable(cmap=cmap), ax=ax, label=r"Perimeter"
+            )
         else:
             plt.colorbar(
                 matplotlib.cm.ScalarMappable(cmap=cmap),
+                ax=ax,
                 label=r"$q_{0}$".format(str(i_order)),
                 boundaries=np.linspace(0, 1, 11),
             )
