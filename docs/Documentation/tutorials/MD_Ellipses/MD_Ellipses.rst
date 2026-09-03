@@ -5,18 +5,18 @@ MD Ellipses with voronoi analysis
 Input file
 ==========
 
-The file for this tutorial is located in the ``geommicgen/resources/examples/2D_examples`` directory and is named ``MD_Ellipses.mgsim``. The input file can be run by executing the following command in a terminal console window:
+The file for this tutorial is named ``MD_Ellipses.mgsim``. The input file can be run by executing the following command in a terminal console window:
 
 .. code-block:: console
 
-    python3 -m geommicgen '../geommicgen/resources/examples/2D_examples/MD_Ellipses.mgsim'
+    python3 -m geommicgen '../geommicgen/resources/examples/MD_Ellipses.mgsim'
 
 Replacing with the path to the input file according to the location of the GMMD repository in your computer.
 
 
 The full text of the input file is:
 
-.. literalinclude:: ../../../../../geommicgen/resources/examples/2D_examples/MD_Ellipses.mgsim
+.. literalinclude:: ../../../../geommicgen/resources/examples/MD_Ellipses.mgsim
     :language: xml
 
 

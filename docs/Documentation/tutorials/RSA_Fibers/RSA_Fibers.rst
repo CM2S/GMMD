@@ -5,17 +5,17 @@ RSA Fibers
 Input file
 ==========
 
-The file for this tutorial is located in the ``geommicgen/resources/examples/3D_examples`` directory and is named ``RSA_fiber.mgsim``. The input file can be run by executing the following command in a terminal console window:
+The file for this tutorial is named ``RSA_fiber.mgsim``. The input file can be run by executing the following command in a terminal console window:
 
 .. code-block:: console
 
-    python3 -m geommicgen '../geommicgen/resources/examples/3D_examples/RSA_fiber.mgsim'
+    python3 -m geommicgen '../geommicgen/resources/examples/RSA_fiber.mgsim'
 
 Replacing with the path to the input file according to the location of the GMMD repository in your computer.
 
 The full text of the input file is:
 
-.. literalinclude:: ../../../../../geommicgen/resources/examples/3D_examples/RSA_fiber.mgsim
+.. literalinclude:: ../../../../geommicgen/resources/examples/RSA_fiber.mgsim
     :language: xml
 
 

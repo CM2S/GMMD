@@ -7,6 +7,7 @@ If you are new, we recommend starting with the basic tutorial.
 
 In any tutorial, to learn more about a specific line of code in the input file and its meaning, consult :ref:`input_file_options`.
 
+The input files for each tutorial is located in the ``geommicgen/resources/examples`` directory.
 
 2D examples
 -----------
@@ -15,9 +16,9 @@ In any tutorial, to learn more about a specific line of code in the input file a
     :maxdepth: 1
     :numbered:
 
-    2D_examples/MD_Disks/MD_Disks
-    2D_examples/MD_Ellipses/MD_Ellipses
-    2D_examples/RSA_Disks_Squares/RSA_Disks_Squares
+    MD_Disks/MD_Disks
+    MD_Ellipses/MD_Ellipses
+    RSA_Disks_Squares/RSA_Disks_Squares
 
 
 3D examples
@@ -27,7 +28,7 @@ In any tutorial, to learn more about a specific line of code in the input file a
     :maxdepth: 1
     :numbered:
 
-    3D_examples/RSA_Fibers/RSA_Fibers
-    3D_examples/MD_Spheres_Ellipsoids
-    3D_examples/MD_Cylinders
+    RSA_Fibers/RSA_Fibers
+    MD_Ellipsoids/MD_Ellipsoids
+    MD_Spheres_Cylinders/MD_Spheres_Cylinders
     
