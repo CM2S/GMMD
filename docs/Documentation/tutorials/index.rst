@@ -7,7 +7,7 @@ If you are new, we recommend starting with the basic tutorial.
 
 In any tutorial, to learn more about a specific line of code in the input file and its meaning, consult :ref:`input_file_options`.
 
-The input files for each tutorial is located in the ``geommicgen/resources/examples`` directory.
+The input files for the tutorials are located in the ``geommicgen/resources/examples`` directory.
 
 2D examples
 -----------
