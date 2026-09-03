@@ -1,0 +1,34 @@
+# 3D Example
+# Microstructure containing a single phase with fibers.
+
+Problem_Type 1
+N_DP_Samples 1
+RVE_Dimensions [1, 1, 2]
+
+# Microstructure definition
+# ------------------------------------------------------------------------------------------
+Mic_Gen_Descriptors
+Phase 0
+Phase_Type 1
+Phase 1
+Phase_Type 6
+r 0.05
+vf 0.3
+direction 2
+
+
+# Generation parameters
+# ------------------------------------------------------------------------------------------
+Mic_Gen_Method RSA
+Min_Distance 0.002
+Max_Step 10000
+Speed_Up_Scheme Cell
+
+# Post-processing
+# -----------------------------------------------------------------------------------------
+final_config True
+Save_History True
+plot_rsa_vf_history True
+
+
+
