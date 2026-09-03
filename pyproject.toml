@@ -25,6 +25,10 @@ dependencies = [
     "tabulate>=0.8.9",
 ]
 
+[project.optional-dependencies]
+docs = ["sphinx", "myst-parser", "sphinx-rtd-theme", "sphinx-favicon"]
+test = ["pytest", "pytest-cov", "coverage"]
+
 [project.urls]
 "Homepage" = "https://github.com/CM2S/GMMD"
 "Source" = "https://github.com/CM2S/GMMD"
