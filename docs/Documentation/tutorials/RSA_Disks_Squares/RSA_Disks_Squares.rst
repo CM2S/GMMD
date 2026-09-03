@@ -63,29 +63,26 @@ After running the command, a folder named ``RSA_Disks_Squares`` will be created 
 A .pdf file of the final microstructure is created with the line ``final_config True`` in the input file. Moreover, some statistical analysis tools are used: Ripley's K function, the nearest neighbor distance distribution and the two-point correlation function of the microstructure are computed and plotted.
 
 
-.. list-table::
-    :widths: 50 50
+.. figure:: final_config.svg
+    :width: 500px
+    :alt: Final microstructure configuration
 
-    * - .. figure:: final_config.svg
-            :width: 450px
-            :alt: Final microstructure configuration
+    Final configuration of the microstructure.
 
-            Final configuration of the microstructure.
+.. figure:: k_ripleys_func.svg
+    :width: 500px
+    :alt: Ripley's K-function
 
-      - .. figure:: k_ripleys_func.svg
-            :width: 450px
-            :alt: Ripley's K-function
+    Ripley's K-function of the microstructure.
 
-            Ripley's K-function of the microstructure.
+.. figure:: nearest_neighbor_dist.svg
+    :width: 500px
+    :alt: Nearest neighbor distance distribution
 
-    * - .. figure:: nearest_neighbor_dist.svg
-            :width: 450px
-            :alt: Nearest neighbor distance distribution
+    Nearest neighbor distance distribution of the microstructure.
 
-            Nearest neighbor distance distribution of the microstructure.
+.. figure:: two_pt_corr.svg
+    :width: 500px
+    :alt: Two-point correlation function
 
-      - .. figure:: two_pt_corr.svg
-            :width: 450px
-            :alt: Two-point correlation function
-
-            Two-point correlation function of the microstructure.
+    Two-point correlation function of the microstructure.
