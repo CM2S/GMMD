@@ -40,7 +40,7 @@ jobs:
           python -m pip install -e .[test]
       - name: Test with pytest
         run: |
-          pytest --cov=geommicgen/ --cov-report=xml geommicgen/test
+          pytest --cov=geommicgen/ --cov-report=xml geommicgen/tests
       # - name: Upload coverage reports to Codecov
       #   uses: codecov/codecov-action@v4.0.1
       #   with:
