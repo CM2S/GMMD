@@ -129,7 +129,6 @@ def post_proc(
         input_folder = os.path.join(sample_dir, "sim_gif")
         output_gif_path = os.path.join(sample_dir, "Simulation.gif")
         duration = post_proc_opts.get("sim_gif_frame_duration")
-        print("Add option for user to specify duration between frames/gif total time and loop option, postproc.py, post_proc function, simulation gif option.")
         
         # Gather all PNG files
         images = [f for f in os.listdir(input_folder) if f.lower().endswith('.png')]
