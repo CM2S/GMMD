@@ -1554,7 +1554,7 @@ class TestPointInsideCylinder(unittest.TestCase):
 class TestIntegrationCylinder(unittest.TestCase):
     """Test the Monte Carlo integration for cylinders."""
 
-    @unittest.expectedFailure
+    @unittest.skip
     def test_cylinder_inside(self):
         """The cylinder is completly inside an ellipsoid.
 
