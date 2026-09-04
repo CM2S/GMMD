@@ -93,10 +93,13 @@ class RandomSequentialAdsorption(GenerationMethod):
             Directory of the sample for which the microstructure is being generated.
 
         Keyword Parameters
-            ------------------
+        ------------------
             
         simulation_gif: bool
-                If true, creates a gif of the simulation.
+            If true, creates a gif of the simulation.
+    
+        offset: bool
+            Flag for the use of an offset to place the origin such a FEM is more easily created.
         """
         #self.mic_gen_parameters = mic_gen_parameters
         #self.mic_gen_descriptors = mic_gen_descriptors
@@ -112,6 +115,7 @@ class RandomSequentialAdsorption(GenerationMethod):
         self.accepted_particles_history = []
         self.sample_dir = sample_dir
         self.make_gif = kwargs.get("sim_gif")
+        self.offset = kwargs.get("offset", True)
 
 
     def generate_microstructure(self, microstructure_sample):
@@ -207,7 +211,13 @@ class RandomSequentialAdsorption(GenerationMethod):
                 virtual_vf = self.microstructure_sample.volume_fraction
                 self.contract_all_particles(i_phase.particles)
         
-           
+        if self.offset:
+            offset = self.compute_rve_offset(microstructure_sample.particles, self.box)
+            for i_particle in microstructure_sample.particles:
+                # Running through all the particles
+                i_particle.position_center -= np.array(offset)[: len(self.box)]
+                # Applying the offset to the particles
+     
         self.time = time.time() - start
         print("\n\n")
         print_funcs.print_microstructure_info(microstructure_sample)
