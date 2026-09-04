@@ -55,5 +55,4 @@ jobs:
           python -m pip install .[docs]
       - name: Test building documentation
         run: |
-          cd docs
-          make html
+          python -m sphinx -b html docs docs/_build/html
