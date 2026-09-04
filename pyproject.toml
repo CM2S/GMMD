@@ -3,7 +3,7 @@ name = "geommicgen"
 dynamic = ["version"]
 description = "GMMD: Geometric Methods for Microstructure Design"
 readme = "readme.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = {file = "LICENSE"}
 keywords = ["Microstructure generation"]
 authors = [
