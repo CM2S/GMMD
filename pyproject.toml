@@ -20,10 +20,10 @@ dependencies = [
     "Pillow>=8.2.0",
     "pyparsing>=2.4.7",
     "python-dateutil>=2.8.1",
-    "scipy>=1.7.0",
+    "scipy==1.6.2",
     "six>=1.16.0",
     "tabulate>=0.8.9",
-    "gmsh",
+    "gmsh==4.9.0",
 ]
 
 [project.optional-dependencies]
