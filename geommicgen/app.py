@@ -293,15 +293,13 @@ def run_program():
                     # Adding a speed up scheme to the MD simulation
                 elif mic_gen_method == "RSA":
                     # Random sequential adsorption method
-
-                    # Uncomment following lines if kwargs from mic_gen_parameters are needed in the RSA simulation
-                    #rsa_kwargs_keys = {"sim_gif"}
-                    #rsa_kwargs = {
-                        #key: value
-                        #for key, value in mic_gen_parameters.items()
-                        #if key in rsa_kwargs_keys
-                    #}
-                    rsa_kwargs={} # delete this line if the above lines are uncommented
+                    rsa_kwargs_keys = {"sim_gif",
+                                       "offset"}
+                    rsa_kwargs = {
+                        key: value
+                        for key, value in mic_gen_parameters.items()
+                        if key in rsa_kwargs_keys
+                    }
                     rsa_kwargs["sim_gif"] = post_proc_parameters.get("sim_gif", False)
                     try:
                         current_mic_generator = RandomSequentialAdsorption(
