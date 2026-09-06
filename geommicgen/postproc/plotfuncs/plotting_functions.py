@@ -329,8 +329,8 @@ def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
         model.setPhysicalName(2, material_tag, "Phase {0}".format(i_phase))
 
     # model.mesh.setSize(points, mesh_size)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", mesh_generator.mesh_size)
+    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_generator.mesh_size)
 
     # Generate a 3D mesh
     print_funcs.print_to_file("\t> Generating mesh\n")
@@ -402,8 +402,8 @@ def plot_particles_3d_one_by_one(particles, rve_dims, sample_dir, **kwargs):
             model.setPhysicalName(2, material_tag, "Phase {0}".format(i_phase))
 
         # model.mesh.setSize(points, mesh_size)
-        gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
-        gmsh.option.setNumber("Mesh.CharacteristicLengthMax", mesh_generator.mesh_size)
+        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
+        gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_generator.mesh_size)
 
         # Generate a 3D mesh
         model.mesh.generate(2)
@@ -579,10 +579,8 @@ def plot_paths(particles, box, position_center_history, motion_results_dir):
                 model.setPhysicalName(1, material_tag, "Phase {0}".format(i_phase))
 
             # model.mesh.setSize(points, mesh_size)
-            gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
-            gmsh.option.setNumber(
-                "Mesh.CharacteristicLengthMax", mesh_generator.mesh_size
-            )
+            gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
+            gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_generator.mesh_size)
 
             # Generate a 3D mesh
             model.mesh.generate(2)
@@ -686,9 +684,9 @@ def plot_paths(particles, box, position_center_history, motion_results_dir):
         #         model.setPhysicalName(2, material_tag, "Phase {0}".format(i_phase))
         #
         #     # model.mesh.setSize(points, mesh_size)
-        #     gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
+        #     gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
         #     gmsh.option.setNumber(
-        #         "Mesh.CharacteristicLengthMax", mesh_generator.mesh_size
+        #         "Mesh.MeshSizeMax", mesh_generator.mesh_size
         #     )
         #
         #     # Generate a 3D mesh
@@ -1306,7 +1304,7 @@ def plotVoronoi3Dpbc(
     gmsh.option.setNumber("Mesh.Algorithm3D", 1)
 
     # Characteristic mesh length factor (applied acroos all mesh)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthFactor", 1)
+    gmsh.option.setNumber("Mesh.MeshSizeFactor", 1)
 
     # Multi-threading
     gmsh.option.setNumber("Mesh.MaxNumThreads1D", 0)
@@ -1454,9 +1452,9 @@ def plotVoronoi3Dpbc(
 
                         factory.synchronize()
                         particle_tags.append(
-                            gmsh.model.getBoundary((3, sphereTag))[0][1]
+                            gmsh.model.getBoundary([(3, sphereTag)])[0][1]
                         )
-                        gmsh.model.removeEntities((3, sphereTag))
+                        gmsh.model.removeEntities([(3, sphereTag)])
                         phase_dim_tag[str(i_particle.phase)].append(
                             (2, particle_tags[k_particle_image])
                         )
@@ -1596,8 +1594,8 @@ def plotVoronoi3Dpbc(
     points = model.getEntities(0)
 
     # model.mesh.setSize(points, mesh_size)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.03)
+    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.03)
 
     # Generate a 3D mesh
     model.mesh.generate(2)
@@ -1715,8 +1713,8 @@ def plot_voronoi_3d(particles, voronoi, rve_dims, sample_dir, save=True, show=Fa
         model.setPhysicalName(2, material_tag, "Phase {0}".format(i_phase))
 
     # model.mesh.setSize(points, mesh_size)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.03)
+    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.03)
 
     # Generate a 3D mesh
     model.mesh.generate(2)
@@ -1764,7 +1762,7 @@ def plotVoronoi3DwithIMTspbc(
     gmsh.option.setNumber("Mesh.Algorithm3D", 1)
 
     # Characteristic mesh length factor (applied acroos all mesh)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthFactor", 1)
+    gmsh.option.setNumber("Mesh.MeshSizeFactor", 1)
 
     # Multi-threading
     gmsh.option.setNumber("Mesh.MaxNumThreads1D", 0)
@@ -1902,8 +1900,8 @@ def plotVoronoi3DwithIMTspbc(
             model.setPhysicalName(3, material_tag, "Cell " + str(number_cells))
 
     # model.mesh.setSize(points, mesh_size)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.03)
+    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.03)
 
     # Generate a 3D mesh
     model.mesh.generate(3)
@@ -2011,7 +2009,7 @@ def plot_voronoi_3d_with_imts(
     gmsh.option.setNumber("Mesh.Algorithm3D", 2)
 
     # Characteristic mesh length factor (applied acroos all mesh)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthFactor", 1)
+    gmsh.option.setNumber("Mesh.MeshSizeFactor", 1)
 
     # Multi-threading
     gmsh.option.setNumber("Mesh.MaxNumThreads1D", 0)
@@ -2203,8 +2201,8 @@ def plot_voronoi_3d_with_imts(
     #
     # getElementByCoordinates
     # model.mesh.setSize(points, mesh_size)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.1)
+    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.1)
 
     # Generate a 3D mesh
     model.mesh.generate(3)

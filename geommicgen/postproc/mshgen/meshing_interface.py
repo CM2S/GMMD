@@ -308,7 +308,7 @@ class FEMMeshGenerator(MeshGenerator):
         )
         # 3D Meshing algorithm
 
-        gmsh.option.setNumber("Mesh.CharacteristicLengthFactor", 1)
+        gmsh.option.setNumber("Mesh.MeshSizeFactor", 1)
         # Characteristic mesh length factor (applied acroos all mesh)
 
         gmsh.option.setNumber("Mesh.MaxNumThreads1D", 4)
@@ -535,9 +535,9 @@ class FEMMeshGenerator(MeshGenerator):
 
         self.enforce_pbc(rve_dims)
 
-        gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
-        gmsh.option.setNumber("Mesh.CharacteristicLengthMax", self.mesh_size)
-        # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", self.mesh_size_min)
+        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
+        gmsh.option.setNumber("Mesh.MeshSizeMax", self.mesh_size)
+        # gmsh.option.setNumber("Mesh.MeshSizeMin", self.mesh_size_min)
 
         # Generate a 3D mesh
         print_funcs.print_to_file(
@@ -658,7 +658,7 @@ class FEMMeshGenerator(MeshGenerator):
                     alpha = i_particle.angle
                     factory.synchronize()
                     rotate_tag = [(2, self.particle_tags[-1])]
-                    rotate_tag.extend(model.getBoundary([2, self.particle_tags[-1]]))
+                    rotate_tag.extend(model.getBoundary([(2, self.particle_tags[-1])]))
                     factory.rotate(rotate_tag, x_c, y_c, z_c, 0, 0, 1, alpha)
 
                     self.phase_dim_tag[i_particle.phase].append(
