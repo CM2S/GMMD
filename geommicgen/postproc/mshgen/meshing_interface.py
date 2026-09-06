@@ -535,7 +535,10 @@ class FEMMeshGenerator(MeshGenerator):
 
         self.enforce_pbc(rve_dims)
 
-        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
+        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 6)
+        # Target number of elements per 2*pi radians of curvature. Before Gmsh 4.7
+        # this option was a boolean and the count lived in Mesh.MinimumElementsPerTwoPi,
+        # whose default was 6; the two were merged, so 6 preserves the original intent.
         gmsh.option.setNumber("Mesh.MeshSizeMax", self.mesh_size)
         # gmsh.option.setNumber("Mesh.MeshSizeMin", self.mesh_size_min)
 
