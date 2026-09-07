@@ -16,6 +16,7 @@ from geommicgen.meshing.voxel_mesher import VoxelMesher
 from geommicgen.tests.helpers import disk_microstructure
 from geommicgen.translators.base import get_writer
 from geommicgen.translators.crate import CrateWriter
+from geommicgen.errors.error_classes import MeshTooLargeError
 from geommicgen.translators.links import LinksWriter
 
 
@@ -132,6 +133,34 @@ class TestMeshJobRun(unittest.TestCase):
         self.assertIsNone(job.error.__traceback__)
         # The traceback is kept as text and taken off the exception, which would
         # otherwise hold the whole mesh alive for as long as the job is
+
+    def test_the_standard_output_alone_is_a_whole_job(self):
+        job = build_mesh_jobs(
+            {"rgmsh": {"n_voxels_dims": [[16, 16]], "formats": []}}, "deck.mdsim"
+        )[0]
+        self.assertEqual(job.writers, [])
+        job.run(self.microstructure, self.temp_dir.name)
+        self.assertIsNone(job.error)
+        self.assertEqual(
+            [os.path.basename(i_file) for i_file in job.files], ["deck_16_16.vtk"]
+        )
+        # An empty list is not the same as no list at all: it asks for the second stage
+        # and nothing after it, which is a thing a deck should be able to say
+
+    def test_what_reached_the_disk_is_reported_when_a_format_fails(self):
+        job = MeshJob(VoxelMesher([16, 16], max_cells=10), [LinksWriter], "grid")
+        job.run(self.microstructure, self.temp_dir.name)
+        self.assertIsInstance(job.error, MeshTooLargeError)
+        self.assertEqual(
+            [os.path.basename(i_file) for i_file in job.files], ["grid.vtk"]
+        )
+        self.assertEqual(
+            sorted(os.listdir(os.path.join(self.temp_dir.name, "meshes"))),
+            ["grid.vtk"],
+        )
+        # The standard output is written before the formats that need the cells, so a
+        # failure there leaves a real file behind. Reporting nothing would say the job
+        # produced nothing, which is not what happened
 
     def test_a_writer_may_not_write_over_the_standard_output(self):
         job = MeshJob(VoxelMesher([8, 8]), [get_writer("vtk")], "grid")

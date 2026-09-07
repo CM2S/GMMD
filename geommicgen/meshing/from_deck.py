@@ -123,12 +123,13 @@ class MeshJob:
             total number of particles.
         """
         start = time.time()
+        self.files = []
         result_dir = os.path.join(sample_dir, MESH_DIRECTORY)
         os.makedirs(result_dir, exist_ok=True)
         base_path = os.path.join(result_dir, self.base_name)
         try:
             mesh = self.mesher.mesh(microstructure, report=report)
-            self.files = self.write(mesh, base_path)
+            self.write(mesh, base_path)
         except Exception as error:  # pylint: disable=broad-except
             self.trace = traceback.format_exc()
             self.error = error.with_traceback(None)
@@ -151,6 +152,9 @@ class MeshJob:
 
         base_path: str
             Path of the files to be written, without any extension.
+
+        Every file is recorded on the job as soon as it is written, so that a format
+        failing part of the way through still reports what did reach the disk.
 
         Returns
         -------
@@ -179,20 +183,20 @@ class MeshJob:
         # Checked before anything is written, since the two would otherwise be written
         # one over the other and only the second would survive
 
-        written = []
         if mesh.structured is None:
             write_vtu(mesh, standard_path)
-            written += [standard_path, sidecar_path(standard_path)]
+            self.files += [standard_path, sidecar_path(standard_path)]
         else:
             write_vtk_image(mesh, standard_path)
-            written.append(standard_path)
+            self.files.append(standard_path)
         # Every mesh is written in a standard format that a viewer reads, whichever
-        # solver formats were asked for
+        # other formats were asked for -- and that file is the whole of the second
+        # stage, enough on its own to run the third one later
 
         for i_writer, i_path in targets:
-            written += i_writer().write(mesh, i_path)
+            self.files += i_writer().write(mesh, i_path)
 
-        return written
+        return self.files
 
 
 def job_base_name(deck_name, label):
@@ -231,7 +235,8 @@ def writers_from_options(options, defaults):
         Options given for the discretisation in the input data file.
 
     defaults: tuple
-        Formats used when the keyword is absent.
+        Formats used when the keyword is absent. An empty list is not absent: it asks
+        for the standard output and nothing else, which is the second stage on its own.
 
     Returns
     -------
@@ -243,7 +248,8 @@ def writers_from_options(options, defaults):
     ValueError:
         If a format is named that there is no writer for.
     """
-    names = list(options.get("formats", None) or defaults)
+    names = options.get("formats", None)
+    names = list(defaults) if names is None else list(names)
     if options.get("write_msh", False) and "gmsh" not in names:
         names.append("gmsh")
         # The gmsh file is no longer written on the way to anything else, so it is
