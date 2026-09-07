@@ -19,17 +19,7 @@ from geommicgen.iofuncs.microstructure_yaml import (
     read_microstructure_yaml,
     write_microstructure_yaml,
 )
-
-
-def build_microstructure(rve_dims, phase_type, particles):
-    """Build a microstructure with a matrix phase and the supplied particles."""
-    microstructure = Microstructure(rve_dims)
-    microstructure.add_phase(Phase("1", {"phase_type": 1}))
-    microstructure.add_phase(Phase.from_type("2", phase_type))
-    for i_particle in particles:
-        microstructure.phases["2"].particles.append(i_particle)
-
-    return microstructure
+from geommicgen.tests.helpers import build_microstructure
 
 
 class TestMicrostructureYamlRoundTrip(unittest.TestCase):

@@ -67,14 +67,6 @@ class StructuredInfo:
         self.shape = tuple(int(i_size) for i_size in self.phase_grid.shape)
 
     @property
-    def boundary(self):
-        """Classification of the boundary nodes, computed on first use."""
-        if self._boundary is None:
-            self.classify_boundary()
-
-        return self._boundary
-
-    @property
     def n_cells(self):
         """Number of voxels of the grid."""
         return math.prod(self.shape)
