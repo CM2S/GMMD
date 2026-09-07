@@ -67,6 +67,10 @@ def binds_name(node, name):
             (i_alias.asname or i_alias.name) == name for i_alias in i_node.names
         ):
             return True
+        if isinstance(i_node, ast.arg) and i_node.arg == name:
+            return True
+        # A function handed the module as a parameter has it bound just as surely as
+        # one that fetches it itself
 
     return False
 

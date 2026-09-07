@@ -382,3 +382,19 @@ class MeshTooLargeError(Error):
     def message(self):
         """Print message."""
         print(str(self))
+
+
+class UnsupportedParticleShape(Error):
+    """Raised when a mesher is given a particle shape it cannot build."""
+
+    def __init__(self, shape_name):
+        """Initizalize UnsupportedParticleShape instance."""
+        self.shape_name = shape_name
+        super().__init__(
+            "There is no geometry for a particle of shape {0}, so it would be left "
+            "out of the mesh.".format(shape_name)
+        )
+
+    def message(self):
+        """Print message."""
+        print(str(self))

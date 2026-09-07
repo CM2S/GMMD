@@ -2,6 +2,8 @@
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
+from geommicgen.meshing.gmsh_mesher import GmshMesher
+from geommicgen.meshing.images import periodic_images
 from geommicgen.meshing.mesh import Mesh, StructuredInfo
 from geommicgen.meshing.mesher import (
     Mesher,
@@ -14,6 +16,7 @@ from geommicgen.meshing.voxel_mesher import VoxelMesher
 from geommicgen.meshing.writers import read_mesh, write_vtk_image, write_vtu
 
 __all__ = [
+    "GmshMesher",
     "Mesh",
     "Mesher",
     "PeriodicBoundary",
@@ -22,6 +25,7 @@ __all__ = [
     "available_meshers",
     "classify_periodic_boundary",
     "get_mesher",
+    "periodic_images",
     "read_mesh",
     "register_mesher",
     "write_vtk_image",
