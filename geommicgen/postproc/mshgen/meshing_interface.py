@@ -658,7 +658,9 @@ class FEMMeshGenerator(MeshGenerator):
                     alpha = i_particle.angle
                     factory.synchronize()
                     rotate_tag = [(2, self.particle_tags[-1])]
-                    rotate_tag.extend(model.getBoundary([2, self.particle_tags[-1]]))
+                    rotate_tag.extend(
+                        model.getBoundary([(2, self.particle_tags[-1])])
+                    )
                     factory.rotate(rotate_tag, x_c, y_c, z_c, 0, 0, 1, alpha)
 
                     self.phase_dim_tag[i_particle.phase].append(
