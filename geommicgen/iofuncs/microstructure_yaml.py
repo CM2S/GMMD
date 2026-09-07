@@ -13,6 +13,9 @@ import numpy as np
 import yaml
 
 # pylint: disable=import-error
+from geommicgen import __version__
+
+# pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.microstructure.phase import (
@@ -47,7 +50,20 @@ def _represent_flow_mapping(dumper, data):
 
 
 _MicrostructureDumper.add_representer(_FlowMapping, _represent_flow_mapping)
-# Registered on a private dumper so that the global safe dumper is left untouched
+_MicrostructureDumper.add_representer(
+    np.ndarray, lambda dumper, data: dumper.represent_data(data.tolist())
+)
+_MicrostructureDumper.add_multi_representer(
+    np.generic, lambda dumper, data: dumper.represent_data(data.item())
+)
+# Registered on a private dumper so that the global safe dumper is left untouched. The
+# numpy representers use the conversions numpy itself provides, so that no value has to
+# be converted by hand before it is written
+
+SHAPE_CLASSES = {
+    i_type.__name__: i_type for i_type in Phase.phase_types.values()
+}
+# Correspondence between the name written in a record and the particle class
 
 
 def _shape_parameters(particle):
@@ -106,7 +122,26 @@ def _shape_parameters(particle):
         )
     # Collecting only the attributes that define the geometry
 
-    return {i_name: _plain(i_value) for i_name, i_value in parameters.items()}
+    return parameters
+
+
+DESCRIPTOR_FIELDS = {
+    FixedValue: ("fixed", (("value", "value"),)),
+    SpecifiedValue: ("specified", (("values", "array_vals"),)),
+    NormalDistribution: ("normal", (("mean", "mean"), ("sigma", "sigma"))),
+    LogNormalDistribution: ("lognormal", (("mean", "mean"), ("sigma", "sigma"))),
+    UniformDistribution: ("uniform", (("low", "low"), ("high", "high"))),
+    VonMisesDistribution: (
+        "vonmises",
+        (("kappa", "kappa"), ("loc", "loc"), ("scale", "scale")),
+    ),
+    DiscreteDistribution: (
+        "discrete",
+        (("values", "values"), ("probabilities", "probabilities")),
+    ),
+}
+# Name written for every kind of descriptor and the attributes that describe it. The
+# pairs differ only where the stored attribute is not named as the written key
 
 
 def _descriptors_to_records(phase):
@@ -122,84 +157,35 @@ def _descriptors_to_records(phase):
     -------
     dict
         Dictionary of the form *{descriptor_name: {parameter_name: value}}*.
+
+    Raises
+    ------
+    ValueError:
+        If a descriptor is of a kind this format cannot write.
     """
     records = {}
     for i_name, i_descriptor in phase.descriptors.items():
         if i_descriptor is None:
             continue
-        if isinstance(i_descriptor, SpecifiedValue):
-            record = {"distribution": "specified", "values": i_descriptor.array_vals}
-        elif isinstance(i_descriptor, LogNormalDistribution):
-            record = {
-                "distribution": "lognormal",
-                "mean": i_descriptor.mean,
-                "sigma": i_descriptor.sigma,
-            }
-        elif isinstance(i_descriptor, NormalDistribution):
-            record = {
-                "distribution": "normal",
-                "mean": i_descriptor.mean,
-                "sigma": i_descriptor.sigma,
-            }
-        elif isinstance(i_descriptor, UniformDistribution):
-            record = {
-                "distribution": "uniform",
-                "low": i_descriptor.low,
-                "high": i_descriptor.high,
-            }
-        elif isinstance(i_descriptor, VonMisesDistribution):
-            record = {
-                "distribution": "vonmises",
-                "kappa": i_descriptor.kappa,
-                "loc": i_descriptor.loc,
-                "scale": i_descriptor.scale,
-            }
-        elif isinstance(i_descriptor, DiscreteDistribution):
-            record = {
-                "distribution": "discrete",
-                "values": i_descriptor.values,
-                "probabilities": i_descriptor.probabilities,
-            }
-        elif isinstance(i_descriptor, FixedValue):
-            record = {"distribution": "fixed", "value": i_descriptor.value}
-        else:
+        fields = None
+        for i_class in type(i_descriptor).__mro__:
+            if i_class in DESCRIPTOR_FIELDS:
+                fields = DESCRIPTOR_FIELDS[i_class]
+                break
+        if fields is None:
             raise ValueError(
                 "The descriptor type {0} is not supported by the YAML "
                 "format.".format(type(i_descriptor).__name__)
             )
-        records[i_name] = {
-            i_key: _plain(i_val) for i_key, i_val in record.items()
-        }
-    # LogNormalDistribution is checked before NormalDistribution because it is a
-    # subclass of it, and the same holds for the remaining distribution hierarchies
+        kind, attributes = fields
+        record = {"distribution": kind}
+        for i_key, i_attribute in attributes:
+            record[i_key] = getattr(i_descriptor, i_attribute)
+        records[i_name] = record
+    # The kind is looked up along the inheritance chain, so a descriptor deriving from
+    # a known one is written as the closest kind that is registered
 
     return records
-
-
-def _plain(value):
-    """
-    Convert a value into a plain Python object that the YAML dumper accepts.
-
-    Parameters
-    ----------
-    value: object
-        Value to be converted, possibly a numpy scalar or array.
-
-    Returns
-    -------
-    object
-        The converted value.
-    """
-    if isinstance(value, np.ndarray):
-        return [float(i_component) for i_component in value.ravel()]
-    if isinstance(value, (list, tuple)):
-        return [_plain(i_component) for i_component in value]
-    if isinstance(value, (np.integer, int)) and not isinstance(value, bool):
-        return int(value)
-    if isinstance(value, (np.floating, float)):
-        return float(value)
-    return value
-    # The safe dumper refuses numpy types, so everything is converted beforehand
 
 
 def write_microstructure_yaml(microstructure, file_path, provenance=None):
@@ -224,7 +210,9 @@ def write_microstructure_yaml(microstructure, file_path, provenance=None):
     document = {
         "format": FORMAT_NAME,
         "version": FORMAT_VERSION,
-        "rve_dims": _plain(microstructure.rve_dims),
+        "rve_dims": microstructure.rve_dims.tolist()
+        if hasattr(microstructure.rve_dims, "tolist")
+        else list(microstructure.rve_dims),
         "dim": int(microstructure.dim),
         "periodic": True,
         "matrix_phase": microstructure.matrix_phase,
@@ -255,7 +243,7 @@ def write_microstructure_yaml(microstructure, file_path, provenance=None):
             "id": i_ind,
             "phase": i_particle.phase,
             "shape": type(i_particle).__name__,
-            "center": _plain(i_particle.position_center),
+            "center": i_particle.position_center,
         }
         record.update(_shape_parameters(i_particle))
         parent = getattr(i_particle, "parent", None)
@@ -296,23 +284,21 @@ def _provenance_record(microstructure, provenance):
     dict
         Dictionary with the provenance of the microstructure.
     """
-    import geommicgen
-
     record = {
-        "geommicgen_version": getattr(geommicgen, "__version__", "unknown"),
+        "geommicgen_version": __version__,
         "generated": datetime.datetime.now(datetime.timezone.utc)
         .replace(microsecond=0)
         .isoformat()
         .replace("+00:00", "Z"),
     }
     try:
-        record["achieved_volume_fraction"] = _plain(microstructure.volume_fraction)
+        record["achieved_volume_fraction"] = float(microstructure.volume_fraction)
     except (AttributeError, TypeError, ZeroDivisionError):
         pass
     if microstructure.total_overlap is not None:
-        record["total_overlap"] = _plain(microstructure.total_overlap)
+        record["total_overlap"] = float(microstructure.total_overlap)
     if provenance:
-        record.update({i_key: _plain(i_val) for i_key, i_val in provenance.items()})
+        record.update(provenance)
     # The volume fraction is a derived property and is informational only
 
     return record
@@ -342,13 +328,6 @@ def particle_from_record(record, rve_dims):
         of the centre does not match the dimension of the particle.
     """
     shape = record["shape"]
-    shape_classes = {i_type.__name__: i_type for i_type in Phase.phase_types.values()}
-    if shape not in shape_classes:
-        raise ValueError(
-            "The particle shape {0} is not supported by the YAML format.".format(shape)
-        )
-    particle_class = shape_classes[shape]
-
     if shape in ("Disk", "Sphere"):
         descriptors = {"r": record["r"]}
     elif shape == "CylindricalFiber":
@@ -384,7 +363,7 @@ def particle_from_record(record, rve_dims):
     # A fresh dictionary is built for every particle because some of the constructors
     # remove entries from the one they are given
 
-    particle = particle_class(record["phase"], descriptors, list(rve_dims))
+    particle = SHAPE_CLASSES[shape](record["phase"], descriptors, list(rve_dims))
     center = np.asarray(record["center"], dtype=float)
     if len(center) != particle.dim:
         raise ValueError(

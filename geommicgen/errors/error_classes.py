@@ -369,15 +369,14 @@ class PeriodicityError(Error):
 class MeshTooLargeError(Error):
     """Raised when a structured mesh is too large to be expressed as explicit cells."""
 
-    def __init__(self, n_cells, max_cells, alternatives):
+    def __init__(self, n_cells, max_cells):
         """Initizalize MeshTooLargeError instance."""
         self.n_cells = n_cells
         self.max_cells = max_cells
-        self.alternatives = alternatives
         super().__init__(
-            "The grid has {0} cells, which exceeds the limit of {1}. This output "
-            "requires explicit cells; use {2} instead, which read the phase grid "
-            "directly.".format(n_cells, max_cells, alternatives)
+            "The grid has {0} cells, which exceeds the limit of {1}. Raise the limit "
+            "of the mesh, or use an output that reads the grid of phases directly "
+            "instead of the cells.".format(n_cells, max_cells)
         )
 
     def message(self):

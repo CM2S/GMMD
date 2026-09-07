@@ -4,8 +4,11 @@ import unittest
 
 import numpy as np
 
-from geommicgen.errors.error_classes import PeriodicityError
-from geommicgen.meshing.mesh import Mesh, StructuredInfo
+from geommicgen.errors.error_classes import (
+    MissingOptionalDependency,
+    PeriodicityError,
+)
+from geommicgen.meshing.mesh import Mesh
 from geommicgen.translators import available_writers, get_writer
 from geommicgen.translators.crate import grid_file_name
 from geommicgen.translators.reorder import (
@@ -14,21 +17,8 @@ from geommicgen.translators.reorder import (
     links_element_name,
     reorder_connectivity,
 )
+from geommicgen.tests.helpers import structured_mesh
 
-
-def structured_mesh(shape, rve_dims, phase_grid=None):
-    """Build a structured mesh with the supplied number of voxels."""
-    if phase_grid is None:
-        phase_grid = np.ones(shape, dtype=int)
-    spacing = np.asarray(rve_dims, dtype=float) / np.asarray(shape, dtype=float)
-
-    return Mesh(
-        rve_dims,
-        structured=StructuredInfo(phase_grid, spacing),
-        phase_names={1: "1", 2: "2"},
-        matrix_phase="1",
-        periodic=True,
-    )
 
 
 def parse_links_mesh(file_path):
@@ -47,6 +37,7 @@ def parse_links_mesh(file_path):
             blocks[current]["lines"].append(i_line)
 
     return blocks
+
 
 
 class TestReorderTables(unittest.TestCase):
@@ -264,6 +255,21 @@ class TestMeshioWriters(unittest.TestCase):
         for i_format in ("abaqus", "ansys", "permas", "dolfin-xml"):
             self.assertNotIn(i_format, writers)
         # meshio would write these without the phase, or with unusable element types
+
+    def test_formats_needing_an_extra_package_say_so(self):
+        for i_format in ("xdmf", "exodus"):
+            writer = get_writer(i_format)
+            if writer.requires_package is None:
+                continue
+            try:
+                __import__(writer.requires_package)
+            except ImportError:
+                path = os.path.join(self.temp_dir.name, "m" + writer.extension)
+                with self.assertRaises(MissingOptionalDependency) as context:
+                    writer().write(self.mesh, path)
+                self.assertIn(writer.requires_package, str(context.exception))
+        # meshio raises a bare import error from inside itself for these formats, which
+        # says nothing about how to fix it
 
     def test_vtu_is_readable_again(self):
         import meshio

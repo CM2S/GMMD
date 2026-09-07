@@ -1,35 +1,53 @@
 """
-Module containing the writer of every mesh format meshio supports.
+Module containing the writers of the mesh formats meshio supports.
 
-This is what the separation between the mesh and the solver formats buys: any format
+This is what the separation between the mesh and the solver formats buys: a format
 meshio can write becomes available without a writer of its own. XDMF serves FEniCS,
 Exodus serves MOOSE, MED serves Code_Aster, and the VTK formats serve the viewers.
 
-Not every format carries everything. The phase of each cell is written as cell data
-wherever the format supports it, and is silently lost where it does not. The formats
-that drop cell data altogether are refused rather than written incorrectly, and Abaqus
-is redirected to the writer in this package, because the one in meshio names the
-elements after rigid and shell types that no continuous RVE can use.
+Only the formats that carry the phase of every cell are offered. meshio can write about
+thirty, but many of them are surface formats, or drop the cell data without saying so,
+and a mesh of a microstructure written in one of those has quietly lost the only thing
+that distinguishes its phases. Offering a format is therefore a deliberate act, and the
+ones a reader might expect to find carry a reason instead.
 """
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-from geommicgen.translators.base import SolverWriter, register_writer
+from geommicgen.errors.error_classes import MissingOptionalDependency
+from geommicgen.translators.base import (
+    EXPLANATIONS,
+    SolverWriter,
+    register_loader,
+    register_writer,
+)
 
-REFUSED_FORMATS = {
-    "abaqus": (
-        "the meshio writer for Abaqus names the elements after rigid and shell types "
-        "and cannot write the periodic constraints; use the abaqus writer of this "
-        "package instead"
-    ),
-    "ansys": "the meshio writer for ANSYS does not carry the phase of the cells",
-    "permas": "the meshio writer for PERMAS does not carry the phase of the cells",
-    "dolfin-xml": "the format is legacy; write xdmf instead",
+SUPPORTED_FORMATS = {
+    "vtu": (".vtu", None),
+    "vtk": (".vtk", None),
+    "gmsh": (".msh", None),
+    "xdmf": (".xdmf", "h5py"),
+    "med": (".med", "h5py"),
+    "exodus": (".e", "netCDF4"),
 }
-# Formats that would silently lose the phase, or write elements that cannot be used
+# Formats that carry the phase of every cell, with the extension each one uses and the
+# package meshio needs in order to write it, when it needs one beyond its own
 
-RECOMMENDED_FORMATS = ("vtu", "vtk", "xdmf", "gmsh", "med", "exodus")
-# Formats that carry the phase of every cell and are worth advertising
+UNSUPPORTED_FORMATS = {
+    "abaqus": (
+        "the meshio writer names the elements after rigid and shell types and cannot "
+        "write the periodic constraints an RVE needs"
+    ),
+    "ansys": "the meshio writer does not carry the phase of the cells",
+    "permas": "the meshio writer does not carry the phase of the cells",
+    "off": "the meshio writer does not carry the phase of the cells",
+    "svg": "the format is a drawing and carries no cell data",
+    "obj": "the format holds surfaces only and cannot describe a volume mesh",
+    "ply": "the format holds surfaces only and cannot describe a volume mesh",
+    "stl": "the format holds surfaces only and cannot describe a volume mesh",
+    "dolfin-xml": "the format is legacy, and meshio itself recommends xdmf instead",
+}
+# Formats a reader might expect, with the reason each one is not offered
 
 
 class MeshioWriter(SolverWriter):
@@ -40,16 +58,19 @@ class MeshioWriter(SolverWriter):
     ----------
     file_format: str
         Name of the format, as meshio knows it.
+
+    requires_package: str
+        Name of the package meshio needs in order to write the format, when it needs
+        one beyond its own dependencies.
     """
 
-    needs_cells = True
+    requires_package = None
 
-    def __init__(self, file_format):
+    def __init__(self, file_format=None):
         """Initizalizer for the MeshioWriter Class."""
-        self.file_format = file_format
-        self.name = file_format
+        self.file_format = file_format if file_format is not None else type(self).name
 
-    def write(self, mesh, file_path):
+    def _write(self, mesh, file_path):
         """
         Write a mesh in one of the formats meshio supports.
 
@@ -68,17 +89,24 @@ class MeshioWriter(SolverWriter):
 
         Raises
         ------
-        ValueError:
-            If the format would lose the phase of the cells or write unusable elements.
+        MissingOptionalDependency:
+            If meshio needs a package that is not installed to write the format.
         """
         import meshio
 
-        if self.file_format in REFUSED_FORMATS:
-            raise ValueError(
-                "The format {0} is not written by geommicgen because {1}.".format(
-                    self.file_format, REFUSED_FORMATS[self.file_format]
-                )
-            )
+        if self.requires_package is not None:
+            try:
+                __import__(self.requires_package)
+            except ImportError:
+                raise MissingOptionalDependency(
+                    self.requires_package,
+                    "pip install {0}".format(self.requires_package),
+                    reason="meshio needs it to write the {0} format and it is not "
+                    "installed".format(self.file_format),
+                ) from None
+        # Checking first turns a bare import error raised inside meshio into a sentence
+        # naming the package and the command that installs it
+
         meshio.write(file_path, mesh.to_meshio(), file_format=self.file_format)
 
         return [file_path]
@@ -86,48 +114,35 @@ class MeshioWriter(SolverWriter):
 
 def register_meshio_writers():
     """
-    Register a writer for every format meshio can write.
+    Register a writer for every supported meshio format.
 
     Returns
     -------
     list
         Names of the formats that were registered.
     """
-    import meshio
-
-    try:
-        formats = sorted(meshio._helpers._writer_map)
-    except AttributeError:
-        formats = list(RECOMMENDED_FORMATS)
-    # The private map is the only complete list; the recommended formats are used when
-    # a future version of meshio renames it
-
-    registered = []
-    for i_format in formats:
-        if i_format in REFUSED_FORMATS:
-            continue
-
-        writer_class = type(
-            "Meshio{0}Writer".format(i_format.title().replace("-", "")),
-            (MeshioWriter,),
-            {
-                "name": i_format,
-                "extension": "." + i_format,
-                "__init__": _make_initializer(i_format),
-                "__doc__": "Class for the writer of the {0} format.".format(i_format),
-            },
+    for i_format, (i_extension, i_package) in sorted(SUPPORTED_FORMATS.items()):
+        register_writer(
+            type(
+                "Meshio{0}Writer".format(i_format.title().replace("-", "")),
+                (MeshioWriter,),
+                {
+                    "name": i_format,
+                    "extension": i_extension,
+                    "requires_package": i_package,
+                    "__doc__": "Class for the writer of the {0} format.".format(
+                        i_format
+                    ),
+                },
+            )
         )
-        register_writer(writer_class)
-        registered.append(i_format)
+    # One class per format, because the registry holds classes the caller instantiates
+    # and the class attributes are what carry the name and the extension
 
-    return registered
+    return sorted(SUPPORTED_FORMATS)
 
 
-def _make_initializer(file_format):
-    """Build the initializer of the writer of one format."""
-
-    def __init__(self):
-        """Initizalize the writer."""
-        MeshioWriter.__init__(self, file_format)
-
-    return __init__
+EXPLANATIONS.update(UNSUPPORTED_FORMATS)
+register_loader(register_meshio_writers)
+# Registering is deferred until a writer is actually looked up, so that importing this
+# package does not import meshio

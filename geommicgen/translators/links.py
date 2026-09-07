@@ -29,9 +29,9 @@ from geommicgen.translators.reorder import (
     reorder_connectivity,
 )
 
-NODE_CHUNK = 4096
-# Number of lines assembled before they are written, so that a large mesh does not
-# build the whole file in memory
+WRITE_CHUNK = 500000
+# Number of lines formatted at a time. The file object buffers the writing itself, so
+# the chunk is here only to bound the size of the string each format call builds
 
 
 @register_writer
@@ -54,14 +54,15 @@ class LinksWriter(SolverWriter):
 
     name = "links"
     extension = ".mesh"
+    requires_periodic = True
 
     def __init__(self, gauss_points=None, require_periodic=True, write_example=True):
         """Initizalizer for the LinksWriter Class."""
         self.gauss_points = dict(gauss_points) if gauss_points else {}
-        self.require_periodic = require_periodic
+        self.requires_periodic = require_periodic
         self.write_example = write_example
 
-    def write(self, mesh, file_path):
+    def _write(self, mesh, file_path):
         """
         Write the mesh of a microstructure in the format LINKS reads.
 
@@ -78,15 +79,11 @@ class LinksWriter(SolverWriter):
         list
             Paths of the files that were written.
         """
-        if self.require_periodic:
-            mesh.check_periodic_conformity()
-        # A mesh LINKS would refuse is refused here, where the face can be named
-
         groups, element_types, materials = self._build_groups(mesh)
         written = [file_path]
 
         with open(file_path, "w") as mesh_file:
-            self._write_groups(mesh_file, groups, element_types, materials)
+            self._write_groups(mesh_file, groups, element_types)
             self._write_nodes(mesh_file, mesh)
             self._write_elements(mesh_file, mesh, groups)
 
@@ -116,16 +113,17 @@ class LinksWriter(SolverWriter):
             List of groups, correspondence between cell types and their identifiers, and
             correspondence between the phases and their material identifiers.
         """
-        phases = []
-        for i_block_phase in mesh.phase:
-            for i_phase in np.unique(i_block_phase):
-                if int(i_phase) not in phases:
-                    phases.append(int(i_phase))
-        phases.sort()
-        matrix_id = None
-        for i_id, i_name in mesh.phase_names.items():
-            if mesh.matrix_phase is not None and i_name == mesh.matrix_phase:
-                matrix_id = int(i_id)
+        phases = sorted(
+            {int(i_phase) for i_block in mesh.phase for i_phase in np.unique(i_block)}
+        )
+        matrix_id = next(
+            (
+                int(i_id)
+                for i_id, i_name in mesh.phase_names.items()
+                if i_name == mesh.matrix_phase
+            ),
+            None,
+        )
         if matrix_id in phases:
             phases.remove(matrix_id)
             phases.insert(0, matrix_id)
@@ -134,24 +132,28 @@ class LinksWriter(SolverWriter):
 
         element_types = {}
         groups = []
-        for i_block, (i_type, i_connectivity) in enumerate(mesh.cells):
+        for i_block, (i_type, _) in enumerate(mesh.cells):
             if i_type not in element_types:
                 element_types[i_type] = len(element_types) + 1
-            for i_phase in sorted(np.unique(mesh.phase[i_block])):
+            order = np.argsort(mesh.phase[i_block], kind="stable")
+            values, starts = np.unique(mesh.phase[i_block][order], return_index=True)
+            bounds = list(starts) + [len(order)]
+            for i_ind, i_phase in enumerate(values):
                 groups.append(
                     {
                         "id": len(groups) + 1,
                         "block": i_block,
-                        "cell_type": i_type,
-                        "phase": int(i_phase),
+                        "rows": order[bounds[i_ind]:bounds[i_ind + 1]],
                         "element_type_id": element_types[i_type],
                         "material_id": materials[int(i_phase)],
                     }
                 )
+        # Sorting once gives both the phases present and the rows of each group, so the
+        # phase array is not scanned again for every group
 
         return groups, element_types, materials
 
-    def _write_groups(self, mesh_file, groups, element_types, materials):
+    def _write_groups(self, mesh_file, groups, element_types):
         """Write the element group and element type blocks."""
         mesh_file.write("ELEMENT_GROUPS {0}\n".format(len(groups)))
         for i_group in groups:
@@ -175,48 +177,37 @@ class LinksWriter(SolverWriter):
         # reads it does not look for one
 
     def _write_nodes(self, mesh_file, mesh):
-        """Write the node coordinates, in chunks."""
+        """Write the node coordinates, formatting a block of lines at a time."""
         points = mesh.points
         mesh_file.write("NODE_COORDINATES {0} CARTESIAN\n".format(len(points)))
-        lines = []
-        for i_ind, i_point in enumerate(points):
-            lines.append(
-                "{0} {1:.12e} {2:.12e} {3:.12e}\n".format(
-                    i_ind + 1, i_point[0], i_point[1], i_point[2]
-                )
-            )
-            if len(lines) >= NODE_CHUNK:
-                mesh_file.writelines(lines)
-                lines = []
-        mesh_file.writelines(lines)
+        row_format = "%d %.12e %.12e %.12e\n"
+        for i_start in range(0, len(points), WRITE_CHUNK):
+            block = points[i_start:i_start + WRITE_CHUNK]
+            rows = np.empty((len(block), 4), dtype=object)
+            rows[:, 0] = np.arange(i_start + 1, i_start + len(block) + 1)
+            rows[:, 1:] = block
+            mesh_file.write((row_format * len(block)) % tuple(rows.ravel()))
         mesh_file.write("\n")
         # Three coordinates are always written; LINKS reads only as many as the analysis
         # has dimensions
 
     def _write_elements(self, mesh_file, mesh, groups):
-        """Write the element connectivities, in chunks."""
-        n_elements = sum(len(i_connectivity) for _, i_connectivity in mesh.cells)
-        mesh_file.write("ELEMENTS {0}\n".format(n_elements))
+        """Write the element connectivities, formatting a block of lines at a time."""
+        mesh_file.write("ELEMENTS {0}\n".format(mesh.n_cells))
 
         element_id = 0
-        lines = []
         for i_group in groups:
             cell_type, connectivity = mesh.cells[i_group["block"]]
-            selection = mesh.phase[i_group["block"]] == i_group["phase"]
-            block = reorder_connectivity(cell_type, connectivity[selection])
-            for i_cell in block:
-                element_id += 1
-                lines.append(
-                    "{0} {1} {2}\n".format(
-                        element_id,
-                        i_group["id"],
-                        " ".join(str(int(i_node) + 1) for i_node in i_cell),
-                    )
-                )
-                if len(lines) >= NODE_CHUNK:
-                    mesh_file.writelines(lines)
-                    lines = []
-        mesh_file.writelines(lines)
+            block = reorder_connectivity(cell_type, connectivity[i_group["rows"]])
+            row_format = "%d %d" + " %d" * block.shape[1] + "\n"
+            for i_start in range(0, len(block), WRITE_CHUNK):
+                chunk = block[i_start:i_start + WRITE_CHUNK]
+                rows = np.empty((len(chunk), block.shape[1] + 2), dtype=np.int64)
+                rows[:, 0] = np.arange(element_id + 1, element_id + len(chunk) + 1)
+                rows[:, 1] = i_group["id"]
+                rows[:, 2:] = chunk + 1
+                mesh_file.write((row_format * len(chunk)) % tuple(rows.ravel()))
+                element_id += len(chunk)
         # The identifiers of the nodes and of the elements are dense and start at one,
         # which is what the reader of LINKS requires
 

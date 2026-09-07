@@ -9,7 +9,6 @@ from geommicgen._optional import (
     has_gmsh,
     require_gmsh,
     require_gmsh2links,
-    _version_tuple,
 )
 from geommicgen.errors.error_classes import MissingOptionalDependency
 
@@ -47,19 +46,6 @@ print("IMPORTED WITHOUT GMSH")
 """
 
 
-class TestVersionTuple(unittest.TestCase):
-    """Test class for the parsing of the version strings."""
-
-    def test_plain_version(self):
-        self.assertEqual(_version_tuple("4.15.2"), (4, 15, 2))
-
-    def test_version_with_label(self):
-        self.assertEqual(_version_tuple("4.15.2-dev"), (4, 15, 2))
-
-    def test_empty_version(self):
-        self.assertEqual(_version_tuple(""), ())
-
-
 class TestRequireGmsh(unittest.TestCase):
     """Test class for the retrieval of the optional gmsh dependency."""
 
@@ -77,14 +63,23 @@ class TestRequireGmsh(unittest.TestCase):
 
     def test_raises_when_too_old(self):
         old_gmsh = types.ModuleType("gmsh")
-        old_gmsh.__version__ = "4.9.0"
+        old_gmsh.GMSH_API_VERSION_MAJOR = 4
+        old_gmsh.GMSH_API_VERSION_MINOR = 9
         with patch.dict(sys.modules, {"gmsh": old_gmsh}):
             with self.assertRaises(MissingOptionalDependency) as context:
                 require_gmsh()
             self.assertFalse(has_gmsh())
         message = str(context.exception)
-        self.assertIn("4.9.0", message)
+        self.assertIn("4.9", message)
         self.assertIn(".".join(str(i_part) for i_part in MINIMUM_GMSH_VERSION), message)
+
+    def test_raises_when_the_api_version_is_unreadable(self):
+        nameless_gmsh = types.ModuleType("gmsh")
+        with patch.dict(sys.modules, {"gmsh": nameless_gmsh}):
+            with self.assertRaises(MissingOptionalDependency):
+                require_gmsh()
+        # An installation that cannot report its API version is refused, since the
+        # versions that cannot are the old ones this check exists to catch
 
     def test_gmsh2links_message_names_the_repository(self):
         with patch.dict(sys.modules, {"gmsh2links.main": None, "gmsh2links": None}):

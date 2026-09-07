@@ -25,8 +25,9 @@ class CrateWriter(SolverWriter):
     name = "crate"
     extension = ".rgmsh.npy"
     needs_cells = False
+    needs_grid = True
 
-    def write(self, mesh, file_path):
+    def _write(self, mesh, file_path):
         """
         Write the grid of phases of a structured mesh.
 
@@ -43,26 +44,11 @@ class CrateWriter(SolverWriter):
         -------
         list
             Paths of the files that were written.
-
-        Raises
-        ------
-        ValueError:
-            If the mesh is not structured.
         """
-        if mesh.structured is None:
-            raise ValueError(
-                "Only a structured mesh has a grid of phases to write; mesh the "
-                "microstructure with the voxel mesher to obtain one."
-            )
+        np.save(file_path, mesh.structured.phase_grid)
+        # numpy appends the extension itself, unless the name already carries it
 
-        if file_path.endswith(".npy"):
-            stem = file_path[: -len(".npy")]
-        else:
-            stem = file_path
-        np.save(stem, mesh.structured.phase_grid)
-        # numpy appends the extension itself, so the name is built without it
-
-        return [stem + ".npy"]
+        return [file_path if file_path.endswith(".npy") else file_path + ".npy"]
 
 
 def grid_file_name(deck_name, shape):

@@ -67,7 +67,7 @@ class PeriodicBoundary:
         negative face of direction *k* and bit *2k + 1* when it lies on the positive one.
     """
 
-    def __init__(self, tol, dim):
+    def __init__(self, tol):
         """
         Initizalizer for the PeriodicBoundary Class.
 
@@ -75,12 +75,8 @@ class PeriodicBoundary:
         ----------
         tol: float
             Absolute tolerance used to place the nodes on the faces of the RVE.
-
-        dim: int
-            Number of spatial dimensions of the mesh.
         """
         self.tol = tol
-        self.dim = dim
         self.face_nodes = {}
         self.face_interior = {}
         self.edge_nodes = {}
@@ -151,10 +147,10 @@ def classify_periodic_boundary(points, rve_dims, tol=None):
         tol = DEFAULT_RELATIVE_TOL * float(np.max(rve_dims))
     # The same rule the solver uses, so that a mesh accepted here is accepted there
 
-    boundary = PeriodicBoundary(tol, dim)
+    boundary = PeriodicBoundary(tol)
 
-    on_negative = np.abs(coords) < tol
-    on_positive = np.abs(coords - rve_dims) < tol
+    on_negative = (coords > -tol) & (coords < tol)
+    on_positive = (coords > rve_dims - tol) & (coords < rve_dims + tol)
     n_faces = on_negative.sum(axis=1) + on_positive.sum(axis=1)
 
     mask = np.zeros(len(coords), dtype=np.uint8)
@@ -246,56 +242,64 @@ def _match_by_coordinates(slave_coords, master_coords, slave_index, master_index
 
 def _classify_edges(boundary, coords, on_negative, on_positive, n_faces, tol):
     """Classify and pair the nodes on the twelve edges of a three dimensional RVE."""
+    candidates = np.where(n_faces == 2)[0]
+    positive = on_positive[candidates]
+    negative = on_negative[candidates]
+    # Only the nodes on exactly two faces can lie on an edge, and there are few of
+    # them, so the buckets are built from that set instead of from the whole mesh
+
     for i_dir in range(3):
         axis = AXIS_NAMES[i_dir]
         others = [i_other for i_other in range(3) if i_other != i_dir]
+        on_edge = (
+            (negative[:, others[0]] | positive[:, others[0]])
+            & (negative[:, others[1]] | positive[:, others[1]])
+        )
         selections = {}
-        for i_sign_b, name_b in ((0, "-"), (1, "+")):
-            for i_sign_c, name_c in ((0, "-"), (1, "+")):
-                on_b = (on_negative, on_positive)[i_sign_b][:, others[0]]
-                on_c = (on_negative, on_positive)[i_sign_c][:, others[1]]
-                key = "{0}{1}{2}{3}".format(
-                    AXIS_NAMES[others[0]], name_b, AXIS_NAMES[others[1]], name_c
-                )
-                selections[(name_b, name_c)] = np.where(on_b & on_c & (n_faces == 2))[0]
-                boundary.edge_nodes[key] = selections[(name_b, name_c)]
-        # The edges running along a direction are named by the two faces that bound them
+        for i_signs in ((0, 0), (1, 0), (0, 1), (1, 1)):
+            selection = on_edge.copy()
+            name = ""
+            for i_other, i_sign in zip(others, i_signs):
+                selection &= (positive if i_sign else negative)[:, i_other]
+                name += "{0}{1}".format(AXIS_NAMES[i_other], "+" if i_sign else "-")
+            selections[i_signs] = candidates[selection]
+            boundary.edge_nodes[name] = selections[i_signs]
+        # The edges running along a direction are named by the two faces bounding them
 
-        master = selections[("-", "-")]
+        master = selections[(0, 0)]
         pairs = []
         unmatched = []
-        for i_key in (("+", "-"), ("-", "+"), ("+", "+")):
-            slave = selections[i_key]
+        for i_signs in ((1, 0), (0, 1), (1, 1)):
+            slave = selections[i_signs]
             edge_pairs, edge_unmatched = _match_by_coordinates(
                 coords[slave][:, [i_dir]], coords[master][:, [i_dir]], slave, master, tol
             )
             pairs.append(edge_pairs)
             unmatched.append(edge_unmatched)
-        boundary.edge_pairs[axis] = (
-            np.concatenate(pairs) if pairs else np.zeros((0, 2), dtype=int)
+        boundary.edge_pairs[axis] = np.concatenate(pairs)
+        boundary.unmatched[axis] = np.concatenate(
+            [boundary.unmatched[axis]] + unmatched
         )
-        edge_unmatched = np.concatenate(unmatched) if unmatched else np.zeros(0, int)
-        if len(edge_unmatched) > 0:
-            boundary.unmatched[axis] = np.concatenate(
-                (boundary.unmatched.get(axis, np.zeros(0, int)), edge_unmatched)
-            )
 
 
 def _classify_corners(boundary, on_negative, on_positive, n_faces, dim):
     """Classify and pair the corners of the RVE."""
-    corners = {}
+    candidates = np.where(n_faces == dim)[0]
+    positive = on_positive[candidates]
+    negative = on_negative[candidates]
+    # A node on as many faces as there are dimensions is a corner, and a conforming
+    # mesh has exactly one at each of them
+
+    corners = []
     for i_corner in range(2 ** dim):
-        selection = n_faces == dim
+        selection = np.ones(len(candidates), dtype=bool)
         name = ""
         for i_dir in range(dim):
-            positive = (i_corner >> i_dir) & 1
-            selection = selection & (
-                on_positive[:, i_dir] if positive else on_negative[:, i_dir]
-            )
-            name += "{0}{1}".format(AXIS_NAMES[i_dir], "+" if positive else "-")
-        nodes = np.where(selection)[0]
-        corners[i_corner] = nodes
-        boundary.corner_nodes[name] = nodes
+            is_positive = bool((i_corner >> i_dir) & 1)
+            selection &= (positive if is_positive else negative)[:, i_dir]
+            name += "{0}{1}".format(AXIS_NAMES[i_dir], "+" if is_positive else "-")
+        corners.append(candidates[selection])
+        boundary.corner_nodes[name] = corners[-1]
 
     master = corners[0]
     pairs = []
@@ -305,4 +309,3 @@ def _classify_corners(boundary, on_negative, on_positive, n_faces, dim):
     boundary.corner_pairs = (
         np.asarray(pairs, dtype=int) if pairs else np.zeros((0, 2), dtype=int)
     )
-    # A conforming mesh has exactly one node at every corner

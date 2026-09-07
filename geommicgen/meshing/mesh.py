@@ -11,6 +11,8 @@ because that grid is what the spectral solvers read and because materialising th
 of a fine three dimensional grid is expensive. The cells are built on demand.
 """
 
+import math
+
 import numpy as np
 
 # pylint: disable=import-error
@@ -20,6 +22,16 @@ from geommicgen.meshing.periodic import classify_periodic_boundary
 
 DEFAULT_MAX_CELLS = 20000000
 # Largest number of cells that is materialized from a structured grid
+
+VTK_CELL_CORNERS = {
+    2: ((0, 0), (1, 0), (1, 1), (0, 1)),
+    3: (
+        (0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0),
+        (0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1),
+    ),
+}
+# Corners of a cell of the grid, in the order VTK lists the nodes of a quadrilateral
+# and of a hexahedron
 
 
 class StructuredInfo:
@@ -55,9 +67,17 @@ class StructuredInfo:
         self.shape = tuple(int(i_size) for i_size in self.phase_grid.shape)
 
     @property
+    def boundary(self):
+        """Classification of the boundary nodes, computed on first use."""
+        if self._boundary is None:
+            self.classify_boundary()
+
+        return self._boundary
+
+    @property
     def n_cells(self):
         """Number of voxels of the grid."""
-        return int(np.prod(self.shape))
+        return math.prod(self.shape)
 
 
 class Mesh:
@@ -105,6 +125,7 @@ class Mesh:
         periodic=False,
         structured=None,
         source=None,
+        max_cells=DEFAULT_MAX_CELLS,
     ):
         """
         Initizalizer for the Mesh Class.
@@ -140,14 +161,18 @@ class Mesh:
 
         source: dict
             Information about the mesher that produced the mesh.
+
+        max_cells: int
+            Largest number of cells that is built from a structured grid.
         """
         self.rve_dims = np.asarray(rve_dims, dtype=float)
+        self.max_cells = max_cells
         self.dim = len(self.rve_dims)
         self.periodic = bool(periodic)
         self.phase_names = dict(phase_names) if phase_names else {}
         self.matrix_phase = matrix_phase
         self.structured = structured
-        self.boundary = None
+        self._boundary = None
         self.source = dict(source) if source else {}
         self._points = None if points is None else np.asarray(points, dtype=float)
         self._cells = cells
@@ -182,12 +207,20 @@ class Mesh:
         return self._phase
 
     @property
+    def boundary(self):
+        """Classification of the boundary nodes, computed on first use."""
+        if self._boundary is None:
+            self.classify_boundary()
+
+        return self._boundary
+
+    @property
     def n_cells(self):
         """Number of cells of the mesh."""
         if self.structured is not None and self._cells is None:
             return self.structured.n_cells
 
-        return int(sum(len(i_connectivity) for _, i_connectivity in self.cells))
+        return sum(len(i_connectivity) for _, i_connectivity in self.cells)
 
     def classify_boundary(self, tol=None):
         """
@@ -203,9 +236,9 @@ class Mesh:
         `.PeriodicBoundary`
             The classification of the boundary nodes.
         """
-        self.boundary = classify_periodic_boundary(self.points, self.rve_dims, tol)
+        self._boundary = classify_periodic_boundary(self.points, self.rve_dims, tol)
 
-        return self.boundary
+        return self._boundary
 
     def check_periodic_conformity(self, tol=None):
         """
@@ -221,7 +254,7 @@ class Mesh:
         PeriodicityError:
             If a node on a face has no partner on the opposite face.
         """
-        boundary = self.boundary if self.boundary is not None else self.classify_boundary(tol)
+        boundary = self.classify_boundary(tol) if tol is not None else self.boundary
         if not boundary.is_conforming:
             raise PeriodicityError(boundary.describe_mismatch())
 
@@ -236,86 +269,68 @@ class Mesh:
         """
         import meshio
 
-        cell_data = {"phase": [np.asarray(i_phase) for i_phase in self.phase]}
-        point_data = {}
-        if self.boundary is not None:
-            point_data["boundary_face"] = self.boundary.face_mask
-
         return meshio.Mesh(
             self.points,
             self.cells,
-            point_data=point_data if point_data else None,
-            cell_data=cell_data,
+            cell_data={"phase": [np.asarray(i_phase) for i_phase in self.phase]},
         )
+        # The boundary classification is deliberately not written, since it is derived
+        # from the coordinates and is recomputed wherever it is needed
 
-    def _materialize(self, max_cells=DEFAULT_MAX_CELLS):
+    def _materialize(self, max_cells=None):
         """
         Build the nodes and the cells of a structured mesh.
 
         Parameters
         ----------
         max_cells: int
-            Largest number of cells that is built.
+            Largest number of cells that is built. Defaults to the limit of the mesh.
 
         Raises
         ------
         MeshTooLargeError:
-            If the grid has more cells than `max_cells`.
+            If the grid has more cells than the limit.
         """
         if self.structured is None:
             raise ValueError("An unstructured mesh has no grid to build the cells from.")
+        max_cells = self.max_cells if max_cells is None else max_cells
         if self.structured.n_cells > max_cells:
-            raise MeshTooLargeError(
-                self.structured.n_cells,
-                max_cells,
-                "the crate or vtk writers",
-            )
+            raise MeshTooLargeError(self.structured.n_cells, max_cells)
 
         shape = self.structured.shape
         spacing = self.structured.spacing
-        n_nodes_per_dir = [i_size + 1 for i_size in shape]
+        n_per_direction = [i_size + 1 for i_size in shape]
+        n_nodes = math.prod(n_per_direction)
 
-        grids = np.meshgrid(
-            *[np.arange(i_size) * i_spacing for i_size, i_spacing in
-              zip(n_nodes_per_dir, spacing)],
-            indexing="ij",
+        points = np.zeros((n_nodes, 3))
+        lattice = points.reshape(*(n_per_direction + [3]))
+        for i_dir, (i_size, i_spacing) in enumerate(zip(n_per_direction, spacing)):
+            broadcast = [1] * len(shape)
+            broadcast[i_dir] = i_size
+            lattice[..., i_dir] = (np.arange(i_size) * i_spacing).reshape(broadcast)
+        # The coordinates are broadcast into a view of the node array, which avoids
+        # building one full grid per direction only to ravel it away
+
+        dtype = np.int32 if n_nodes < 2 ** 31 else np.int64
+        strides = [
+            math.prod(n_per_direction[i_dir + 1:]) for i_dir in range(len(shape))
+        ]
+        first = np.zeros(shape, dtype=dtype)
+        for i_dir, i_stride in enumerate(strides):
+            broadcast = [1] * len(shape)
+            broadcast[i_dir] = shape[i_dir]
+            first += (np.arange(shape[i_dir], dtype=dtype) * i_stride).reshape(broadcast)
+        offsets = np.asarray(
+            [
+                sum(i_corner[i_dir] * strides[i_dir] for i_dir in range(len(shape)))
+                for i_corner in VTK_CELL_CORNERS[len(shape)]
+            ],
+            dtype=dtype,
         )
-        points = np.zeros((int(np.prod(n_nodes_per_dir)), 3))
-        for i_dir, i_grid in enumerate(grids):
-            points[:, i_dir] = i_grid.ravel()
+        connectivity = first.ravel()[:, None] + offsets[None, :]
+        # Every cell is its lowest numbered node plus the same offsets, so the whole
+        # connectivity is one addition rather than a stack of sliced index grids
+
         self._points = points
-        # The nodes are numbered in the same order the phases are stored, so that the
-        # cell and the voxel with the same index describe the same region
-
-        indices = np.arange(int(np.prod(n_nodes_per_dir))).reshape(n_nodes_per_dir)
-        if len(shape) == 2:
-            connectivity = np.stack(
-                (
-                    indices[:-1, :-1].ravel(),
-                    indices[1:, :-1].ravel(),
-                    indices[1:, 1:].ravel(),
-                    indices[:-1, 1:].ravel(),
-                ),
-                axis=1,
-            )
-            cell_type = "quad"
-        else:
-            connectivity = np.stack(
-                (
-                    indices[:-1, :-1, :-1].ravel(),
-                    indices[1:, :-1, :-1].ravel(),
-                    indices[1:, 1:, :-1].ravel(),
-                    indices[:-1, 1:, :-1].ravel(),
-                    indices[:-1, :-1, 1:].ravel(),
-                    indices[1:, :-1, 1:].ravel(),
-                    indices[1:, 1:, 1:].ravel(),
-                    indices[:-1, 1:, 1:].ravel(),
-                ),
-                axis=1,
-            )
-            cell_type = "hexahedron"
-        # The nodes of every cell are listed in the ordering used by VTK, which is the
-        # one meshio expects
-
-        self._cells = [(cell_type, connectivity)]
+        self._cells = [("quad" if len(shape) == 2 else "hexahedron", connectivity)]
         self._phase = [self.structured.phase_grid.ravel(order="C").astype(int)]

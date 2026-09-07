@@ -13,38 +13,9 @@ import error raised deep inside the call stack.
 from geommicgen.errors.error_classes import MissingOptionalDependency
 
 MINIMUM_GMSH_VERSION = (4, 15)
-# Earliest release of gmsh whose API matches the one used here
+# Earliest API version of gmsh that matches the calls used here
 
 GMSH_INSTALL_COMMAND = "pip install 'geommicgen[gmsh]'"
-
-
-def _version_tuple(version):
-    """
-    Convert a version string into a tuple of integers.
-
-    Parameters
-    ----------
-    version: str
-        Version string, such as *"4.15.2"*.
-
-    Returns
-    -------
-    tuple
-        Tuple with the numeric components of the version.
-    """
-    components = []
-    for i_component in str(version).split("."):
-        digits = ""
-        for i_char in i_component:
-            if not i_char.isdigit():
-                break
-            digits += i_char
-        if digits == "":
-            break
-        components.append(int(digits))
-    # Trailing labels such as the ones in a development release are discarded
-
-    return tuple(components)
 
 
 def require_gmsh():
@@ -67,17 +38,26 @@ def require_gmsh():
     except ImportError:
         raise MissingOptionalDependency("gmsh", GMSH_INSTALL_COMMAND) from None
 
-    version = getattr(gmsh, "__version__", None)
-    if version is not None and _version_tuple(version) < MINIMUM_GMSH_VERSION:
+    needed = ".".join(str(i_part) for i_part in MINIMUM_GMSH_VERSION)
+    try:
+        version = (gmsh.GMSH_API_VERSION_MAJOR, gmsh.GMSH_API_VERSION_MINOR)
+    except AttributeError:
         raise MissingOptionalDependency(
             "gmsh",
             GMSH_INSTALL_COMMAND,
-            reason="version {0} is installed and at least {1} is needed".format(
-                version, ".".join(str(i_part) for i_part in MINIMUM_GMSH_VERSION)
-            ),
+            reason="the installed version is too old to report its API version and "
+            "at least {0} is needed".format(needed),
+        ) from None
+    if version < MINIMUM_GMSH_VERSION:
+        raise MissingOptionalDependency(
+            "gmsh",
+            GMSH_INSTALL_COMMAND,
+            reason="API version {0}.{1} is installed and at least {2} is "
+            "needed".format(version[0], version[1], needed),
         )
-    # The API calls used here were changed in gmsh 4.7 and the option names again
-    # afterwards, so an old installation fails in ways that are hard to read
+    # It is the API that matters, since the calls used here were changed in gmsh 4.7
+    # and the option names again afterwards. An installation too old to report its API
+    # version is refused rather than accepted, which is what checking __version__ did
 
     return gmsh
 

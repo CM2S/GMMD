@@ -5,24 +5,10 @@ import unittest
 import numpy as np
 
 from geommicgen.errors.error_classes import MeshTooLargeError, PeriodicityError
-from geommicgen.meshing.mesh import DEFAULT_MAX_CELLS, Mesh, StructuredInfo
+from geommicgen.meshing.mesh import DEFAULT_MAX_CELLS, Mesh
 from geommicgen.meshing.periodic import classify_periodic_boundary
 from geommicgen.meshing.writers import read_mesh, write_vtk_image, write_vtu
-
-
-def structured_mesh(shape, rve_dims, phase_grid=None):
-    """Build a structured mesh with the supplied number of voxels."""
-    if phase_grid is None:
-        phase_grid = np.ones(shape, dtype=int)
-    spacing = np.asarray(rve_dims, dtype=float) / np.asarray(shape, dtype=float)
-
-    return Mesh(
-        rve_dims,
-        structured=StructuredInfo(phase_grid, spacing),
-        phase_names={1: "1", 2: "2"},
-        matrix_phase="1",
-        periodic=True,
-    )
+from geommicgen.tests.helpers import structured_mesh
 
 
 class TestStructuredMaterialization(unittest.TestCase):
@@ -63,7 +49,7 @@ class TestStructuredMaterialization(unittest.TestCase):
             mesh._materialize(max_cells=DEFAULT_MAX_CELLS)
         message = str(context.exception)
         self.assertIn("125000000", message)
-        self.assertIn("crate", message)
+        self.assertIn("20000000", message)
 
 
 class TestPeriodicClassification(unittest.TestCase):

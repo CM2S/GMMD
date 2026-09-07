@@ -23,6 +23,9 @@ SIDECAR_SUFFIX = ".mesh.json"
 
 SIDECAR_FORMAT = "geommicgen-mesh"
 
+WRITE_CHUNK = 500000
+# Number of values formatted at a time when writing a grid
+
 
 def sidecar_path(file_path):
     """
@@ -83,7 +86,7 @@ def _sidecar_record(mesh):
     record = {
         "format": SIDECAR_FORMAT,
         "version": 1,
-        "rve_dims": [float(i_dim) for i_dim in mesh.rve_dims],
+        "rve_dims": mesh.rve_dims.tolist(),
         "dim": int(mesh.dim),
         "periodic": bool(mesh.periodic),
         "matrix_phase": mesh.matrix_phase,
@@ -93,7 +96,7 @@ def _sidecar_record(mesh):
     if mesh.structured is not None:
         record["structured"] = {
             "shape": list(mesh.structured.shape),
-            "spacing": [float(i_spacing) for i_spacing in mesh.structured.spacing],
+            "spacing": mesh.structured.spacing.tolist(),
         }
 
     return record
@@ -146,7 +149,7 @@ def read_mesh(file_path, rve_dims=None, matrix_phase=None, phase_key=None):
 
     cells = []
     for i_block in read.cells:
-        if _cell_dimension(i_block.type) == dim:
+        if i_block.dim == dim:
             cells.append((i_block.type, np.asarray(i_block.data)))
     if not cells:
         raise ValueError(
@@ -166,7 +169,16 @@ def read_mesh(file_path, rve_dims=None, matrix_phase=None, phase_key=None):
                 phase_names[int(i_value[0])] = i_name[len("Phase "):]
     # The physical group names written by gmsh follow the "Phase <name>" convention
 
-    mesh = Mesh(
+    structured = None
+    if record is not None and "structured" in record:
+        shape = tuple(record["structured"]["shape"])
+        structured = StructuredInfo(
+            phase[0].reshape(shape), record["structured"]["spacing"]
+        )
+    # A mesh written from a grid is read back as a grid, so that the writers that need
+    # the grid rather than the cells still accept it
+
+    return Mesh(
         rve_dims,
         points=points,
         cells=cells,
@@ -174,11 +186,11 @@ def read_mesh(file_path, rve_dims=None, matrix_phase=None, phase_key=None):
         phase_names=phase_names,
         matrix_phase=matrix_phase,
         periodic=record["periodic"] if record is not None else False,
+        structured=structured,
         source=record["source"] if record is not None else {"read_from": file_path},
     )
-    mesh.classify_boundary()
-
-    return mesh
+    # The boundary is classified on first use, so reading a mesh only to convert it
+    # does not pay for a classification nobody asked for
 
 
 def _read_sidecar(file_path):
@@ -202,25 +214,13 @@ def _read_phase(read, cells, dim, phase_key):
             values = [
                 np.asarray(i_values, dtype=int)
                 for i_block, i_values in zip(read.cells, read.cell_data[i_key])
-                if _cell_dimension(i_block.type) == dim
+                if i_block.dim == dim
             ]
             if len(values) == len(cells):
                 return values
     # Without any phase information every cell belongs to a single phase
 
     return [np.ones(len(i_connectivity), dtype=int) for _, i_connectivity in cells]
-
-
-def _cell_dimension(cell_type):
-    """Get the spatial dimension of a cell type named as in meshio."""
-    if cell_type.startswith("vertex"):
-        return 0
-    if cell_type.startswith("line"):
-        return 1
-    if cell_type.startswith(("triangle", "quad")):
-        return 2
-
-    return 3
 
 
 def write_vtk_image(mesh, file_path):
@@ -249,10 +249,7 @@ def write_vtk_image(mesh, file_path):
 
     shape = list(mesh.structured.shape)
     spacing = list(mesh.structured.spacing)
-    while len(shape) < 3:
-        shape.append(0)
-        spacing.append(1.0)
-    dimensions = [i_size + 1 for i_size in shape[: mesh.dim]] + [1] * (3 - mesh.dim)
+    dimensions = [i_size + 1 for i_size in shape] + [1] * (3 - mesh.dim)
 
     values = mesh.structured.phase_grid.ravel(order="F")
     with open(file_path, "w") as vtk_file:
@@ -266,6 +263,9 @@ def write_vtk_image(mesh, file_path):
         vtk_file.write("CELL_DATA {0}\n".format(len(values)))
         vtk_file.write("SCALARS phase int 1\n")
         vtk_file.write("LOOKUP_TABLE default\n")
-        for i_value in values:
-            vtk_file.write("{0}\n".format(int(i_value)))
-    # The values run with the first direction changing fastest, as VTK expects
+        for i_start in range(0, len(values), WRITE_CHUNK):
+            chunk = values[i_start:i_start + WRITE_CHUNK]
+            vtk_file.write(("%d\n" * len(chunk)) % tuple(chunk.tolist()))
+    # The values run with the first direction changing fastest, as VTK expects. They are
+    # formatted a block at a time, which is an order of magnitude faster than one call
+    # per cell and keeps the transient string bounded
