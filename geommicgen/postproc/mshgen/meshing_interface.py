@@ -65,11 +65,19 @@ class FEMMeshGenerator(MeshGenerator):
     phase_dim_tag: dict()
         Tags of the particles in each phase.
 
+    refine_surfaces: list(int)
+        Tags of the surfaces a previous meshing attempt could not handle. Empty on the
+        first attempt; when populated, the element size is driven down near those
+        surfaces only.
+
     enforce_pbc_flag: bool
-        Flag for the enforcement of periodic boundary conditions. By defalut True. Only set
-        to  False if there are Ellipsoids or CylindricalFibers in the microstructure. Gmsh
-        has not been able to produce  microstructures containing Ellipsoids or
-        CylindricalFibers and with pbcs.
+        Flag for the enforcement of periodic boundary conditions. True by default, for
+        every particle shape. It used to be forced to False for Ellipsoids, Cylinders and
+        CylindricalFibers, which made their meshes silently non-periodic. The underlying
+        cause was not Gmsh: the RVE offset was applied without wrapping the centres back
+        into the cell, so the periodic image crossing the opposite face was never built
+        and the geometry handed to Gmsh really was not periodic. With that fixed, these
+        shapes mesh periodically like any other.
 
     time: float
         Time in seconds to generate the mesh.
@@ -208,8 +216,15 @@ class FEMMeshGenerator(MeshGenerator):
         -----------------
         Element descriptors.
         """
-        if mesh_size < 0:
+        self.elements_per_particle = kwargs.get("elements_per_particle", None)
+        if mesh_size is None and self.elements_per_particle is None:
+            raise ValueError(
+                "Either mesh_size or elements_per_particle must be specified."
+            )
+        if mesh_size is not None and mesh_size < 0:
             raise ValueError("The mesh size must be a positive number.")
+        if self.elements_per_particle is not None and self.elements_per_particle <= 0:
+            raise ValueError("elements_per_particle must be a positive number.")
         self.mesh_size = mesh_size
         if element_type not in FEMMeshGenerator.known_element_descriptors:
             raise ValueError("Unknown element: {0}".format(element_type))
@@ -227,6 +242,7 @@ class FEMMeshGenerator(MeshGenerator):
         self.box_tag = None
         self.phase_dim_tag = None
         self.enforce_pbc_flag = True
+        self.refine_surfaces = []
         self.time = None
 
     def generate_mesh(self, microstructure_sample, sample_dir):
@@ -242,6 +258,7 @@ class FEMMeshGenerator(MeshGenerator):
             Path to store the meshes.
         """
         start = time.time()
+        self.resolve_mesh_size(microstructure_sample)
         print_funcs.print_to_file(
             "Finite Element Mesh using Gmsh",
             to_terminal=self.output_term,
@@ -250,11 +267,41 @@ class FEMMeshGenerator(MeshGenerator):
         print_funcs.print_to_file(
             "." * 80 + "\n", to_terminal=self.output_term, to_screen=self.output_term
         )
-        self.init_gmsh_model()
-        self.generate_mesh_gmsh(
-            microstructure_sample,
-            sample_dir,
-        )
+        for attempt in range(2):
+            try:
+                self.particle_tags = []
+                self.phase_dim_tag = None
+                self.init_gmsh_model()
+                self.generate_mesh_gmsh(
+                    microstructure_sample,
+                    sample_dir,
+                )
+                break
+            except Exception as exc:
+                # Gmsh names the surfaces it could not mesh, for instance "Invalid
+                # boundary mesh (overlapping facets) on surface 75 surface 76". Those
+                # are the thin ligaments between near-touching particles, so the second
+                # attempt refines around them instead of over the whole RVE.
+                words = str(exc).split()
+                self.refine_surfaces = [
+                    int(tag)
+                    for previous, tag in zip(words, words[1:])
+                    if previous == "surface" and tag.isdigit()
+                ]
+                try:
+                    gmsh.finalize()
+                except Exception:
+                    pass
+                if not self.refine_surfaces or attempt == 1:
+                    raise
+                print_funcs.print_to_file(
+                    "\t\t- Gmsh could not mesh surfaces {0}; refining there and "
+                    "rebuilding\n".format(self.refine_surfaces),
+                    to_terminal=self.output_term,
+                    to_screen=self.output_term,
+                )
+                # The model has to be rebuilt: once a meshing pass has failed, gmsh
+                # will not produce a mesh for that model again even after mesh.clear().
         mesh_results_dir = os.path.join(sample_dir, "meshes")
         if not os.path.exists(mesh_results_dir):
             os.makedirs(mesh_results_dir)
@@ -273,6 +320,59 @@ class FEMMeshGenerator(MeshGenerator):
             to_screen=self.output_term,
         )
         #
+
+    @staticmethod
+    def smallest_particle_radius(microstructure_sample):
+        """Smallest inscribed radius over the particles in *microstructure_sample*.
+
+        This is the shortest half-dimension present, so twice it is the thinnest
+        particle a mesh has to resolve.
+        """
+        radii = []
+        for i_particle in microstructure_sample.particles:
+            radius = getattr(i_particle, "radius_insc", None)
+            if radius is None:
+                radius = getattr(i_particle, "radius", None)
+            if radius is not None:
+                radii.append(float(radius))
+        return min(radii) if radii else None
+
+    def resolve_mesh_size(self, microstructure_sample):
+        """Turn *elements_per_particle* into an element size, and flag inert sizes.
+
+        A mesh size given as an absolute length carries no relation to the
+        microstructure: change the RVE or the particle size and the same number means a
+        different resolution. Worse, once it exceeds the particle size it stops doing
+        anything at all, because the faceted geometry already forces a finer mesh, so a
+        request of 0.4 and one of 0.15 can produce the identical mesh.
+        """
+        smallest_radius = self.smallest_particle_radius(microstructure_sample)
+        if smallest_radius is None or smallest_radius <= 0:
+            return
+        if self.elements_per_particle is not None:
+            # Elements across the smallest particle's shortest diameter.
+            derived = 2 * smallest_radius / self.elements_per_particle
+            self.mesh_size = (
+                derived if self.mesh_size is None else min(self.mesh_size, derived)
+            )
+            print_funcs.print_to_file(
+                "\t\t- Element size {0:.4g} for {1:g} elements across the smallest "
+                "particle ({2:.4g} across)\n".format(
+                    self.mesh_size, self.elements_per_particle, 2 * smallest_radius
+                ),
+                to_terminal=self.output_term,
+                to_screen=self.output_term,
+            )
+        elif self.mesh_size > smallest_radius:
+            print_funcs.print_to_file(
+                "\t\t- WARNING: mesh size {0:.4g} exceeds the smallest particle radius "
+                "{1:.4g}, so it no longer controls the mesh; the geometry does. Use "
+                "elements_per_particle to set the resolution.\n".format(
+                    self.mesh_size, smallest_radius
+                ),
+                to_terminal=self.output_term,
+                to_screen=self.output_term,
+            )
 
     def init_gmsh_model(self):
         """Initialize and set the options for the gmsh model."""
@@ -301,7 +401,7 @@ class FEMMeshGenerator(MeshGenerator):
         )
         # 3D Meshing algorithm
 
-        gmsh.option.setNumber("Mesh.CharacteristicLengthFactor", 1)
+        gmsh.option.setNumber("Mesh.MeshSizeFactor", 1)
         # Characteristic mesh length factor (applied acroos all mesh)
 
         gmsh.option.setNumber("Mesh.MaxNumThreads1D", 4)
@@ -530,9 +630,12 @@ class FEMMeshGenerator(MeshGenerator):
 
         self.enforce_pbc(rve_dims)
 
-        gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
-        gmsh.option.setNumber("Mesh.CharacteristicLengthMax", self.mesh_size)
-        # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", self.mesh_size_min)
+        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 6)
+        # Target number of elements per 2*pi radians of curvature. Before Gmsh 4.7
+        # this option was a boolean and the count lived in Mesh.MinimumElementsPerTwoPi,
+        # whose default was 6; the two were merged, so 6 preserves the original intent.
+        gmsh.option.setNumber("Mesh.MeshSizeMax", self.mesh_size)
+        # gmsh.option.setNumber("Mesh.MeshSizeMin", self.mesh_size_min)
 
         # Generate a 3D mesh
         print_funcs.print_to_file(
@@ -540,6 +643,25 @@ class FEMMeshGenerator(MeshGenerator):
             to_terminal=self.output_term,
             to_screen=self.output_term,
         )
+        if self.refine_surfaces:
+            # Drive the element size down only near the surfaces a previous attempt
+            # could not mesh, rather than refining the entire RVE.
+            field_distance = gmsh.model.mesh.field.add("Distance")
+            gmsh.model.mesh.field.setNumbers(
+                field_distance, "SurfacesList", self.refine_surfaces
+            )
+            gmsh.model.mesh.field.setNumber(field_distance, "Sampling", 100)
+            field_threshold = gmsh.model.mesh.field.add("Threshold")
+            gmsh.model.mesh.field.setNumber(field_threshold, "InField", field_distance)
+            gmsh.model.mesh.field.setNumber(
+                field_threshold, "SizeMin", self.mesh_size / 8
+            )
+            gmsh.model.mesh.field.setNumber(field_threshold, "SizeMax", self.mesh_size)
+            gmsh.model.mesh.field.setNumber(field_threshold, "DistMin", 0)
+            gmsh.model.mesh.field.setNumber(field_threshold, "DistMax", self.mesh_size)
+            gmsh.model.mesh.field.setAsBackgroundMesh(field_threshold)
+            # The other size sources stay enabled and gmsh takes the minimum, so
+            # curvature refinement is preserved away from these surfaces.
         model.mesh.generate(dim)
         if model.mesh.getLastEntityError():
             print_funcs.print_to_file(
@@ -607,7 +729,6 @@ class FEMMeshGenerator(MeshGenerator):
 
                 factory.synchronize()
                 if isinstance(i_particle, CylindricalFiber):
-                    self.enforce_pbc_flag = False
                     face_tag = factory.addDisk(x_c, y_c, z_c, r_x, r_y)
                     # Saving the properties of the particles
                     if i_particle.direction_fibers == 0:
@@ -654,7 +775,7 @@ class FEMMeshGenerator(MeshGenerator):
                     alpha = i_particle.angle
                     factory.synchronize()
                     rotate_tag = [(2, self.particle_tags[-1])]
-                    rotate_tag.extend(model.getBoundary([2, self.particle_tags[-1]]))
+                    rotate_tag.extend(model.getBoundary([(2, self.particle_tags[-1])]))
                     factory.rotate(rotate_tag, x_c, y_c, z_c, 0, 0, 1, alpha)
 
                     self.phase_dim_tag[i_particle.phase].append(
@@ -687,8 +808,6 @@ class FEMMeshGenerator(MeshGenerator):
                         factory.synchronize()
                     elif isinstance(i_particle, Ellipsoid):
                         # Particle is an Ellipsoid
-                        self.enforce_pbc_flag = False
-                        # Do not enforce periodic boundary conditions
                         fake_radius = 1
                         self.particle_tags.append(
                             factory.addSphere(x_c, y_c, z_c, fake_radius)
@@ -726,7 +845,6 @@ class FEMMeshGenerator(MeshGenerator):
                         factory.synchronize()
                     elif isinstance(i_particle, Cylinder):
                         i_particle: Cylinder
-                        self.enforce_pbc_flag = False
                         r_x = i_particle.r_cyl
                         r_y = i_particle.r_cyl
                         face_tag = factory.addDisk(

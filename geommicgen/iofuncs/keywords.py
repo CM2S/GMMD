@@ -692,6 +692,7 @@ top_level_reader.add_top_level_keyword(
         sub_keys={
             Keyword("Element_Type", type_str="str"),
             Keyword("Mesh_Size", type_str="float"),
+            Keyword("Elements_Per_Particle", type_str="float"),
             Keyword("N_Voxels_Dims", type_str="int"),
             Keyword("Slice_Dir", type_str="int"),
         },

@@ -110,13 +110,21 @@ class TestRVENormalization(unittest.TestCase):
         self.mdsim.min_distance = 1
         particles = [MagicMock(), MagicMock()]
         init_positions = [np.array([1, 1]), np.array([2, 1])]
-        particles[0].position_center = init_positions[0]
-        particles[1].position_center = init_positions[1]
+        particles[0].position_center = np.array(init_positions[0])
+        particles[1].position_center = np.array(init_positions[1])
         with self.mdsim.virtual_particle_sizes(particles):
             pass
 
+        # The offset is subtracted and the centre is then wrapped back into the RVE,
+        # which is a rigid translation of a periodic cell followed by the choice of the
+        # canonical representative in [0, box). Copies of init_positions are kept above
+        # because position_center used to alias them, which made this assertion compare
+        # a value with itself and hold no matter what the offset did.
         for ind, particle in enumerate(particles):
-            self.assertTrue(all(particle.position_center == init_positions[ind]))
+            expected = (init_positions[ind] - offset) % np.asarray(
+                self.mdsim.box, dtype=float
+            )
+            self.assertTrue(all(particle.position_center == expected))
 
     def test_dilate_all_particles(self):
 

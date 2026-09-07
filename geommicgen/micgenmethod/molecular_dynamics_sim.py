@@ -624,6 +624,16 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     # Running through all the particles
                     i_particle.position_center -= np.array(offset)[: len(self.box)]
                     # Applying the offset to the particles
+                    i_particle.position_center = np.asarray(
+                        i_particle.position_center, dtype=float
+                    ) % np.asarray(self.box, dtype=float)
+                    # Wrapping the centre back into the RVE. The offset above is a rigid
+                    # translation of a periodic cell, so wrapping selects the canonical
+                    # representative of the same microstructure rather than changing it.
+                    # Without it a centre can sit almost a full box length outside, and
+                    # the mesher only builds periodic images for j in {-1, 0, 1}: the
+                    # partner crossing the opposite face would then need j = 2 and is
+                    # never created, leaving the geometry genuinely non-periodic.
 
     def contract_all_particles(self, particles):
         """Contract all the particles in the simulation box."""

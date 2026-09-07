@@ -286,6 +286,24 @@
 #	         Syntax: mesh_size x
 #
 #		 x: float
+#
+#		 Note: an absolute mesh size carries no relation to the microstructure, and
+#		       once it exceeds the smallest particle radius it stops controlling the
+#		       mesh altogether, because the geometry already forces something finer.
+#		       Prefer elements_per_particle below. A warning is printed when the size
+#		       given here is inert.
+#                ........................................................................
+#		 Elements per particle                                                [O]
+#
+#		 Meaning: Number of elements across the smallest particle present, i.e. across
+#		 	  twice the smallest inscribed radius in the microstructure. The element
+#		 	  size is derived from it, so the resolution follows the microstructure
+#		 	  instead of being fixed in absolute length. If mesh_size is also given,
+#		 	  the smaller of the two is used. Either this or mesh_size is required.
+#
+#	         Syntax: elements_per_particle x
+#
+#		 x: float
 #                ........................................................................
 #		 Element type                                                         [M]
 #
