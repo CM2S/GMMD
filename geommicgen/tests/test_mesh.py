@@ -161,6 +161,33 @@ class TestMeshRoundTrip(unittest.TestCase):
         self.assertIn("SCALARS phase int 1", contents)
         self.assertIn("CELL_DATA 16", contents)
 
+    def test_the_grid_survives_both_standard_formats(self):
+        phase_grid = np.ones((3, 5), dtype=int)
+        phase_grid[0, :] = 2
+        mesh = structured_mesh((3, 5), [3.0, 5.0], phase_grid)
+        for i_name, i_writer in (
+            ("grid.vtu", write_vtu),
+            ("grid.vtk", write_vtk_image),
+        ):
+            path = os.path.join(self.temp_dir.name, i_name)
+            i_writer(mesh, path)
+            restored = read_mesh(path)
+            self.assertIsNotNone(restored.structured, i_name)
+            np.testing.assert_array_equal(
+                restored.structured.phase_grid, phase_grid, err_msg=i_name
+            )
+        # The two lay the cells out in different orders, C against the grid and Fortran
+        # as VTK wants them, so the grid only comes back if the sidecar says which. The
+        # grid is deliberately not square, and not symmetric under a transpose, or
+        # reading it in the wrong order would give the right answer anyway
+
+    def test_vtk_image_writes_its_sidecar(self):
+        image_path = os.path.join(self.temp_dir.name, "grid.vtk")
+        write_vtk_image(self.mesh, image_path)
+        self.assertTrue(
+            os.path.exists(os.path.join(self.temp_dir.name, "grid.mesh.json"))
+        )
+
     def test_vtk_image_refuses_unstructured(self):
         unstructured = Mesh(
             self.mesh.rve_dims,

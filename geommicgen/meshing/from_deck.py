@@ -185,13 +185,13 @@ class MeshJob:
 
         if mesh.structured is None:
             write_vtu(mesh, standard_path)
-            self.files += [standard_path, sidecar_path(standard_path)]
         else:
             write_vtk_image(mesh, standard_path)
-            self.files.append(standard_path)
+        self.files += [standard_path, sidecar_path(standard_path)]
         # Every mesh is written in a standard format that a viewer reads, whichever
-        # other formats were asked for -- and that file is the whole of the second
-        # stage, enough on its own to run the third one later
+        # other formats were asked for. With its sidecar that file is the whole of the
+        # second stage: it reads back as the same kind of mesh it was written from, so
+        # the third stage runs off it alone, later or somewhere else
 
         for i_writer, i_path in targets:
             self.files += i_writer().write(mesh, i_path)

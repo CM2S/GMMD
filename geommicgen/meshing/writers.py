@@ -69,7 +69,7 @@ def write_vtu(mesh, file_path, write_sidecar=True):
             sidecar.write("\n")
 
 
-def _sidecar_record(mesh):
+def _sidecar_record(mesh, order="C"):
     """
     Build the record written to the sidecar file of a mesh.
 
@@ -77,6 +77,11 @@ def _sidecar_record(mesh):
     ----------
     mesh: `.Mesh`
         Mesh being written.
+
+    order: {"C", "F"}
+        Order the cells of a structured mesh are written in. The cells built from a
+        grid are laid out in C order, and a VTK image is laid out in Fortran order, so
+        the grid can only be rebuilt if the file says which.
 
     Returns
     -------
@@ -97,6 +102,7 @@ def _sidecar_record(mesh):
         record["structured"] = {
             "shape": list(mesh.structured.shape),
             "spacing": mesh.structured.spacing.tolist(),
+            "order": order,
         }
 
     return record
@@ -173,7 +179,10 @@ def read_mesh(file_path, rve_dims=None, matrix_phase=None, phase_key=None):
     if record is not None and "structured" in record:
         shape = tuple(record["structured"]["shape"])
         structured = StructuredInfo(
-            phase[0].reshape(shape), record["structured"]["spacing"]
+            np.ravel(phase[0]).reshape(
+                shape, order=record["structured"].get("order", "C")
+            ),
+            record["structured"]["spacing"],
         )
     # A mesh written from a grid is read back as a grid, so that the writers that need
     # the grid rather than the cells still accept it
@@ -223,7 +232,7 @@ def _read_phase(read, cells, dim, phase_key):
     return [np.ones(len(i_connectivity), dtype=int) for _, i_connectivity in cells]
 
 
-def write_vtk_image(mesh, file_path):
+def write_vtk_image(mesh, file_path, write_sidecar=True):
     """
     Write a structured mesh as a legacy VTK image, with the phase as cell data.
 
@@ -238,6 +247,11 @@ def write_vtk_image(mesh, file_path):
 
     file_path: str
         Path of the file to be written.
+
+    write_sidecar: bool
+        Whether to write the sidecar file with the dimensions of the RVE, the names of
+        the phases and the shape of the grid. Without it the image reads back as loose
+        cells rather than as the grid it was written from.
 
     Raises
     ------
@@ -269,3 +283,10 @@ def write_vtk_image(mesh, file_path):
     # The values run with the first direction changing fastest, as VTK expects. They are
     # formatted a block at a time, which is an order of magnitude faster than one call
     # per cell and keeps the transient string bounded
+
+    if write_sidecar:
+        with open(sidecar_path(file_path), "w") as sidecar:
+            json.dump(_sidecar_record(mesh, order="F"), sidecar, indent=2)
+            sidecar.write("\n")
+    # Written for the same reason as for an unstructured mesh, and with the order the
+    # values were just written in, so that this file reads back as the grid it is

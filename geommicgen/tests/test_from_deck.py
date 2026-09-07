@@ -116,7 +116,10 @@ class TestMeshJobRun(unittest.TestCase):
         job = build_mesh_jobs({"rgmsh": {"n_voxels_dims": [[16, 16]]}}, "deck.mdsim")[0]
         job.run(self.microstructure, self.temp_dir.name)
         written = sorted(os.path.basename(i_file) for i_file in job.files)
-        self.assertEqual(written, ["deck_16_16.rgmsh.npy", "deck_16_16.vtk"])
+        self.assertEqual(
+            written,
+            ["deck_16_16.mesh.json", "deck_16_16.rgmsh.npy", "deck_16_16.vtk"],
+        )
         for i_file in job.files:
             self.assertTrue(os.path.exists(i_file))
         self.assertIsNone(job.error)
@@ -142,7 +145,8 @@ class TestMeshJobRun(unittest.TestCase):
         job.run(self.microstructure, self.temp_dir.name)
         self.assertIsNone(job.error)
         self.assertEqual(
-            [os.path.basename(i_file) for i_file in job.files], ["deck_16_16.vtk"]
+            sorted(os.path.basename(i_file) for i_file in job.files),
+            ["deck_16_16.mesh.json", "deck_16_16.vtk"],
         )
         # An empty list is not the same as no list at all: it asks for the second stage
         # and nothing after it, which is a thing a deck should be able to say
@@ -152,11 +156,12 @@ class TestMeshJobRun(unittest.TestCase):
         job.run(self.microstructure, self.temp_dir.name)
         self.assertIsInstance(job.error, MeshTooLargeError)
         self.assertEqual(
-            [os.path.basename(i_file) for i_file in job.files], ["grid.vtk"]
+            sorted(os.path.basename(i_file) for i_file in job.files),
+            ["grid.mesh.json", "grid.vtk"],
         )
         self.assertEqual(
             sorted(os.listdir(os.path.join(self.temp_dir.name, "meshes"))),
-            ["grid.vtk"],
+            ["grid.mesh.json", "grid.vtk"],
         )
         # The standard output is written before the formats that need the cells, so a
         # failure there leaves a real file behind. Reporting nothing would say the job
