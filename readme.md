@@ -132,6 +132,15 @@ A complete GMMD input data file where each parameter specification (either manda
     ```
     The program execution can be followed in the terminal, where data associated with the program launch, progress of the main execution phases, and the program end is output.
 
+  2.3. *One stage at a time:* The output is produced in three stages -- a microstructure, a mesh of it, and that mesh in the formats solvers read -- and each can be run on its own. `geommicgen-mesh` discretises a microstructure and writes the mesh; `geommicgen-translate` writes a mesh in the formats solvers read, taking the file the previous stage wrote, or one another tool produced:
+    ```bash
+    geommicgen-mesh mic.yaml --mesher gmsh --mesh-size 0.05 --element-type tri6 --to links
+    geommicgen-mesh mic.yaml --mesher voxel --n-voxels 100 100 --to crate
+    geommicgen-translate mic.vtu --to links,xdmf
+    geommicgen-translate --list-formats
+    ```
+    A mesh is written as a VTK file whichever mesher produced it, `.vtu` for an unstructured mesh and `.vti` for a grid, with a small `.mesh.json` beside it holding what those formats cannot carry. Giving no `--to` stops after that file, which is a complete stage: `geommicgen-translate` picks up from it later, or somewhere else.
+
 3. **Get results.** As soon as GMMD is executed according to an input data file (let us say, `input_data_file.mdsim`), a folder with the same name is created in the same directory (`input_data_file/`). This folder contains all the output data related to the microstructure generation, namely:
   * a folder `mic_*` for each microstructure generated.
     - microstructure file (`mic.mic`)<sup>[*](#f6)[+](#f5)</sup>;

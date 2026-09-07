@@ -104,7 +104,7 @@ class MeshJob:
         self.error = None
         self.trace = None
 
-    def run(self, microstructure, sample_dir, report=None):
+    def run(self, microstructure, result_dir, report=None):
         """
         Mesh a microstructure and write it in every format the job asks for.
 
@@ -115,8 +115,10 @@ class MeshJob:
         microstructure: `.Microstructure`
             Microstructure to be meshed.
 
-        sample_dir: str
-            Directory of the sample the meshes are written into.
+        result_dir: str
+            Directory the files are written into. The caller chooses it, so that a run
+            of the program can put them under the sample and the command line can put
+            them where it was told to.
 
         report: callable
             Called with the index of the particle that has been dealt with and the
@@ -124,7 +126,6 @@ class MeshJob:
         """
         start = time.time()
         self.files = []
-        result_dir = os.path.join(sample_dir, MESH_DIRECTORY)
         os.makedirs(result_dir, exist_ok=True)
         base_path = os.path.join(result_dir, self.base_name)
         try:

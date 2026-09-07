@@ -1,11 +1,13 @@
 """Module containing the main function relative to post processsing."""
 
+import os
 import time
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 # pylint: disable=no-name-in-module
 import geommicgen.iofuncs.printing as print_funcs
+from geommicgen.meshing.from_deck import MESH_DIRECTORY
 import geommicgen.postproc.voronoimetrics.motion_analysis as motion_analysis
 import geommicgen.postproc.voronoimetrics.stat_analysis as stat_analysis
 import geommicgen.postproc.voronoimetrics.voronoi_analysis as voronoi_analysis
@@ -60,7 +62,11 @@ def post_proc(
         print_funcs.print_to_file("-" * 80 + "\n")
         for i_job in mesh_jobs:
             print_funcs.print_to_file("\t> {0}".format(i_job.description))
-            i_job.run(current_sample, sample_dir, report=report_particle)
+            i_job.run(
+                current_sample,
+                os.path.join(sample_dir, MESH_DIRECTORY),
+                report=report_particle,
+            )
             for j_warning in i_job.mesher.warnings:
                 print_funcs.print_to_file("\t\t- {0}".format(j_warning))
             if i_job.error is None:

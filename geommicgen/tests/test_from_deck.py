@@ -159,7 +159,7 @@ class TestMeshJobRun(unittest.TestCase):
             ["grid.mesh.json", "grid.vti"],
         )
         self.assertEqual(
-            sorted(os.listdir(os.path.join(self.temp_dir.name, "meshes"))),
+            sorted(os.listdir(self.temp_dir.name)),
             ["grid.mesh.json", "grid.vti"],
         )
         # The standard output is written before the formats that need the cells, so a
@@ -179,7 +179,7 @@ class TestMeshJobRunWithGmsh(unittest.TestCase):
             job.run(disk_microstructure(), temp_dir)
             self.assertIsInstance(job.error, ValueError)
             self.assertIn("standard output", str(job.error))
-            self.assertEqual(os.listdir(os.path.join(temp_dir, "meshes")), [])
+            self.assertEqual(os.listdir(temp_dir), [])
         # Both would write tri3.vtu, so one would land on top of the other and only the
         # second would survive. Nothing is written at all instead. A grid can no longer
         # collide, since no writer claims the .vti an image is written as

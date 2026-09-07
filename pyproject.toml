@@ -39,6 +39,8 @@ test = ["pytest", "pytest-cov", "coverage"]
 
 [project.scripts]
 geommicgen = "geommicgen.app:run_program"
+geommicgen-mesh = "geommicgen.cli:mesh_command"
+geommicgen-translate = "geommicgen.cli:translate_command"
 
 [build-system]
 requires = ["setuptools>=61.0.0", "wheel"]
