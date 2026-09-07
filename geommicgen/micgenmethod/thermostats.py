@@ -292,12 +292,18 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
             # If a legal configuration has not been achieved
             if self.reached_equilibrium():
                 if not self.kin_energy_div:
+                    thermic_energy = self.molecular_dynamics_sim.thermic_energy
+                    # compute_thermic_energy runs immediately before the thermostat, so
+                    # this is the same value that would be appended to
+                    # thermic_energy_history. Reading the attribute rather than
+                    # history[-1] keeps this path working when save_history is False,
+                    # in which case the history is never populated and the indexing
+                    # raised IndexError.
                     diff_kin_e = (
                         np.abs(
-                            self.molecular_dynamics_sim.kinetic_energy
-                            - self.molecular_dynamics_sim.thermic_energy_history[-1]
+                            self.molecular_dynamics_sim.kinetic_energy - thermic_energy
                         )
-                        / self.molecular_dynamics_sim.thermic_energy_history[-1]
+                        / thermic_energy
                     )
                     if diff_kin_e > 1 / self.temp_low_ratio / 2:
                         self.kin_energy_div = True
