@@ -29,7 +29,8 @@ from geommicgen.microstructure.particleclasses import (
     Particle,
 )
 
-from geommicgen.postproc.mshgen.meshing_interface import FEMMeshGenerator
+from geommicgen.meshing.gmsh_mesher import GmshMesher
+from geommicgen.meshing.images import periodic_images
 import geommicgen.iofuncs.printing as print_funcs
 from geommicgen._optional import require_gmsh
 
@@ -264,56 +265,155 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
         plt.show()
 
 
+def open_gmsh_view(name, mesh_size, element_type="tetra4"):
+    """
+    Open a gmsh session set up to build a view of the particles.
+
+    Parameters
+    ----------
+    name: str
+        Name given to the model.
+
+    mesh_size: float
+        Largest element size.
+
+    element_type: str
+        Element whose options the session is set up with.
+
+    Returns
+    -------
+    tuple
+        The gmsh module, its model and its geometry kernel.
+    """
+    gmsh = require_gmsh()
+    gmsh.initialize()
+    GmshMesher(mesh_size=mesh_size, element_type=element_type).set_options(gmsh)
+    model = gmsh.model
+    model.add(name)
+
+    return gmsh, model, model.occ
+
+
+def add_particles_to_view(factory, model, particles, rve_dims, add_images=True,
+                          report=None):
+    """
+    Add particles, and the periodic images that reach the RVE, to an open model.
+
+    Parameters
+    ----------
+    factory: module
+        The geometry kernel of the open gmsh session.
+
+    model: module
+        The model of the open gmsh session.
+
+    particles: list
+        Particles to be added.
+
+    rve_dims: list(float)
+        Dimensions of the microstructure in each spatial direction.
+
+    add_images: bool
+        Whether the periodic images are wanted.
+
+    report: callable
+        Called with the index of the particle that was added and the total number.
+
+    Returns
+    -------
+    tuple
+        The tags of everything that was added, and the *(dimension, tag)* pairs of each
+        phase.
+    """
+    particle_tags = []
+    phase_dim_tag = {i_particle.phase: [] for i_particle in particles}
+    for i_particle_ind, i_particle in enumerate(particles):
+        for j_center in periodic_images(i_particle, rve_dims, add_images):
+            for k_dim_tag in GmshMesher.add_primitive(
+                factory, model, i_particle, j_center
+            ):
+                particle_tags.append(k_dim_tag[1])
+                phase_dim_tag[i_particle.phase].append(k_dim_tag)
+        if report is not None:
+            report(i_particle_ind, len(particles))
+    # The same geometry the mesher builds, so a view shows what would be meshed
+
+    return particle_tags, phase_dim_tag
+
+
+def write_gmsh_view(gmsh, results_dir, name):
+    """
+    Write an open gmsh model for viewing, and close the session.
+
+    Parameters
+    ----------
+    gmsh: module
+        The gmsh module, in an open session.
+
+    results_dir: str
+        Directory the files are written into.
+
+    name: str
+        Name of the files, without an extension.
+
+    Returns
+    -------
+    str
+        Path of the mesh file that was written.
+    """
+    mesh_path = os.path.join(results_dir, name + ".msh")
+    vtk_path = os.path.join(results_dir, name + ".vtk")
+    gmsh.write(mesh_path)
+    gmsh.write(vtk_path)
+    gmsh.finalize()
+
+    for i_path in (mesh_path, vtk_path):
+        with open(i_path, "rt") as written:
+            contents = written.read()
+        with open(i_path, "wt") as written:
+            written.write(contents.replace(",", "."))
+    # Gmsh sometimes writes a comma for a decimal point, depending on the locale
+
+    return mesh_path
+
+
+def report_view_particle(index, total):
+    """Report that one more particle has been added to a view."""
+    print("\t\t- Particle {0} of {1}".format(index + 1, total))
+    if index + 1 != total:
+        print_funcs.print_to_file("\033[F\033[K", end="", to_screen=False)
+
+
 def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
 
-    gmsh = require_gmsh()
     dim = len(rve_dims)
-    mesh_generator = FEMMeshGenerator(
-        particles[0].radius / 5, "tetra4", rve_dims, output_term=True
-    )
+    mesh_size = particles[0].radius / 5
+    gmsh, model, factory = open_gmsh_view(sample_dir, mesh_size)
 
-    mesh_generator.init_gmsh_model()
-
-    model = gmsh.model
-    factory = model.occ
-    # occ - OpenCASCADE CAD (more advanced)
-
-    model.add(sample_dir)
-
-    mesh_generator.box_tag = factory.addBox(
+    box_tag = factory.addBox(
         0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2]
     )
-
-    mesh_generator.phase_dim_tag = {
-        phase_name: [] for phase_name in {i_particle.phase for i_particle in particles}
-    }
 
     print_funcs.print_to_file(
         "\t> Adding particles to the model",
     )
-    for i_particle_ind, i_particle in enumerate(particles):
-        mesh_generator.add_particle_pbc_to_model(i_particle, rve_dims)  # [0, 0, 0])
-        print("\t\t- Particle {0} of {1}".format(i_particle_ind + 1, len(particles)))
-        if i_particle_ind + 1 != len(particles):
-            print_funcs.print_to_file(
-                "\033[F\033[K",
-                end="",
-                to_screen=False,
-            )
+    particle_tags, phase_dim_tag = add_particles_to_view(
+        factory, model, particles, rve_dims, report=report_view_particle
+    )
     print_funcs.print_to_file("")
 
     print_funcs.print_to_file("\t> Processing model\n")
     out_dim_tag, _ = factory.intersect(
-        [(dim, mesh_generator.box_tag)],
-        [(dim, particle_tag) for particle_tag in mesh_generator.particle_tags],
+        [(dim, box_tag)],
+        [(dim, particle_tag) for particle_tag in particle_tags],
         removeObject=True,
         removeTool=True,
     )
 
     temp = set(out_dim_tag)
-    for i_phase in mesh_generator.phase_dim_tag:
-        mesh_generator.phase_dim_tag[i_phase] = [
-            value for value in mesh_generator.phase_dim_tag[i_phase] if value in temp
+    for i_phase in phase_dim_tag:
+        phase_dim_tag[i_phase] = [
+            value for value in phase_dim_tag[i_phase] if value in temp
         ]
 
     # Set the mesh size on the geometry points
@@ -322,7 +422,7 @@ def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
     # entities
     factory.synchronize()
 
-    for i_phase, i_dim_tags in mesh_generator.phase_dim_tag.items():
+    for i_phase, i_dim_tags in phase_dim_tag.items():
         bound_dim_tags = model.getBoundary([(3, tag) for _, tag in i_dim_tags])
         material_tag = model.addPhysicalGroup(
             2, [tag for dim, tag in bound_dim_tags if dim == 2]
@@ -331,13 +431,13 @@ def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
 
     # model.mesh.setSize(points, mesh_size)
     gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_generator.mesh_size)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_size)
 
     # Generate a 3D mesh
     print_funcs.print_to_file("\t> Generating mesh\n")
     model.mesh.generate(2)
 
-    _ = mesh_generator.write_mesh_gmsh(sample_dir, "final_config")
+    _ = write_gmsh_view(gmsh, sample_dir, "final_config")
 
 
 def plot_particles_3d_one_by_one(particles, rve_dims, sample_dir, **kwargs):
@@ -346,47 +446,30 @@ def plot_particles_3d_one_by_one(particles, rve_dims, sample_dir, **kwargs):
     os.makedirs(final_config_dir)
     for i_ind, i_particle in enumerate(particles):
         dim = len(rve_dims)
-        if i_particle is Sphere:
-            mesh_generator = FEMMeshGenerator(
-                particles[0].radius / 2, "tetra4", rve_dims, output_term=0
-            )
-        else:
-            mesh_generator = FEMMeshGenerator(
-                particles[0].radius / 2, "tetra10", rve_dims, output_term=0
-            )
+        mesh_size = particles[0].radius / 2
+        element_type = "tetra4" if i_particle is Sphere else "tetra10"
+        gmsh, model, factory = open_gmsh_view(sample_dir, mesh_size, element_type)
 
-        mesh_generator.init_gmsh_model()
-
-        model = gmsh.model
-        factory = model.occ
-
-        # occ - OpenCASCADE CAD (more advanced)
-
-        model.add(sample_dir)
-
-        mesh_generator.box_tag = factory.addBox(
+        box_tag = factory.addBox(
             0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2]
         )
 
-        mesh_generator.phase_dim_tag = {
-            phase_name: []
-            for phase_name in {i_particle.phase for i_particle in particles}
-        }
-
-        mesh_generator.add_particle_pbc_to_model(i_particle, rve_dims)  # [0, 0, 0])
+        particle_tags, phase_dim_tag = add_particles_to_view(
+            factory, model, [i_particle], rve_dims
+        )
 
         out_dim_tag, _ = factory.intersect(
-            [(dim, mesh_generator.box_tag)],
-            [(dim, particle_tag) for particle_tag in mesh_generator.particle_tags],
+            [(dim, box_tag)],
+            [(dim, particle_tag) for particle_tag in particle_tags],
             removeObject=True,
             removeTool=True,
         )
 
         temp = set(out_dim_tag)
-        for i_phase in mesh_generator.phase_dim_tag:
-            mesh_generator.phase_dim_tag[i_phase] = [
+        for i_phase in phase_dim_tag:
+            phase_dim_tag[i_phase] = [
                 value
-                for value in mesh_generator.phase_dim_tag[i_phase]
+                for value in phase_dim_tag[i_phase]
                 if value in temp
             ]
 
@@ -396,7 +479,7 @@ def plot_particles_3d_one_by_one(particles, rve_dims, sample_dir, **kwargs):
         # entities
         factory.synchronize()
 
-        for i_phase, i_dim_tags in mesh_generator.phase_dim_tag.items():
+        for i_phase, i_dim_tags in phase_dim_tag.items():
             bound_dim_tags = model.getBoundary([(3, tag) for _, tag in i_dim_tags])
             material_tag = model.addPhysicalGroup(
                 2, [tag for dim, tag in bound_dim_tags if dim == 2]
@@ -405,13 +488,13 @@ def plot_particles_3d_one_by_one(particles, rve_dims, sample_dir, **kwargs):
 
         # model.mesh.setSize(points, mesh_size)
         gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
-        gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_generator.mesh_size)
+        gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_size)
 
         # Generate a 3D mesh
         model.mesh.generate(2)
 
-        _ = mesh_generator.write_mesh_gmsh(
-            final_config_dir, "final_config_{0}".format(i_ind)
+        _ = write_gmsh_view(
+            gmsh, final_config_dir, "final_config_{0}".format(i_ind)
         )
 
 
@@ -527,17 +610,10 @@ def plot_paths(particles, box, position_center_history, motion_results_dir):
                 ]
 
             dim = len(box)
-            mesh_generator = FEMMeshGenerator(particles[0].radius / 5, "tri6", box)
+            mesh_size = particles[0].radius / 5
+            gmsh, model, factory = open_gmsh_view(path_results_dir, mesh_size, "tri6")
 
-            mesh_generator.init_gmsh_model()
-
-            model = gmsh.model
-            factory = model.occ
-            # occ - OpenCASCADE CAD (more advanced)
-
-            model.add(path_results_dir)
-
-            mesh_generator.box_tag = factory.addRectangle(
+            box_tag = factory.addRectangle(
                 0,
                 0,
                 0,
@@ -545,26 +621,22 @@ def plot_paths(particles, box, position_center_history, motion_results_dir):
                 box[1],
             )
 
-            mesh_generator.phase_dim_tag = {
-                phase_name: []
-                for phase_name in {i_particle.phase for i_particle in particles}
-            }
-
-            for i_particle in particles:
-                mesh_generator.add_particle_pbc_to_model(i_particle, box)  # [0, 0, 0])
+            particle_tags, phase_dim_tag = add_particles_to_view(
+                factory, model, particles, box
+            )
 
             out_dim_tag, _ = factory.intersect(
-                [(dim, mesh_generator.box_tag)],
-                [(dim, particle_tag) for particle_tag in mesh_generator.particle_tags],
+                [(dim, box_tag)],
+                [(dim, particle_tag) for particle_tag in particle_tags],
                 removeObject=True,
                 removeTool=True,
             )
 
             temp = set(out_dim_tag)
-            for i_phase in mesh_generator.phase_dim_tag:
-                mesh_generator.phase_dim_tag[i_phase] = [
+            for i_phase in phase_dim_tag:
+                phase_dim_tag[i_phase] = [
                     value
-                    for value in mesh_generator.phase_dim_tag[i_phase]
+                    for value in phase_dim_tag[i_phase]
                     if value in temp
                 ]
 
@@ -574,7 +646,7 @@ def plot_paths(particles, box, position_center_history, motion_results_dir):
             # entities
             factory.synchronize()
 
-            for i_phase, i_dim_tags in mesh_generator.phase_dim_tag.items():
+            for i_phase, i_dim_tags in phase_dim_tag.items():
                 bound_dim_tags = model.getBoundary([(1, tag) for _, tag in i_dim_tags])
                 material_tag = model.addPhysicalGroup(
                     1, [tag for dim, tag in bound_dim_tags if dim == 1]
@@ -583,13 +655,13 @@ def plot_paths(particles, box, position_center_history, motion_results_dir):
 
             # model.mesh.setSize(points, mesh_size)
             gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
-            gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_generator.mesh_size)
+            gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_size)
 
             # Generate a 3D mesh
             model.mesh.generate(2)
 
-            _ = mesh_generator.write_mesh_gmsh(
-                path_results_dir, "mic_step_{0}".format(step)
+            _ = write_gmsh_view(
+                gmsh, path_results_dir, "mic_step_{0}".format(step)
             )
             # with open(
             #     os.path.join(path_results_dir, "mic_step_{0}.vtk".format(step)),
@@ -648,9 +720,9 @@ def plot_paths(particles, box, position_center_history, motion_results_dir):
         #
         #     model.add(path_results_dir)
         #
-        #     mesh_generator.box_tag = factory.addBox(0, 0, 0, box[0], box[1], box[2])
+        #     box_tag = factory.addBox(0, 0, 0, box[0], box[1], box[2])
         #
-        #     mesh_generator.phase_dim_tag = {
+        #     phase_dim_tag = {
         #         phase_name: []
         #         for phase_name in {i_particle.phase for i_particle in particles}
         #     }
@@ -659,17 +731,17 @@ def plot_paths(particles, box, position_center_history, motion_results_dir):
         #         mesh_generator.add_particle_pbc_to_model(i_particle, box)  # [0, 0, 0])
         #
         #     out_dim_tag, _ = factory.intersect(
-        #         [(dim, mesh_generator.box_tag)],
-        #         [(dim, particle_tag) for particle_tag in mesh_generator.particle_tags],
+        #         [(dim, box_tag)],
+        #         [(dim, particle_tag) for particle_tag in particle_tags],
         #         removeObject=True,
         #         removeTool=True,
         #     )
         #
         #     temp = set(out_dim_tag)
-        #     for i_phase in mesh_generator.phase_dim_tag:
-        #         mesh_generator.phase_dim_tag[i_phase] = [
+        #     for i_phase in phase_dim_tag:
+        #         phase_dim_tag[i_phase] = [
         #             value
-        #             for value in mesh_generator.phase_dim_tag[i_phase]
+        #             for value in phase_dim_tag[i_phase]
         #             if value in temp
         #         ]
         #
@@ -679,7 +751,7 @@ def plot_paths(particles, box, position_center_history, motion_results_dir):
         #     # entities
         #     factory.synchronize()
         #
-        #     for i_phase, i_dim_tags in mesh_generator.phase_dim_tag.items():
+        #     for i_phase, i_dim_tags in phase_dim_tag.items():
         #         bound_dim_tags = model.getBoundary([(2, tag) for _, tag in i_dim_tags])
         #         material_tag = model.addPhysicalGroup(
         #             2, [tag for dim, tag in bound_dim_tags if dim == 2]
@@ -689,7 +761,7 @@ def plot_paths(particles, box, position_center_history, motion_results_dir):
         #     # model.mesh.setSize(points, mesh_size)
         #     gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
         #     gmsh.option.setNumber(
-        #         "Mesh.MeshSizeMax", mesh_generator.mesh_size
+        #         "Mesh.MeshSizeMax", mesh_size
         #     )
         #
         #     # Generate a 3D mesh
@@ -1628,30 +1700,16 @@ def plotVoronoi3Dpbc(
 
 def plot_voronoi_3d(particles, voronoi, rve_dims, sample_dir, save=True, show=False):
     """Plot the Voronoi for circular particles."""
-    gmsh = require_gmsh()
     dim = len(rve_dims)
-    mesh_generator = FEMMeshGenerator(particles[0].radius / 5, "tetra4", rve_dims)
+    gmsh, model, factory = open_gmsh_view(sample_dir, particles[0].radius / 5)
 
-    mesh_generator.init_gmsh_model()
-
-    model = gmsh.model
-    factory = model.occ
-    # occ - OpenCASCADE CAD (more advanced)
-
-    model.add(sample_dir)
-
-    mesh_generator.box_tag = factory.addBox(
+    box_tag = factory.addBox(
         0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2]
     )
 
-    mesh_generator.phase_dim_tag = {
-        phase_name: [] for phase_name in {i_particle.phase for i_particle in particles}
-    }
-
-    for i_particle in particles:
-        mesh_generator.add_particle_pbc_to_model(
-            i_particle, rve_dims, add_pbc_images=False
-        )  # [0, 0, 0])
+    particle_tags, phase_dim_tag = add_particles_to_view(
+        factory, model, particles, rve_dims, add_images=False
+    )
 
     # Set the mesh size on the geometry points
     # Synchronize the CAD engine (always needed before generating the mesh)
@@ -1710,7 +1768,7 @@ def plot_voronoi_3d(particles, voronoi, rve_dims, sample_dir, save=True, show=Fa
     # voronoiWires = model.addPhysicalGroup(1, [tag[1] for tag in out_dim_tag_3]) #[(1, all_voronoi_line) for all_voronoi_line in all_voronoi_lines])
     # model.setPhysicalName(1, voronoiWires, "Voronoi")
 
-    for i_phase, i_dim_tags in mesh_generator.phase_dim_tag.items():
+    for i_phase, i_dim_tags in phase_dim_tag.items():
         bound_dim_tags = model.getBoundary([(3, tag) for _, tag in i_dim_tags])
         material_tag = model.addPhysicalGroup(
             2, [tag for dim, tag in bound_dim_tags if dim == 2]
@@ -1724,7 +1782,7 @@ def plot_voronoi_3d(particles, voronoi, rve_dims, sample_dir, save=True, show=Fa
     # Generate a 3D mesh
     model.mesh.generate(2)
 
-    _ = mesh_generator.write_mesh_gmsh(sample_dir, "voronoi")
+    _ = write_gmsh_view(gmsh, sample_dir, "voronoi")
 
 
 def plotVoronoi3DwithIMTspbc(
