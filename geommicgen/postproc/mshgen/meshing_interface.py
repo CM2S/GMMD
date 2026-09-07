@@ -73,6 +73,11 @@ class FEMMeshGenerator(MeshGenerator):
     phase_dim_tag: dict()
         Tags of the particles in each phase.
 
+    refine_surfaces: list(int)
+        Tags of the surfaces a previous meshing attempt could not handle. Empty on the
+        first attempt; when populated, the element size is driven down near those
+        surfaces only.
+
     enforce_pbc_flag: bool
         Flag for the enforcement of periodic boundary conditions. True by default, for
         every particle shape. It used to be forced to False for Ellipsoids, Cylinders and
@@ -238,6 +243,7 @@ class FEMMeshGenerator(MeshGenerator):
         self.box_tag = None
         self.phase_dim_tag = None
         self.enforce_pbc_flag = True
+        self.refine_surfaces = []
         self.time = None
 
     def generate_mesh(self, microstructure_sample, sample_dir):
@@ -261,11 +267,41 @@ class FEMMeshGenerator(MeshGenerator):
         print_funcs.print_to_file(
             "." * 80 + "\n", to_terminal=self.output_term, to_screen=self.output_term
         )
-        self.init_gmsh_model()
-        self.generate_mesh_gmsh(
-            microstructure_sample,
-            sample_dir,
-        )
+        for attempt in range(2):
+            try:
+                self.particle_tags = []
+                self.phase_dim_tag = None
+                self.init_gmsh_model()
+                self.generate_mesh_gmsh(
+                    microstructure_sample,
+                    sample_dir,
+                )
+                break
+            except Exception as exc:
+                # Gmsh names the surfaces it could not mesh, for instance "Invalid
+                # boundary mesh (overlapping facets) on surface 75 surface 76". Those
+                # are the thin ligaments between near-touching particles, so the second
+                # attempt refines around them instead of over the whole RVE.
+                words = str(exc).split()
+                self.refine_surfaces = [
+                    int(tag)
+                    for previous, tag in zip(words, words[1:])
+                    if previous == "surface" and tag.isdigit()
+                ]
+                try:
+                    gmsh.finalize()
+                except Exception:
+                    pass
+                if not self.refine_surfaces or attempt == 1:
+                    raise
+                print_funcs.print_to_file(
+                    "\t\t- Gmsh could not mesh surfaces {0}; refining there and "
+                    "rebuilding\n".format(self.refine_surfaces),
+                    to_terminal=self.output_term,
+                    to_screen=self.output_term,
+                )
+                # The model has to be rebuilt: once a meshing pass has failed, gmsh
+                # will not produce a mesh for that model again even after mesh.clear().
         mesh_results_dir = os.path.join(sample_dir, "meshes")
         if not os.path.exists(mesh_results_dir):
             os.makedirs(mesh_results_dir)
@@ -551,6 +587,25 @@ class FEMMeshGenerator(MeshGenerator):
             to_terminal=self.output_term,
             to_screen=self.output_term,
         )
+        if self.refine_surfaces:
+            # Drive the element size down only near the surfaces a previous attempt
+            # could not mesh, rather than refining the entire RVE.
+            field_distance = gmsh.model.mesh.field.add("Distance")
+            gmsh.model.mesh.field.setNumbers(
+                field_distance, "SurfacesList", self.refine_surfaces
+            )
+            gmsh.model.mesh.field.setNumber(field_distance, "Sampling", 100)
+            field_threshold = gmsh.model.mesh.field.add("Threshold")
+            gmsh.model.mesh.field.setNumber(field_threshold, "InField", field_distance)
+            gmsh.model.mesh.field.setNumber(
+                field_threshold, "SizeMin", self.mesh_size / 8
+            )
+            gmsh.model.mesh.field.setNumber(field_threshold, "SizeMax", self.mesh_size)
+            gmsh.model.mesh.field.setNumber(field_threshold, "DistMin", 0)
+            gmsh.model.mesh.field.setNumber(field_threshold, "DistMax", self.mesh_size)
+            gmsh.model.mesh.field.setAsBackgroundMesh(field_threshold)
+            # The other size sources stay enabled and gmsh takes the minimum, so
+            # curvature refinement is preserved away from these surfaces.
         model.mesh.generate(dim)
         if model.mesh.getLastEntityError():
             print_funcs.print_to_file(
