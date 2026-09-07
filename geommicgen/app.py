@@ -75,9 +75,12 @@ def run_program():
                     ]
                     mesh_generators.add(
                         FEMMeshGenerator(
-                            femsh_options["mesh_size"],
+                            femsh_options.get("mesh_size", None),
                             femsh_options["element_type"],
                             rve_dims,
+                            elements_per_particle=femsh_options.get(
+                                "elements_per_particle", None
+                            ),
                         )
                     )
                 elif disc_ext == "rgmsh":
@@ -144,9 +147,12 @@ def run_program():
                         ]
                         mesh_generators.add(
                             FEMMeshGenerator(
-                                femsh_options["mesh_size"],
+                                femsh_options.get("mesh_size", None),
                                 femsh_options["element_type"],
                                 rve_dims,
+                                elements_per_particle=femsh_options.get(
+                                    "elements_per_particle", None
+                                ),
                             )
                         )
                     elif disc_ext == "rgmsh":

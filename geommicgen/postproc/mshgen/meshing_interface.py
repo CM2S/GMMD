@@ -224,8 +224,15 @@ class FEMMeshGenerator(MeshGenerator):
         -----------------
         Element descriptors.
         """
-        if mesh_size < 0:
+        self.elements_per_particle = kwargs.get("elements_per_particle", None)
+        if mesh_size is None and self.elements_per_particle is None:
+            raise ValueError(
+                "Either mesh_size or elements_per_particle must be specified."
+            )
+        if mesh_size is not None and mesh_size < 0:
             raise ValueError("The mesh size must be a positive number.")
+        if self.elements_per_particle is not None and self.elements_per_particle <= 0:
+            raise ValueError("elements_per_particle must be a positive number.")
         self.mesh_size = mesh_size
         if element_type not in FEMMeshGenerator.known_element_descriptors:
             raise ValueError("Unknown element: {0}".format(element_type))
@@ -259,6 +266,7 @@ class FEMMeshGenerator(MeshGenerator):
             Path to store the meshes.
         """
         start = time.time()
+        self.resolve_mesh_size(microstructure_sample)
         print_funcs.print_to_file(
             "Finite Element Mesh using Gmsh",
             to_terminal=self.output_term,
@@ -320,6 +328,59 @@ class FEMMeshGenerator(MeshGenerator):
             to_screen=self.output_term,
         )
         #
+
+    @staticmethod
+    def smallest_particle_radius(microstructure_sample):
+        """Smallest inscribed radius over the particles in *microstructure_sample*.
+
+        This is the shortest half-dimension present, so twice it is the thinnest
+        particle a mesh has to resolve.
+        """
+        radii = []
+        for i_particle in microstructure_sample.particles:
+            radius = getattr(i_particle, "radius_insc", None)
+            if radius is None:
+                radius = getattr(i_particle, "radius", None)
+            if radius is not None:
+                radii.append(float(radius))
+        return min(radii) if radii else None
+
+    def resolve_mesh_size(self, microstructure_sample):
+        """Turn *elements_per_particle* into an element size, and flag inert sizes.
+
+        A mesh size given as an absolute length carries no relation to the
+        microstructure: change the RVE or the particle size and the same number means a
+        different resolution. Worse, once it exceeds the particle size it stops doing
+        anything at all, because the faceted geometry already forces a finer mesh, so a
+        request of 0.4 and one of 0.15 can produce the identical mesh.
+        """
+        smallest_radius = self.smallest_particle_radius(microstructure_sample)
+        if smallest_radius is None or smallest_radius <= 0:
+            return
+        if self.elements_per_particle is not None:
+            # Elements across the smallest particle's shortest diameter.
+            derived = 2 * smallest_radius / self.elements_per_particle
+            self.mesh_size = (
+                derived if self.mesh_size is None else min(self.mesh_size, derived)
+            )
+            print_funcs.print_to_file(
+                "\t\t- Element size {0:.4g} for {1:g} elements across the smallest "
+                "particle ({2:.4g} across)\n".format(
+                    self.mesh_size, self.elements_per_particle, 2 * smallest_radius
+                ),
+                to_terminal=self.output_term,
+                to_screen=self.output_term,
+            )
+        elif self.mesh_size > smallest_radius:
+            print_funcs.print_to_file(
+                "\t\t- WARNING: mesh size {0:.4g} exceeds the smallest particle radius "
+                "{1:.4g}, so it no longer controls the mesh; the geometry does. Use "
+                "elements_per_particle to set the resolution.\n".format(
+                    self.mesh_size, smallest_radius
+                ),
+                to_terminal=self.output_term,
+                to_screen=self.output_term,
+            )
 
     def init_gmsh_model(self):
         """Initialize and set the options for the gmsh model."""
