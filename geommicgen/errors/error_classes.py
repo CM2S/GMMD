@@ -326,3 +326,25 @@ class UnsupportedPhaseType(Error):
                 self.phase_type, self.phase
             )
         )
+
+
+class MissingOptionalDependency(Error):
+    """Raised when a feature is used whose optional dependency is not installed."""
+
+    def __init__(self, dependency, install_command, reason=None):
+        """Initizalize MissingOptionalDependency instance."""
+        self.dependency = dependency
+        self.install_command = install_command
+        self.reason = reason
+        text = "{0} is required for this feature but {1}. Install it with:" "\n\n    {2}\n".format(
+            dependency,
+            reason if reason is not None else "it is not installed",
+            install_command,
+        )
+        super().__init__(text)
+        # The text is passed to the base class so that the reason is legible wherever
+        # the exception surfaces, and not only when message() is called
+
+    def message(self):
+        """Print message."""
+        print(str(self))

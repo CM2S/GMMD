@@ -13,15 +13,7 @@ import time
 # pylint: disable=import-error
 import geommicgen.iofuncs.printing as print_funcs
 
-try:
-    import gmsh
-except ImportError:
-    gmsh = None
-
-try:
-    from gmsh2links.main import readMesh
-except ImportError:
-    readMesh = None
+from geommicgen._optional import require_gmsh, require_gmsh2links
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
@@ -284,6 +276,7 @@ class FEMMeshGenerator(MeshGenerator):
 
     def init_gmsh_model(self):
         """Initialize and set the options for the gmsh model."""
+        gmsh = require_gmsh()
         print_funcs.print_to_file(
             "\t> Initialising Gmsh model and setting options",
             to_terminal=self.output_term,
@@ -376,6 +369,7 @@ class FEMMeshGenerator(MeshGenerator):
 
     def write_mesh_gmsh(self, mesh_results_dir, name):
         """Write the mesh to the .msh and .vtk file."""
+        gmsh = require_gmsh()
         print_funcs.print_to_file(
             "\t> Writing .vtk and .msh files.",
             to_terminal=self.output_term,
@@ -437,6 +431,7 @@ class FEMMeshGenerator(MeshGenerator):
         file_path: str
             Path to store the meshes.
         """
+        gmsh = require_gmsh()
         model = gmsh.model
         factory = model.occ
         # occ - OpenCASCADE CAD (more advanced)
@@ -581,6 +576,7 @@ class FEMMeshGenerator(MeshGenerator):
         rve_dims: list(float)
             Dimensions of the microstructure in each spatial direction.
         """
+        gmsh = require_gmsh()
         model = gmsh.model
         factory = gmsh.model.occ
         eps = 0
@@ -767,6 +763,7 @@ class FEMMeshGenerator(MeshGenerator):
 
     def enforce_pbc(self, rve_dims):
         """Enforce the pbcs for all the boundaries of the microstructure."""
+        gmsh = require_gmsh()
         factory = gmsh.model.occ
         factory.synchronize()
 
@@ -797,6 +794,7 @@ class FEMMeshGenerator(MeshGenerator):
         eps: float, optional
             Tolerance for the bounding boxes used to enforce the pbc.
         """
+        gmsh = require_gmsh()
         factory = gmsh.model.occ
         gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
         trans_vec = [0, 0, 0]
@@ -890,6 +888,7 @@ class FEMMeshGenerator(MeshGenerator):
         matrix_phase: str
             Name of the matrix phase
         """
+        readMesh = require_gmsh2links()
         print_funcs.print_to_file(
             "\t> Writing LINKS input file",
             to_terminal=self.output_term,

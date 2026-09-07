@@ -7,7 +7,6 @@ import scipy.integrate as integrate
 
 import os
 
-import gmsh
 
 from PIL import Image
 
@@ -32,6 +31,7 @@ from geommicgen.microstructure.particleclasses import (
 
 from geommicgen.postproc.mshgen.meshing_interface import FEMMeshGenerator
 import geommicgen.iofuncs.printing as print_funcs
+from geommicgen._optional import require_gmsh
 
 latex_textwidth = 5.92  # in = 496pt
 latex_textheigth = 9.63  # in = 674pt
@@ -266,6 +266,7 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
 
 def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
 
+    gmsh = require_gmsh()
     dim = len(rve_dims)
     mesh_generator = FEMMeshGenerator(
         particles[0].radius / 5, "tetra4", rve_dims, output_term=True
@@ -340,6 +341,7 @@ def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
 
 
 def plot_particles_3d_one_by_one(particles, rve_dims, sample_dir, **kwargs):
+    gmsh = require_gmsh()
     final_config_dir = os.path.join(sample_dir, "final_config")
     os.makedirs(final_config_dir)
     for i_ind, i_particle in enumerate(particles):
@@ -513,6 +515,7 @@ def plot_overlap_history(
 
 def plot_paths(particles, box, position_center_history, motion_results_dir):
     """Plot particle paths."""
+    gmsh = require_gmsh()
     path_results_dir = os.path.join(motion_results_dir, "paths")
     os.makedirs(path_results_dir)
     if particles[0].dim == 2:
@@ -1270,6 +1273,7 @@ def plotVoronoi3Dpbc(
     particles, voronoi, rve_dims, dir, voronoi_type, save=True, show=True
 ):
     """Plot the Voronoi for circular particles."""
+    gmsh = require_gmsh()
     # ======================================================================================
     # Set up GMSH in Python
     # ======================================================================================
@@ -1626,6 +1630,7 @@ def plotVoronoi3Dpbc(
 
 def plot_voronoi_3d(particles, voronoi, rve_dims, sample_dir, save=True, show=False):
     """Plot the Voronoi for circular particles."""
+    gmsh = require_gmsh()
     dim = len(rve_dims)
     mesh_generator = FEMMeshGenerator(particles[0].radius / 5, "tetra4", rve_dims)
 
@@ -1728,6 +1733,7 @@ def plotVoronoi3DwithIMTspbc(
     particles, voronoi, rve_dims, dir, voronoi_type, save=True, show=True
 ):
     """Plot the Voronoi for circular particles."""
+    gmsh = require_gmsh()
     # ======================================================================================
     # Set up GMSH in Python
     # ======================================================================================
@@ -1975,6 +1981,7 @@ def plot_voronoi_3d_with_imts(
     particles, voronoi, rve_dims, imts, dir, save=True, show=False
 ):
     """Plot the Voronoi for circular particles."""
+    gmsh = require_gmsh()
     # ======================================================================================
     # Set up GMSH in Python
     # ======================================================================================

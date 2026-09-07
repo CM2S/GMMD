@@ -24,10 +24,10 @@ dependencies = [
     "pyyaml>=5.4",
     "six>=1.16.0",
     "tabulate>=0.8.9",
-    "gmsh>=4.15",
 ]
 
 [project.optional-dependencies]
+gmsh = ["gmsh>=4.15"]
 docs = ["sphinx", "myst-parser", "sphinx-rtd-theme", "sphinx-favicon"]
 test = ["pytest", "pytest-cov", "coverage"]
 
