@@ -131,26 +131,21 @@ class GenerationMethod(abc.ABC):
             dir_axis[i_dim] = 1
             all_lim = []
             for i_particle in particles:
-                # Collecting all the limits of the particles in each direction
+                # Collecting all the limits of the particles in each direction, each
+                # wrapped onto the periodic circle [0, rve_dims[i_dim]). The cell is
+                # periodic, so a cutting plane only ever sees the wrapped positions;
+                # mixing wrapped and unwrapped limits makes the gaps below meaningless.
                 all_lim += [
-                    i_particle.support_function(dir_axis)[i_dim],
-                    i_particle.support_function(-dir_axis)[i_dim],
+                    i_particle.support_function(dir_axis)[i_dim] % rve_dims[i_dim],
+                    i_particle.support_function(-dir_axis)[i_dim] % rve_dims[i_dim],
                 ]
-                if np.floor(all_lim[-1] / rve_dims[i_dim]) != 0:
-                    all_lim.append(
-                        all_lim[-1]
-                        - rve_dims[i_dim] * np.floor(all_lim[-1] / rve_dims[i_dim])
-                    )
-                if np.floor(all_lim[-2] / rve_dims[i_dim]) != 0:
-                    all_lim.append(
-                        all_lim[-2]
-                        - rve_dims[i_dim] * np.floor(all_lim[-2] / rve_dims[i_dim])
-                    )
-                # Including also the periodic images
-            all_lim_sort[i_dim] = np.sort(all_lim)
-            # Sorting all the limits for the i_dim dimension
-            dist[i_dim] = all_lim_sort[i_dim][1:] - all_lim_sort[i_dim][:-1]
-            # Computing the distance between limits
+            all_lim_sort[i_dim] = np.unique(all_lim)
+            # Sorted unique limits for the i_dim dimension
+            dist[i_dim] = np.diff(
+                np.append(all_lim_sort[i_dim], all_lim_sort[i_dim][0] + rve_dims[i_dim])
+            )
+            # Distance between consecutive limits ON THE CIRCLE, so that the gap that
+            # wraps from the last limit round to the first one is included too
             sort_max[i_dim] = np.argsort(dist[i_dim])
             # Getting the indices sorting the distances from smallest to largest
         k_ind_sort = [1, 1, 1]
@@ -158,11 +153,17 @@ class GenerationMethod(abc.ABC):
         while True:
             for i_dim in range(particles[0].dim):
                 while True:
+                    if k_ind_sort[i_dim] > len(dist[i_dim]):
+                        # every gap has been tried; keep the widest one
+                        k_ind_sort[i_dim] = 1
+                    i_gap = sort_max[i_dim][-k_ind_sort[i_dim]]
                     offset[i_dim] = (
-                        all_lim_sort[i_dim][sort_max[i_dim][-k_ind_sort[i_dim]]]
-                        + all_lim_sort[i_dim][sort_max[i_dim][-k_ind_sort[i_dim]] + 1]
-                    ) / 2
-                    # offset is the midpoint between two limits
+                        all_lim_sort[i_dim][i_gap] + dist[i_dim][i_gap] / 2
+                    ) % rve_dims[i_dim]
+                    # offset is the midpoint of the gap, taken on the circle. Cutting
+                    # there puts the RVE face as far as possible from the nearest
+                    # particle extreme, which is what makes the face cut a clean one
+                    # instead of a sliver.
                     if 0 < offset[i_dim] < rve_dims[i_dim]:
                         # accept the current offset if it is inside the simulation box
                         # else move to the next
@@ -198,7 +199,11 @@ class GenerationMethod(abc.ABC):
                 break
             ind_inc = np.argmax(
                 [
-                    dist[i_dim][sort_max[i_dim][-k_ind_sort[i_dim] - 1]]
+                    dist[i_dim][
+                        sort_max[i_dim][
+                            -min(k_ind_sort[i_dim] + 1, len(dist[i_dim]))
+                        ]
+                    ]
                     for i_dim in range(particles[0].dim)
                 ]
             )
