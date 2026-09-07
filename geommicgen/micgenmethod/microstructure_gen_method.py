@@ -70,13 +70,13 @@ class GenerationMethod(abc.ABC):
                             # If the offset is inside the particle this will be the smallest
                             # distance
                             _, dist, _ = i_particle.intersection_gjk(
-                                point_offset, rve_dims, out_dist=True
+                                point_offset, rve_dims
                             )
                             all_dist = [dist]
                             break
 
                         _, dist, _ = i_particle.intersection_gjk(
-                            point_offset, rve_dims, out_dist=True
+                            point_offset, rve_dims
                         )
                         all_dist.append(dist)
             elif dim == 3:
