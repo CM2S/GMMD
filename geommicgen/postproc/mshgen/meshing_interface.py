@@ -609,14 +609,22 @@ class FEMMeshGenerator(MeshGenerator):
 
         factory.synchronize()
 
-        out_dim_tag_2, _ = factory.fragment(
+        out_dim_tag_2, fragment_map = factory.fragment(
             [(dim, self.box_tag)], out_dim_tag, removeObject=True, removeTool=True
         )
         # Computing the fragment of the particles with the matrix
 
-        self.phase_dim_tag[microstructure_sample.matrix_phase] = out_dim_tag_2[
-            len(out_dim_tag) :
+        claimed = set()
+        for i_fragments in fragment_map[1:]:
+            claimed.update(i_fragments)
+        self.phase_dim_tag[microstructure_sample.matrix_phase] = [
+            i_dim_tag for i_dim_tag in fragment_map[0] if i_dim_tag not in claimed
         ]
+        # The matrix is whatever is left of the box once every particle has claimed its
+        # fragments. Taking the tail of the result instead was right for gmsh 4.9.0,
+        # which returns the leftover of the object last, but from 4.15 on it comes
+        # first, and the tail then names a particle: the matrix would land in no
+        # physical group and never be meshed at all.
         materials = dict()
         for i_phase in microstructure_sample.phases:
             temp = set(self.phase_dim_tag[i_phase])
