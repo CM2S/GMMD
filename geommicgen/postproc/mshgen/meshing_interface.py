@@ -257,6 +257,10 @@ class FEMMeshGenerator(MeshGenerator):
         sample_dir: str
             Path to store the meshes.
         """
+        gmsh = require_gmsh()
+        # Bound here as well as in init_gmsh_model, because the retry below has to
+        # finalize the session of a failed attempt and gmsh is not a module global
+
         start = time.time()
         self.resolve_mesh_size(microstructure_sample)
         print_funcs.print_to_file(

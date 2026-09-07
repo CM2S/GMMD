@@ -1,8 +1,12 @@
+import ast
+import os
 import subprocess
 import sys
 import types
 import unittest
 from unittest.mock import patch
+
+import geommicgen
 
 from geommicgen._optional import (
     MINIMUM_GMSH_VERSION,
@@ -44,6 +48,54 @@ else:
 
 print("IMPORTED WITHOUT GMSH")
 """
+
+
+def binds_name(node, name):
+    """Check whether a syntax tree binds *name*, by assignment, import or with."""
+    for i_node in ast.walk(node):
+        if (
+            isinstance(i_node, ast.Name)
+            and i_node.id == name
+            and isinstance(i_node.ctx, ast.Store)
+        ):
+            return True
+        if isinstance(i_node, ast.Import) and any(
+            (i_alias.asname or i_alias.name) == name for i_alias in i_node.names
+        ):
+            return True
+        if isinstance(i_node, ast.ImportFrom) and any(
+            (i_alias.asname or i_alias.name) == name for i_alias in i_node.names
+        ):
+            return True
+
+    return False
+
+
+def uses_name(node, name):
+    """Check whether a syntax tree reads an attribute of *name*."""
+    for i_node in ast.walk(node):
+        if (
+            isinstance(i_node, ast.Attribute)
+            and isinstance(i_node.value, ast.Name)
+            and i_node.value.id == name
+        ):
+            return True
+
+    return False
+
+
+def source_files():
+    """Paths of every module of the package."""
+    package_dir = os.path.dirname(os.path.abspath(geommicgen.__file__))
+    paths = []
+    for i_dir, _, i_files in os.walk(package_dir):
+        paths += [
+            os.path.join(i_dir, i_file)
+            for i_file in i_files
+            if i_file.endswith(".py")
+        ]
+
+    return sorted(paths)
 
 
 class TestRequireGmsh(unittest.TestCase):
@@ -106,6 +158,38 @@ class TestImportWithoutGmsh(unittest.TestCase):
         self.assertIn("IMPORTED WITHOUT GMSH", result.stdout)
         # A module level import of gmsh anywhere in the post processing would make the
         # subprocess fail, which is the regression this test exists to catch
+
+
+class TestGmshIsAlwaysBound(unittest.TestCase):
+    """Test class checking that gmsh is bound wherever an attribute of it is read."""
+
+    def test_every_function_that_uses_gmsh_binds_it(self):
+        offenders = []
+        for i_path in source_files():
+            with open(i_path, "r") as source_file:
+                tree = ast.parse(source_file.read())
+            if any(
+                isinstance(i_node, ast.Import)
+                and any(
+                    (i_alias.asname or i_alias.name) == "gmsh"
+                    for i_alias in i_node.names
+                )
+                for i_node in tree.body
+            ):
+                continue
+            # A module that imports gmsh at the top level makes every bare use of it
+            # legitimate. There is none, and TestImportWithoutGmsh keeps it that way
+            for i_node in ast.walk(tree):
+                if not isinstance(i_node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                if uses_name(i_node, "gmsh") and not binds_name(i_node, "gmsh"):
+                    offenders.append(
+                        "{0}: {1}".format(os.path.basename(i_path), i_node.name)
+                    )
+        self.assertEqual(offenders, [])
+        # gmsh is optional, so it is never a module global. A function that reads an
+        # attribute of it without binding it first raises a NameError, which is caught
+        # by any handler broad enough to be reaching for gmsh in the first place
 
 
 if __name__ == "__main__":
