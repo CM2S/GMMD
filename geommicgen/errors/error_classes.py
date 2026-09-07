@@ -348,3 +348,38 @@ class MissingOptionalDependency(Error):
     def message(self):
         """Print message."""
         print(str(self))
+
+
+class PeriodicityError(Error):
+    """Raised when the discretisation of opposite faces of an RVE does not match."""
+
+    def __init__(self, description):
+        """Initizalize PeriodicityError instance."""
+        self.description = description
+        super().__init__(
+            "The mesh is not periodic: {0}. A solver that infers the periodic node "
+            "pairs from the coordinates will refuse it.".format(description)
+        )
+
+    def message(self):
+        """Print message."""
+        print(str(self))
+
+
+class MeshTooLargeError(Error):
+    """Raised when a structured mesh is too large to be expressed as explicit cells."""
+
+    def __init__(self, n_cells, max_cells, alternatives):
+        """Initizalize MeshTooLargeError instance."""
+        self.n_cells = n_cells
+        self.max_cells = max_cells
+        self.alternatives = alternatives
+        super().__init__(
+            "The grid has {0} cells, which exceeds the limit of {1}. This output "
+            "requires explicit cells; use {2} instead, which read the phase grid "
+            "directly.".format(n_cells, max_cells, alternatives)
+        )
+
+    def message(self):
+        """Print message."""
+        print(str(self))
