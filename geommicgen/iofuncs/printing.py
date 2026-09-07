@@ -156,6 +156,15 @@ def print_virtual_total_volume_fraction(real_vf, virtual_vf, min_distance):
     )
 
 
+MESH_GENERATOR_NAMES = {
+    "FEMMeshGenerator": "Finite element mesh generation",
+    "RegularGridMeshGenerator": "Regular mesh generation",
+    "GmshMesher": "Finite element mesh generation",
+    "VoxelMesher": "Regular mesh generation",
+}
+# Names the mesh generators are reported under in the summary of execution times
+
+
 def print_final_message(mic_generator, mesh_generators, times_dict):
     """Print final message."""
     print_to_file(80 * "-")
@@ -163,12 +172,17 @@ def print_final_message(mic_generator, mesh_generators, times_dict):
     print_to_file("Ending program execution at : {0}\n".format(datetime.datetime.now()))
 
     total_time = 0
-    total_time += mic_generator.time
+    if mic_generator.time is not None:
+        total_time += mic_generator.time
     for generator in mesh_generators:
-        total_time += generator.time
+        if generator.time is not None:
+            total_time += generator.time
 
     for post_proc_time in times_dict.values():
         total_time += post_proc_time
+    # A step that did not finish has no time to report. This runs in a finally block, so
+    # an error raised over a missing one would replace the error that stopped the run,
+    # and the run would end reporting the wrong thing entirely.
 
     hours = int(total_time // 3600)
     minutes_rem = int(total_time // 60 - hours * 60)
@@ -180,33 +194,37 @@ def print_final_message(mic_generator, mesh_generators, times_dict):
 
     print_to_file("Execution times:\n")
 
+    def share(duration):
+        """Give the percentage of the total a duration is."""
+        return round(duration / total_time * 100, ndigits=2) if total_time else 0.0
+
     data_to_print = []
-    data_to_print.append(
-        [
-            "Molecular Dynamics Simulation",
-            "{0:.2e}".format(mic_generator.time),
-            round(mic_generator.time / total_time * 100, ndigits=2),
-        ]
-    )
-    for generator in mesh_generators:
-        if generator.__class__.__name__ == "FEMMeshGenerator":
-            name = "Finite element mesh generation"
-        elif generator.__class__.__name__ == "RegularGridMeshGenerator":
-            name = "Regular mesh generation"
+    if mic_generator.time is not None:
         data_to_print.append(
             [
-                name,
-                "{0:.2e}".format(generator.time),
-                round(generator.time / total_time * 100, ndigits=2),
+                "Molecular Dynamics Simulation",
+                "{0:.2e}".format(mic_generator.time),
+                share(mic_generator.time),
             ]
         )
+    for generator in mesh_generators:
+        if generator.time is None:
+            continue
+        name = MESH_GENERATOR_NAMES.get(
+            generator.__class__.__name__, generator.__class__.__name__
+        )
+        data_to_print.append(
+            [name, "{0:.2e}".format(generator.time), share(generator.time)]
+        )
+        # A generator this does not have a name for is reported under its class name,
+        # rather than under whichever name the loop happened to leave behind
 
     for post_proc_op_name, post_proc_op_time in times_dict.items():
         data_to_print.append(
             [
                 post_proc_op_name,
                 "{0:.2e}".format(post_proc_op_time),
-                round(post_proc_op_time / total_time * 100, ndigits=2),
+                share(post_proc_op_time),
             ]
         )
     formated_data = tabulate(data_to_print, headers=["Phase", "Duration(s)", "%"])
