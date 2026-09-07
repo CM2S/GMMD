@@ -28,7 +28,7 @@ class TestBuildMeshJobs(unittest.TestCase):
         self.assertIsInstance(jobs[0].mesher, GmshMesher)
         self.assertEqual(jobs[0].mesher.element_type, "tri6")
         self.assertEqual(jobs[0].mesher.mesh_size, 0.05)
-        self.assertEqual(jobs[0].base_name, "femsh")
+        self.assertEqual(jobs[0].base_name, "tri6")
         self.assertEqual(jobs[0].writers, [LinksWriter])
         self.assertEqual(jobs[0].description, "Finite element mesh generation")
 
@@ -58,7 +58,7 @@ class TestBuildMeshJobs(unittest.TestCase):
                 "femsh": {
                     "element_type": "tri3",
                     "mesh_size": 0.1,
-                    "solver_formats": ["links", "vtk"],
+                    "formats": ["links", "vtk"],
                 }
             }
         )
@@ -92,7 +92,7 @@ class TestBuildMeshJobs(unittest.TestCase):
                     "femsh": {
                         "element_type": "tri3",
                         "mesh_size": 0.1,
-                        "solver_formats": ["linkss"],
+                        "formats": ["linkss"],
                     }
                 }
             )
@@ -159,7 +159,7 @@ class TestMeshJobRunWithGmsh(unittest.TestCase):
             written = sorted(os.path.basename(i_file) for i_file in job.files)
             self.assertEqual(
                 written,
-                ["femsh.mesh", "femsh.mesh.json", "femsh.vtu", "femsh_example.rve"],
+                ["tri3.mesh", "tri3.mesh.json", "tri3.vtu", "tri3_example.rve"],
             )
             for i_file in job.files:
                 self.assertTrue(os.path.exists(i_file))
@@ -178,35 +178,35 @@ class TestFormatsFromTheDeck(unittest.TestCase):
         """Read one keyword line the way the reader of the input file does."""
         reader = types.SimpleNamespace(input=[line], i_line=0)
         with patch.object(Keyword, "input_reader", reader):
-            return Keyword("Solver_Formats", type_str="str_list").read_value()
+            return Keyword("Formats", type_str="str_list").read_value()
 
     def test_bracketed_list(self):
         self.assertEqual(
-            self.read_formats("Solver_Formats [links, vtk]"), ["links", "vtk"]
+            self.read_formats("Formats [links, vtk]"), ["links", "vtk"]
         )
         # The spelling every other list in the input file uses
 
     def test_list_without_brackets(self):
         self.assertEqual(
-            self.read_formats("Solver_Formats links, vtk"), ["links", "vtk"]
+            self.read_formats("Formats links, vtk"), ["links", "vtk"]
         )
 
     def test_list_without_spaces(self):
         self.assertEqual(
-            self.read_formats("Solver_Formats links,vtk"), ["links", "vtk"]
+            self.read_formats("Formats links,vtk"), ["links", "vtk"]
         )
 
     def test_a_single_format(self):
-        self.assertEqual(self.read_formats("Solver_Formats links"), ["links"])
+        self.assertEqual(self.read_formats("Formats links"), ["links"])
 
     def test_every_spelling_reaches_the_writers(self):
         for i_line in (
-            "Solver_Formats [links, vtk]",
-            "Solver_Formats links, vtk",
-            "Solver_Formats links,vtk",
+            "Formats [links, vtk]",
+            "Formats links, vtk",
+            "Formats links,vtk",
         ):
             writers = writers_from_options(
-                {"solver_formats": self.read_formats(i_line)}, "solver_formats", ()
+                {"formats": self.read_formats(i_line)}, ()
             )
             self.assertEqual(
                 [i_writer.name for i_writer in writers], ["links", "vtk"], i_line

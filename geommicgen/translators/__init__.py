@@ -8,11 +8,7 @@ from geommicgen.translators.base import (
     get_writer,
     register_writer,
 )
-from geommicgen.translators.crate import (
-    CrateWriter,
-    grid_base_name,
-    grid_file_name,
-)
+from geommicgen.translators.crate import CrateWriter, grid_file_name
 from geommicgen.translators.links import LinksWriter
 from geommicgen.translators.meshio_writer import MeshioWriter, register_meshio_writers
 # Importing the module registers a loader; the meshio formats are added, and meshio
@@ -25,7 +21,6 @@ __all__ = [
     "SolverWriter",
     "available_writers",
     "get_writer",
-    "grid_base_name",
     "grid_file_name",
     "register_meshio_writers",
     "register_writer",

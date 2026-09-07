@@ -22,17 +22,20 @@ import traceback
 from geommicgen.meshing.mesher import get_mesher
 from geommicgen.meshing.writers import sidecar_path, write_vtk_image, write_vtu
 from geommicgen.translators.base import get_writer
-from geommicgen.translators.crate import grid_base_name
 
 DECK_MESHERS = {"femsh": "gmsh", "rgmsh": "voxel"}
 # Correspondence between the discretisations an input data file names and the meshers
 # registered to produce them
 
-DEFAULT_SOLVER_FORMATS = ("links",)
+DEFAULT_MESH_FORMATS = ("links",)
 # Formats a finite element mesh is written in when the input file does not say
 
-DEFAULT_VOXEL_FORMATS = ("crate",)
-# Formats a regular grid is written in when the input file does not say
+DEFAULT_GRID_FORMATS = ("crate",)
+# Formats a regular grid is written in when the input file does not say. Only the
+# default differs between the two: what a mesh can be turned into is settled by the
+# writer, which declares whether it needs the cells or the grid, not by which
+# discretisation produced it -- a grid writes a LINKS deck perfectly well, from the
+# cells it is built into
 
 MESH_DIRECTORY = "meshes"
 # Directory of a sample the meshes are written into
@@ -192,7 +195,33 @@ class MeshJob:
         return written
 
 
-def writers_from_options(options, key, defaults):
+def job_base_name(deck_name, label):
+    """
+    Name the files of a job after the input data file and what discretises it.
+
+    Parameters
+    ----------
+    deck_name: str
+        Name of the input data file the microstructure was generated from.
+
+    label: str
+        What tells this discretisation apart from another of the same microstructure:
+        the element for a mesh, the number of voxels for a grid.
+
+    Returns
+    -------
+    str
+        Name of the files, for a writer to put its own extension on.
+    """
+    if deck_name:
+        return "{0}_{1}".format(os.path.splitext(deck_name)[0], label)
+
+    return label
+    # Naming the files after the deck and the discretisation keeps two runs of the same
+    # microstructure apart, which neither does on its own
+
+
+def writers_from_options(options, defaults):
     """
     Resolve the writers a discretisation is to be written with.
 
@@ -200,9 +229,6 @@ def writers_from_options(options, key, defaults):
     ----------
     options: dict
         Options given for the discretisation in the input data file.
-
-    key: str
-        Keyword holding the names of the formats.
 
     defaults: tuple
         Formats used when the keyword is absent.
@@ -217,7 +243,7 @@ def writers_from_options(options, key, defaults):
     ValueError:
         If a format is named that there is no writer for.
     """
-    names = list(options.get(key, None) or defaults)
+    names = list(options.get("formats", None) or defaults)
     if options.get("write_msh", False) and "gmsh" not in names:
         names.append("gmsh")
         # The gmsh file is no longer written on the way to anything else, so it is
@@ -258,19 +284,18 @@ def build_mesh_jobs(mesh_options, deck_name=None):
             raise ValueError("Specified mesh {0} is not supported.".format(i_name))
         mesher_class = get_mesher(DECK_MESHERS[i_name])
         if i_name == "femsh":
+            element_type = options["element_type"]
             jobs.append(
                 MeshJob(
                     mesher_class(
                         mesh_size=options.get("mesh_size", None),
-                        element_type=options["element_type"],
+                        element_type=element_type,
                         elements_per_particle=options.get(
                             "elements_per_particle", None
                         ),
                     ),
-                    writers_from_options(
-                        options, "solver_formats", DEFAULT_SOLVER_FORMATS
-                    ),
-                    "femsh",
+                    writers_from_options(options, DEFAULT_MESH_FORMATS),
+                    job_base_name(deck_name, element_type),
                 )
             )
         else:
@@ -280,15 +305,18 @@ def build_mesh_jobs(mesh_options, deck_name=None):
                     "grid of a three dimensional microstructure was written at all, "
                     "and the grid is now always written. Remove it."
                 )
-            writers = writers_from_options(
-                options, "voxel_formats", DEFAULT_VOXEL_FORMATS
-            )
+            writers = writers_from_options(options, DEFAULT_GRID_FORMATS)
             for j_n_voxels_dims in options["n_voxels_dims"]:
                 jobs.append(
                     MeshJob(
                         mesher_class(j_n_voxels_dims),
                         writers,
-                        grid_base_name(deck_name, j_n_voxels_dims),
+                        job_base_name(
+                            deck_name,
+                            "_".join(
+                                str(int(i_size)) for i_size in j_n_voxels_dims
+                            ),
+                        ),
                     )
                 )
         # The constructors genuinely differ, and a grid fans out into one job per
