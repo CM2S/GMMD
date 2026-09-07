@@ -194,6 +194,53 @@ class Phase:
 
         self.particles = []
 
+    @classmethod
+    def from_type(
+        cls, name, phase_type, inner_phase=False, outer_phase=None, descriptors=None
+    ):
+        """
+        Build a phase directly from its type, without going through the descriptors.
+
+        This is used when a microstructure is read back from a file, where the particles
+        are already known and the descriptors are provenance rather than instructions.
+        The regular initializer cannot be used because it requires a description that is
+        acceptable for the particle type, which a stored inclusion phase need not carry.
+
+        Parameters
+        ----------
+        name: string
+            Name of the phase.
+
+        phase_type: class
+            Class of the particles of the phase, one of the values of `phase_types`.
+
+        inner_phase: bool
+            Whether the phase is placed inside the particles of another phase.
+
+        outer_phase: string
+            Name of the phase in which this one is placed, when it is an inner phase.
+
+        descriptors: dict
+            Dictionary of the form *{descriptor_name: `.PhaseDescriptor`}*. Optional.
+
+        Returns
+        -------
+        `.Phase`
+            The phase with an empty particle list.
+        """
+        phase = cls.__new__(cls)
+        phase.microstructure = None
+        phase.name = name
+        phase.type = phase_type
+        phase.inner_phase = bool(inner_phase)
+        if phase.inner_phase:
+            phase.outer_phase = outer_phase
+        phase.descriptors = descriptors if descriptors is not None else {}
+        phase.particles = []
+        # The attributes are the same ones the regular initializer sets
+
+        return phase
+
     @property
     def volume_fraction(self):
         """Volume fraction in decimal."""

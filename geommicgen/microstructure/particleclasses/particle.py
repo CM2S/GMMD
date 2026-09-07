@@ -81,6 +81,8 @@ class Particle(abc.ABC):
         self._radius = None
         self._volume = None
         self.delta = 0
+        self.parent = None
+        # Particle in which this one is placed, for coated inclusions
 
     def check_if_descriptor_values_are_valid(self, descriptors, rve_dims):
         """Check if the descriptor values are valid."""
