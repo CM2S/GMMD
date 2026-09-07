@@ -695,6 +695,9 @@ top_level_reader.add_top_level_keyword(
             Keyword("Elements_Per_Particle", type_str="float"),
             Keyword("N_Voxels_Dims", type_str="int"),
             Keyword("Slice_Dir", type_str="int"),
+            Keyword("Solver_Formats", type_str="str"),
+            Keyword("Voxel_Formats", type_str="str"),
+            Keyword("Write_Msh", type_str="bool"),
         },
     )
 )

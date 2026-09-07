@@ -10,10 +10,7 @@ import geommicgen.iofuncs.printing as print_funcs
 
 # from postproc.plotfuncs.plotting_functions import plot_particles
 
-from geommicgen.postproc.mshgen.meshing_interface import (
-    FEMMeshGenerator,
-    RegularGridMeshGenerator,
-)
+from geommicgen.meshing.from_deck import build_mesh_jobs
 
 from geommicgen.postproc.postproc import post_proc
 
@@ -64,51 +61,20 @@ def run_program():
         current_sample, current_mic_generator = fileio.load_previous_sample(
             previous_mic_path
         )
-        rve_dims = current_sample.rve_dims
-        mesh_generators = set()
-        if "mesh_options" in top_level_reader.all_options:
-            for disc_ext in top_level_reader.all_options["mesh_options"]:
-                # For each file extension asked
-                if disc_ext == "femsh":
-                    femsh_options = top_level_reader.all_options["mesh_options"][
-                        "femsh"
-                    ]
-                    mesh_generators.add(
-                        FEMMeshGenerator(
-                            femsh_options.get("mesh_size", None),
-                            femsh_options["element_type"],
-                            rve_dims,
-                            elements_per_particle=femsh_options.get(
-                                "elements_per_particle", None
-                            ),
-                        )
-                    )
-                elif disc_ext == "rgmsh":
-                    rgmsh_options = top_level_reader.all_options["mesh_options"][
-                        "rgmsh"
-                    ]
-                    for i_n_voxel_dims in rgmsh_options["n_voxels_dims"]:
-                        mesh_generators.add(
-                            RegularGridMeshGenerator(
-                                i_n_voxel_dims,
-                                rve_dims,
-                                slice_dir=rgmsh_options.get("slice_dir", None),
-                            )
-                        )
-                else:
-                    raise ValueError(
-                        "Specified mesh {0} is not supported.".format(disc_ext)
-                    )
+        mesh_jobs = build_mesh_jobs(
+            top_level_reader.all_options.get("mesh_options", {}), input_file_name
+        )
         print_funcs.print_output_header()
         post_proc(
-            mesh_generators,
+            mesh_jobs,
             current_sample,
             current_mic_generator,
             results_folder,
             top_level_reader.all_options["post_proc"],
         )
-
-        # Initializing the mesh generators
+        if any([i_job.error for i_job in mesh_jobs]):
+            print_funcs.print_failed_jobs(mesh_jobs)
+            raise SystemExit(1)
     else:
         try:
             n_dp_samples = top_level_reader.all_options["n_dp_samples"]
@@ -126,6 +92,7 @@ def run_program():
                 "Number of samples must be a positve integer larger than 1."
             )
 
+        failed_jobs = []
         for _ in range(n_dp_samples):
             sample_dir, sample_file_path = fileio.create_sample_results_directory(
                 results_folder
@@ -137,41 +104,9 @@ def run_program():
             print_funcs.print_initial_message(input_file_path)
             # Printing initial message
 
-            mesh_generators = set()
-            if "mesh_options" in top_level_reader.all_options:
-                for disc_ext in top_level_reader.all_options["mesh_options"]:
-                    # For each file extension asked
-                    if disc_ext == "femsh":
-                        femsh_options = top_level_reader.all_options["mesh_options"][
-                            "femsh"
-                        ]
-                        mesh_generators.add(
-                            FEMMeshGenerator(
-                                femsh_options.get("mesh_size", None),
-                                femsh_options["element_type"],
-                                rve_dims,
-                                elements_per_particle=femsh_options.get(
-                                    "elements_per_particle", None
-                                ),
-                            )
-                        )
-                    elif disc_ext == "rgmsh":
-                        rgmsh_options = top_level_reader.all_options["mesh_options"][
-                            "rgmsh"
-                        ]
-                        for i_n_voxel_dims in rgmsh_options["n_voxels_dims"]:
-                            print(rgmsh_options.get("slice_dir", None), "\n\n")
-                            mesh_generators.add(
-                                RegularGridMeshGenerator(
-                                    i_n_voxel_dims,
-                                    rve_dims,
-                                    slice_dir=rgmsh_options.get("slice_dir", None),
-                                )
-                            )
-                    else:
-                        raise ValueError(
-                            "Specified mesh {0} is not supported.".format(disc_ext)
-                        )
+            mesh_jobs = build_mesh_jobs(
+                top_level_reader.all_options.get("mesh_options", {}), input_file_name
+            )
             # Initializing the mesh generators
 
             current_sample = Microstructure(rve_dims)
@@ -318,7 +253,7 @@ def run_program():
             try:
                 times_dict = {}
                 times_dict = post_proc(
-                    mesh_generators,
+                    mesh_jobs,
                     current_sample,
                     current_mic_generator,
                     sample_dir,
@@ -326,7 +261,15 @@ def run_program():
                 )
             finally:
                 print_funcs.print_final_message(
-                    current_mic_generator, mesh_generators, times_dict
+                    current_mic_generator, mesh_jobs, times_dict
                 )
                 if top_level_reader.all_options["save_min"]:
                     fileio.delete_screen(print_funcs.SCREEN_DIR)
+
+            failed_jobs += [i_job for i_job in mesh_jobs if i_job.error]
+            # Collected across the batch, so that one sample failing to mesh does not
+            # cost the samples after it
+
+        if failed_jobs:
+            print_funcs.print_failed_jobs(failed_jobs)
+            raise SystemExit(1)

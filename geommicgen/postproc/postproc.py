@@ -13,8 +13,27 @@ import geommicgen.postproc.voronoimetrics.voronoi_analysis as voronoi_analysis
 from geommicgen.postproc.plotfuncs.plotting_functions import plot_particles
 
 
+def report_particle(index, total):
+    """
+    Report that a mesher has dealt with one more particle.
+
+    Parameters
+    ----------
+    index: int
+        Index of the particle that has been dealt with.
+
+    total: int
+        Total number of particles.
+    """
+    print("\t\t- Particle {0} of {1}".format(index + 1, total))
+    if index + 1 != total:
+        print("\033[F\033[K", end="")
+    # The line is overwritten by the next one, so a long run reports its progress
+    # without filling the screen
+
+
 def post_proc(
-    mesh_generators, current_sample, current_mic_generator, sample_dir, post_proc_opts
+    mesh_jobs, current_sample, current_mic_generator, sample_dir, post_proc_opts
 ):
     """Do the post processing, such as meshing and statistical analysis."""
     dict_times = {}
@@ -36,12 +55,25 @@ def post_proc(
 
     # Generating meshes
     # --------------------------------------------------------------------------------------
-    if mesh_generators:
+    if mesh_jobs:
         print_funcs.print_to_file("Generating meshes")
         print_funcs.print_to_file("-" * 80 + "\n")
-        for mesh_generator in mesh_generators:
-            mesh_generator.generate_mesh(current_sample, sample_dir)
-        # Generate corresponding mesh
+        for i_job in mesh_jobs:
+            print_funcs.print_to_file("\t> {0}".format(i_job.description))
+            i_job.run(current_sample, sample_dir, report=report_particle)
+            for j_warning in getattr(i_job.mesher, "warnings", []):
+                print_funcs.print_to_file("\t\t- {0}".format(j_warning))
+            if i_job.error is None:
+                for j_file in i_job.files:
+                    print_funcs.print_to_file("\t\t- {0}".format(j_file))
+            else:
+                print_funcs.print_to_file(
+                    "\t\t- FAILED: {0}".format(i_job.error)
+                )
+            print_funcs.print_to_file(
+                "Time ellapsed: {0:.3f}s\n".format(i_job.time)
+            )
+        # Each discretisation is attempted whatever became of the ones before it
 
     # Motion analysis
     # --------------------------------------------------------------------------------------

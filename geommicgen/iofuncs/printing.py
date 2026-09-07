@@ -210,7 +210,7 @@ def print_final_message(mic_generator, mesh_generators, times_dict):
     for generator in mesh_generators:
         if generator.time is None:
             continue
-        name = MESH_GENERATOR_NAMES.get(
+        name = getattr(generator, "description", None) or MESH_GENERATOR_NAMES.get(
             generator.__class__.__name__, generator.__class__.__name__
         )
         data_to_print.append(
@@ -233,3 +233,34 @@ def print_final_message(mic_generator, mesh_generators, times_dict):
 
     print_to_file("\n")
     print_to_file("{0: ^80}\n".format("Program Completed"))
+
+
+def print_failed_jobs(jobs):
+    """
+    Report the discretisations that failed, once everything else has been attempted.
+
+    Parameters
+    ----------
+    jobs: list
+        The `.MeshJob` objects that were run, failed or not.
+    """
+    failed = [i_job for i_job in jobs if i_job.error is not None]
+    if not failed:
+        return
+
+    print_to_file("\n" + "=" * 80)
+    print_to_file(
+        "{0} of the discretisations asked for could not be produced:\n".format(
+            len(failed)
+        )
+    )
+    for i_job in failed:
+        print_to_file(
+            "\t- {0} ({1}): {2}: {3}".format(
+                i_job.description,
+                i_job.base_name,
+                type(i_job.error).__name__,
+                i_job.error,
+            )
+        )
+    print_to_file("")
