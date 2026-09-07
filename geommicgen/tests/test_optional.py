@@ -1,6 +1,6 @@
-import ast
 import os
 import subprocess
+import symtable
 import sys
 import types
 import unittest
@@ -50,42 +50,42 @@ print("IMPORTED WITHOUT GMSH")
 """
 
 
-def binds_name(node, name):
-    """Check whether a syntax tree binds *name*, by assignment, import or with."""
-    for i_node in ast.walk(node):
-        if (
-            isinstance(i_node, ast.Name)
-            and i_node.id == name
-            and isinstance(i_node.ctx, ast.Store)
-        ):
-            return True
-        if isinstance(i_node, ast.Import) and any(
-            (i_alias.asname or i_alias.name) == name for i_alias in i_node.names
-        ):
-            return True
-        if isinstance(i_node, ast.ImportFrom) and any(
-            (i_alias.asname or i_alias.name) == name for i_alias in i_node.names
-        ):
-            return True
-        if isinstance(i_node, ast.arg) and i_node.arg == name:
-            return True
-        # A function handed the module as a parameter has it bound just as surely as
-        # one that fetches it itself
+def functions_using_unbound_gmsh(path):
+    """
+    Give the functions of a module that read gmsh without binding it first.
 
-    return False
+    Parameters
+    ----------
+    path: str
+        Path of the module to examine.
 
+    Returns
+    -------
+    list
+        Names of the offending functions.
+    """
+    with open(path, "r") as source_file:
+        table = symtable.symtable(source_file.read(), path, "exec")
+    if "gmsh" in table.get_identifiers():
+        return []
+    # A module that binds gmsh at the top level makes every bare use of it legitimate.
+    # There is none, and TestImportWithoutGmsh is what keeps it that way
 
-def uses_name(node, name):
-    """Check whether a syntax tree reads an attribute of *name*."""
-    for i_node in ast.walk(node):
-        if (
-            isinstance(i_node, ast.Attribute)
-            and isinstance(i_node.value, ast.Name)
-            and i_node.value.id == name
-        ):
-            return True
+    offenders = []
+    scopes = list(table.get_children())
+    while scopes:
+        scope = scopes.pop()
+        scopes += scope.get_children()
+        if scope.get_type() != "function":
+            continue
+        for i_symbol in scope.get_symbols():
+            if i_symbol.get_name() == "gmsh" and i_symbol.is_global():
+                offenders.append(scope.get_name())
+    # A parameter, an assignment, an import and a with statement all bind the name, and
+    # a closure over an enclosing binding makes it free rather than global, so this asks
+    # exactly the right question without spelling out the ways a name can be bound
 
-    return False
+    return offenders
 
 
 def source_files():
@@ -170,26 +170,10 @@ class TestGmshIsAlwaysBound(unittest.TestCase):
     def test_every_function_that_uses_gmsh_binds_it(self):
         offenders = []
         for i_path in source_files():
-            with open(i_path, "r") as source_file:
-                tree = ast.parse(source_file.read())
-            if any(
-                isinstance(i_node, ast.Import)
-                and any(
-                    (i_alias.asname or i_alias.name) == "gmsh"
-                    for i_alias in i_node.names
-                )
-                for i_node in tree.body
-            ):
-                continue
-            # A module that imports gmsh at the top level makes every bare use of it
-            # legitimate. There is none, and TestImportWithoutGmsh keeps it that way
-            for i_node in ast.walk(tree):
-                if not isinstance(i_node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    continue
-                if uses_name(i_node, "gmsh") and not binds_name(i_node, "gmsh"):
-                    offenders.append(
-                        "{0}: {1}".format(os.path.basename(i_path), i_node.name)
-                    )
+            offenders += [
+                "{0}: {1}".format(os.path.basename(i_path), i_function)
+                for i_function in functions_using_unbound_gmsh(i_path)
+            ]
         self.assertEqual(offenders, [])
         # gmsh is optional, so it is never a module global. A function that reads an
         # attribute of it without binding it first raises a NameError, which is caught

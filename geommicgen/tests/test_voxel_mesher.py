@@ -15,7 +15,7 @@ from geommicgen.microstructure.phase import Phase
 from geommicgen.microstructure.particleclasses import Disk, Ellipse, Ellipsoid, Sphere
 from geommicgen.postproc.mshgen.meshing_interface import RegularGridMeshGenerator
 from geommicgen.tests.helpers import build_microstructure
-from geommicgen.translators.crate import CrateWriter
+from geommicgen.translators.crate import CrateWriter, grid_file_name
 
 
 def legacy_grid(microstructure, n_voxels_dims):
@@ -40,9 +40,9 @@ def legacy_grid(microstructure, n_voxels_dims):
         with patch("geommicgen.iofuncs.printing.print_to_file"):
             with contextlib.redirect_stdout(io.StringIO()):
                 generator.generate_mesh(microstructure, temp_dir)
-        name = "_".join(str(int(i_size)) for i_size in n_voxels_dims)
+        name = grid_file_name("", n_voxels_dims) + ".npy"
 
-        return np.load(os.path.join(temp_dir, "meshes", name + ".rgmsh.npy"))
+        return np.load(os.path.join(temp_dir, "meshes", name))
     # The old mesher only ever exposed its grid through the file it wrote, which is why
     # this goes through a temporary directory
 

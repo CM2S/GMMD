@@ -37,36 +37,26 @@ def periodic_images(particle, rve_dims, add_images=True):
     """
     offsets = IMAGE_OFFSETS if add_images else (0,)
     if particle.dim == 2:
-        radius_x = particle.semi_major_axis
-        radius_y = particle.semi_minor_axis
-        for i_image in itertools.product(offsets, repeat=2):
-            center_x = particle.position_center[0] + rve_dims[0] * i_image[0]
-            center_y = particle.position_center[1] + rve_dims[1] * i_image[1]
-            if (
-                center_x > rve_dims[0] + radius_x
-                or center_x < -radius_x
-                or center_y > rve_dims[1] + radius_y
-                or center_y < -radius_y
-            ):
-                continue
-            yield (center_x, center_y, 0.0)
-        # A cylindrical fibre spans the RVE along its own direction, so it has a centre
-        # of two coordinates and is enumerated here rather than below
+        radii = (particle.semi_major_axis, particle.semi_minor_axis)
+        # A cylindrical fibre spans the RVE along its own direction, so its centre has
+        # two coordinates and it is enumerated in the plane, like a disk
     else:
-        radius = particle.radius
-        for i_image in itertools.product(offsets, repeat=3):
-            center = [
-                particle.position_center[i_dir] + rve_dims[i_dir] * i_image[i_dir]
-                for i_dir in range(3)
+        radii = (particle.radius,) * 3
+        # The circumscribed radius is used for every shape in space, so the test below
+        # discards only images that cannot reach the RVE under any orientation
+
+    for i_image in itertools.product(offsets, repeat=particle.dim):
+        center = [
+            particle.position_center[i_dir] + rve_dims[i_dir] * i_image[i_dir]
+            for i_dir in range(particle.dim)
+        ]
+        if any(
+            [
+                center[i_dir] > rve_dims[i_dir] + radii[i_dir]
+                or center[i_dir] < -radii[i_dir]
+                for i_dir in range(particle.dim)
             ]
-            if any(
-                [
-                    center[i_dir] > rve_dims[i_dir] + radius
-                    or center[i_dir] < -radius
-                    for i_dir in range(3)
-                ]
-            ):
-                continue
-            yield tuple(center)
-        # The circumscribed radius is used for every shape, so the test discards only
-        # images that cannot reach the RVE under any orientation
+        ):
+            continue
+
+        yield tuple(center) + (0.0,) * (3 - particle.dim)

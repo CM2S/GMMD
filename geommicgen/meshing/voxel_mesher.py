@@ -37,7 +37,6 @@ class VoxelMesher(Mesher):
     """
 
     name = "voxel"
-    produces_structured = True
 
     def __init__(self, n_voxels_dims, max_cells=DEFAULT_MAX_CELLS):
         """
@@ -149,7 +148,7 @@ class VoxelMesher(Mesher):
             direction[i_dir] = 1.0
             upper = particle.support_function(direction)[i_dir]
             indices = np.arange(
-                int(lower // spacing[i_dir]), int(upper // spacing[i_dir]) + 2
+                int(lower // spacing[i_dir]), int(upper // spacing[i_dir]) + 1
             )
             axis_voxels.append(
                 list(

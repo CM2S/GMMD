@@ -3,6 +3,7 @@
 import numpy as np
 
 from geommicgen.meshing.mesh import Mesh, StructuredInfo
+from geommicgen.microstructure.particleclasses import Disk, Sphere
 from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.microstructure.phase import Phase
 
@@ -68,3 +69,27 @@ def build_microstructure(rve_dims, phase_type, particles):
         microstructure.phases["2"].particles.append(i_particle)
 
     return microstructure
+
+
+def disk_microstructure():
+    """Build a microstructure of two disks, one of them crossing a face of the RVE."""
+    rve_dims = [1.0, 1.0]
+    particles = []
+    for i_center, i_radius in (([0.3, 0.3], 0.15), ([0.98, 0.8], 0.12)):
+        particle = Disk("2", {"r": i_radius}, rve_dims)
+        particle.position_center = np.array(i_center)
+        particles.append(particle)
+
+    return build_microstructure(rve_dims, Disk, particles)
+
+
+def sphere_microstructure():
+    """Build a microstructure of two spheres, one of them crossing two faces."""
+    rve_dims = [1.0, 1.0, 1.0]
+    particles = []
+    for i_center, i_radius in (([0.4, 0.4, 0.4], 0.2), ([0.9, 0.1, 0.5], 0.15)):
+        particle = Sphere("2", {"r": i_radius}, rve_dims)
+        particle.position_center = np.array(i_center)
+        particles.append(particle)
+
+    return build_microstructure(rve_dims, Sphere, particles)

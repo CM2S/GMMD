@@ -25,17 +25,12 @@ class Mesher(abc.ABC):
     ----------------
     name: str
         Name by which the mesher is requested.
-
-    produces_structured: bool
-        Whether the meshes the mesher produces carry a grid of phases rather than
-        explicit cells.
     """
 
     name = None
-    produces_structured = False
 
     @abc.abstractmethod
-    def mesh(self, microstructure):
+    def mesh(self, microstructure, report=None):
         """
         Mesh a microstructure.
 
@@ -43,6 +38,11 @@ class Mesher(abc.ABC):
         ----------
         microstructure: `.Microstructure`
             Microstructure to be meshed.
+
+        report: callable
+            Called with the index of the particle that has been dealt with and the
+            total number of particles, so that a caller can report the progress of a
+            long run. Meshing is a library call, so a mesher prints nothing itself.
 
         Returns
         -------

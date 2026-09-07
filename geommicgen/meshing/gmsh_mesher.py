@@ -10,6 +10,45 @@ node for node.
 The mesh is read out of the gmsh session in memory. Nothing is written and nothing is
 parsed back, so the mesher produces the same `.Mesh` as any other and the formats a
 solver reads are the concern of `geommicgen.translators`.
+
+Notes
+-----
+The descriptors of the elements in `ELEMENT_DESCRIPTORS` and their possible values are
+
+dim: int
+    Dimension of the element.
+
+mesh_alg: int
+    2D meshing algorithm. 1 Mesh Adapt, 2 Automatic, 5 Delaunay (default), 6
+    Frontal-Delaunay, 7 BAMG, 8 Frontal-Delaunay for Quads, 9 Packing of
+    Parallelograms.
+
+mesh_alg_3d: int
+    3D meshing algorithm. 1 Delaunay (default), 2 Frontal, 7 MMG3D, 9 R-tree, 10 HXT.
+
+force_recomb_all_surf: {0, 1}
+    Force the recombination of all surfaces.
+
+force_recomb_all_vol: {0, 1}
+    Force the recombination of all volumes.
+
+element_order: int
+    Order of the element.
+
+recomb_alg: int
+    Quad/Hex recombination algorithm. 0 simple, 1 blossom (default), 2 simple
+    full-quad, 3 blossom full-quad.
+
+recomb_alg_3d: int
+    Recombination level in 3D. 0 hex (default), 1 hex + prisms, 2 hex + prisms +
+    pyramids.
+
+recombine_3d_conformity: int
+    Recombination conformity in 3D. 0 nonconforming (default), 1 trihedra, 2 pyramids
+    + trihedra, 3 pyramids + hexSplit + trihedra, 4 hexSplit + trihedra.
+
+element_order_incomp: {0, 1}
+    Second order incomplete elements.
 """
 
 import contextlib
@@ -90,21 +129,15 @@ GMSH_CELL_TYPES = {
     2: "triangle",
     3: "quad",
     4: "tetra",
-    5: "hexahedron",
     9: "triangle6",
-    10: "quad9",
     11: "tetra10",
     16: "quad8",
-    17: "hexahedron20",
 }
-# Correspondence between the element types of gmsh and the names meshio uses
+# Correspondence between the element types of gmsh and the names meshio uses. Only the
+# types the elements of `ELEMENT_DESCRIPTORS` produce are listed, so an element type
+# that is added there without its entry here fails loudly on the first mesh
 
-GMSH_TO_VTK_ORDER = {
-    "tetra10": [0, 1, 2, 3, 4, 5, 6, 7, 9, 8],
-    "hexahedron20": [
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 13, 9, 16, 18, 19, 17, 10, 12, 14, 15,
-    ],
-}
+GMSH_TO_VTK_ORDER = {"tetra10": [0, 1, 2, 3, 4, 5, 6, 7, 9, 8]}
 # Permutations taking the nodes of an element from the order gmsh lists them in to the
 # order VTK expects. The elements that are not named here are listed alike by both
 
@@ -223,8 +256,11 @@ class GmshMesher(Mesher):
             raise ValueError("The mesh size must be a positive number.")
         if elements_per_particle is not None and elements_per_particle <= 0:
             raise ValueError("elements_per_particle must be a positive number.")
+        if max_attempts < 1:
+            raise ValueError("The mesher has to be allowed at least one attempt.")
         if element_type not in ELEMENT_DESCRIPTORS:
             raise ValueError("Unknown element: {0}".format(element_type))
+        self.requested_mesh_size = mesh_size
         self.mesh_size = mesh_size
         self.elements_per_particle = elements_per_particle
         self.element_type = element_type
@@ -267,22 +303,33 @@ class GmshMesher(Mesher):
                     len(microstructure.rve_dims),
                 )
             )
+        if microstructure.matrix_phase is None:
+            raise ValueError(
+                "The microstructure has no matrix phase to fill the RVE with."
+            )
+        # Checked before the model is built rather than being met as a missing key once
+        # the whole geometry has been fragmented
+
         self.resolve_mesh_size(microstructure)
         refine_surfaces = []
         for i_attempt in range(self.max_attempts):
-            try:
-                with gmsh_session() as gmsh:
+            with gmsh_session() as gmsh:
+                try:
                     phase_groups = self.build_model(
                         gmsh, microstructure, refine_surfaces, report
                     )
+                except Exception as error:
+                    refine_surfaces = failing_surfaces(error)
+                    if not refine_surfaces or i_attempt == self.max_attempts - 1:
+                        raise
+                    continue
+                    # The model has to be rebuilt in a new session: once a meshing pass
+                    # has failed, gmsh will not produce a mesh for that model again
 
-                    return self.extract_mesh(gmsh, microstructure, phase_groups)
-            except Exception as error:
-                refine_surfaces = failing_surfaces(error)
-                if not refine_surfaces or i_attempt == self.max_attempts - 1:
-                    raise
-                # The model has to be rebuilt in a new session: once a meshing pass has
-                # failed, gmsh will not produce a mesh for that model again
+                return self.extract_mesh(gmsh, microstructure, phase_groups)
+        # Reading the mesh back is deliberately outside the retry: a failure there is
+        # not something refining a surface can fix, and its message can name a surface
+        # too, which would have the real error retried away instead of raised
 
     @staticmethod
     def smallest_particle_radius(microstructure):
@@ -328,6 +375,9 @@ class GmshMesher(Mesher):
             Microstructure that is about to be meshed.
         """
         self.warnings = []
+        self.mesh_size = self.requested_mesh_size
+        # Restored from what was asked for, so that meshing a second microstructure
+        # with the same mesher does not inherit the size derived for the first
         smallest_radius = self.smallest_particle_radius(microstructure)
         if smallest_radius is None or smallest_radius <= 0:
             return
@@ -436,7 +486,7 @@ class GmshMesher(Mesher):
             )
 
         primitives = []
-        phase_of_primitive = {}
+        primitive_phases = []
         particles = microstructure.particles
         for i_particle_ind, i_particle in enumerate(particles):
             for j_center in periodic_images(i_particle, rve_dims):
@@ -444,7 +494,7 @@ class GmshMesher(Mesher):
                     factory, model, i_particle, j_center
                 ):
                     primitives.append(k_dim_tag)
-                    phase_of_primitive[k_dim_tag] = i_particle.phase
+                    primitive_phases.append(i_particle.phase)
             if report is not None:
                 report(i_particle_ind, len(particles))
 
@@ -456,20 +506,20 @@ class GmshMesher(Mesher):
         # says which pieces came from which particle
 
         phase_of_piece = {}
-        for i_index, i_primitive in enumerate(primitives):
-            for j_piece in cut_map[1 + i_index]:
-                phase_of_piece[j_piece] = phase_of_primitive[i_primitive]
+        for i_pieces, i_phase in zip(cut_map[1:], primitive_phases):
+            for j_piece in i_pieces:
+                phase_of_piece[j_piece] = i_phase
         factory.synchronize()
 
-        out_dim_tag_2, fragment_map = factory.fragment(
+        _, fragment_map = factory.fragment(
             [(dim, box_tag)], out_dim_tag, removeObject=True, removeTool=True
         )
         # Fragmenting against the box makes the matrix and the particles share their
         # interfaces
 
         phase_of_fragment = {}
-        for i_index, i_piece in enumerate(out_dim_tag):
-            for j_fragment in fragment_map[1 + i_index]:
+        for i_fragments, i_piece in zip(fragment_map[1:], out_dim_tag):
+            for j_fragment in i_fragments:
                 phase_of_fragment[j_fragment] = phase_of_piece[i_piece]
         for i_fragment in fragment_map[0]:
             phase_of_fragment.setdefault(i_fragment, microstructure.matrix_phase)
@@ -573,7 +623,6 @@ class GmshMesher(Mesher):
         """
         center_x, center_y, center_z = center
         if isinstance(particle, CylindricalFiber):
-            factory.synchronize()
             face_tag = factory.addDisk(
                 center_x,
                 center_y,
@@ -597,13 +646,10 @@ class GmshMesher(Mesher):
                 for i_dim_tag in factory.extrude([(2, face_tag)], *extrude_direction)
                 if i_dim_tag[0] == 3
             ]
-            factory.synchronize()
 
             return entities
 
         if isinstance(particle, Disk):
-            factory.synchronize()
-
             return [
                 (
                     2,
@@ -618,7 +664,6 @@ class GmshMesher(Mesher):
             ]
 
         if isinstance(particle, Ellipse):
-            factory.synchronize()
             tag = factory.addDisk(
                 center_x,
                 center_y,
@@ -627,6 +672,8 @@ class GmshMesher(Mesher):
                 particle.semi_minor_axis,
             )
             factory.synchronize()
+            # The only synchronize this method needs: getBoundary reads the model, not
+            # the geometry kernel, so the disk has to have reached it first
             rotate_tags = [(2, tag)] + model.getBoundary([(2, tag)])
             factory.rotate(
                 rotate_tags, center_x, center_y, center_z, 0, 0, 1, particle.angle
@@ -635,14 +682,12 @@ class GmshMesher(Mesher):
             return [(2, tag)]
 
         if isinstance(particle, Sphere):
-            tag = factory.addSphere(center_x, center_y, center_z, particle.radius)
-            factory.synchronize()
-
-            return [(3, tag)]
+            return [
+                (3, factory.addSphere(center_x, center_y, center_z, particle.radius))
+            ]
 
         if isinstance(particle, Ellipsoid):
             tag = factory.addSphere(center_x, center_y, center_z, 1)
-            factory.synchronize()
             factory.dilate(
                 [(3, tag)],
                 center_x,
@@ -662,7 +707,6 @@ class GmshMesher(Mesher):
                 particle.rotation_axis[2],
                 particle.angle,
             )
-            factory.synchronize()
             # A sphere of unit radius stretched onto the semi axes and then turned,
             # since the kernel has no ellipsoid of its own
 
@@ -694,7 +738,6 @@ class GmshMesher(Mesher):
                     0,
                     particle.polar_angle,
                 )
-            factory.synchronize()
 
             return entities
 
@@ -832,6 +875,7 @@ class GmshMesher(Mesher):
 
         blocks = {}
         phases = {}
+        nodes_per_element = {}
         for i_name, (i_dim, i_group) in phase_groups.items():
             for j_entity in gmsh.model.getEntitiesForPhysicalGroup(i_dim, i_group):
                 types, _, nodes_per_type = gmsh.model.mesh.getElements(
@@ -839,9 +883,15 @@ class GmshMesher(Mesher):
                 )
                 for k_type, k_nodes in zip(types, nodes_per_type):
                     cell_type = GMSH_CELL_TYPES[int(k_type)]
-                    n_nodes = gmsh.model.mesh.getElementProperties(int(k_type))[3]
+                    n_nodes = nodes_per_element.get(int(k_type))
+                    if n_nodes is None:
+                        n_nodes = gmsh.model.mesh.getElementProperties(int(k_type))[3]
+                        nodes_per_element[int(k_type)] = n_nodes
+                    # The node count depends on the element type alone, and there is one
+                    # entity per particle image and per matrix fragment to loop over
+
                     connectivity = index_of_tag[
-                        np.asarray(k_nodes, dtype=np.int64).reshape(-1, n_nodes)
+                        np.asarray(k_nodes).reshape(-1, n_nodes)
                     ]
                     order = GMSH_TO_VTK_ORDER.get(cell_type)
                     if order is not None:
