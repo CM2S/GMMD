@@ -220,6 +220,7 @@ class GmshMesher(Mesher):
     """
 
     name = "gmsh"
+    description = "Finite element mesh generation"
 
     def __init__(
         self, mesh_size=None, element_type="tri3", elements_per_particle=None,

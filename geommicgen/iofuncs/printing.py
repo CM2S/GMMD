@@ -156,15 +156,6 @@ def print_virtual_total_volume_fraction(real_vf, virtual_vf, min_distance):
     )
 
 
-MESH_GENERATOR_NAMES = {
-    "FEMMeshGenerator": "Finite element mesh generation",
-    "RegularGridMeshGenerator": "Regular mesh generation",
-    "GmshMesher": "Finite element mesh generation",
-    "VoxelMesher": "Regular mesh generation",
-}
-# Names the mesh generators are reported under in the summary of execution times
-
-
 def print_final_message(mic_generator, mesh_generators, times_dict):
     """Print final message."""
     print_to_file(80 * "-")
@@ -210,13 +201,11 @@ def print_final_message(mic_generator, mesh_generators, times_dict):
     for generator in mesh_generators:
         if generator.time is None:
             continue
-        name = getattr(generator, "description", None) or MESH_GENERATOR_NAMES.get(
-            generator.__class__.__name__, generator.__class__.__name__
-        )
+        name = getattr(generator, "description", None) or type(generator).__name__
         data_to_print.append(
             [name, "{0:.2e}".format(generator.time), share(generator.time)]
         )
-        # A generator this does not have a name for is reported under its class name,
+        # A step that does not say what it is called is reported under its class name,
         # rather than under whichever name the loop happened to leave behind
 
     for post_proc_op_name, post_proc_op_time in times_dict.items():
@@ -243,10 +232,15 @@ def print_failed_jobs(jobs):
     ----------
     jobs: list
         The `.MeshJob` objects that were run, failed or not.
+
+    Returns
+    -------
+    list
+        The jobs that failed.
     """
     failed = [i_job for i_job in jobs if i_job.error is not None]
     if not failed:
-        return
+        return failed
 
     print_to_file("\n" + "=" * 80)
     print_to_file(
@@ -263,4 +257,12 @@ def print_failed_jobs(jobs):
                 i_job.error,
             )
         )
+        if i_job.trace is not None:
+            for i_line in i_job.trace.rstrip("\n").split("\n"):
+                print_to_file("\t\t" + i_line, to_terminal=False)
+        # The traceback goes to the screen file only: a message is what a user needs,
+        # and the frames are what whoever has to fix it needs
+
     print_to_file("")
+
+    return failed

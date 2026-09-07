@@ -61,7 +61,7 @@ def post_proc(
         for i_job in mesh_jobs:
             print_funcs.print_to_file("\t> {0}".format(i_job.description))
             i_job.run(current_sample, sample_dir, report=report_particle)
-            for j_warning in getattr(i_job.mesher, "warnings", []):
+            for j_warning in i_job.mesher.warnings:
                 print_funcs.print_to_file("\t\t- {0}".format(j_warning))
             if i_job.error is None:
                 for j_file in i_job.files:

@@ -72,8 +72,7 @@ def run_program():
             results_folder,
             top_level_reader.all_options["post_proc"],
         )
-        if any([i_job.error for i_job in mesh_jobs]):
-            print_funcs.print_failed_jobs(mesh_jobs)
+        if print_funcs.print_failed_jobs(mesh_jobs):
             raise SystemExit(1)
     else:
         try:
@@ -266,10 +265,9 @@ def run_program():
                 if top_level_reader.all_options["save_min"]:
                     fileio.delete_screen(print_funcs.SCREEN_DIR)
 
-            failed_jobs += [i_job for i_job in mesh_jobs if i_job.error]
+            failed_jobs.extend(i_job for i_job in mesh_jobs if i_job.error)
             # Collected across the batch, so that one sample failing to mesh does not
             # cost the samples after it
 
-        if failed_jobs:
-            print_funcs.print_failed_jobs(failed_jobs)
+        if print_funcs.print_failed_jobs(failed_jobs):
             raise SystemExit(1)

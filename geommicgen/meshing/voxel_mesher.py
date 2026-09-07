@@ -37,6 +37,7 @@ class VoxelMesher(Mesher):
     """
 
     name = "voxel"
+    description = "Regular mesh generation"
 
     def __init__(self, n_voxels_dims, max_cells=DEFAULT_MAX_CELLS):
         """

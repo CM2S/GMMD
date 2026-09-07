@@ -12,9 +12,25 @@ read.
 """
 
 import abc
+import importlib
 
 MESHERS = {}
 # Correspondence between the name of a mesher and the class that implements it
+
+BUILTIN_MESHER_MODULES = (
+    "geommicgen.meshing.gmsh_mesher",
+    "geommicgen.meshing.voxel_mesher",
+)
+# Modules holding the meshers that ship with the package. Importing one is what
+# registers the mesher in it, and that is done the first time a mesher is looked up
+# rather than when this module is imported, so that a caller that only wants to read a
+# mesh does not pay for the geometry kernel
+
+
+def load_builtin_meshers():
+    """Import the meshers that ship with the package, so that they register."""
+    for i_module in BUILTIN_MESHER_MODULES:
+        importlib.import_module(i_module)
 
 
 class Mesher(abc.ABC):
@@ -25,9 +41,18 @@ class Mesher(abc.ABC):
     ----------------
     name: str
         Name by which the mesher is requested.
+
+    description: str
+        Name the mesher is reported under in the summary of a run.
+
+    warnings: list
+        Messages about the run, for the caller to report. A mesher that collects them
+        rebinds this in its initializer.
     """
 
     name = None
+    description = None
+    warnings = ()
 
     @abc.abstractmethod
     def mesh(self, microstructure, report=None):
@@ -90,6 +115,8 @@ def get_mesher(name):
         If no mesher is registered under that name.
     """
     if name not in MESHERS:
+        load_builtin_meshers()
+    if name not in MESHERS:
         raise ValueError(
             "There is no mesher named {0}. The available meshers are {1}.".format(
                 name, ", ".join(available_meshers())
@@ -108,4 +135,6 @@ def available_meshers():
     list
         Sorted names of the meshers.
     """
+    load_builtin_meshers()
+
     return sorted(MESHERS)

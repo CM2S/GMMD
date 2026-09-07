@@ -100,6 +100,18 @@ class Keyword:
             elif self.type_str == "str":
                 value_str = line.split()[1]
                 final_val = value_str
+            elif self.type_str == "str_list":
+                value_str = " ".join(line.split()[1:]).strip()
+                if value_str.startswith("[") and value_str.endswith("]"):
+                    value_str = value_str[1:-1]
+                final_val = [
+                    i_value.strip()
+                    for i_value in value_str.split(",")
+                    if i_value.strip()
+                ]
+                # Written as [a, b] like every other list in the input file. A single
+                # value and a comma separated list without the brackets are read too,
+                # since the whole line is taken rather than the first word of it
             elif self.type_str == "none":
                 final_val = self.name
             else:
@@ -695,8 +707,8 @@ top_level_reader.add_top_level_keyword(
             Keyword("Elements_Per_Particle", type_str="float"),
             Keyword("N_Voxels_Dims", type_str="int"),
             Keyword("Slice_Dir", type_str="int"),
-            Keyword("Solver_Formats", type_str="str"),
-            Keyword("Voxel_Formats", type_str="str"),
+            Keyword("Solver_Formats", type_str="str_list"),
+            Keyword("Voxel_Formats", type_str="str_list"),
             Keyword("Write_Msh", type_str="bool"),
         },
     )

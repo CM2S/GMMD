@@ -1,15 +1,22 @@
 import os
 import tempfile
+import types
 import unittest
-
-import numpy as np
+from unittest.mock import patch
 
 from geommicgen._optional import has_gmsh
-from geommicgen.meshing.from_deck import MeshJob, build_mesh_jobs
+from geommicgen.iofuncs.keywords import Keyword
+from geommicgen.meshing.from_deck import (
+    MeshJob,
+    build_mesh_jobs,
+    writers_from_options,
+)
 from geommicgen.meshing.gmsh_mesher import GmshMesher
 from geommicgen.meshing.voxel_mesher import VoxelMesher
-from geommicgen.microstructure.particleclasses import Disk
-from geommicgen.tests.helpers import build_microstructure, disk_microstructure
+from geommicgen.tests.helpers import disk_microstructure
+from geommicgen.translators.base import get_writer
+from geommicgen.translators.crate import CrateWriter
+from geommicgen.translators.links import LinksWriter
 
 
 class TestBuildMeshJobs(unittest.TestCase):
@@ -22,7 +29,8 @@ class TestBuildMeshJobs(unittest.TestCase):
         self.assertEqual(jobs[0].mesher.element_type, "tri6")
         self.assertEqual(jobs[0].mesher.mesh_size, 0.05)
         self.assertEqual(jobs[0].base_name, "femsh")
-        self.assertEqual(jobs[0].formats, ["links"])
+        self.assertEqual(jobs[0].writers, [LinksWriter])
+        self.assertEqual(jobs[0].description, "Finite element mesh generation")
 
     def test_elements_per_particle_is_carried_through(self):
         jobs = build_mesh_jobs(
@@ -41,7 +49,8 @@ class TestBuildMeshJobs(unittest.TestCase):
             ["example_10_10", "example_20_20"],
         )
         self.assertIsInstance(jobs[0].mesher, VoxelMesher)
-        self.assertEqual(jobs[0].formats, ["crate"])
+        self.assertEqual(jobs[0].writers, [CrateWriter])
+        self.assertEqual(jobs[0].description, "Regular mesh generation")
 
     def test_formats_can_be_asked_for(self):
         jobs = build_mesh_jobs(
@@ -49,17 +58,19 @@ class TestBuildMeshJobs(unittest.TestCase):
                 "femsh": {
                     "element_type": "tri3",
                     "mesh_size": 0.1,
-                    "solver_formats": "links,vtk",
+                    "solver_formats": ["links", "vtk"],
                 }
             }
         )
-        self.assertEqual(jobs[0].formats, ["links", "vtk"])
+        self.assertEqual([i_writer.name for i_writer in jobs[0].writers],
+                         ["links", "vtk"])
 
     def test_write_msh_asks_for_the_gmsh_format(self):
         jobs = build_mesh_jobs(
             {"femsh": {"element_type": "tri3", "mesh_size": 0.1, "write_msh": True}}
         )
-        self.assertEqual(jobs[0].formats, ["links", "gmsh"])
+        self.assertEqual([i_writer.name for i_writer in jobs[0].writers],
+                         ["links", "gmsh"])
         # The gmsh file is no longer written on the way to the solver deck, so it is
         # asked for like any other format
 
@@ -74,23 +85,35 @@ class TestBuildMeshJobs(unittest.TestCase):
         with self.assertRaises(ValueError):
             build_mesh_jobs({"nosuchmesh": {}})
 
+    def test_unknown_format_is_refused_before_anything_is_meshed(self):
+        with self.assertRaises(ValueError) as context:
+            build_mesh_jobs(
+                {
+                    "femsh": {
+                        "element_type": "tri3",
+                        "mesh_size": 0.1,
+                        "solver_formats": ["linkss"],
+                    }
+                }
+            )
+        self.assertIn("linkss", str(context.exception))
+        # Resolving the writers while the deck is read is what keeps a typo from
+        # costing a whole meshing run and then being reported as a meshing failure
+
 
 class TestMeshJobRun(unittest.TestCase):
     """Test class for running a meshing job."""
 
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        rve_dims = [1.0, 1.0]
-        particle = Disk("2", {"r": 0.2}, rve_dims)
-        particle.position_center = np.array([0.5, 0.5])
-        self.microstructure = build_microstructure(rve_dims, Disk, [particle])
+        self.microstructure = disk_microstructure()
 
     def tearDown(self):
         self.temp_dir.cleanup()
 
     def test_writes_the_standard_output_and_every_format(self):
         job = build_mesh_jobs({"rgmsh": {"n_voxels_dims": [[16, 16]]}}, "deck.mdsim")[0]
-        self.assertTrue(job.run(self.microstructure, self.temp_dir.name))
+        job.run(self.microstructure, self.temp_dir.name)
         written = sorted(os.path.basename(i_file) for i_file in job.files)
         self.assertEqual(written, ["deck_16_16.rgmsh.npy", "deck_16_16.vtk"])
         for i_file in job.files:
@@ -100,11 +123,26 @@ class TestMeshJobRun(unittest.TestCase):
         # A structured mesh gets the image a viewer reads, not an unstructured grid
 
     def test_a_failure_is_recorded_rather_than_raised(self):
-        job = MeshJob(VoxelMesher([8, 8, 8]), ["crate"], "grid", "Regular mesh")
-        self.assertFalse(job.run(self.microstructure, self.temp_dir.name))
+        job = MeshJob(VoxelMesher([8, 8, 8]), [CrateWriter], "grid")
+        job.run(self.microstructure, self.temp_dir.name)
         self.assertIsInstance(job.error, ValueError)
         self.assertEqual(job.files, [])
         self.assertIsNotNone(job.time)
+        self.assertIn("Traceback", job.trace)
+        self.assertIsNone(job.error.__traceback__)
+        # The traceback is kept as text and taken off the exception, which would
+        # otherwise hold the whole mesh alive for as long as the job is
+
+    def test_a_writer_may_not_write_over_the_standard_output(self):
+        job = MeshJob(VoxelMesher([8, 8]), [get_writer("vtk")], "grid")
+        job.run(self.microstructure, self.temp_dir.name)
+        self.assertIsInstance(job.error, ValueError)
+        self.assertIn("standard output", str(job.error))
+        self.assertEqual(
+            os.listdir(os.path.join(self.temp_dir.name, "meshes")), []
+        )
+        # Both write grid.vtk, so one would land on top of the other and only the
+        # second would survive. Nothing is written at all instead
         # A grid of three directions cannot mesh a microstructure of two, and the other
         # discretisations asked for still have to get their chance
 
@@ -116,7 +154,8 @@ class TestMeshJobRunWithGmsh(unittest.TestCase):
     def test_the_links_deck_and_the_standard_output_are_written(self):
         job = build_mesh_jobs({"femsh": {"element_type": "tri3", "mesh_size": 0.1}})[0]
         with tempfile.TemporaryDirectory() as temp_dir:
-            self.assertTrue(job.run(disk_microstructure(), temp_dir))
+            job.run(disk_microstructure(), temp_dir)
+            self.assertIsNone(job.error)
             written = sorted(os.path.basename(i_file) for i_file in job.files)
             self.assertEqual(
                 written,
@@ -125,6 +164,53 @@ class TestMeshJobRunWithGmsh(unittest.TestCase):
             for i_file in job.files:
                 self.assertTrue(os.path.exists(i_file))
         # The LINKS deck no longer goes through a .msh file and a separate package
+
+
+class TestFormatsFromTheDeck(unittest.TestCase):
+    """
+    Test class for the spelling of a list of formats in an input data file.
+
+    The reader handed on only the first word of the line, so every spelling with a
+    space in it lost every format after the first, in silence.
+    """
+
+    def read_formats(self, line):
+        """Read one keyword line the way the reader of the input file does."""
+        reader = types.SimpleNamespace(input=[line], i_line=0)
+        with patch.object(Keyword, "input_reader", reader):
+            return Keyword("Solver_Formats", type_str="str_list").read_value()
+
+    def test_bracketed_list(self):
+        self.assertEqual(
+            self.read_formats("Solver_Formats [links, vtk]"), ["links", "vtk"]
+        )
+        # The spelling every other list in the input file uses
+
+    def test_list_without_brackets(self):
+        self.assertEqual(
+            self.read_formats("Solver_Formats links, vtk"), ["links", "vtk"]
+        )
+
+    def test_list_without_spaces(self):
+        self.assertEqual(
+            self.read_formats("Solver_Formats links,vtk"), ["links", "vtk"]
+        )
+
+    def test_a_single_format(self):
+        self.assertEqual(self.read_formats("Solver_Formats links"), ["links"])
+
+    def test_every_spelling_reaches_the_writers(self):
+        for i_line in (
+            "Solver_Formats [links, vtk]",
+            "Solver_Formats links, vtk",
+            "Solver_Formats links,vtk",
+        ):
+            writers = writers_from_options(
+                {"solver_formats": self.read_formats(i_line)}, "solver_formats", ()
+            )
+            self.assertEqual(
+                [i_writer.name for i_writer in writers], ["links", "vtk"], i_line
+            )
 
 
 if __name__ == "__main__":
