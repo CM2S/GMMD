@@ -7,7 +7,12 @@ import numpy as np
 from geommicgen.errors.error_classes import MeshTooLargeError, PeriodicityError
 from geommicgen.meshing.mesh import DEFAULT_MAX_CELLS, Mesh
 from geommicgen.meshing.periodic import classify_periodic_boundary
-from geommicgen.meshing.writers import read_mesh, write_vtk_image, write_vtu
+from geommicgen.meshing.writers import (
+    read_mesh,
+    read_vtk_image,
+    write_vtk_image,
+    write_vtu,
+)
 from geommicgen.tests.helpers import structured_mesh
 
 
@@ -152,14 +157,17 @@ class TestMeshRoundTrip(unittest.TestCase):
         # makes a mesh produced by another tool usable
 
     def test_vtk_image(self):
-        image_path = os.path.join(self.temp_dir.name, "grid.vtk")
+        image_path = os.path.join(self.temp_dir.name, "grid.vti")
         write_vtk_image(self.mesh, image_path)
-        with open(image_path, "r") as vtk_file:
-            contents = vtk_file.read()
-        self.assertIn("DATASET STRUCTURED_POINTS", contents)
-        self.assertIn("DIMENSIONS 5 5 1", contents)
-        self.assertIn("SCALARS phase int 1", contents)
-        self.assertIn("CELL_DATA 16", contents)
+        with open(image_path, "r") as image_file:
+            contents = image_file.read()
+        self.assertIn('type="ImageData"', contents)
+        self.assertIn('WholeExtent="0 4 0 4 0 0"', contents)
+        self.assertIn('Name="phase"', contents)
+        phase_grid, spacing = read_vtk_image(image_path)
+        self.assertEqual(phase_grid.shape, (4, 4))
+        np.testing.assert_allclose(spacing, [0.25, 0.25])
+        # The extent is counted in points, so a grid of four voxels spans zero to four
 
     def test_the_grid_survives_both_standard_formats(self):
         phase_grid = np.ones((3, 5), dtype=int)
@@ -167,7 +175,7 @@ class TestMeshRoundTrip(unittest.TestCase):
         mesh = structured_mesh((3, 5), [3.0, 5.0], phase_grid)
         for i_name, i_writer in (
             ("grid.vtu", write_vtu),
-            ("grid.vtk", write_vtk_image),
+            ("grid.vti", write_vtk_image),
         ):
             path = os.path.join(self.temp_dir.name, i_name)
             i_writer(mesh, path)
@@ -182,7 +190,7 @@ class TestMeshRoundTrip(unittest.TestCase):
         # reading it in the wrong order would give the right answer anyway
 
     def test_vtk_image_writes_its_sidecar(self):
-        image_path = os.path.join(self.temp_dir.name, "grid.vtk")
+        image_path = os.path.join(self.temp_dir.name, "grid.vti")
         write_vtk_image(self.mesh, image_path)
         self.assertTrue(
             os.path.exists(os.path.join(self.temp_dir.name, "grid.mesh.json"))

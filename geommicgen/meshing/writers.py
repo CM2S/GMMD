@@ -11,6 +11,7 @@ is what lets a mesh produced elsewhere be read back as a first class mesh.
 
 import json
 import os
+import xml.etree.ElementTree as ElementTree
 
 import numpy as np
 
@@ -22,6 +23,9 @@ SIDECAR_SUFFIX = ".mesh.json"
 # Suffix of the file holding the information the mesh format cannot carry
 
 SIDECAR_FORMAT = "geommicgen-mesh"
+
+IMAGE_SUFFIX = ".vti"
+# Extension of the VTK image a structured mesh is written as
 
 WRITE_CHUNK = 500000
 # Number of values formatted at a time when writing a grid
@@ -133,10 +137,15 @@ def read_mesh(file_path, rve_dims=None, matrix_phase=None, phase_key=None):
     `.Mesh`
         The mesh described by the file, with its boundary already classified.
     """
+    record = _read_sidecar(file_path)
+    if os.path.splitext(file_path)[1].lower() == IMAGE_SUFFIX:
+        return _read_image_mesh(file_path, record, rve_dims, matrix_phase)
+    # An image is read without ever building its cells, which is the whole reason a
+    # grid is written as one
+
     import meshio
 
     read = meshio.read(file_path)
-    record = _read_sidecar(file_path)
 
     points = np.asarray(read.points, dtype=float)
     if points.shape[1] == 2:
@@ -202,6 +211,62 @@ def read_mesh(file_path, rve_dims=None, matrix_phase=None, phase_key=None):
     # does not pay for a classification nobody asked for
 
 
+def _read_image_mesh(file_path, record, rve_dims, matrix_phase):
+    """
+    Build the mesh a VTK image describes.
+
+    Parameters
+    ----------
+    file_path: str
+        Path of the image.
+
+    record: dict
+        Contents of the sidecar file, or None when there is none.
+
+    rve_dims: array
+        Dimensions of the RVE, when they are not to be taken from the file.
+
+    matrix_phase: str
+        Name of the matrix phase, when it is not in the sidecar file.
+
+    Returns
+    -------
+    `.Mesh`
+        The structured mesh the image describes.
+    """
+    phase_grid, spacing = read_vtk_image(file_path)
+    if rve_dims is None and record is not None:
+        rve_dims = record["rve_dims"]
+    if rve_dims is None:
+        rve_dims = np.asarray(phase_grid.shape, dtype=float) * spacing
+    # An image says how large it is, so unlike a mesh of loose cells there is nothing
+    # to guess at when it comes without a sidecar
+
+    phase_names = {}
+    if record is not None:
+        phase_names = {
+            int(i_key): i_name for i_key, i_name in record["phase_names"].items()
+        }
+        matrix_phase = (
+            matrix_phase if matrix_phase is not None else record["matrix_phase"]
+        )
+    else:
+        phase_names = {
+            int(i_phase): str(i_phase) for i_phase in np.unique(phase_grid)
+        }
+
+    return Mesh(
+        rve_dims,
+        phase_names=phase_names,
+        matrix_phase=matrix_phase,
+        periodic=record["periodic"] if record is not None else True,
+        structured=StructuredInfo(phase_grid, spacing),
+        source=record["source"] if record is not None else {"read_from": file_path},
+    )
+    # A grid discretises opposite faces alike whatever produced it, so it is periodic
+    # even when no sidecar says so
+
+
 def _read_sidecar(file_path):
     """Read the sidecar file of a mesh, returning None when there is none."""
     path = sidecar_path(file_path)
@@ -234,11 +299,11 @@ def _read_phase(read, cells, dim, phase_key):
 
 def write_vtk_image(mesh, file_path, write_sidecar=True):
     """
-    Write a structured mesh as a legacy VTK image, with the phase as cell data.
+    Write a structured mesh as a VTK image, with the phase of every voxel as cell data.
 
-    meshio has no writer for image data, and the format is simple enough to write
-    directly. The file is meant for visualisation; the spectral solvers read the phase
-    grid itself, through their own writers.
+    An image states the geometry as a rule, an origin and a spacing, rather than
+    listing it, so the file holds one value per voxel however fine the grid is. meshio
+    writes no image format at all, and the format is simple enough to write directly.
 
     Parameters
     ----------
@@ -249,9 +314,9 @@ def write_vtk_image(mesh, file_path, write_sidecar=True):
         Path of the file to be written.
 
     write_sidecar: bool
-        Whether to write the sidecar file with the dimensions of the RVE, the names of
-        the phases and the shape of the grid. Without it the image reads back as loose
-        cells rather than as the grid it was written from.
+        Whether to write the sidecar file with the dimensions of the RVE and the names
+        of the phases. Without it the file still holds the grid, but nothing says how
+        large the RVE is or what the phases are called.
 
     Raises
     ------
@@ -261,32 +326,86 @@ def write_vtk_image(mesh, file_path, write_sidecar=True):
     if mesh.structured is None:
         raise ValueError("Only a structured mesh can be written as a VTK image.")
 
-    shape = list(mesh.structured.shape)
-    spacing = list(mesh.structured.spacing)
-    dimensions = [i_size + 1 for i_size in shape] + [1] * (3 - mesh.dim)
-
+    shape = list(mesh.structured.shape) + [0] * (3 - mesh.dim)
+    spacing = list(mesh.structured.spacing) + [1.0] * (3 - mesh.dim)
+    extent = " ".join("0 {0}".format(i_size) for i_size in shape)
     values = mesh.structured.phase_grid.ravel(order="F")
-    with open(file_path, "w") as vtk_file:
-        vtk_file.write("# vtk DataFile Version 3.0\n")
-        vtk_file.write("geommicgen structured microstructure\n")
-        vtk_file.write("ASCII\n")
-        vtk_file.write("DATASET STRUCTURED_POINTS\n")
-        vtk_file.write("DIMENSIONS {0} {1} {2}\n".format(*dimensions))
-        vtk_file.write("ORIGIN 0 0 0\n")
-        vtk_file.write("SPACING {0} {1} {2}\n".format(*(list(spacing) + [1.0])[:3]))
-        vtk_file.write("CELL_DATA {0}\n".format(len(values)))
-        vtk_file.write("SCALARS phase int 1\n")
-        vtk_file.write("LOOKUP_TABLE default\n")
+
+    with open(file_path, "w") as image_file:
+        image_file.write('<?xml version="1.0"?>\n')
+        image_file.write(
+            '<VTKFile type="ImageData" version="1.0" byte_order="LittleEndian">\n'
+        )
+        image_file.write(
+            '  <ImageData WholeExtent="{0}" Origin="0 0 0" Spacing="{1}">\n'.format(
+                extent, " ".join(repr(float(i_size)) for i_size in spacing)
+            )
+        )
+        image_file.write('    <Piece Extent="{0}">\n'.format(extent))
+        image_file.write('      <CellData Scalars="phase">\n')
+        image_file.write(
+            '        <DataArray type="Int32" Name="phase" format="ascii">\n'
+        )
         for i_start in range(0, len(values), WRITE_CHUNK):
             chunk = values[i_start:i_start + WRITE_CHUNK]
-            vtk_file.write(("%d\n" * len(chunk)) % tuple(chunk.tolist()))
-    # The values run with the first direction changing fastest, as VTK expects. They are
-    # formatted a block at a time, which is an order of magnitude faster than one call
-    # per cell and keeps the transient string bounded
+            image_file.write(("%d\n" * len(chunk)) % tuple(chunk.tolist()))
+        image_file.write("        </DataArray>\n")
+        image_file.write("      </CellData>\n")
+        image_file.write("    </Piece>\n")
+        image_file.write("  </ImageData>\n")
+        image_file.write("</VTKFile>\n")
+    # The values run with the first direction changing fastest, which is the order VTK
+    # reads an image in. They are formatted a block at a time, which is an order of
+    # magnitude faster than one call per value and keeps the transient string bounded
 
     if write_sidecar:
         with open(sidecar_path(file_path), "w") as sidecar:
             json.dump(_sidecar_record(mesh, order="F"), sidecar, indent=2)
             sidecar.write("\n")
-    # Written for the same reason as for an unstructured mesh, and with the order the
-    # values were just written in, so that this file reads back as the grid it is
+
+
+def read_vtk_image(file_path):
+    """
+    Read a VTK image, giving back the grid of phases and the size of a voxel.
+
+    meshio reads no image format, so this reads the little of the format that is used
+    here. It never builds the cells, which is the point of an image: a grid too fine to
+    be expressed as cells is still read in the size of its phases.
+
+    Parameters
+    ----------
+    file_path: str
+        Path of the file to be read.
+
+    Returns
+    -------
+    tuple
+        The grid of phases and the spacing, both without the directions the image does
+        not use.
+
+    Raises
+    ------
+    ValueError:
+        If the file is not an image, or holds no phases.
+    """
+    root = ElementTree.parse(file_path).getroot()
+    image = root.find("ImageData")
+    if image is None:
+        raise ValueError("The file {0} is not a VTK image.".format(file_path))
+
+    extent = [int(i_value) for i_value in image.get("WholeExtent").split()]
+    shape = [extent[2 * i_dir + 1] - extent[2 * i_dir] for i_dir in range(3)]
+    spacing = [float(i_value) for i_value in image.get("Spacing").split()]
+    dim = len([i_size for i_size in shape if i_size > 0])
+
+    array = image.find("./Piece/CellData/DataArray")
+    if array is None:
+        raise ValueError("The image {0} holds no cell data.".format(file_path))
+    values = np.fromstring(array.text, dtype=int, sep=" ")
+
+    return (
+        values.reshape(shape[:dim], order="F"),
+        np.asarray(spacing[:dim], dtype=float),
+    )
+    # An image runs with the first direction changing fastest, so the values fold back
+    # into the grid in Fortran order

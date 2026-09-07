@@ -166,7 +166,7 @@ class MeshJob:
         ValueError:
             If a writer would write over the standard output.
         """
-        standard_path = base_path + (".vtu" if mesh.structured is None else ".vtk")
+        standard_path = base_path + (".vtu" if mesh.structured is None else ".vti")
         targets = [
             (i_writer, base_path + i_writer.extension) for i_writer in self.writers
         ]

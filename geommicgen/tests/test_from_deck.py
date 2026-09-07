@@ -14,7 +14,6 @@ from geommicgen.meshing.from_deck import (
 from geommicgen.meshing.gmsh_mesher import GmshMesher
 from geommicgen.meshing.voxel_mesher import VoxelMesher
 from geommicgen.tests.helpers import disk_microstructure
-from geommicgen.translators.base import get_writer
 from geommicgen.translators.crate import CrateWriter
 from geommicgen.errors.error_classes import MeshTooLargeError
 from geommicgen.translators.links import LinksWriter
@@ -118,7 +117,7 @@ class TestMeshJobRun(unittest.TestCase):
         written = sorted(os.path.basename(i_file) for i_file in job.files)
         self.assertEqual(
             written,
-            ["deck_16_16.mesh.json", "deck_16_16.rgmsh.npy", "deck_16_16.vtk"],
+            ["deck_16_16.mesh.json", "deck_16_16.rgmsh.npy", "deck_16_16.vti"],
         )
         for i_file in job.files:
             self.assertTrue(os.path.exists(i_file))
@@ -146,7 +145,7 @@ class TestMeshJobRun(unittest.TestCase):
         self.assertIsNone(job.error)
         self.assertEqual(
             sorted(os.path.basename(i_file) for i_file in job.files),
-            ["deck_16_16.mesh.json", "deck_16_16.vtk"],
+            ["deck_16_16.mesh.json", "deck_16_16.vti"],
         )
         # An empty list is not the same as no list at all: it asks for the second stage
         # and nothing after it, which is a thing a deck should be able to say
@@ -157,33 +156,33 @@ class TestMeshJobRun(unittest.TestCase):
         self.assertIsInstance(job.error, MeshTooLargeError)
         self.assertEqual(
             sorted(os.path.basename(i_file) for i_file in job.files),
-            ["grid.mesh.json", "grid.vtk"],
+            ["grid.mesh.json", "grid.vti"],
         )
         self.assertEqual(
             sorted(os.listdir(os.path.join(self.temp_dir.name, "meshes"))),
-            ["grid.mesh.json", "grid.vtk"],
+            ["grid.mesh.json", "grid.vti"],
         )
         # The standard output is written before the formats that need the cells, so a
         # failure there leaves a real file behind. Reporting nothing would say the job
         # produced nothing, which is not what happened
 
-    def test_a_writer_may_not_write_over_the_standard_output(self):
-        job = MeshJob(VoxelMesher([8, 8]), [get_writer("vtk")], "grid")
-        job.run(self.microstructure, self.temp_dir.name)
-        self.assertIsInstance(job.error, ValueError)
-        self.assertIn("standard output", str(job.error))
-        self.assertEqual(
-            os.listdir(os.path.join(self.temp_dir.name, "meshes")), []
-        )
-        # Both write grid.vtk, so one would land on top of the other and only the
-        # second would survive. Nothing is written at all instead
-        # A grid of three directions cannot mesh a microstructure of two, and the other
-        # discretisations asked for still have to get their chance
-
 
 @unittest.skipUnless(has_gmsh(), "gmsh is not installed")
 class TestMeshJobRunWithGmsh(unittest.TestCase):
     """Test class for running the finite element job end to end."""
+
+    def test_a_writer_may_not_write_over_the_standard_output(self):
+        job = build_mesh_jobs(
+            {"femsh": {"element_type": "tri3", "mesh_size": 0.15, "formats": ["vtu"]}}
+        )[0]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            job.run(disk_microstructure(), temp_dir)
+            self.assertIsInstance(job.error, ValueError)
+            self.assertIn("standard output", str(job.error))
+            self.assertEqual(os.listdir(os.path.join(temp_dir, "meshes")), [])
+        # Both would write tri3.vtu, so one would land on top of the other and only the
+        # second would survive. Nothing is written at all instead. A grid can no longer
+        # collide, since no writer claims the .vti an image is written as
 
     def test_the_links_deck_and_the_standard_output_are_written(self):
         job = build_mesh_jobs({"femsh": {"element_type": "tri3", "mesh_size": 0.1}})[0]
