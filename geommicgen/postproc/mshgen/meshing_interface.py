@@ -74,10 +74,13 @@ class FEMMeshGenerator(MeshGenerator):
         Tags of the particles in each phase.
 
     enforce_pbc_flag: bool
-        Flag for the enforcement of periodic boundary conditions. By defalut True. Only set
-        to  False if there are Ellipsoids or CylindricalFibers in the microstructure. Gmsh
-        has not been able to produce  microstructures containing Ellipsoids or
-        CylindricalFibers and with pbcs.
+        Flag for the enforcement of periodic boundary conditions. True by default, for
+        every particle shape. It used to be forced to False for Ellipsoids, Cylinders and
+        CylindricalFibers, which made their meshes silently non-periodic. The underlying
+        cause was not Gmsh: the RVE offset was applied without wrapping the centres back
+        into the cell, so the periodic image crossing the opposite face was never built
+        and the geometry handed to Gmsh really was not periodic. With that fixed, these
+        shapes mesh periodically like any other.
 
     time: float
         Time in seconds to generate the mesh.
@@ -614,7 +617,6 @@ class FEMMeshGenerator(MeshGenerator):
 
                 factory.synchronize()
                 if isinstance(i_particle, CylindricalFiber):
-                    self.enforce_pbc_flag = False
                     face_tag = factory.addDisk(x_c, y_c, z_c, r_x, r_y)
                     # Saving the properties of the particles
                     if i_particle.direction_fibers == 0:
@@ -694,8 +696,6 @@ class FEMMeshGenerator(MeshGenerator):
                         factory.synchronize()
                     elif isinstance(i_particle, Ellipsoid):
                         # Particle is an Ellipsoid
-                        self.enforce_pbc_flag = False
-                        # Do not enforce periodic boundary conditions
                         fake_radius = 1
                         self.particle_tags.append(
                             factory.addSphere(x_c, y_c, z_c, fake_radius)
@@ -733,7 +733,6 @@ class FEMMeshGenerator(MeshGenerator):
                         factory.synchronize()
                     elif isinstance(i_particle, Cylinder):
                         i_particle: Cylinder
-                        self.enforce_pbc_flag = False
                         r_x = i_particle.r_cyl
                         r_y = i_particle.r_cyl
                         face_tag = factory.addDisk(
