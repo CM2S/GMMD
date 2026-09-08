@@ -108,7 +108,17 @@ class DistributionTests(unittest.TestCase):
         self.assertIsInstance(distribution.generate_sample(), np.floating)
         self.assertEqual(len(distribution.generate_sample(5)), 5)
         with self.assertRaises(ValueError):    
-            distribution = self.UniformDistribution("name", 2, 1) 
+            distribution = self.UniformDistribution("name", 2, 1)
+
+
+    def test_vonMises_distribution(self):
+        distribution = self.VonMisesDistribution("name", 2, 0.1,5)
+        self.assertEqual(distribution.kappa, 2)
+        self.assertEqual(distribution.loc, 0.1)
+        self.assertEqual(distribution.scale, 5)
+        self.assertIsInstance(distribution.generate_sample(), np.floating)
+        self.assertEqual(len(distribution.generate_sample(5)), 5)
+
 
     def test_discrete_distribution(self):
         distribution = self.DiscreteDistribution("name", [1,2,3], [0.2,0.3,0.5])
