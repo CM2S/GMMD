@@ -56,7 +56,7 @@ class MeshJob:
         Mesher that produces the mesh.
 
     writers: list
-        Classes of the solver writers the mesh is handed to, beyond the standard output.
+        Solver writers the mesh is handed to, beyond the standard output.
 
     base_name: str
         Name of the files that are written, without any extension.
@@ -87,7 +87,7 @@ class MeshJob:
             Mesher that produces the mesh.
 
         writers: list
-            Classes of the solver writers the mesh is handed to.
+            Solver writers the mesh is handed to.
 
         base_name: str
             Name of the files that are written, without any extension.
@@ -207,7 +207,7 @@ def refuse_overwrites(base_path, writers, protected):
         Path of the files to be written, without an extension.
 
     writers: list
-        Classes of the writers.
+        The writers.
 
     protected: list
         Paths no writer may be aimed at: the standard output of the mesh, or the file
@@ -249,7 +249,7 @@ def write_formats(mesh, base_path, writers, protected=(), written=None):
         Path of the files, without an extension.
 
     writers: list
-        Classes of the writers.
+        The writers.
 
     protected: list
         Paths no writer may be aimed at.
@@ -266,7 +266,7 @@ def write_formats(mesh, base_path, writers, protected=(), written=None):
     refuse_overwrites(base_path, writers, protected)
     written = [] if written is None else written
     for i_writer in writers:
-        written += i_writer().write(mesh, base_path + i_writer.extension)
+        written += i_writer.write(mesh, base_path + i_writer.extension)
 
     return written
 
@@ -287,12 +287,13 @@ def writers_from_options(options, defaults):
     Returns
     -------
     list
-        Classes of the writers.
+        The writers, each built from the options the discretisation was given.
 
     Raises
     ------
     ValueError:
-        If a format is named that there is no writer for.
+        If a format is named that there is no writer for, or if an option it is given
+        is not one it accepts.
     """
     names = options.get("formats", None)
     names = list(defaults) if names is None else list(names)
@@ -301,7 +302,9 @@ def writers_from_options(options, defaults):
         # The gmsh file is no longer written on the way to anything else, so it is
         # produced by asking for the format meshio writes it in
 
-    return [get_writer(i_name) for i_name in names]
+    return [get_writer(i_name).from_options(options) for i_name in names]
+    # Each writer takes from the options what it understands, so a keyword meant for
+    # one format costs the others nothing
 
 
 def build_mesh_jobs(mesh_options, deck_name=None):
@@ -360,13 +363,25 @@ def build_mesh_jobs(mesh_options, deck_name=None):
                 "and the grid is now always written. Remove it."
             )
         writers = writers_from_options(i_options, DEFAULT_GRID_FORMATS)
+        voxel_filename = i_options.get("voxel_filename")
+        if voxel_filename and len(i_options["n_voxels_dims"]) > 1:
+            raise ValueError(
+                "Voxel_Filename names one grid, and {0} resolutions were asked for. "
+                "Remove it, and the grids are named after the input data file and the "
+                "number of voxels, which tells them apart.".format(
+                    len(i_options["n_voxels_dims"])
+                )
+            )
+        # Refused rather than resolved, because every resolution would otherwise be
+        # written over the one before it and the run would end with the last alone
+
         for j_n_voxels_dims in i_options["n_voxels_dims"]:
             label = "_".join(str(int(i_size)) for i_size in j_n_voxels_dims)
             jobs.append(
                 MeshJob(
                     mesher_class(j_n_voxels_dims),
                     writers,
-                    job_base_name(deck_name, label),
+                    voxel_filename or job_base_name(deck_name, label),
                 )
             )
 

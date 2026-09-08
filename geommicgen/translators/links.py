@@ -33,6 +33,73 @@ WRITE_CHUNK = 500000
 # Number of lines formatted at a time. The file object buffers the writing itself, so
 # the chunk is here only to bound the size of the string each format call builds
 
+BOUNDARY_TYPES = (
+    "Taylor_Condition",
+    "Linear_Condition",
+    "Periodic_Condition",
+    "Uniform_Traction_Condition",
+    "Uniform_Traction_Condition_II",
+    "Mortar_Periodic_Condition",
+    "Mortar_Periodic_Condition_II",
+    "Kouznetsova_Periodic_Condition",
+    "Kouznetsova_Mortar_Periodic_Condition",
+    "Luscher_Direct_Condition",
+    "Luscher_Direct_Condition_LM",
+    "Luscher_Periodic_Condition",
+    "Luscher_Periodic_Condition_LM",
+    "Luscher_Mortar_Periodic_Condition",
+    "Luscher_Minimal_Condition",
+    "Blanco_Minimal_Condition",
+    "Blanco_Trial_Condition",
+    "MMVP_NoSym_Condition",
+    "2nd_Taylor_Condition",
+    "2nd_Direct_Condition",
+    "2nd_Minimal_Condition",
+    "2nd_MinimalSym_Condition",
+)
+# RVE constraints LINKS accepts, from the keyword it reads them with in
+# ioctrl/indata_mod.f90. Naming one it does not know is refused here, where the message
+# can list them, rather than by the solver once the analysis is launched
+
+DEFAULT_BOUNDARY_TYPE = "Periodic_Condition"
+
+CONFORMING_BOUNDARY_TYPES = frozenset(
+    {
+        "Periodic_Condition",
+        "Kouznetsova_Periodic_Condition",
+        "Luscher_Periodic_Condition",
+        "Luscher_Periodic_Condition_LM",
+    }
+)
+# Constraints that pair the nodes of opposite faces and therefore need the two faces
+# discretised alike. These four are exactly the ones LINKS runs its own periodicity
+# verification for, in ioctrl/rve/getbcnnodes2d.f90 and the three files beside it. The
+# mortar conditions exist in order to tie faces that do not match, and the remaining
+# ones constrain the boundary without pairing anything
+
+
+def uniform_gauss_points(n_points):
+    """
+    Ask for the same number of Gauss points on every element that takes them.
+
+    Parameters
+    ----------
+    n_points: int
+        Number of Gauss points.
+
+    Returns
+    -------
+    dict
+        Correspondence between the cell types and the number of Gauss points.
+    """
+    return {
+        i_type: n_points
+        for i_type, i_default in LINKS_DEFAULT_GAUSS_POINTS.items()
+        if i_default is not None
+    }
+    # The three node triangle is left out: it takes no Gauss point line at all, and
+    # writing one would leave a file LINKS reads the following line wrongly from
+
 
 @register_writer
 class LinksWriter(SolverWriter):
@@ -45,8 +112,10 @@ class LinksWriter(SolverWriter):
         Correspondence between the cell types and the number of Gauss points to be
         written. Only the entries that differ from the defaults are needed.
 
-    require_periodic: bool
-        Whether to refuse a mesh whose opposite faces are not discretised alike.
+    boundary_type: str
+        RVE constraint the example input file asks for. It also settles whether the
+        mesh has to be periodic: only the constraints that pair the nodes of opposite
+        faces need the two faces discretised alike.
 
     write_example: bool
         Whether to write an example input file next to the mesh file.
@@ -56,11 +125,46 @@ class LinksWriter(SolverWriter):
     extension = ".mesh"
     requires_periodic = True
 
-    def __init__(self, gauss_points=None, require_periodic=True, write_example=True):
+    def __init__(
+        self, gauss_points=None, boundary_type=DEFAULT_BOUNDARY_TYPE, write_example=True
+    ):
         """Initizalizer for the LinksWriter Class."""
+        if boundary_type not in BOUNDARY_TYPES:
+            raise ValueError(
+                "{0} is not an RVE constraint LINKS knows. The available options are "
+                "{1}.".format(boundary_type, ", ".join(BOUNDARY_TYPES))
+            )
         self.gauss_points = dict(gauss_points) if gauss_points else {}
-        self.requires_periodic = require_periodic
+        self.boundary_type = boundary_type
+        self.requires_periodic = boundary_type in CONFORMING_BOUNDARY_TYPES
         self.write_example = write_example
+        # Asking for a mortar constraint is how a mesh whose faces do not match is
+        # written out on purpose, which is not the same as the writer giving up on
+        # periodicity by itself when it finds one
+
+    @classmethod
+    def from_options(cls, options):
+        """
+        Build the writer from the options a deck or a command line gave.
+
+        Parameters
+        ----------
+        options: dict
+            Options given for the discretisation, keyed by the name of the keyword.
+
+        Returns
+        -------
+        `.LinksWriter`
+            The writer.
+        """
+        gauss_points = options.get("gauss_points")
+
+        return cls(
+            gauss_points=(
+                uniform_gauss_points(gauss_points) if gauss_points else None
+            ),
+            boundary_type=options.get("boundary_type") or DEFAULT_BOUNDARY_TYPE,
+        )
 
     def _write(self, mesh, file_path):
         """
@@ -236,7 +340,7 @@ class LinksWriter(SolverWriter):
                 "ANALYSIS_TYPE {0}\n\n"
                 "LARGE_STRAIN_FORMULATION ON\n\n"
                 "MESH_FILE_RELATIVE {1}\n\n"
-                "Boundary_Type Periodic_Condition\n\n"
+                "Boundary_Type {5}\n\n"
                 "Prescribed_Deformation_Gradient\n{2}\n\n"
                 "Number_of_Increments 1\n\n"
                 "CONVERGENCE_TOLERANCE 1E-8\n\n"
@@ -248,6 +352,7 @@ class LinksWriter(SolverWriter):
                     rows,
                     len(materials),
                     "\n".join(material_lines),
+                    self.boundary_type,
                 )
             )
         # The analysis type is 2 for a two dimensional microscale problem and 6 for a

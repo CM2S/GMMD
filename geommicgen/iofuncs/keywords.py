@@ -709,6 +709,9 @@ top_level_reader.add_top_level_keyword(
             Keyword("Slice_Dir", type_str="int"),
             Keyword("Formats", type_str="str_list"),
             Keyword("Write_Msh", type_str="bool"),
+            Keyword("Gauss_Points", type_str="int"),
+            Keyword("Boundary_Type", type_str="str"),
+            Keyword("Voxel_Filename", type_str="str"),
         },
     )
 )

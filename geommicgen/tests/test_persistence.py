@@ -19,7 +19,10 @@ from geommicgen.iofuncs.file_handling import (
     MIC_FILE_NAME,
     load_previous_sample,
     save_mic,
+    save_status,
 )
+from geommicgen.meshing.from_deck import MeshJob
+from geommicgen.meshing.voxel_mesher import VoxelMesher
 from geommicgen.micgenmethod.md_state import (
     STATE_FILE_NAME,
     load_md_state,
@@ -243,6 +246,58 @@ class ConvertMicTest(unittest.TestCase):
         self.assertEqual(convert_mic_command([self.archive_path, "-o", file_path]), 0)
 
         self.assertTrue(os.path.exists(file_path))
+
+
+class SaveStatusTest(unittest.TestCase):
+    """Tests for what a sample records about how it turned out."""
+
+    def setUp(self):
+        """Create a directory for the sample."""
+        self.sample_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.sample_dir)
+        self.microstructure = disk_microstructure()
+        self.microstructure.total_overlap = 0.0
+        self.mic_generator = a_generation_run()
+
+    def status_lines(self):
+        """Read back the lines of the status file."""
+        with open(os.path.join(self.sample_dir, "status")) as status_file:
+            return status_file.read().splitlines()
+
+    def test_the_generation_alone(self):
+        """A status written before the meshing says nothing about it."""
+        save_status(self.sample_dir, self.microstructure, self.mic_generator)
+
+        self.assertEqual(
+            self.status_lines(), ["Time: 12.500s", "Overlap: 0.000", "Status: True"]
+        )
+
+    def test_one_line_per_discretisation(self):
+        """Every discretisation asked for says whether it was produced."""
+        produced = MeshJob(VoxelMesher([8, 8]), [], "grid_8_8")
+        produced.run(self.microstructure, os.path.join(self.sample_dir, "meshes"))
+        refused = MeshJob(VoxelMesher([8, 8, 8]), [], "grid_8_8_8")
+        refused.run(self.microstructure, os.path.join(self.sample_dir, "meshes"))
+        self.assertIsNone(produced.error)
+        self.assertIsNotNone(refused.error)
+        # The second grid has three directions and the microstructure has two
+
+        save_status(
+            self.sample_dir,
+            self.microstructure,
+            self.mic_generator,
+            [produced, refused],
+        )
+        lines = self.status_lines()
+
+        self.assertEqual(
+            lines[3], "Mesh grid_8_8 (Regular mesh generation): ok"
+        )
+        self.assertTrue(
+            lines[4].startswith("Mesh grid_8_8_8 (Regular mesh generation): failed:"),
+            lines[4],
+        )
+        self.assertIn("ValueError", lines[4])
 
 
 class AdjustRVEDimsTest(unittest.TestCase):

@@ -50,6 +50,26 @@ class SolverWriter(abc.ABC):
     needs_grid = False
     requires_periodic = False
 
+    @classmethod
+    def from_options(cls, options):
+        """
+        Build the writer from the options a deck or a command line gave.
+
+        A writer that takes no options is built from any options at all, which is why
+        this is not abstract: only the writers that have something to configure say so.
+
+        Parameters
+        ----------
+        options: dict
+            Options given for the discretisation, keyed by the name of the keyword.
+
+        Returns
+        -------
+        `.SolverWriter`
+            The writer.
+        """
+        return cls()
+
     def write(self, mesh, file_path):
         """
         Write a mesh in the format of the solver.

@@ -1901,10 +1901,14 @@ def plotVoronoi3DwithIMTspbc(
     # Write the mesh to the .msh file
     meshfile_temp = title + "_temp.msh"
     meshfile = title + ".msh"
-    vtk_file_temp = title + "_temp.msh"
+    vtk_file_temp = title + "_temp.vtk"
     vtk_file = title + ".vtk"
     gmsh.write(meshfile_temp)
     gmsh.write(vtk_file_temp)
+    # gmsh writes the format the extension names, so the two temporary files have to
+    # differ in extension as well as in name. They did not: the second write went to
+    # the first file, in the mesh format, and what was copied out to the .vtk was a
+    # mesh file under a name that says it is not one
 
     # Close GMSH
     gmsh.finalize()

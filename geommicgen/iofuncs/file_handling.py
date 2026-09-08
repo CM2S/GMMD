@@ -165,8 +165,27 @@ def save_mic(sample_dir, current_sample, current_mic_generator, print_out=True):
     # Saving the configuration for later use
 
 
-def save_status(sample_dir, current_sample, current_mic_generator):
-    """Save status with a minimal amount of information (time, total overlap and status)."""
+def save_status(sample_dir, current_sample, current_mic_generator, mesh_jobs=()):
+    """
+    Save status with a minimal amount of information (time, total overlap and status).
+
+    Parameters
+    ----------
+    sample_dir: str
+        Directory of the sample.
+
+    current_sample: `.Microstructure`
+        Microstructure the status is of.
+
+    current_mic_generator: `.MolecularDynamicsSimulation`
+        Generation method that produced it.
+
+    mesh_jobs: list
+        The `.MeshJob` objects that were run, when they have been. One line per job
+        says whether the discretisation it asked for was produced, so that a sample
+        which meshed only in part says so where the sample is, rather than only in the
+        summary the run prints and then loses.
+    """
     status_file_name = os.path.join(sample_dir, "status")
     with open(status_file_name, "w") as status:
         time_line = "Time: {0:.3f}s\n".format(current_mic_generator.time)
@@ -175,6 +194,18 @@ def save_status(sample_dir, current_sample, current_mic_generator):
         status.writelines(time_line)
         status.writelines(overlap_line)
         status.writelines(status_line)
+        for i_job in mesh_jobs:
+            if i_job.error is None:
+                outcome = "ok"
+            else:
+                outcome = "failed: {0}: {1}".format(
+                    type(i_job.error).__name__, i_job.error
+                )
+            status.writelines(
+                "Mesh {0} ({1}): {2}\n".format(
+                    i_job.base_name, i_job.description, outcome
+                )
+            )
 
 
 def delete_screen(screen_dir):

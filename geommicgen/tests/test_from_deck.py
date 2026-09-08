@@ -29,7 +29,7 @@ class TestBuildMeshJobs(unittest.TestCase):
         self.assertEqual(jobs[0].mesher.element_type, "tri6")
         self.assertEqual(jobs[0].mesher.mesh_size, 0.05)
         self.assertEqual(jobs[0].base_name, "tri6")
-        self.assertEqual(jobs[0].writers, [LinksWriter])
+        self.assertEqual([type(i_writer) for i_writer in jobs[0].writers], [LinksWriter])
         self.assertEqual(jobs[0].description, "Finite element mesh generation")
 
     def test_elements_per_particle_is_carried_through(self):
@@ -49,7 +49,7 @@ class TestBuildMeshJobs(unittest.TestCase):
             ["example_10_10", "example_20_20"],
         )
         self.assertIsInstance(jobs[0].mesher, VoxelMesher)
-        self.assertEqual(jobs[0].writers, [CrateWriter])
+        self.assertEqual([type(i_writer) for i_writer in jobs[0].writers], [CrateWriter])
         self.assertEqual(jobs[0].description, "Regular mesh generation")
 
     def test_formats_can_be_asked_for(self):
@@ -73,6 +73,44 @@ class TestBuildMeshJobs(unittest.TestCase):
                          ["links", "gmsh"])
         # The gmsh file is no longer written on the way to the solver deck, so it is
         # asked for like any other format
+
+    def test_voxel_filename_names_the_grid(self):
+        jobs = build_mesh_jobs(
+            {"rgmsh": {"n_voxels_dims": [[10, 10]], "voxel_filename": "my_grid"}},
+            "example.mdsim",
+        )
+        self.assertEqual([i_job.base_name for i_job in jobs], ["my_grid"])
+
+    def test_voxel_filename_for_more_than_one_grid_is_refused(self):
+        with self.assertRaises(ValueError) as context:
+            build_mesh_jobs(
+                {
+                    "rgmsh": {
+                        "n_voxels_dims": [[10, 10], [20, 20]],
+                        "voxel_filename": "my_grid",
+                    }
+                }
+            )
+        self.assertIn("Voxel_Filename", str(context.exception))
+        # Every resolution would otherwise be written over the one before it
+
+    def test_the_options_reach_the_writer(self):
+        jobs = build_mesh_jobs(
+            {
+                "femsh": {
+                    "element_type": "tri3",
+                    "mesh_size": 0.1,
+                    "gauss_points": 6,
+                    "boundary_type": "Mortar_Periodic_Condition",
+                }
+            }
+        )
+        writer = jobs[0].writers[0]
+        self.assertEqual(writer.boundary_type, "Mortar_Periodic_Condition")
+        self.assertFalse(writer.requires_periodic)
+        self.assertEqual(writer.gauss_points["triangle6"], 6)
+        # A writer is built from the options of the discretisation it belongs to, so a
+        # deck configures a format the same way the command line does
 
     def test_slice_dir_is_refused(self):
         with self.assertRaises(ValueError) as context:
@@ -126,7 +164,7 @@ class TestMeshJobRun(unittest.TestCase):
         # A structured mesh gets the image a viewer reads, not an unstructured grid
 
     def test_a_failure_is_recorded_rather_than_raised(self):
-        job = MeshJob(VoxelMesher([8, 8, 8]), [CrateWriter], "grid")
+        job = MeshJob(VoxelMesher([8, 8, 8]), [CrateWriter()], "grid")
         job.run(self.microstructure, self.temp_dir.name)
         self.assertIsInstance(job.error, ValueError)
         self.assertEqual(job.files, [])
@@ -151,7 +189,7 @@ class TestMeshJobRun(unittest.TestCase):
         # and nothing after it, which is a thing a deck should be able to say
 
     def test_what_reached_the_disk_is_reported_when_a_format_fails(self):
-        job = MeshJob(VoxelMesher([16, 16], max_cells=10), [LinksWriter], "grid")
+        job = MeshJob(VoxelMesher([16, 16], max_cells=10), [LinksWriter()], "grid")
         job.run(self.microstructure, self.temp_dir.name)
         self.assertIsInstance(job.error, MeshTooLargeError)
         self.assertEqual(

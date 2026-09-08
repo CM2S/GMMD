@@ -43,7 +43,7 @@ def format_names(value):
     return [i_name.strip() for i_name in value.split(",") if i_name.strip()]
 
 
-def resolve_writers(parser, names):
+def resolve_writers(parser, names, options=None):
     """
     Turn the names of formats into the writers, ending the program if one is unknown.
 
@@ -55,19 +55,48 @@ def resolve_writers(parser, names):
     names: list
         Names of the formats.
 
+    options: dict
+        Options the writers are built from, keyed the way the input data file keys
+        them, so that a format is configured the same way from either.
+
     Returns
     -------
     list
-        Classes of the writers.
+        The writers.
     """
+    options = {} if options is None else options
     try:
-        return [get_writer(i_name) for i_name in names]
+        return [get_writer(i_name).from_options(options) for i_name in names]
     except ValueError as error:
         parser.error(str(error))
     # Resolved before any work is done, and reported in the words of the registry,
     # which names the formats there are and why one is deliberately not offered
 
     return []
+
+
+def add_format_arguments(parser):
+    """Add the arguments a written format is configured with."""
+    parser.add_argument(
+        "--gauss-points",
+        type=int,
+        metavar="N",
+        help="number of Gauss points per element, for the formats that record one",
+    )
+    parser.add_argument(
+        "--boundary-type",
+        metavar="NAME",
+        help="RVE constraint the example input file asks for; naming one that ties "
+        "faces that do not match is how a mesh that is not periodic is written out",
+    )
+
+
+def format_options(arguments):
+    """Collect the format arguments the way the input data file keys them."""
+    return {
+        "gauss_points": arguments.gauss_points,
+        "boundary_type": arguments.boundary_type,
+    }
 
 
 def add_output_arguments(parser):
@@ -170,10 +199,11 @@ def mesh_command(argv=None):
         metavar="FORMATS",
         help="formats to write besides the mesh itself, separated by commas",
     )
+    add_format_arguments(parser)
     add_output_arguments(parser)
     arguments = parser.parse_args(argv)
 
-    writers = resolve_writers(parser, arguments.to)
+    writers = resolve_writers(parser, arguments.to, format_options(arguments))
     if arguments.mesher == "voxel":
         if not arguments.n_voxels:
             parser.error("the voxel mesher needs --n-voxels")
@@ -236,6 +266,7 @@ def translate_command(argv=None):
     parser.add_argument(
         "--matrix-phase", help="name of the matrix phase, when the mesh does not say"
     )
+    add_format_arguments(parser)
     add_output_arguments(parser)
     parser.add_argument(
         "--list-formats", action="store_true", help="list the formats and stop"
@@ -250,7 +281,7 @@ def translate_command(argv=None):
     if arguments.mesh is None or not arguments.to:
         parser.error("a mesh and --to are needed, unless --list-formats is given")
 
-    writers = resolve_writers(parser, arguments.to)
+    writers = resolve_writers(parser, arguments.to, format_options(arguments))
     mesh = read_mesh(
         arguments.mesh,
         rve_dims=arguments.rve_dims,

@@ -273,6 +273,17 @@
 #		 x1: float
 #		 x2: float
 #		 x3: float
+#                ........................................................................
+#		 Voxel filename                                                       [O]
+#
+#		 Meaning: Name of the files of the grid, without any extension. Defaults to
+#		 	  the name of this file followed by the number of voxels, which is
+#		 	  what tells one resolution from another; naming the grid is therefore
+#		 	  refused when more than one resolution is asked for.
+#
+#	         Syntax: voxel_filename x
+#
+#		 x: str
 #		 ========================================================================
 #
 #		 ========================================================================
@@ -312,6 +323,54 @@
 #	         Syntax: element_type x
 #
 #		 x: {'tri3', 'tri6', tetra4', 'tetra10'}
+#		 ========================================================================
+#
+#		 ========================================================================
+#		 Options of either mesh type
+#		 ------------------------------------------------------------------------
+#		 Formats                                                              [O]
+#
+#		 Meaning: Formats the mesh is written in, beyond the VTK file that is always
+#		 	  written. Defaults to 'links' for a finite element mesh and to
+#		 	  'crate' for a regular grid. An empty list asks for the VTK file and
+#		 	  nothing else, which is a whole stage: geommicgen-translate writes
+#		 	  the solver formats from it later.
+#
+#	         Syntax: formats [x1, x2]
+#
+#		 x: str. geommicgen-translate --list-formats prints the ones there are.
+#                ........................................................................
+#		 Write msh                                                            [O]
+#
+#		 Meaning: Whether to write the mesh in the gmsh format as well. The same as
+#		 	  naming 'gmsh' among the formats.
+#
+#	         Syntax: write_msh x
+#
+#		 x: bool
+#                ........................................................................
+#		 Gauss points                                                         [O]
+#
+#		 Meaning: Number of Gauss points written for every element of the LINKS mesh
+#		 	  that takes such a line. Defaults to what LINKS uses for the element.
+#		 	  The three node triangle never takes one.
+#
+#	         Syntax: gauss_points x
+#
+#		 x: int
+#                ........................................................................
+#		 Boundary type                                                        [O]
+#
+#		 Meaning: RVE constraint the example LINKS input file asks for. It also says
+#		 	  whether the mesh has to be periodic: the constraints that pair the
+#		 	  nodes of opposite faces need the two faces discretised alike, and
+#		 	  the mesh is refused if they are not. Naming a mortar constraint is
+#		 	  how a mesh whose faces do not match is written out on purpose.
+#
+#	         Syntax: boundary_type x
+#
+#		 x: str, one of the RVE constraints LINKS accepts, such as
+#		    'Periodic_Condition' (the default) or 'Mortar_Periodic_Condition'.
 #		 ========================================================================
 #
 # y: depends on the corresponding mesh_option_Y

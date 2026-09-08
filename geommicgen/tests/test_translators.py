@@ -10,6 +10,11 @@ from geommicgen.errors.error_classes import (
 )
 from geommicgen.meshing.mesh import Mesh
 from geommicgen.translators import available_writers, get_writer
+from geommicgen.translators.links import (
+    BOUNDARY_TYPES,
+    CONFORMING_BOUNDARY_TYPES,
+    uniform_gauss_points,
+)
 from geommicgen.translators.reorder import (
     LINKS_DEFAULT_GAUSS_POINTS,
     VTK_TO_LINKS,
@@ -181,11 +186,46 @@ class TestLinksWriter(unittest.TestCase):
             phase_names=self.mesh.phase_names,
             matrix_phase="1",
         )
-        written = get_writer("links")(require_periodic=False).write(
-            broken, self.file_path
-        )
+        written = get_writer("links")(
+            boundary_type="Mortar_Periodic_Condition"
+        ).write(broken, self.file_path)
         self.assertTrue(os.path.exists(written[0]))
-        # The escape exists because some boundary conditions tolerate a non matching mesh
+        with open(written[1], "r") as example_file:
+            self.assertIn(
+                "Boundary_Type Mortar_Periodic_Condition", example_file.read()
+            )
+        # The escape is asking for a constraint that ties faces which do not match,
+        # which is a thing the deck says rather than something the writer decides
+
+
+    def test_gauss_points_asked_for_in_the_options(self):
+        writer = get_writer("links").from_options({"gauss_points": 6})
+        writer.write(self.mesh, self.file_path)
+        blocks = parse_links_mesh(self.file_path)
+
+        self.assertIn("6 GP", blocks["ELEMENT_TYPES"]["lines"])
+        # The mesh is of quadrilaterals, whose default is four
+
+    def test_the_three_node_triangle_is_never_given_gauss_points(self):
+        self.assertNotIn("triangle", uniform_gauss_points(6))
+        # It takes no Gauss point line at all, so asking for one on every element must
+        # not put one there: LINKS would read the following line as the Gauss points
+
+    def test_an_unknown_boundary_type_is_refused(self):
+        with self.assertRaises(ValueError) as context:
+            get_writer("links")(boundary_type="Mortar")
+        self.assertIn("Mortar_Periodic_Condition", str(context.exception))
+        # The message lists what LINKS does accept, which is the thing a near miss needs
+
+    def test_only_the_pairing_constraints_need_a_periodic_mesh(self):
+        for i_type in BOUNDARY_TYPES:
+            self.assertEqual(
+                get_writer("links")(boundary_type=i_type).requires_periodic,
+                i_type in CONFORMING_BOUNDARY_TYPES,
+                i_type,
+            )
+        # LINKS verifies the periodicity for four of them and for no other, so those
+        # four are the ones a mesh has to be conforming for
 
 
 class TestCrateWriter(unittest.TestCase):

@@ -246,13 +246,11 @@ def run_program():
                 # Use in data-driven framework
                 if top_level_reader.all_options["save_min"]:
                     fileio.save_mic(sample_dir, current_sample, None)
-                    fileio.save_status(
-                        sample_dir, current_sample, current_mic_generator
-                    )
-
                 else:
                     fileio.save_mic(sample_dir, current_sample, current_mic_generator)
-                # Saving the RVE properties
+                fileio.save_status(sample_dir, current_sample, current_mic_generator)
+                # Saving the RVE properties. The status is written here as well as
+                # after the meshing, so that a generation that raised still leaves one
 
             try:
                 times_dict = {}
@@ -267,8 +265,13 @@ def run_program():
                 print_funcs.print_final_message(
                     current_mic_generator, mesh_jobs, times_dict
                 )
+                fileio.save_status(
+                    sample_dir, current_sample, current_mic_generator, mesh_jobs
+                )
                 if top_level_reader.all_options["save_min"]:
                     fileio.delete_screen(print_funcs.SCREEN_DIR)
+                # Rewritten now that the discretisations have been attempted, so that
+                # the sample records which of them were produced
 
             failed_jobs.extend(i_job for i_job in mesh_jobs if i_job.error)
             # Collected across the batch, so that one sample failing to mesh does not
