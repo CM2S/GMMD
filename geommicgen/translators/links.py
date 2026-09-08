@@ -22,16 +22,17 @@ import numpy as np
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-from geommicgen.translators.base import SolverWriter, register_writer
+from geommicgen.translators.base import (
+    PLACEHOLDER_ELASTIC,
+    WRITE_CHUNK,
+    SolverWriter,
+    register_writer,
+)
 from geommicgen.translators.reorder import (
     LINKS_DEFAULT_GAUSS_POINTS,
     links_element_name,
     reorder_connectivity,
 )
-
-WRITE_CHUNK = 500000
-# Number of lines formatted at a time. The file object buffers the writing itself, so
-# the chunk is here only to bound the size of the string each format call builds
 
 BOUNDARY_TYPES = {
     "Taylor_Condition": False,
@@ -207,9 +208,8 @@ class LinksWriter(SolverWriter):
             List of groups, correspondence between cell types and their identifiers, and
             correspondence between the phases and their material identifiers.
         """
-        phases = sorted(
-            {int(i_phase) for i_block in mesh.phase for i_phase in np.unique(i_block)}
-        )
+        blocks = mesh.phase_blocks()
+        phases = sorted({i_phase for _, _, i_phase, _ in blocks})
         matrix_id = next(
             (
                 int(i_id)
@@ -226,24 +226,20 @@ class LinksWriter(SolverWriter):
 
         element_types = {}
         groups = []
-        for i_block, (i_type, _) in enumerate(mesh.cells):
+        for i_index, i_type, i_phase, i_rows in blocks:
             if i_type not in element_types:
                 element_types[i_type] = len(element_types) + 1
-            order = np.argsort(mesh.phase[i_block], kind="stable")
-            values, starts = np.unique(mesh.phase[i_block][order], return_index=True)
-            bounds = list(starts) + [len(order)]
-            for i_ind, i_phase in enumerate(values):
-                groups.append(
-                    {
-                        "id": len(groups) + 1,
-                        "block": i_block,
-                        "rows": order[bounds[i_ind]:bounds[i_ind + 1]],
-                        "element_type_id": element_types[i_type],
-                        "material_id": materials[int(i_phase)],
-                    }
-                )
-        # Sorting once gives both the phases present and the rows of each group, so the
-        # phase array is not scanned again for every group
+            groups.append(
+                {
+                    "id": len(groups) + 1,
+                    "block": i_index,
+                    "rows": i_rows,
+                    "element_type_id": element_types[i_type],
+                    "material_id": materials[i_phase],
+                }
+            )
+        # The mesh splits the cells by phase; a group is that split with the identifiers
+        # LINKS needs put on it
 
         return groups, element_types, materials
 
@@ -300,7 +296,9 @@ class LinksWriter(SolverWriter):
                 rows[:, 0] = np.arange(element_id + 1, element_id + len(chunk) + 1)
                 rows[:, 1] = i_group["id"]
                 rows[:, 2:] = chunk + 1
-                mesh_file.write((row_format * len(chunk)) % tuple(rows.ravel()))
+                mesh_file.write(
+                    (row_format * len(chunk)) % tuple(rows.ravel().tolist())
+                )
                 element_id += len(chunk)
         # The identifiers of the nodes and of the elements are dense and start at one,
         # which is what the reader of LINKS requires
@@ -317,8 +315,10 @@ class LinksWriter(SolverWriter):
         material_lines = []
         for i_phase, i_material in sorted(materials.items(), key=lambda item: item[1]):
             material_lines.append(
-                "{0} ELASTIC\n 0.0\n 1.0E3 0.3   ! TODO phase {1}: real properties"
-                "".format(i_material, names.get(i_phase, i_phase))
+                "{0} ELASTIC\n 0.0\n {2} {3}   ! TODO phase {1}: real properties"
+                "".format(
+                    i_material, names.get(i_phase, i_phase), *PLACEHOLDER_ELASTIC
+                )
             )
 
         with open(example_path, "w") as example_file:

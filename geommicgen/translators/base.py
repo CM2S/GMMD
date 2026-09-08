@@ -9,6 +9,18 @@ to know about it.
 
 import abc
 
+WRITE_CHUNK = 20000
+# Number of lines formatted at a time by the writers of the solver decks. The file
+# object buffers the writing itself, so the chunk is here to bound the transient: one
+# format string, one result string and one tuple of every value in the chunk are alive
+# at once, and a chunk large enough to hold a whole mesh costs several times the size of
+# the file in peak memory without writing it any faster
+
+PLACEHOLDER_ELASTIC = (1.0e3, 0.3)
+# Young modulus and Poisson ratio written for a phase whose properties nobody has given.
+# A microstructure carries no constitutive behaviour, so a deck that is to be run has to
+# be edited; writing the same placeholder everywhere is what makes that one edit
+
 WRITERS = {}
 # Correspondence between the name of a format and the class that writes it
 
@@ -41,7 +53,9 @@ class SolverWriter(abc.ABC):
 
     requires_periodic: bool
         Whether the writer refuses a mesh whose opposite faces are not discretised
-        alike, because the solver it writes for would refuse it in turn.
+        alike, because the solver it writes for would refuse it in turn. This one is a
+        default rather than a fact about the format: a writer whose options decide the
+        question, as the boundary condition does for LINKS, sets it on the instance.
     """
 
     name = None
@@ -144,6 +158,9 @@ def register_writer(writer_class):
         The class that was registered, so that this can be used as a decorator.
     """
     WRITERS[writer_class.name] = writer_class
+    EXPLANATIONS.pop(writer_class.name, None)
+    # A format that is written is no longer one that is deliberately absent, and the two
+    # are read in that order, so the note has to go rather than sit behind the writer
 
     return writer_class
 

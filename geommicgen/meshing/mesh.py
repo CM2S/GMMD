@@ -219,6 +219,40 @@ class Mesh:
 
         return sum(len(i_connectivity) for _, i_connectivity in self.cells)
 
+    def phase_blocks(self):
+        """
+        Split the cells into the groups that share a block and a phase.
+
+        Every solver that names the elements of a phase asks the mesh the same question,
+        and a cell belongs to exactly one of the groups, so the answer is the mesh's to
+        give rather than each writer's to work out again.
+
+        Returns
+        -------
+        list
+            Tuples *(block index, cell type, phase, rows)*, where the rows are the
+            indices into the connectivity of that block.
+        """
+        blocks = []
+        for i_block, (i_type, _) in enumerate(self.cells):
+            order = np.argsort(self.phase[i_block], kind="stable")
+            values, starts = np.unique(self.phase[i_block][order], return_index=True)
+            bounds = list(starts) + [len(order)]
+            for j_ind, j_phase in enumerate(values):
+                blocks.append(
+                    (
+                        i_block,
+                        i_type,
+                        int(j_phase),
+                        order[bounds[j_ind] : bounds[j_ind + 1]],
+                    )
+                )
+        # Sorting once gives both the phases present and the rows of each of them, so
+        # the phase array is not scanned again for every group. The rows are indices
+        # rather than the cells themselves, so a mesh too large to copy is not copied
+
+        return blocks
+
     def classify_boundary(self, tol=None):
         """
         Classify the boundary nodes of the mesh and pair them across opposite faces.

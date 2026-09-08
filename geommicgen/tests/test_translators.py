@@ -21,7 +21,7 @@ from geommicgen.translators.reorder import (
     links_element_name,
     reorder_connectivity,
 )
-from geommicgen.tests.helpers import structured_mesh
+from geommicgen.tests.helpers import non_conforming_mesh, structured_mesh
 
 
 def parse_links_mesh(file_path):
@@ -158,32 +158,12 @@ class TestLinksWriter(unittest.TestCase):
         self.assertEqual(len(blocks["ELEMENTS"]["lines"]), self.mesh.n_cells)
 
     def test_refuses_a_non_periodic_mesh(self):
-        boundary = self.mesh.classify_boundary()
-        points = self.mesh.points.copy()
-        points[boundary.face_interior["x+"][0], 1] += 1.0e-3
-        broken = Mesh(
-            self.mesh.rve_dims,
-            points=points,
-            cells=self.mesh.cells,
-            phase=self.mesh.phase,
-            phase_names=self.mesh.phase_names,
-            matrix_phase="1",
-        )
+        broken = non_conforming_mesh(self.mesh)
         with self.assertRaises(PeriodicityError):
             get_writer("links")().write(broken, self.file_path)
 
     def test_can_be_asked_not_to_check_periodicity(self):
-        boundary = self.mesh.classify_boundary()
-        points = self.mesh.points.copy()
-        points[boundary.face_interior["x+"][0], 1] += 1.0e-3
-        broken = Mesh(
-            self.mesh.rve_dims,
-            points=points,
-            cells=self.mesh.cells,
-            phase=self.mesh.phase,
-            phase_names=self.mesh.phase_names,
-            matrix_phase="1",
-        )
+        broken = non_conforming_mesh(self.mesh)
         written = get_writer("links")(boundary_type="Mortar_Periodic_Condition").write(
             broken, self.file_path
         )
@@ -297,6 +277,13 @@ class TestAbaqusWriter(unittest.TestCase):
 
         return self.file_path
 
+    def keyword_values(self, path, keyword, argument):
+        """Collect one argument of every occurrence of a keyword."""
+        return [
+            i_arguments[argument]
+            for i_arguments in abaqus_keyword_arguments(path, keyword)
+        ]
+
     def n_periodic_pairs(self, mesh):
         """Count the pairs of nodes the periodicity relates."""
         boundary = mesh.boundary
@@ -308,7 +295,8 @@ class TestAbaqusWriter(unittest.TestCase):
         )
 
     def test_meshio_reads_the_mesh_back(self):
-        meshio = __import__("meshio")
+        import meshio
+
         mesh = structured_mesh((3, 3, 3), [1.0, 1.0, 1.0])
         back = meshio.read(self.write(mesh))
 
@@ -362,33 +350,18 @@ class TestAbaqusWriter(unittest.TestCase):
         path = self.write(mesh)
 
         self.assertEqual(
-            sorted(
-                i_arguments["elset"]
-                for i_arguments in abaqus_keyword_arguments(path, "*Element")
-            ),
+            sorted(self.keyword_values(path, "*Element", "elset")),
             ["PHASE_1", "PHASE_2"],
         )
         self.assertEqual(
-            sorted(
-                i_arguments["elset"]
-                for i_arguments in abaqus_keyword_arguments(path, "*Solid Section")
-            ),
+            sorted(self.keyword_values(path, "*Solid Section", "elset")),
             ["PHASE_1", "PHASE_2"],
         )
-        self.assertEqual(
-            {
-                i_arguments["type"]
-                for i_arguments in abaqus_keyword_arguments(path, "*Element")
-            },
-            {"CPE4"},
-        )
+        self.assertEqual(set(self.keyword_values(path, "*Element", "type")), {"CPE4"})
 
     def test_the_boundary_sets_are_named_after_what_holds_them(self):
         mesh = structured_mesh((3, 3, 3), [1.0, 1.0, 1.0])
-        names = {
-            i_arguments["nset"]
-            for i_arguments in abaqus_keyword_arguments(self.write(mesh), "*Nset")
-        }
+        names = set(self.keyword_values(self.write(mesh), "*Nset", "nset"))
 
         self.assertIn("FACE_XNEG", names)
         self.assertIn("EDGE_YNEG_ZNEG", names)
@@ -397,27 +370,14 @@ class TestAbaqusWriter(unittest.TestCase):
 
     def test_a_two_dimensional_cell_has_corners_and_no_edges(self):
         mesh = structured_mesh((3, 3), [1.0, 1.0])
-        names = {
-            i_arguments["nset"]
-            for i_arguments in abaqus_keyword_arguments(self.write(mesh), "*Nset")
-        }
+        names = set(self.keyword_values(self.write(mesh), "*Nset", "nset"))
 
         self.assertIn("CORNER_XPOS_YPOS", names)
         self.assertFalse({i_name for i_name in names if i_name.startswith("EDGE_")})
         # A node on two faces is an edge in three dimensions and a corner in two
 
     def test_refuses_a_non_periodic_mesh(self):
-        mesh = structured_mesh((3, 3), [1.0, 1.0])
-        points = mesh.points.copy()
-        points[mesh.boundary.face_interior["x+"][0], 1] += 1.0e-3
-        broken = Mesh(
-            mesh.rve_dims,
-            points=points,
-            cells=mesh.cells,
-            phase=mesh.phase,
-            phase_names=mesh.phase_names,
-            matrix_phase="1",
-        )
+        broken = non_conforming_mesh(structured_mesh((3, 3), [1.0, 1.0]))
 
         with self.assertRaises(PeriodicityError):
             get_writer("abaqus")().write(broken, self.file_path)
@@ -427,10 +387,7 @@ class TestAbaqusWriter(unittest.TestCase):
         path = self.write(mesh, periodic_constraints=False)
 
         self.assertEqual(parse_abaqus_equations(path), [])
-        names = {
-            i_arguments["nset"]
-            for i_arguments in abaqus_keyword_arguments(path, "*Nset")
-        }
+        names = set(self.keyword_values(path, "*Nset", "nset"))
         self.assertFalse(names & set(REFERENCE_NODE_NAMES))
         with open(path) as deck:
             self.assertEqual(len(deck.read().split("*Node")), 2)

@@ -8,6 +8,36 @@ from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.microstructure.phase import Phase
 
 
+def non_conforming_mesh(mesh):
+    """
+    Build a copy of a mesh whose opposite faces are no longer discretised alike.
+
+    One node in the interior of a face is moved along the face, which leaves it without
+    a partner on the opposite one.
+
+    Parameters
+    ----------
+    mesh: `.Mesh`
+        Mesh to be broken.
+
+    Returns
+    -------
+    `.Mesh`
+        The mesh with the node moved.
+    """
+    points = mesh.points.copy()
+    points[mesh.boundary.face_interior["x+"][0], 1] += 1.0e-3
+
+    return Mesh(
+        mesh.rve_dims,
+        points=points,
+        cells=mesh.cells,
+        phase=mesh.phase,
+        phase_names=mesh.phase_names,
+        matrix_phase=mesh.matrix_phase,
+    )
+
+
 def structured_mesh(shape, rve_dims, phase_grid=None):
     """
     Build a structured mesh with the supplied number of voxels.

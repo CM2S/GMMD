@@ -30,11 +30,12 @@ import numpy as np
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-from geommicgen.translators.base import SolverWriter, register_writer
-
-WRITE_CHUNK = 500000
-# Number of lines formatted at a time. The file object buffers the writing itself, so
-# the chunk is here only to bound the size of the string each format call builds
+from geommicgen.translators.base import (
+    PLACEHOLDER_ELASTIC,
+    WRITE_CHUNK,
+    SolverWriter,
+    register_writer,
+)
 
 SET_LINE_ITEMS = 16
 # Node identifiers written per line of a set. Abaqus reads at most sixteen entries from
@@ -101,25 +102,15 @@ class AbaqusWriter(SolverWriter):
         Whether to write the reference nodes and the equations that make the cell
         periodic. A mesh whose opposite faces are not discretised alike has no pairs to
         write them from, so asking for them requires a conforming mesh.
-
-    young_modulus: float
-        Young modulus written for every phase of the placeholder materials.
-
-    poisson_ratio: float
-        Poisson ratio written for every phase of the placeholder materials.
     """
 
     name = "abaqus"
     extension = ".inp"
 
-    def __init__(
-        self, periodic_constraints=True, young_modulus=1.0e3, poisson_ratio=0.3
-    ):
+    def __init__(self, periodic_constraints=True):
         """Initizalizer for the AbaqusWriter Class."""
         self.periodic_constraints = bool(periodic_constraints)
         self.requires_periodic = self.periodic_constraints
-        self.young_modulus = young_modulus
-        self.poisson_ratio = poisson_ratio
 
     def _write(self, mesh, file_path):
         """
@@ -138,7 +129,7 @@ class AbaqusWriter(SolverWriter):
         list
             Paths of the files that were written.
         """
-        blocks = _element_blocks(mesh)
+        blocks = mesh.phase_blocks()
         boundary = mesh.boundary
 
         with open(file_path, "w") as deck:
@@ -151,7 +142,7 @@ class AbaqusWriter(SolverWriter):
             self._write_nodes(deck, mesh)
             self._write_elements(deck, mesh, blocks)
             self._write_node_sets(deck, boundary)
-            self._write_sections(deck, blocks)
+            self._write_sections(deck, mesh, blocks)
             if self.periodic_constraints:
                 self._write_reference_sets(deck, mesh)
                 self._write_equations(deck, mesh, boundary)
@@ -186,12 +177,11 @@ class AbaqusWriter(SolverWriter):
     def _write_elements(self, deck, mesh, blocks):
         """Write the connectivities, one element set per phase and element type."""
         element_id = 0
-        for i_block in blocks:
-            cell_type, connectivity = mesh.cells[i_block["block"]]
-            rows_of_block = connectivity[i_block["rows"]]
+        for i_index, i_type, i_phase, i_rows in blocks:
+            rows_of_block = mesh.cells[i_index][1][i_rows]
             deck.write(
                 "*Element, type={0}, elset={1}\n".format(
-                    abaqus_element_name(cell_type), i_block["elset"]
+                    abaqus_element_name(i_type), _phase_set_name(mesh, i_phase)
                 )
             )
             row_format = "%d" + ", %d" * rows_of_block.shape[1] + "\n"
@@ -200,7 +190,7 @@ class AbaqusWriter(SolverWriter):
                 rows = np.empty((len(chunk), chunk.shape[1] + 1), dtype=np.int64)
                 rows[:, 0] = np.arange(element_id + 1, element_id + len(chunk) + 1)
                 rows[:, 1:] = chunk + 1
-                deck.write((row_format * len(chunk)) % tuple(rows.ravel()))
+                deck.write((row_format * len(chunk)) % tuple(rows.ravel().tolist()))
                 element_id += len(chunk)
         # The nodes and the elements are numbered from one, densely and in the order the
         # mesh holds them, so that a node identifier is its index in the mesh plus one
@@ -220,15 +210,15 @@ class AbaqusWriter(SolverWriter):
         # Named after the faces they lie on, with the sign spelled out, so that
         # prescribing a face by hand does not require reading the mesh first
 
-    def _write_sections(self, deck, blocks):
+    def _write_sections(self, deck, mesh, blocks):
         """Write a section and a placeholder material for every phase."""
-        for i_name in sorted({i_block["elset"] for i_block in blocks}):
-            material = "MATERIAL_{0}".format(i_name[len("PHASE_") :])
+        for i_phase in sorted({i_phase for _, _, i_phase, _ in blocks}):
+            label = _phase_label(mesh, i_phase)
             deck.write(
-                "*Solid Section, elset={0}, material={1}\n,\n"
-                "*Material, name={1}\n*Elastic\n {2}, {3}\n"
-                "** TODO {0}: the real properties\n".format(
-                    i_name, material, self.young_modulus, self.poisson_ratio
+                "*Solid Section, elset=PHASE_{0}, material=MATERIAL_{0}\n,\n"
+                "*Material, name=MATERIAL_{0}\n*Elastic\n {1}, {2}\n"
+                "** TODO PHASE_{0}: the real properties\n".format(
+                    label, *PLACEHOLDER_ELASTIC
                 )
             )
 
@@ -246,22 +236,118 @@ class AbaqusWriter(SolverWriter):
 
     def _write_equations(self, deck, mesh, boundary):
         """Write one equation per degree of freedom per pair of periodic nodes."""
-        for i_pairs in _periodic_pairs(boundary):
-            coefficients = _cell_offsets(mesh, i_pairs)
-            for j_pair, j_coefficients in zip(i_pairs, coefficients):
-                for k_dof in range(1, mesh.dim + 1):
-                    terms = [
-                        (int(j_pair[0]) + 1, k_dof, 1.0),
-                        (int(j_pair[1]) + 1, k_dof, -1.0),
-                    ]
-                    terms += [
-                        (_reference_node_id(mesh, i_dir), k_dof, -float(i_count))
-                        for i_dir, i_count in enumerate(j_coefficients)
-                        if i_count != 0
-                    ]
-                    _write_equation(deck, terms)
+        pairs = _periodic_pairs(boundary)
+        if len(pairs) == 0:
+            return
+
+        coefficients = _cell_offsets(mesh, pairs)
+        patterns = (coefficients != 0) @ (1 << np.arange(mesh.dim))
+        starts = np.flatnonzero(patterns[1:] != patterns[:-1]) + 1
+        bounds = [0] + starts.tolist() + [len(patterns)]
+        for i_start, i_end in zip(bounds[:-1], bounds[1:]):
+            axes = [
+                i_dir for i_dir in range(mesh.dim) if (patterns[i_start] >> i_dir) & 1
+            ]
+            self._write_equation_group(
+                deck,
+                mesh,
+                pairs[i_start:i_end],
+                coefficients[i_start:i_end][:, axes],
+                axes,
+            )
+        # Which reference nodes take part is settled by the pattern of the separation,
+        # so equations sharing one differ only in two node identifiers and in the
+        # coefficients. The pairs arrive grouped -- a face at a time, then the slave
+        # edges of an axis, then the corners -- so consecutive runs of one pattern are
+        # what the writing is cut into, and the order is the order of the pairs
+
+    def _write_equation_group(self, deck, mesh, pairs, coefficients, axes):
+        """
+        Write the equations of the pairs whose separation has the same pattern.
+
+        Parameters
+        ----------
+        deck: file
+            File being written.
+
+        mesh: `.Mesh`
+            Mesh being written.
+
+        pairs: array
+            Array of shape *(n, 2)* holding the slave and the master of each pair.
+
+        coefficients: array
+            Array of shape *(n, len(axes))* with how many cell dimensions separate the
+            two nodes along each of the axes that take part.
+
+        axes: list
+            Spatial directions whose reference node enters the equations.
+        """
+        n_terms = 2 + len(axes)
+        row_format = "*Equation\n{0}\n".format(n_terms)
+        for i_start in range(0, n_terms, EQUATION_LINE_TERMS):
+            n_line = min(EQUATION_LINE_TERMS, n_terms - i_start)
+            row_format += ", ".join(["%d, %d, %.1f"] * n_line) + "\n"
+        # Every equation of the group has the same number of terms, so it has the same
+        # layout, and the layout is built once for all of them
+
+        values = np.empty((len(pairs) * mesh.dim, 3 * n_terms))
+        values[:, 0] = np.repeat(pairs[:, 0] + 1, mesh.dim)
+        values[:, 2] = 1.0
+        values[:, 3] = np.repeat(pairs[:, 1] + 1, mesh.dim)
+        values[:, 5] = -1.0
+        for i_ind, i_axis in enumerate(axes):
+            values[:, 6 + 3 * i_ind] = _reference_node_id(mesh, i_axis)
+            values[:, 8 + 3 * i_ind] = np.repeat(-coefficients[:, i_ind], mesh.dim)
+        values[:, 1::3] = np.tile(np.arange(1, mesh.dim + 1), len(pairs))[:, None]
+        # The degrees of freedom of one pair are consecutive, so a pair contributes as
+        # many rows as the mesh has dimensions and they stay together
+
+        for i_start in range(0, len(values), WRITE_CHUNK):
+            chunk = values[i_start : i_start + WRITE_CHUNK]
+            deck.write((row_format * len(chunk)) % tuple(chunk.ravel().tolist()))
         # The slave comes first because Abaqus eliminates the degree of freedom of the
         # first term, and the slave is the one that is not to be prescribed elsewhere
+
+
+def _phase_label(mesh, phase):
+    """
+    Get the name a phase is known by.
+
+    Parameters
+    ----------
+    mesh: `.Mesh`
+        Mesh being written.
+
+    phase: int
+        Identifier of the phase.
+
+    Returns
+    -------
+    str
+        Name of the phase, falling back to its identifier when it has none.
+    """
+    return mesh.phase_names.get(phase, phase)
+
+
+def _phase_set_name(mesh, phase):
+    """
+    Get the name of the element set holding the cells of a phase.
+
+    Parameters
+    ----------
+    mesh: `.Mesh`
+        Mesh being written.
+
+    phase: int
+        Identifier of the phase.
+
+    Returns
+    -------
+    str
+        Name of the element set.
+    """
+    return "PHASE_{0}".format(_phase_label(mesh, phase))
 
 
 def _set_name(kind, name):
@@ -317,30 +403,6 @@ def _write_set(deck, name, nodes):
         deck.write(", ".join(str(int(i_id)) for i_id in line) + "\n")
 
 
-def _write_equation(deck, terms):
-    """
-    Write one equation.
-
-    Parameters
-    ----------
-    deck: file
-        File being written.
-
-    terms: list
-        Tuples *(node, degree of freedom, coefficient)* whose sum is zero.
-    """
-    deck.write("*Equation\n{0}\n".format(len(terms)))
-    for i_start in range(0, len(terms), EQUATION_LINE_TERMS):
-        line = terms[i_start : i_start + EQUATION_LINE_TERMS]
-        deck.write(
-            ", ".join(
-                "{0}, {1}, {2:.1f}".format(i_node, i_dof, i_coefficient)
-                for i_node, i_dof, i_coefficient in line
-            )
-            + "\n"
-        )
-
-
 def _reference_node_id(mesh, direction):
     """
     Get the identifier of the reference node of a direction.
@@ -372,16 +434,18 @@ def _periodic_pairs(boundary):
 
     Returns
     -------
-    list
-        Arrays of shape *(n, 2)* holding the slave and the master of each pair.
+    array
+        Array of shape *(n, 2)* holding the slave and the master of each pair.
     """
     pairs = [boundary.face_pairs[i_axis] for i_axis in sorted(boundary.face_pairs)]
     pairs += [boundary.edge_pairs[i_axis] for i_axis in sorted(boundary.edge_pairs)]
     pairs.append(boundary.corner_pairs)
 
-    return [i_pairs for i_pairs in pairs if len(i_pairs) > 0]
+    return np.concatenate(pairs)
     # The faces are paired from the nodes that lie on one face alone, so no node is
-    # constrained twice by collecting the three kinds together
+    # constrained twice by collecting the three kinds together. They are one array
+    # because nothing downstream asks which of the three a pair came from: what a pair
+    # needs is read off its coordinates
 
 
 def _cell_offsets(mesh, pairs):
@@ -410,39 +474,3 @@ def _cell_offsets(mesh, pairs):
     # Reading the count off the coordinates is what lets one expression cover the faces,
     # the edges and the corners: a face pair is separated along one axis, an edge pair
     # along one or two, and a corner pair along as many as it has
-
-
-def _element_blocks(mesh):
-    """
-    Split the cells of a mesh into the blocks that share an element type and a phase.
-
-    Parameters
-    ----------
-    mesh: `.Mesh`
-        Mesh being written.
-
-    Returns
-    -------
-    list
-        Dictionaries with the index of the block of cells, the rows of that block, and
-        the name of the element set they belong to.
-    """
-    blocks = []
-    for i_block, _ in enumerate(mesh.cells):
-        order = np.argsort(mesh.phase[i_block], kind="stable")
-        values, starts = np.unique(mesh.phase[i_block][order], return_index=True)
-        bounds = list(starts) + [len(order)]
-        for i_ind, i_phase in enumerate(values):
-            blocks.append(
-                {
-                    "block": i_block,
-                    "rows": order[bounds[i_ind] : bounds[i_ind + 1]],
-                    "elset": "PHASE_{0}".format(
-                        mesh.phase_names.get(int(i_phase), int(i_phase))
-                    ),
-                }
-            )
-    # Sorting once gives both the phases present and the rows of each of them, so the
-    # phase array is not scanned again for every block
-
-    return blocks
