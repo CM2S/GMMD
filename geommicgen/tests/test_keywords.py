@@ -6,28 +6,11 @@ belong to and are assembled in part from what the solver writers declare.
 """
 
 import os
-import shutil
 import tempfile
 import unittest
 
 from geommicgen.iofuncs.keywords import FORMAT_KEYWORDS, top_level_reader
 from geommicgen.translators import writer_options
-
-DECK_HEAD = """Problem_Type 1
-N_DP_Samples 1
-RVE_Dimensions [1, 1]
-
-Mic_Gen_Descriptors
-Phase 0
-Phase_Type 1
-Phase 1
-Phase_Type 2
-vf 0.3
-n 4
-
-Max_Residue_Per_Particle 0
-Max_Step 10
-"""
 
 
 class MeshOptionsTest(unittest.TestCase):
@@ -35,14 +18,14 @@ class MeshOptionsTest(unittest.TestCase):
 
     def setUp(self):
         """Create a directory for the input data files."""
-        self.deck_dir = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, self.deck_dir)
+        self.deck_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.deck_dir.cleanup)
 
     def read(self, mesh_options):
         """Read an input data file with the mesh options given, and give them back."""
-        deck_path = os.path.join(self.deck_dir, "deck.mdsim")
+        deck_path = os.path.join(self.deck_dir.name, "deck.mdsim")
         with open(deck_path, "w") as deck:
-            deck.write(DECK_HEAD + "\nMesh_Options\n" + mesh_options)
+            deck.write("Mesh_Options\n" + mesh_options)
         top_level_reader.read_input_file(deck_path)
 
         return top_level_reader.all_options["mesh_options"]

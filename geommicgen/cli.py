@@ -26,11 +26,6 @@ from geommicgen.meshing.writers import read_mesh
 from geommicgen.translators.base import available_writers, get_writer, writer_options
 
 
-ARGUMENT_TYPES = {"int": int, "float": float, "str": str}
-# Correspondence between the types a format declares its options with and what argparse
-# reads them as. The boolean ones are flags rather than values and are not here
-
-
 def format_names(value):
     """
     Split the names of the formats given to --to.
@@ -50,6 +45,18 @@ def format_names(value):
         The names.
     """
     return [i_name.strip() for i_name in value.split(",") if i_name.strip()]
+
+
+ARGUMENT_KWARGS = {
+    "int": {"type": int},
+    "float": {"type": float},
+    "str": {"type": str},
+    "str_list": {"type": format_names, "metavar": "NAMES"},
+    "bool": {"action": argparse.BooleanOptionalAction, "default": None},
+}
+# How each type a format declares an option with is read from the command line. Every
+# type the input data file accepts is here: one that is missing would read from a deck
+# and then fail when the parser is built, which is the wrong end to find out
 
 
 def resolve_writers(parser, names, options=None):
@@ -86,21 +93,13 @@ def resolve_writers(parser, names, options=None):
 
 def add_format_arguments(parser):
     """Add the arguments a written format is configured with."""
-    for i_name, i_description in sorted(writer_options().items()):
-        flag = "--{0}".format(i_name.lower().replace("_", "-"))
-        if i_description["type"] == "bool":
-            parser.add_argument(
-                flag,
-                action=argparse.BooleanOptionalAction,
-                default=None,
-                help=i_description["help"],
-            )
-        else:
-            parser.add_argument(
-                flag,
-                type=ARGUMENT_TYPES[i_description["type"]],
-                help=i_description["help"],
-            )
+    for i_name in sorted(writer_options()):
+        description = writer_options()[i_name]
+        parser.add_argument(
+            "--{0}".format(i_name.lower().replace("_", "-")),
+            help=description["help"],
+            **ARGUMENT_KWARGS[description["type"]]
+        )
     # Taken from the formats themselves, so a writer that declares an option is asked
     # for it here without this module naming it
 

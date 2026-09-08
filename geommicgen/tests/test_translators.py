@@ -424,6 +424,28 @@ class TestWriterOptions(unittest.TestCase):
             ["Boundary_Type", "Gauss_Points", "Periodic_Constraints"],
         )
 
+    def test_every_declared_option_is_read_when_it_is_given(self):
+        probes = {
+            "int": 7,
+            "float": 0.5,
+            "str": "geommicgen",
+            "bool": False,
+            "str_list": ["geommicgen"],
+        }
+        for i_name, i_writer in sorted(WRITERS.items()):
+            for j_option, j_description in sorted(i_writer.options.items()):
+                given = {j_option.lower(): probes[j_description["type"]]}
+                try:
+                    built = vars(i_writer.from_options(given))
+                except ValueError:
+                    continue
+                self.assertNotEqual(built, vars(i_writer()), (i_name, j_option))
+        # A writer declares its options under the name a deck spells them with and
+        # reads them under the name Python spells them with, and nothing else holds
+        # the two together: an option that is declared and never read would reach the
+        # command line and the input file and then quietly do nothing. Refusing the
+        # value counts as reading it
+
     def test_two_formats_may_not_describe_one_option_differently(self):
         class Conflicting(SolverWriter):
             """A writer that reads an option of another format as something else."""

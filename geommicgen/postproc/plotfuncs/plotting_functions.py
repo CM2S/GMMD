@@ -26,7 +26,6 @@ from geommicgen.microstructure.particleclasses import Ellipse, Particle
 from geommicgen.meshing.gmsh_mesher import GmshMesher, gmsh_session
 from geommicgen.meshing.images import periodic_images
 import geommicgen.iofuncs.printing as print_funcs
-from geommicgen._optional import require_gmsh
 
 latex_textwidth = 5.92  # in = 496pt
 latex_textheigth = 9.63  # in = 674pt
@@ -260,17 +259,18 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
 
 
 VIEW_ELEMENTS = {2: "tri3", 3: "tetra4"}
-
-MESH_SIZE_VORONOI_IMTS = 0.1
-# Largest element of the view of the Voronoi cells with their Minkowski tensors. The
-# cells are the whole of a three by three block of images, so this is coarse on purpose
 # The element a view is built with, which is only ever a choice of order. A view is a
 # picture: it is written as a surface and looked at, never solved, so a second order
 # element buys nothing and costs about four times the nodes.
 
+MESH_SIZE_VORONOI = 0.03
+MESH_SIZE_VORONOI_IMTS = 0.1
+# Largest element of the views of the Voronoi cells. The one that carries the Minkowski
+# tensors covers the whole of a three by three block of images, so it is coarser.
+
 
 @contextlib.contextmanager
-def gmsh_view(name, mesh_size, dim=3):
+def gmsh_view(name, mesh_size, dim=3, repeatable=False):
     """
     Open a gmsh session set up to build a view of the particles, and close it after.
 
@@ -285,6 +285,11 @@ def gmsh_view(name, mesh_size, dim=3):
     dim: {2, 3}
         Number of spatial dimensions of the microstructure.
 
+    repeatable: bool
+        Whether to mesh on one thread. Gmsh does not give the same mesh twice when it
+        meshes on several, so a view whose file is read back afterwards asks for this
+        and pays for it; one that is only looked at does not.
+
     Yields
     ------
     tuple
@@ -294,12 +299,18 @@ def gmsh_view(name, mesh_size, dim=3):
         GmshMesher(
             mesh_size=mesh_size, element_type=VIEW_ELEMENTS[dim]
         ).set_options(gmsh)
-        for i_dim in (1, 2, 3):
-            gmsh.option.setNumber("Mesh.MaxNumThreads{0}D".format(i_dim), 0)
-        # Meshed on one thread, unlike the meshes that go to a solver. Gmsh does not
-        # give the same mesh twice when it uses several, and a view is looked at beside
-        # the one from the run before it, so being repeatable is worth more here than
-        # being quick -- these are small models
+        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
+        gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_size)
+        # The size the session was asked for reaches gmsh here. The options a mesher
+        # sets are the ones that produce its element; the size is set where that mesher
+        # builds its model, which a view never does, so asking for one used to do
+        # nothing and every view set it again itself
+        if repeatable:
+            for i_dim in (1, 2, 3):
+                gmsh.option.setNumber("Mesh.MaxNumThreads{0}D".format(i_dim), 1)
+        # One, and not zero: zero means to take the count from General.NumThreads, which
+        # is one by default but is read from the user's gmsh configuration file, so a
+        # machine that sets it would go back to meshing on several without saying so
         model = gmsh.model
         model.add(name)
 
@@ -440,6 +451,10 @@ def write_gmsh_view(gmsh, results_dir, name):
     name: str
         Name of the files, without an extension.
 
+    Returns
+    -------
+    list
+        Paths of the files that were written.
     """
     mesh_path = os.path.join(results_dir, name + ".msh")
     vtk_path = os.path.join(results_dir, name + ".vtk")
@@ -452,6 +467,8 @@ def write_gmsh_view(gmsh, results_dir, name):
         if "," in contents:
             with open(i_path, "wt") as written:
                 written.write(contents.replace(",", "."))
+
+    return [mesh_path, vtk_path]
     # Gmsh sometimes writes a comma for a decimal point, depending on the locale. On a
     # machine where it does not, which is the usual case, the file is left alone rather
     # than read and written back identical
@@ -483,10 +500,6 @@ def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
 
         tag_phase_boundaries(model, phase_dim_tag, 3, 2)
 
-        # model.mesh.setSize(points, mesh_size)
-        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
-        gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_size)
-
         # Generate a 3D mesh
         print_funcs.print_to_file("\t> Generating mesh\n")
         model.mesh.generate(2)
@@ -515,10 +528,6 @@ def plot_particles_3d_one_by_one(particles, rve_dims, sample_dir, **kwargs):
             )
 
             tag_phase_boundaries(model, phase_dim_tag, 3, 2)
-
-            # model.mesh.setSize(points, mesh_size)
-            gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
-            gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_size)
 
             # Generate a 3D mesh
             model.mesh.generate(2)
@@ -663,10 +672,6 @@ def plot_paths(particles, box, position_center_history, motion_results_dir):
                 )
 
                 tag_phase_boundaries(model, phase_dim_tag, dim, dim - 1)
-
-                # model.mesh.setSize(points, mesh_size)
-                gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
-                gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_size)
 
                 # Generate a 3D mesh
                 model.mesh.generate(2)
@@ -1285,7 +1290,7 @@ def plot_voronoi_2d_with_imts(
 def plot_voronoi_3d(particles, voronoi, rve_dims, sample_dir, save=True, show=False):
     """Plot the Voronoi for circular particles."""
     dim = len(rve_dims)
-    with gmsh_view(sample_dir, particles[0].radius / 5) as (gmsh, model, factory):
+    with gmsh_view(sample_dir, MESH_SIZE_VORONOI) as (gmsh, model, factory):
 
         box_tag = factory.addBox(
             0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2]
@@ -1354,10 +1359,6 @@ def plot_voronoi_3d(particles, voronoi, rve_dims, sample_dir, save=True, show=Fa
 
         tag_phase_boundaries(model, phase_dim_tag, 3, 2)
 
-        # model.mesh.setSize(points, mesh_size)
-        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
-        gmsh.option.setNumber("Mesh.MeshSizeMax", 0.03)
-
         # Generate a 3D mesh
         model.mesh.generate(2)
 
@@ -1369,7 +1370,11 @@ def plot_voronoi_3d_with_imts(
 ):
     """Plot the Voronoi for circular particles."""
     title = os.path.join(dir, "voronoi_wIMTs")
-    with gmsh_view(title, MESH_SIZE_VORONOI_IMTS) as (gmsh, model, factory):
+    with gmsh_view(title, MESH_SIZE_VORONOI_IMTS, repeatable=True) as (
+        gmsh,
+        model,
+        factory,
+    ):
 
         boxTag = factory.addBox(
             -rve_dims[0],
@@ -1493,9 +1498,6 @@ def plot_voronoi_3d_with_imts(
         #
         #
         # getElementByCoordinates
-        # model.mesh.setSize(points, mesh_size)
-        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
-        gmsh.option.setNumber("Mesh.MeshSizeMax", MESH_SIZE_VORONOI_IMTS)
         gmsh.option.setNumber("Mesh.Algorithm3D", 2)
         # Frontal, which is what this view has always been built with. The element the
         # session is set up for settles the algorithm for a mesh that goes to a solver,
@@ -1504,11 +1506,9 @@ def plot_voronoi_3d_with_imts(
         # Generate a 3D mesh
         model.mesh.generate(3)
 
-        write_gmsh_view(gmsh, dir, "voronoi_wIMTs")
-    # The session is closed by the block; what follows reads back the file it
-    # wrote, so it has to happen after and not inside
-
-    vtk_file = title + ".vtk"
+        _, vtk_file = write_gmsh_view(gmsh, dir, "voronoi_wIMTs")
+    # The session is closed by the block; what follows reads back the file it wrote, so
+    # it has to happen after and not inside
 
     dataType = "float"
     numComp = "1"

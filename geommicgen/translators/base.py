@@ -187,6 +187,7 @@ def writer_options():
     ValueError:
         If two writers describe the same option differently.
     """
+    _run_loaders()
     options = {}
     for i_writer in WRITERS.values():
         for j_name, j_description in i_writer.options.items():
@@ -199,10 +200,9 @@ def writer_options():
             options[j_name] = j_description
 
     return options
-    # Read off the writers that are registered, which is every one written by hand. The
-    # formats delegated to meshio take no options; a writer that takes one has to be
-    # registered when this is asked, which means imported by the package rather than by
-    # the loader that waits for a name to be looked up
+    # The loaders run first, as they do for the other two readers of the registry, so
+    # what a deck and a command line accept does not depend on whether a format has
+    # been looked up yet
 
 
 def register_loader(loader):

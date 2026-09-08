@@ -237,10 +237,13 @@ class KeywordTypeC(Keyword):
     header_keys: set(`.Keyword`)
         Set containing the acceptable header keywords.
 
-    sub_keys: dict or set(`.Keyword`)
-        The acceptable sub keywords. A set is read under every header; a dictionary
-        whose keys are the names of the headers says which are read under which, and a
-        sub keyword given under the wrong header is refused rather than ignored.
+    sub_keys: dict
+        Dictionary whose keys are the names of the header keywords and whose values are
+        the sub keywords read under each of them. A sub keyword given under a header
+        that does not take it is refused rather than ignored.
+
+    all_sub_keys: set(`.Keyword`)
+        Every sub keyword, whichever header it is read under.
     """
 
     def __init__(self, name, header_keys, sub_keys, **kwargs):
@@ -261,33 +264,10 @@ class KeywordTypeC(Keyword):
         super().__init__(name, **kwargs)
         self.header_keys = header_keys
         self.sub_keys = sub_keys
-
-    @property
-    def all_sub_keys(self):
-        """Every sub keyword, whichever header it is read under."""
-        if isinstance(self.sub_keys, dict):
-            return set().union(*self.sub_keys.values())
-
-        return self.sub_keys
-
-    def sub_keys_of(self, header):
-        """
-        Get the sub keywords that are read under one header.
-
-        Parameters
-        ----------
-        header: str
-            Name of the header.
-
-        Returns
-        -------
-        set(`.Keyword`)
-            The sub keywords.
-        """
-        if isinstance(self.sub_keys, dict):
-            return self.sub_keys[header]
-
-        return self.sub_keys
+        self.all_sub_keys = set().union(*sub_keys.values())
+        # Which header a line is under is known while it is being read, so the sub
+        # keywords of that header are taken then; this is for recognising that a line
+        # is still inside the block at all
 
     def read_value(self):
         """Read the values of the *self* keyword."""
@@ -310,6 +290,7 @@ class KeywordTypeC(Keyword):
             for header_keyword in self.header_keys:
                 if header_keyword.is_in(line):
                     keyword_already_supplied = set()
+                    current_sub_keys = self.sub_keys[header_keyword.name]
                     current_header = header_keyword.read_value()
                     if current_header in options:
                         raise ValueError(
@@ -321,7 +302,7 @@ class KeywordTypeC(Keyword):
                     break
             for sub_keyword in self.all_sub_keys:
                 if sub_keyword.is_in(line):
-                    if sub_keyword not in self.sub_keys_of(current_header):
+                    if sub_keyword not in current_sub_keys:
                         raise ValueError(
                             "The keyword {0} is not read under {1}.".format(
                                 sub_keyword.name, current_header
@@ -722,10 +703,12 @@ top_level_reader.add_top_level_keyword(
         "Mic_Gen_Descriptors",
         header_keys={Keyword("Phase")},
         sub_keys={
-            Keyword("Phase_Type", type_str="int"),
-            Keyword("inner_phase", type_str="bool"),
-            Keyword("outer_phase", type_str="int"),
-            *generate_all_possible_keywords_from_particle_attributes(),
+            "Phase": {
+                Keyword("Phase_Type", type_str="int"),
+                Keyword("inner_phase", type_str="bool"),
+                Keyword("outer_phase", type_str="int"),
+                *generate_all_possible_keywords_from_particle_attributes(),
+            }
         },
     )
 )
@@ -737,7 +720,7 @@ FORMAT_KEYWORDS = {
     Keyword("Write_Msh", type_str="bool"),
 } | {
     Keyword(i_name, type_str=i_description["type"])
-    for i_name, i_description in sorted(writer_options().items())
+    for i_name, i_description in writer_options().items()
 }
 # The options of a discretisation that belong to the formats it is written in, rather
 # than to what discretises it. The ones a format declares are read here without this
