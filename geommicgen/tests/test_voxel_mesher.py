@@ -1,9 +1,6 @@
-import contextlib
-import io
 import os
 import tempfile
 import unittest
-from unittest.mock import patch
 
 import numpy as np
 
@@ -13,109 +10,68 @@ from geommicgen.meshing.voxel_mesher import VoxelMesher
 from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.microstructure.phase import Phase
 from geommicgen.microstructure.particleclasses import Disk, Ellipse, Ellipsoid, Sphere
-from geommicgen.postproc.mshgen.meshing_interface import RegularGridMeshGenerator
 from geommicgen.tests.helpers import build_microstructure
-from geommicgen.translators.crate import CrateWriter, grid_file_name
+from geommicgen.translators.crate import CrateWriter
+
+FIXTURE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
+# Grids produced by RegularGridMeshGenerator, the mesher the voxel mesher replaced,
+# while that class was still in the tree. They are what pins the replacement to what it
+# replaced now that the original is gone, so they are never regenerated from the code
+# under test: a fixture rewritten by the thing it checks agrees with anything.
 
 
-def legacy_grid(microstructure, n_voxels_dims):
-    """
-    Build the grid of a microstructure with the mesher that is being replaced.
+def disks_case():
+    """Three disks in two dimensions, the last straddling two faces of the RVE."""
+    rve_dims = [1.0, 1.0]
+    particles = []
+    for i_center, i_radius in (
+        ([0.25, 0.75], 0.15),
+        ([0.6, 0.1], 0.08),
+        ([0.02, 0.98], 0.12),
+    ):
+        particle = Disk("2", {"r": i_radius}, rve_dims)
+        particle.position_center = np.array(i_center)
+        particles.append(particle)
+    # The last disk straddles two faces, so it is only stamped correctly if the
+    # bounding box is wrapped back in
 
-    Parameters
-    ----------
-    microstructure: `.Microstructure`
-        Microstructure to be meshed.
-
-    n_voxels_dims: list
-        Number of voxels in each spatial direction.
-
-    Returns
-    -------
-    array
-        The grid of phases, read back from the file the old mesher writes.
-    """
-    generator = RegularGridMeshGenerator(n_voxels_dims, microstructure.rve_dims)
-    with tempfile.TemporaryDirectory() as temp_dir:
-        with patch("geommicgen.iofuncs.printing.print_to_file"):
-            with contextlib.redirect_stdout(io.StringIO()):
-                generator.generate_mesh(microstructure, temp_dir)
-        name = grid_file_name("", n_voxels_dims) + ".npy"
-
-        return np.load(os.path.join(temp_dir, "meshes", name))
-    # The old mesher only ever exposed its grid through the file it wrote, which is why
-    # this goes through a temporary directory
+    return build_microstructure(rve_dims, Disk, particles), [40, 40]
 
 
-class TestVoxelMesherEquivalence(unittest.TestCase):
-    """
-    Test class for the agreement with the mesher the voxel mesher replaces.
-
-    The old mesher is still in the tree, so the comparison is made against the code
-    itself rather than against a stored array. It has to be frozen into a fixture when
-    `.RegularGridMeshGenerator` is removed.
-    """
-
-    def assert_same_grid(self, microstructure, n_voxels_dims):
-        """Check that both meshers give every voxel the same phase."""
-        mesh = VoxelMesher(n_voxels_dims).mesh(microstructure)
-        np.testing.assert_array_equal(
-            mesh.structured.phase_grid, legacy_grid(microstructure, n_voxels_dims)
+def ellipses_case():
+    """Two ellipses on an RVE and a grid that differ between the directions."""
+    rve_dims = [2.0, 1.0]
+    particles = []
+    for i_center, i_angle in (([0.5, 0.5], 0.4), ([1.7, 0.2], 1.9)):
+        particle = Ellipse(
+            "2", {"major_axis": 0.4, "minor_axis": 0.15, "angle": i_angle}, rve_dims
         )
+        particle.position_center = np.array(i_center)
+        particles.append(particle)
+    # Nothing square anywhere, which catches a swap of the axes
 
-        return mesh
+    return build_microstructure(rve_dims, Ellipse, particles), [48, 32]
 
-    def test_disks_in_two_dimensions(self):
-        rve_dims = [1.0, 1.0]
-        particles = []
-        for i_center, i_radius in (
-            ([0.25, 0.75], 0.15),
-            ([0.6, 0.1], 0.08),
-            ([0.02, 0.98], 0.12),
-        ):
-            particle = Disk("2", {"r": i_radius}, rve_dims)
-            particle.position_center = np.array(i_center)
-            particles.append(particle)
-        # The last disk straddles two faces of the RVE, so it is only stamped correctly
-        # if the bounding box is wrapped back in
 
-        self.assert_same_grid(build_microstructure(rve_dims, Disk, particles), [40, 40])
+def spheres_case():
+    """Two spheres, the second sitting on a corner of the RVE."""
+    rve_dims = [1.0, 1.0, 1.0]
+    particles = []
+    for i_center, i_radius in (([0.5, 0.5, 0.5], 0.2), ([0.05, 0.05, 0.95], 0.15)):
+        particle = Sphere("2", {"r": i_radius}, rve_dims)
+        particle.position_center = np.array(i_center)
+        particles.append(particle)
+    # The second sphere is stamped into all eight corners
 
-    def test_ellipses_on_an_anisotropic_grid(self):
-        rve_dims = [2.0, 1.0]
-        particles = []
-        for i_center, i_angle in (([0.5, 0.5], 0.4), ([1.7, 0.2], 1.9)):
-            particle = Ellipse(
-                "2", {"major_axis": 0.4, "minor_axis": 0.15, "angle": i_angle}, rve_dims
-            )
-            particle.position_center = np.array(i_center)
-            particles.append(particle)
-        # An RVE and a grid that differ between the two directions catch a swap of the
-        # axes that a square grid would hide
+    return build_microstructure(rve_dims, Sphere, particles), [16, 16, 16]
 
-        self.assert_same_grid(
-            build_microstructure(rve_dims, Ellipse, particles), [48, 32]
-        )
 
-    def test_spheres_in_three_dimensions(self):
-        rve_dims = [1.0, 1.0, 1.0]
-        particles = []
-        for i_center, i_radius in (
-            ([0.5, 0.5, 0.5], 0.2),
-            ([0.05, 0.05, 0.95], 0.15),
-        ):
-            particle = Sphere("2", {"r": i_radius}, rve_dims)
-            particle.position_center = np.array(i_center)
-            particles.append(particle)
-        # The second sphere sits on a corner, so it is stamped into all eight of them
-
-        self.assert_same_grid(
-            build_microstructure(rve_dims, Sphere, particles), [16, 16, 16]
-        )
-
-    def test_ellipsoid_in_three_dimensions(self):
-        rve_dims = [1.0, 1.0, 1.0]
-        descriptors = {
+def ellipsoid_case():
+    """One turned ellipsoid, on a grid of three different resolutions."""
+    rve_dims = [1.0, 1.0, 1.0]
+    particle = Ellipsoid(
+        "2",
+        {
             "axis_1": 0.4,
             "axis_2": 0.25,
             "axis_3": 0.15,
@@ -123,25 +79,95 @@ class TestVoxelMesherEquivalence(unittest.TestCase):
             "rot_axis_comp_x": 0.0,
             "rot_axis_comp_y": 1.0,
             "rot_axis_comp_z": 1.0,
-        }
-        particle = Ellipsoid("2", dict(descriptors), rve_dims)
-        particle.position_center = np.array([0.5, 0.5, 0.5])
-        self.assert_same_grid(
-            build_microstructure(rve_dims, Ellipsoid, [particle]), [14, 18, 12]
-        )
+        },
+        rve_dims,
+    )
+    particle.position_center = np.array([0.5, 0.5, 0.5])
+
+    return build_microstructure(rve_dims, Ellipsoid, [particle]), [14, 18, 12]
+
+
+def one_disk_case():
+    """A single disk well inside the RVE."""
+    rve_dims = [1.0, 1.0]
+    particle = Disk("2", {"r": 0.2}, rve_dims)
+    particle.position_center = np.array([0.4, 0.6])
+
+    return build_microstructure(rve_dims, Disk, [particle]), [32, 32]
+
+
+EQUIVALENCE_CASES = {
+    "disks": disks_case,
+    "ellipses": ellipses_case,
+    "spheres": spheres_case,
+    "ellipsoid": ellipsoid_case,
+    "one_disk": one_disk_case,
+}
+# Every case a fixture was frozen for
+
+
+def frozen_grid(name):
+    """
+    Load the grid the mesher that was replaced produced for one of the cases.
+
+    Parameters
+    ----------
+    name: str
+        Name of the case.
+
+    Returns
+    -------
+    array
+        The grid of phases.
+    """
+    return np.load(os.path.join(FIXTURE_DIR, "voxel_{0}.npy".format(name)))
+
+
+class TestVoxelMesherEquivalence(unittest.TestCase):
+    """
+    Test class for the agreement with the mesher the voxel mesher replaced.
+
+    RegularGridMeshGenerator has been removed, so the comparison is against the grids
+    it produced while it was still there, frozen into fixtures.
+    """
+
+    def assert_matches_the_frozen_grid(self, name):
+        """Check that the mesher gives every voxel the phase the old one gave it."""
+        microstructure, n_voxels_dims = EQUIVALENCE_CASES[name]()
+        mesh = VoxelMesher(n_voxels_dims).mesh(microstructure)
+        np.testing.assert_array_equal(mesh.structured.phase_grid, frozen_grid(name))
+
+        return mesh
+
+    def test_disks_in_two_dimensions(self):
+        self.assert_matches_the_frozen_grid("disks")
+
+    def test_ellipses_on_an_anisotropic_grid(self):
+        self.assert_matches_the_frozen_grid("ellipses")
+
+    def test_spheres_in_three_dimensions(self):
+        self.assert_matches_the_frozen_grid("spheres")
+
+    def test_ellipsoid_in_three_dimensions(self):
+        self.assert_matches_the_frozen_grid("ellipsoid")
+
+    def test_every_case_has_a_fixture(self):
+        for i_name in EQUIVALENCE_CASES:
+            self.assertTrue(
+                os.path.exists(
+                    os.path.join(FIXTURE_DIR, "voxel_{0}.npy".format(i_name))
+                ),
+                i_name,
+            )
+        # A case whose fixture went missing would otherwise be a test that never runs
 
     def test_grid_reaches_the_crate_file_unchanged(self):
-        rve_dims = [1.0, 1.0]
-        particle = Disk("2", {"r": 0.2}, rve_dims)
-        particle.position_center = np.array([0.4, 0.6])
-        microstructure = build_microstructure(rve_dims, Disk, [particle])
-        mesh = VoxelMesher([32, 32]).mesh(microstructure)
+        microstructure, n_voxels_dims = one_disk_case()
+        mesh = VoxelMesher(n_voxels_dims).mesh(microstructure)
         with tempfile.TemporaryDirectory() as temp_dir:
             written = CrateWriter().write(mesh, os.path.join(temp_dir, "grid.rgmsh"))
             self.assertEqual(len(written), 1)
-            np.testing.assert_array_equal(
-                np.load(written[0]), legacy_grid(microstructure, [32, 32])
-            )
+            np.testing.assert_array_equal(np.load(written[0]), frozen_grid("one_disk"))
         # The whole path a spectral solver takes, from the microstructure to the array
         # it reads, without gmsh being involved anywhere
 

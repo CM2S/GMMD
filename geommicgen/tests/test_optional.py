@@ -8,12 +8,7 @@ from unittest.mock import patch
 
 import geommicgen
 
-from geommicgen._optional import (
-    MINIMUM_GMSH_VERSION,
-    has_gmsh,
-    require_gmsh,
-    require_gmsh2links,
-)
+from geommicgen._optional import MINIMUM_GMSH_VERSION, has_gmsh, require_gmsh
 from geommicgen.errors.error_classes import MissingOptionalDependency
 
 
@@ -33,7 +28,8 @@ sys.meta_path.insert(0, BlockGmsh())
 import geommicgen
 import geommicgen.postproc.postproc
 import geommicgen.postproc.plotfuncs.plotting_functions
-import geommicgen.postproc.mshgen.meshing_interface
+import geommicgen.meshing.from_deck
+import geommicgen.cli
 import geommicgen.iofuncs.microstructure_yaml
 
 from geommicgen._optional import require_gmsh
@@ -136,12 +132,6 @@ class TestRequireGmsh(unittest.TestCase):
                 require_gmsh()
         # An installation that cannot report its API version is refused, since the
         # versions that cannot are the old ones this check exists to catch
-
-    def test_gmsh2links_message_names_the_repository(self):
-        with patch.dict(sys.modules, {"gmsh2links.main": None, "gmsh2links": None}):
-            with self.assertRaises(MissingOptionalDependency) as context:
-                require_gmsh2links()
-        self.assertIn("CM2S/Utilities", str(context.exception))
 
 
 class TestImportWithoutGmsh(unittest.TestCase):

@@ -6,7 +6,6 @@ Subpackages
 
 .. toctree::
 
-    geommicgen.postproc.mshgen
     geommicgen.postproc.plotfuncs
     geommicgen.postproc.voronoimetrics
 

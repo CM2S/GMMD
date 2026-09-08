@@ -79,10 +79,11 @@ Some software must be installed to successfully run GMMD:
   > In Linux/UNIX operative systems, ParaView can be installed by placing the tarball in the installation directory and extracting it by executing the following command:  
   `sudo tar -xvf ParaView-< version >.tar.gz`
 
-* Gmsh and gmsh2links (see [here](https://github.com/CM2S/Utilities/tree/master/gmsh)) - Required to produce finite element meshes of the microstructures to be used in FEM analysis through LINKS. Gmsh is not included in the pip dependencies; install its Python API with:
+* Gmsh - Required to produce finite element meshes of the microstructures. It is an optional dependency, so a run that only asks for a regular grid needs none of it. Install it with the extra:
   ```bash
-  pip install gmsh
+  pip install 'geommicgen[gmsh]'
   ```
+  The LINKS input files are written by `GMMD` itself and no longer go through the `gmsh2links` package.
   `GMMD` is tested against the Gmsh Python API 4.13.1 and 4.15.2, which produce identical
   meshes for a given microstructure. It requires **4.7 or newer**, which is when the
   mesh-size options were renamed from `Mesh.CharacteristicLength*` to `Mesh.MeshSize*`;

@@ -77,30 +77,3 @@ def has_gmsh():
         return False
 
     return True
-
-
-def require_gmsh2links():
-    """
-    Get the mesh reader of gmsh2links, checking that the package is installed.
-
-    Returns
-    -------
-    callable
-        The *readMesh* function of gmsh2links.
-
-    Raises
-    ------
-    MissingOptionalDependency:
-        If gmsh2links is not installed.
-    """
-    try:
-        from gmsh2links.main import readMesh
-    except ImportError:
-        raise MissingOptionalDependency(
-            "gmsh2links",
-            "pip install git+https://github.com/CM2S/Utilities.git#subdirectory=gmsh",
-        ) from None
-    # gmsh2links is not published on PyPI, so it cannot be declared as an extra
-    # without making this package itself unpublishable
-
-    return readMesh

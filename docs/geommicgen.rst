@@ -13,10 +13,12 @@ Subpackages
 
     geommicgen.errors
     geommicgen.iofuncs
+    geommicgen.meshing
     geommicgen.micgenmethod
     geommicgen.microstructure
     geommicgen.postproc
     geommicgen.tests
+    geommicgen.translators
 
 Submodules
 ----------
@@ -24,4 +26,5 @@ Submodules
 .. toctree::
 
    geommicgen.app
+   geommicgen.cli
 
