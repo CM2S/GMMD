@@ -5,11 +5,6 @@ The classes tested are the GenerationMethod class and the MolecularDynamicsSimul
 import unittest
 from unittest.mock import sentinel, Mock, patch, call
 
-from geommicgen.postproc.plotfuncs.plotting_functions import (
-    plot_particles_3d,
-    plot_particles_2d,
-)
-import pickle
 import numpy as np
 
 from geommicgen.micgenmethod.speed_up_schemes import SpeedUpScheme, CellList, VerletList
@@ -423,70 +418,3 @@ class TestVerlet(unittest.TestCase):
             )
         )
 
-
-def load_a_troublesome_example(previous_mic_path):
-    """Load a troblesome example for debugging."""
-
-    with open(previous_mic_path, "rb") as mic:
-        info_previous_sample = pickle.load(mic)
-        # No need to generate a new microstructure. Using a previous microstructure.
-        current_sample = info_previous_sample["microstructure"]
-        current_mic_generator = info_previous_sample["generation_method"]
-        trouble_pair = []
-        trouble_pair_ind = []
-        for i_part_ind, i_particle in enumerate(current_sample.particles):
-            if (
-                0.55 < i_particle.position_center[0] < 0.65
-            ) and 0.05 < i_particle.position_center[1] < 0.25:
-                trouble_pair.append(i_particle)
-                trouble_pair_ind.append(i_part_ind)
-                print(vars(i_particle), i_particle.position_center)
-
-        # intersection, overlap_length, _ = trouble_pair[0].intersection_gjk(
-        #     trouble_pair[1], [1, 1]
-        # )
-        # self.assertTrue(intersection)
-        # intersection, overlap_length, _ = trouble_pair[0].intersection_gjk(
-        #     trouble_pair[2], [1, 1]
-        # )
-        # self.assertTrue(intersection)
-        # print(
-        #     current_mic_generator.speed_up_scheme.particle_list[
-        #         trouble_pair_ind[0]
-        #     ],
-        #     current_mic_generator.speed_up_scheme.particle_list[
-        #         trouble_pair_ind[1]
-        #     ],
-        #     current_mic_generator.speed_up_scheme.particle_list[
-        #         trouble_pair_ind[2]
-        #     ],
-        # )
-        plot_particles_2d(
-            trouble_pair
-            + [
-                current_mic_generator.speed_up_scheme.verlet_neighborhoods[ind]
-                for ind in trouble_pair_ind
-            ],
-            [1, 1],
-            "",
-            show=True,
-            save=False,
-        )
-        # current_mic_generator.speed_up_scheme.a_new_verlet_list_has_to_be_computed = True
-        current_mic_generator.speed_up_scheme.new_list(current_sample.particles)
-        print(
-            current_mic_generator.speed_up_scheme.particle_list[trouble_pair_ind[0]],
-            current_mic_generator.speed_up_scheme.particle_list[trouble_pair_ind[1]],
-        )
-        print(trouble_pair_ind)
-        plot_particles_2d(
-            trouble_pair
-            + [
-                current_mic_generator.speed_up_scheme.verlet_neighborhoods[ind]
-                for ind in trouble_pair_ind
-            ],
-            [1, 1],
-            "",
-            show=True,
-            save=False,
-        )

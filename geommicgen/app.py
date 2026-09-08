@@ -91,6 +91,12 @@ def run_program():
                 "Number of samples must be a positve integer larger than 1."
             )
 
+        fileio.PROVENANCE = {"source_deck": os.path.basename(input_file_path)}
+        if mic_gen_parameters.get("fixed_seed") is not None:
+            fileio.PROVENANCE["fixed_seed"] = mic_gen_parameters["fixed_seed"]
+        # Carried by every microstructure file the run writes, so that a sample says
+        # what produced it
+
         failed_jobs = []
         for _ in range(n_dp_samples):
             sample_dir, sample_file_path = fileio.create_sample_results_directory(

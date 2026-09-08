@@ -127,9 +127,9 @@ A complete GMMD input data file where each parameter specification (either manda
     ```
     The program execution can be followed in the terminal, where data associated with the program launch, progress of the main execution phases, and the program end is output.
 
-  2.2. *Meshing/analysis of microstructures:* To generate a new mesh or perform statistical analysis on a previously generated microstructure, provide both the input data file (`.mdsim`) and the microstructure file (`.mic`), in this order:
+  2.2. *Meshing/analysis of microstructures:* To generate a new mesh or perform statistical analysis on a previously generated microstructure, provide both the input data file (`.mdsim`) and the microstructure file (`.yaml`), in this order:
     ```bash
-    geommicgen input_data_file.mdsim previous_mic.mic
+    geommicgen input_data_file.mdsim previous_mic.yaml
     ```
     The program execution can be followed in the terminal, where data associated with the program launch, progress of the main execution phases, and the program end is output.
 
@@ -142,9 +142,15 @@ A complete GMMD input data file where each parameter specification (either manda
     ```
     A mesh is written as a VTK file whichever mesher produced it, `.vtu` for an unstructured mesh and `.vti` for a grid, with a small `.mesh.json` beside it holding what those formats cannot carry. Giving no `--to` stops after that file, which is a complete stage: `geommicgen-translate` picks up from it later, or somewhere else.
 
+  2.4. *Microstructures generated before the change of format:* a microstructure used to be stored as a `.mic` file, a pickle of the objects that held it. It is a YAML file now, which any tool can read and a person can edit. `geommicgen-convert-mic` turns the one into the other, writing the state of the generation run beside it:
+    ```bash
+    geommicgen-convert-mic mic_0/mic.mic
+    ```
+
 3. **Get results.** As soon as GMMD is executed according to an input data file (let us say, `input_data_file.mdsim`), a folder with the same name is created in the same directory (`input_data_file/`). This folder contains all the output data related to the microstructure generation, namely:
   * a folder `mic_*` for each microstructure generated.
-    - microstructure file (`mic.mic`)<sup>[*](#f6)[+](#f5)</sup>;
+    - microstructure file (`mic.yaml`)<sup>[*](#f6)[+](#f5)</sup>;
+    - state of the generation run (`md_state.npz`), holding the histories the motion analysis plots<sup>[+](#f5)</sup>;
     - status file (`status`), containing a flag for the status of the generation, time and final overlap<sup>[*](#f6)[+](#f5)</sup>;
     - log file (`input_data_file.screen`), where all data printed to the default standard output is stored<sup>[+](#f5)</sup>;
     - visualization file for the microstructure (`final_config.vtk`);

@@ -127,6 +127,9 @@ def adjust_rve_dims(particles):
     -------
     new_rve_dims: list(float)
         New RVE dimensions.
+
+    adjusted_centers: list(array)
+        Position of the center of each particle in the adjusted RVE.
     """
     # Collecting all extrema of the particles in all Cartesian directions
     # --------------------------------------------------------------------------------------
@@ -152,13 +155,14 @@ def adjust_rve_dims(particles):
     # --------------------------------------------------------------------------------------
     # so that the origin coincides with the minimum bound on each axis
     offset = np.array(min_bound)
-    for i_particle in particles:
-        i_particle.position_center -= offset
+    adjusted_centers = [i_particle.position_center - offset for i_particle in particles]
+    # These are the particles of the microstructure itself, so the shift is returned
+    # rather than applied to them
 
     new_rve_dims = [
         max_bound[i_dim] - min_bound[i_dim] for i_dim in range(particles[0].dim)
     ]
-    return new_rve_dims
+    return new_rve_dims, adjusted_centers
 
 
 def two_point_correlation(
@@ -411,9 +415,9 @@ def ripleys_k_func(microstructure, max_radius=10, n_points=20):
     rem_particles = remove_particles_at_boundary(
         microstructure.particles, microstructure.rve_dims
     )
-    adj_rve_dims = adjust_rve_dims(rem_particles)
+    adj_rve_dims, adj_centers = adjust_rve_dims(rem_particles)
 
-    from postproc.plotfuncs.plotting_functions import plot_particles_2d
+    from geommicgen.postproc.plotfuncs.plotting_functions import plot_particles_2d
 
     plot_particles_2d(rem_particles, adj_rve_dims, "", save=False, show=False)
 
@@ -425,19 +429,19 @@ def ripleys_k_func(microstructure, max_radius=10, n_points=20):
     dist_part = [0 for _ in range(n_part ** 2 - n_part)]
     correction = [1 for _ in range(n_part ** 2 - n_part)]
     k_pair = 0
-    for i_ind_part, i_particle in enumerate(rem_particles):
-        for j_ind_part, j_particle in enumerate(rem_particles):
+    for i_ind_part in range(n_part):
+        for j_ind_part in range(n_part):
             if j_ind_part == i_ind_part:
                 continue
             dist_part[k_pair] = np.linalg.norm(
-                i_particle.position_center - j_particle.position_center
+                adj_centers[i_ind_part] - adj_centers[j_ind_part]
             )
             if dist_part[k_pair] < radius:
-                print(i_particle.position_center, j_particle.position_center)
+                print(adj_centers[i_ind_part], adj_centers[j_ind_part])
             # print(k_pair)
             # print(dist_part[k_pair])
             correction[k_pair] = ripleys_k_func_edge_corr(
-                i_particle.position_center,
+                adj_centers[i_ind_part],
                 dist_part[k_pair],
                 adj_rve_dims,
             )

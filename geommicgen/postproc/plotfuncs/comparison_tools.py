@@ -4,7 +4,7 @@ import os
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-from geommicgen.iofuncs.file_handling import load_previous_sample
+from geommicgen.iofuncs.file_handling import MIC_FILE_NAME, load_previous_sample
 import geommicgen.postproc.plotfuncs.plotting_functions as my_plt
 
 
@@ -24,7 +24,7 @@ def load_all_samples(results_dir):
     while True:
         current_sample_dir = os.path.join(results_dir, "mic_{0}".format(ind))
         if os.path.exists(current_sample_dir):
-            sample_file_path = os.path.join(current_sample_dir, "mic.mic")
+            sample_file_path = os.path.join(current_sample_dir, MIC_FILE_NAME)
             samples_info.append(load_previous_sample(sample_file_path))
         else:
             break

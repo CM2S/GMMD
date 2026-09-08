@@ -5,17 +5,28 @@ Making directories. Load and save files.
 """
 import os
 import sys
-import pickle
 import shutil
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 from geommicgen.micgenmethod.mic_from_imagej import generate_microstructure_from_csv
-from geommicgen.micgenmethod.mic_from_file import generate_microstructure_from_txt
+from geommicgen.micgenmethod.md_state import (
+    STATE_FILE_NAME,
+    load_md_state,
+    save_md_state,
+)
+from geommicgen.iofuncs.microstructure_yaml import (
+    read_microstructure_yaml,
+    write_microstructure_yaml,
+)
 from .printing import print_output
 
 SAMPLE_DIR = ""
 RESULTS_FOLDER = ""
+PROVENANCE = {}
+
+MIC_FILE_NAME = "mic.yaml"
+MIC_EXTENSIONS = {".yaml", ".yml"}
 
 
 def create_sample_results_directory(dp_dir):
@@ -114,7 +125,7 @@ def get_arguments_from_command_line():
     previous_mic_path = None
     if len(sys.argv) == 3:
         _, ext = os.path.splitext(os.path.basename(sys.argv[2]))
-        if ext in {".mic", ".csv", ".txt"}:
+        if ext in MIC_EXTENSIONS | {".csv"}:
             previous_mic_path = sys.argv[2]
         else:
             raise ValueError(
@@ -126,35 +137,32 @@ def get_arguments_from_command_line():
 def load_previous_sample(previous_mic_path):
     """Load a microstructure sample."""
     _, ext = os.path.splitext(os.path.basename(previous_mic_path))
-    if ext == ".mic":
-        info_previous_sample = pickle.load(open(previous_mic_path, "rb"))
-        # No need to generate a new microstructure. Using a previous microstructure.
-        current_sample = info_previous_sample["microstructure"]
-        current_mic_generator = info_previous_sample["generation_method"]
-        # Reconstructing the relevant Particle attributes that could not be pickled
+    if ext in MIC_EXTENSIONS:
+        current_sample = read_microstructure_yaml(previous_mic_path)
+        current_mic_generator = load_md_state(
+            os.path.join(os.path.dirname(previous_mic_path), STATE_FILE_NAME)
+        )
+        # No need to generate a new microstructure. Using a previous microstructure. The
+        # state of the run that produced it sits beside it, and is simply absent for a
+        # microstructure that came from somewhere else
     elif ext == ".csv":
         current_sample = generate_microstructure_from_csv(previous_mic_path)
         current_mic_generator = None
-    elif ext == ".txt":
-        current_sample = generate_microstructure_from_txt(previous_mic_path)
-        current_mic_generator = None
+    else:
+        raise ValueError(
+            "Wrong extension for the previous microstructure file: {0}".format(ext)
+        )
     return current_sample, current_mic_generator
 
 
 def save_mic(sample_dir, current_sample, current_mic_generator, print_out=True):
-    """Save microstructure usign pickle."""
-    if os.path.exists(os.path.join(sample_dir, "mic.mic")):
-        # Repeat while the folder names already exists
-        os.remove(os.path.join(sample_dir, "mic.mic"))
-    pickle.dump(
-        {
-            "microstructure": current_sample,
-            "generation_method": current_mic_generator,
-        },
-        open(os.path.join(sample_dir, "mic.mic"), "wb"),
-    )
+    """Save the microstructure, and the state of the run that produced it."""
+    file_path = os.path.join(sample_dir, MIC_FILE_NAME)
+    write_microstructure_yaml(current_sample, file_path, provenance=PROVENANCE)
+    if current_mic_generator is not None:
+        save_md_state(sample_dir, current_mic_generator)
     if print_out:
-        print_output(os.path.join(sample_dir, "mic.mic"))
+        print_output(file_path)
     # Saving the configuration for later use
 
 

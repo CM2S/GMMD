@@ -6,6 +6,7 @@ Submodules
 
 .. toctree::
 
+   geommicgen.iofuncs.convert_mic
    geommicgen.iofuncs.file_handling
    geommicgen.iofuncs.keywords
    geommicgen.iofuncs.microstructure_yaml
