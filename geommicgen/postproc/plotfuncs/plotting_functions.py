@@ -21,14 +21,7 @@ from matplotlib import cm
 # Finite element mesh conversor to LINKS
 
 
-from geommicgen.microstructure.particleclasses import (
-    Disk,
-    Ellipse,
-    CylindricalFiber,
-    Sphere,
-    Ellipsoid,
-    Particle,
-)
+from geommicgen.microstructure.particleclasses import Ellipse, Particle
 
 from geommicgen.meshing.gmsh_mesher import GmshMesher, gmsh_session
 from geommicgen.meshing.images import periodic_images
@@ -266,8 +259,14 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
         plt.show()
 
 
+VIEW_ELEMENTS = {2: "tri3", 3: "tetra4"}
+# The element a view is built with, which is only ever a choice of order. A view is a
+# picture: it is written as a surface and looked at, never solved, so a second order
+# element buys nothing and costs about four times the nodes.
+
+
 @contextlib.contextmanager
-def gmsh_view(name, mesh_size, element_type="tetra4"):
+def gmsh_view(name, mesh_size, dim=3):
     """
     Open a gmsh session set up to build a view of the particles, and close it after.
 
@@ -279,8 +278,8 @@ def gmsh_view(name, mesh_size, element_type="tetra4"):
     mesh_size: float
         Largest element size.
 
-    element_type: str
-        Element whose options the session is set up with.
+    dim: {2, 3}
+        Number of spatial dimensions of the microstructure.
 
     Yields
     ------
@@ -288,7 +287,9 @@ def gmsh_view(name, mesh_size, element_type="tetra4"):
         The gmsh module, its model and its geometry kernel.
     """
     with gmsh_session() as gmsh:
-        GmshMesher(mesh_size=mesh_size, element_type=element_type).set_options(gmsh)
+        GmshMesher(
+            mesh_size=mesh_size, element_type=VIEW_ELEMENTS[dim]
+        ).set_options(gmsh)
         model = gmsh.model
         model.add(name)
 
@@ -489,8 +490,7 @@ def plot_particles_3d_one_by_one(particles, rve_dims, sample_dir, **kwargs):
     for i_ind, i_particle in enumerate(particles):
         dim = len(rve_dims)
         mesh_size = particles[0].radius / 2
-        element_type = "tetra4" if i_particle is Sphere else "tetra10"
-        with gmsh_view(sample_dir, mesh_size, element_type) as (gmsh, model, factory):
+        with gmsh_view(sample_dir, mesh_size) as (gmsh, model, factory):
 
             box_tag = factory.addBox(
                 0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2]
@@ -630,7 +630,7 @@ def plot_paths(particles, box, position_center_history, motion_results_dir):
 
             dim = len(box)
             mesh_size = particles[0].radius / 5
-            with gmsh_view(path_results_dir, mesh_size, "tri6") as (
+            with gmsh_view(path_results_dir, mesh_size, dim) as (
                 gmsh,
                 model,
                 factory,
@@ -652,7 +652,7 @@ def plot_paths(particles, box, position_center_history, motion_results_dir):
                     factory, dim, box_tag, particle_tags, phase_dim_tag
                 )
 
-                tag_phase_boundaries(model, phase_dim_tag, 1, 1)
+                tag_phase_boundaries(model, phase_dim_tag, dim, dim - 1)
 
                 # model.mesh.setSize(points, mesh_size)
                 gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
