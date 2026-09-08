@@ -5,8 +5,20 @@ import unittest
 from unittest.mock import Mock, patch
 from geommicgen.microstructure.phase import Phase
 from geommicgen.microstructure.particleclasses.particle import Particle
+from geommicgen.microstructure.particleclasses.disk import Disk
 
 class PhaseInit(unittest.TestCase):
+    from geommicgen.microstructure.particleclasses import Matrix, Disk
+    from geommicgen.microstructure.phase import (
+        FixedValue,
+        SpecifiedValue,
+        UniformDistribution,
+        NormalDistribution,
+        LogNormalDistribution,
+        VonMisesDistribution,
+        DiscreteDistribution,
+    )
+
     def test_all_phase_types_are_particle_subclasses(self):
         " Check that every class in Phase.phase_types is a subclass of Particle "
         for particle_class in Phase.phase_types.values():
@@ -14,6 +26,98 @@ class PhaseInit(unittest.TestCase):
                 issubclass(particle_class, Particle),
                 msg="{0} is not a subclass of Particle".format(particle_class.__name__),
             )
+
+    def test_uniform_distribution_init(self):
+        descriptors = {
+            "phase_type": 2,
+            "n": 10,
+            "r_distribution": "uniform",
+            "r_low": 1,
+            "r_high": 2,
+        }
+        phase = Phase("name", descriptors)
+        self.assertIsInstance(phase.descriptors["r"], self.UniformDistribution)
+
+    def test_normal_distribution_init(self):
+        descriptors = {
+            "phase_type": 2,
+            "n": 10,
+            "r_distribution": "normal",
+            "r_mean": 1,
+            "r_sigma": 2,
+        }
+        phase = Phase("name", descriptors)
+        self.assertIsInstance(phase.descriptors["r"], self.NormalDistribution)
+
+    def test_log_normal_distribution_init(self):
+        descriptors = {
+            "phase_type": 2,
+            "n": 10,
+            "r_distribution": "lognormal",
+            "r_mean": 1,
+            "r_sigma": 2,
+        }
+        phase = Phase("name", descriptors)
+        self.assertIsInstance(phase.descriptors["r"], self.LogNormalDistribution)
+
+    def test_von_mises_distribution_init(self):
+        descriptors = {
+            "phase_type": 3,
+            "n": 10,
+            "major_axis": 0.2,
+            "minor_axis": 0.1,
+            "angle_distribution": "vonmises",
+            "angle_kappa": 1,
+            "angle_loc": 0,
+            "angle_scale": 1,
+        }
+        phase = Phase("name", descriptors)
+        self.assertIsInstance(phase.descriptors["angle"], self.VonMisesDistribution)
+
+    def test_discrete_distribution_init(self):
+        descriptors = {
+            "phase_type": 2,
+            "n": 10,
+            "r_distribution": "discrete",
+            "r_value_1": 1,
+            "r_prob_1": 0.5,
+            "r_value_2": 2,
+            "r_prob_2": 0.5,
+        }
+        phase = Phase("name", descriptors)
+        self.assertIsInstance(phase.descriptors["r"], self.DiscreteDistribution)
+
+
+    def test_specified_value_distribution_init(self):
+        descriptors = {
+            "phase_type": 2,
+            "n": 10,
+            "r_distribution": "specified",
+            "r": [1, 2, 3],
+        }
+        phase = Phase("name", descriptors)
+        self.assertIsInstance(phase.descriptors["r"], self.SpecifiedValue)
+
+    def test_fixed_value_distribution_init(self):
+        descriptors = {
+            "phase_type": 2,
+            "n": 10,
+            "r_distribution": "fixed",
+            "r": 1,
+        }
+        phase = Phase("name", descriptors)
+        self.assertIsInstance(phase.descriptors["r"], self.FixedValue)
+
+    def test_invalid_distribution_raises_valueerror(self):
+        descriptors = {
+            "phase_type": 2,
+            "n": 10,
+            "r_distribution": "invalid_distribution",
+            "r": 1,
+        }
+        with self.assertRaises(ValueError):
+            Phase("name", descriptors)
+
 
 
 class TestPhaseProperties(unittest.TestCase):
