@@ -13,6 +13,7 @@ import numpy as np
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 import geommicgen.microstructure.particleclasses as part_cls
+from geommicgen.translators import writer_options
 import geommicgen.microstructure.phase as phase
 
 
@@ -236,8 +237,10 @@ class KeywordTypeC(Keyword):
     header_keys: set(`.Keyword`)
         Set containing the acceptable header keywords.
 
-    sub_keys: set(`.Keyword`)
-        Set containing the acceptable sub keywords.
+    sub_keys: dict or set(`.Keyword`)
+        The acceptable sub keywords. A set is read under every header; a dictionary
+        whose keys are the names of the headers says which are read under which, and a
+        sub keyword given under the wrong header is refused rather than ignored.
     """
 
     def __init__(self, name, header_keys, sub_keys, **kwargs):
@@ -259,6 +262,33 @@ class KeywordTypeC(Keyword):
         self.header_keys = header_keys
         self.sub_keys = sub_keys
 
+    @property
+    def all_sub_keys(self):
+        """Every sub keyword, whichever header it is read under."""
+        if isinstance(self.sub_keys, dict):
+            return set().union(*self.sub_keys.values())
+
+        return self.sub_keys
+
+    def sub_keys_of(self, header):
+        """
+        Get the sub keywords that are read under one header.
+
+        Parameters
+        ----------
+        header: str
+            Name of the header.
+
+        Returns
+        -------
+        set(`.Keyword`)
+            The sub keywords.
+        """
+        if isinstance(self.sub_keys, dict):
+            return self.sub_keys[header]
+
+        return self.sub_keys
+
     def read_value(self):
         """Read the values of the *self* keyword."""
         options = {}
@@ -272,7 +302,7 @@ class KeywordTypeC(Keyword):
             if all(
                 [
                     not keyword.is_in(line)
-                    for keyword in self.header_keys.union(self.sub_keys)
+                    for keyword in self.header_keys.union(self.all_sub_keys)
                 ]
             ):
                 # If the current line doesn't contain a known keyword, exit the block
@@ -289,8 +319,16 @@ class KeywordTypeC(Keyword):
                         )
                     options[current_header] = {}
                     break
-            for sub_keyword in self.sub_keys:
+            for sub_keyword in self.all_sub_keys:
                 if sub_keyword.is_in(line):
+                    if sub_keyword not in self.sub_keys_of(current_header):
+                        raise ValueError(
+                            "The keyword {0} is not read under {1}.".format(
+                                sub_keyword.name, current_header
+                            )
+                        )
+                    # Refused rather than ignored: a keyword under the wrong header used
+                    # to parse and then do nothing at all
                     if sub_keyword in keyword_already_supplied:
                         raise ValueError(
                             "The keyword {0} is supplied twice.".format(
@@ -694,6 +732,18 @@ top_level_reader.add_top_level_keyword(
 
 # Mesh generation parameters
 # ------------------------------------------------------------------------------------------
+FORMAT_KEYWORDS = {
+    Keyword("Formats", type_str="str_list"),
+    Keyword("Write_Msh", type_str="bool"),
+} | {
+    Keyword(i_name, type_str=i_description["type"])
+    for i_name, i_description in sorted(writer_options().items())
+}
+# The options of a discretisation that belong to the formats it is written in, rather
+# than to what discretises it. The ones a format declares are read here without this
+# module knowing which format declared them, so writing a new one that takes an option
+# is a change to that writer alone
+
 top_level_reader.add_top_level_keyword(
     KeywordTypeC(
         "Mesh_Options",
@@ -702,16 +752,18 @@ top_level_reader.add_top_level_keyword(
             Keyword("rgmsh", type_str="none"),
         },
         sub_keys={
-            Keyword("Element_Type", type_str="str"),
-            Keyword("Mesh_Size", type_str="float"),
-            Keyword("Elements_Per_Particle", type_str="float"),
-            Keyword("N_Voxels_Dims", type_str="int"),
-            Keyword("Slice_Dir", type_str="int"),
-            Keyword("Formats", type_str="str_list"),
-            Keyword("Write_Msh", type_str="bool"),
-            Keyword("Gauss_Points", type_str="int"),
-            Keyword("Boundary_Type", type_str="str"),
-            Keyword("Voxel_Filename", type_str="str"),
+            "femsh": {
+                Keyword("Element_Type", type_str="str"),
+                Keyword("Mesh_Size", type_str="float"),
+                Keyword("Elements_Per_Particle", type_str="float"),
+            }
+            | FORMAT_KEYWORDS,
+            "rgmsh": {
+                Keyword("N_Voxels_Dims", type_str="int"),
+                Keyword("Slice_Dir", type_str="int"),
+                Keyword("Voxel_Filename", type_str="str"),
+            }
+            | FORMAT_KEYWORDS,
         },
     )
 )

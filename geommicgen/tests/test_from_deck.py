@@ -112,6 +112,21 @@ class TestBuildMeshJobs(unittest.TestCase):
         # A writer is built from the options of the discretisation it belongs to, so a
         # deck configures a format the same way the command line does
 
+    def test_an_option_of_another_writer(self):
+        jobs = build_mesh_jobs(
+            {
+                "femsh": {
+                    "element_type": "tri3",
+                    "mesh_size": 0.1,
+                    "formats": ["abaqus"],
+                    "periodic_constraints": False,
+                }
+            }
+        )
+        self.assertFalse(jobs[0].writers[0].requires_periodic)
+        # Every writer is handed the options of the discretisation and takes what it
+        # declared, so one format's keyword costs the others nothing
+
     def test_slice_dir_is_refused(self):
         with self.assertRaises(ValueError) as context:
             build_mesh_jobs({"rgmsh": {"n_voxels_dims": [[10, 10]], "slice_dir": 0}})

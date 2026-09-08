@@ -9,7 +9,14 @@ from geommicgen.errors.error_classes import (
     PeriodicityError,
 )
 from geommicgen.meshing.mesh import Mesh
-from geommicgen.translators import MeshioWriter, available_writers, get_writer
+from geommicgen.translators import (
+    MeshioWriter,
+    SolverWriter,
+    available_writers,
+    get_writer,
+    writer_options,
+)
+from geommicgen.translators.base import WRITERS, register_writer
 from geommicgen.translators.abaqus import (
     REFERENCE_NODE_NAMES,
     abaqus_element_name,
@@ -398,6 +405,42 @@ class TestAbaqusWriter(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             abaqus_element_name("wedge")
         self.assertIn("hexahedron20", str(context.exception))
+
+
+class TestWriterOptions(unittest.TestCase):
+    """Test class for the options the writers declare."""
+
+    def test_every_declared_option_is_described(self):
+        for i_name, i_description in writer_options().items():
+            self.assertIn("type", i_description, i_name)
+            self.assertIn("help", i_description, i_name)
+            self.assertIn(i_description["type"], ("int", "float", "str", "bool"))
+        # The input file needs the type and the command line needs both, so a writer
+        # that declares an option without them breaks whichever asks first
+
+    def test_the_options_of_the_writers_that_have_them(self):
+        self.assertEqual(
+            sorted(writer_options()),
+            ["Boundary_Type", "Gauss_Points", "Periodic_Constraints"],
+        )
+
+    def test_two_formats_may_not_describe_one_option_differently(self):
+        class Conflicting(SolverWriter):
+            """A writer that reads an option of another format as something else."""
+
+            name = "conflicting"
+            extension = ".conflicting"
+            options = {"Gauss_Points": {"type": "str", "help": "not an integer"}}
+
+            def _write(self, mesh, file_path):
+                return [file_path]
+
+        register_writer(Conflicting)
+        self.addCleanup(WRITERS.pop, "conflicting", None)
+
+        with self.assertRaises(ValueError) as context:
+            writer_options()
+        self.assertIn("Gauss_Points", str(context.exception))
 
 
 class TestCrateWriter(unittest.TestCase):

@@ -7,6 +7,7 @@ from geommicgen.translators.base import (
     available_writers,
     get_writer,
     register_writer,
+    writer_options,
 )
 from geommicgen.translators.abaqus import AbaqusWriter
 from geommicgen.translators.crate import CrateWriter
@@ -25,4 +26,5 @@ __all__ = [
     "get_writer",
     "register_meshio_writers",
     "register_writer",
+    "writer_options",
 ]

@@ -51,6 +51,13 @@ class SolverWriter(abc.ABC):
     needs_grid: bool
         Whether the writer needs the grid of a structured mesh.
 
+    options: dict
+        Options the writer is configured with, as the name of the input file keyword
+        against a dictionary with the *type* of its value and the *help* that describes
+        it. The input file and the command line are built from these, so a writer
+        becomes configurable by declaring them and reading them in `.from_options`,
+        without either having to know the writer exists.
+
     requires_periodic: bool
         Whether the writer refuses a mesh whose opposite faces are not discretised
         alike, because the solver it writes for would refuse it in turn. This one is a
@@ -60,6 +67,7 @@ class SolverWriter(abc.ABC):
 
     name = None
     extension = None
+    options = {}
     needs_cells = True
     needs_grid = False
     requires_periodic = False
@@ -163,6 +171,38 @@ def register_writer(writer_class):
     # are read in that order, so the note has to go rather than sit behind the writer
 
     return writer_class
+
+
+def writer_options():
+    """
+    Collect the options of every writer that has one.
+
+    Returns
+    -------
+    dict
+        Correspondence between the name of an option and what describes it.
+
+    Raises
+    ------
+    ValueError:
+        If two writers describe the same option differently.
+    """
+    options = {}
+    for i_writer in WRITERS.values():
+        for j_name, j_description in i_writer.options.items():
+            if options.get(j_name, j_description) != j_description:
+                raise ValueError(
+                    "The option {0} is described differently by two formats.".format(
+                        j_name
+                    )
+                )
+            options[j_name] = j_description
+
+    return options
+    # Read off the writers that are registered, which is every one written by hand. The
+    # formats delegated to meshio take no options; a writer that takes one has to be
+    # registered when this is asked, which means imported by the package rather than by
+    # the loader that waits for a name to be looked up
 
 
 def register_loader(loader):

@@ -115,6 +115,19 @@ class LinksWriter(SolverWriter):
 
     name = "links"
     extension = ".mesh"
+    options = {
+        "Gauss_Points": {
+            "type": "int",
+            "help": "number of Gauss points per element, for the formats that record "
+            "one",
+        },
+        "Boundary_Type": {
+            "type": "str",
+            "help": "RVE constraint the example input file asks for; naming one that "
+            "ties faces which do not match is how a mesh that is not periodic is "
+            "written out",
+        },
+    }
 
     def __init__(
         self, gauss_points=None, boundary_type=DEFAULT_BOUNDARY_TYPE, write_example=True

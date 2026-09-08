@@ -106,11 +106,39 @@ class AbaqusWriter(SolverWriter):
 
     name = "abaqus"
     extension = ".inp"
+    options = {
+        "Periodic_Constraints": {
+            "type": "bool",
+            "help": "whether to write the constraints that make the cell periodic; "
+            "without them the deck carries the mesh and its sets alone",
+        }
+    }
 
     def __init__(self, periodic_constraints=True):
         """Initizalizer for the AbaqusWriter Class."""
         self.periodic_constraints = bool(periodic_constraints)
         self.requires_periodic = self.periodic_constraints
+
+    @classmethod
+    def from_options(cls, options):
+        """
+        Build the writer from the options a deck or a command line gave.
+
+        Parameters
+        ----------
+        options: dict
+            Options given for the discretisation, keyed by the name of the keyword.
+
+        Returns
+        -------
+        `.AbaqusWriter`
+            The writer.
+        """
+        constraints = options.get("periodic_constraints")
+
+        return cls(periodic_constraints=constraints is not False)
+        # Absent means wanted: a mesh of an RVE is periodic unless someone says the
+        # deck is not to constrain it
 
     def _write(self, mesh, file_path):
         """

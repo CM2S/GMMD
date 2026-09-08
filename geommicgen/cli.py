@@ -23,7 +23,12 @@ from geommicgen.meshing.from_deck import (
 )
 from geommicgen.meshing.mesher import available_meshers, get_mesher
 from geommicgen.meshing.writers import read_mesh
-from geommicgen.translators.base import available_writers, get_writer
+from geommicgen.translators.base import available_writers, get_writer, writer_options
+
+
+ARGUMENT_TYPES = {"int": int, "float": float, "str": str}
+# Correspondence between the types a format declares its options with and what argparse
+# reads them as. The boolean ones are flags rather than values and are not here
 
 
 def format_names(value):
@@ -81,25 +86,30 @@ def resolve_writers(parser, names, options=None):
 
 def add_format_arguments(parser):
     """Add the arguments a written format is configured with."""
-    parser.add_argument(
-        "--gauss-points",
-        type=int,
-        metavar="N",
-        help="number of Gauss points per element, for the formats that record one",
-    )
-    parser.add_argument(
-        "--boundary-type",
-        metavar="NAME",
-        help="RVE constraint the example input file asks for; naming one that ties "
-        "faces that do not match is how a mesh that is not periodic is written out",
-    )
+    for i_name, i_description in sorted(writer_options().items()):
+        flag = "--{0}".format(i_name.lower().replace("_", "-"))
+        if i_description["type"] == "bool":
+            parser.add_argument(
+                flag,
+                action=argparse.BooleanOptionalAction,
+                default=None,
+                help=i_description["help"],
+            )
+        else:
+            parser.add_argument(
+                flag,
+                type=ARGUMENT_TYPES[i_description["type"]],
+                help=i_description["help"],
+            )
+    # Taken from the formats themselves, so a writer that declares an option is asked
+    # for it here without this module naming it
 
 
 def format_options(arguments):
     """Collect the format arguments the way the input data file keys them."""
     return {
-        "gauss_points": arguments.gauss_points,
-        "boundary_type": arguments.boundary_type,
+        i_name.lower(): getattr(arguments, i_name.lower())
+        for i_name in writer_options()
     }
 
 

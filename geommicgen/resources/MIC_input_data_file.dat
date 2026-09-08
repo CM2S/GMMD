@@ -371,7 +371,24 @@
 #
 #		 x: str, one of the RVE constraints LINKS accepts, such as
 #		    'Periodic_Condition' (the default) or 'Mortar_Periodic_Condition'.
+#                ........................................................................
+#		 Periodic constraints                                                 [O]
+#
+#		 Meaning: Whether the Abaqus input file carries the reference nodes and the
+#		 	  equations that make the cell periodic. Without them the file holds
+#		 	  the mesh, the element sets and the node sets alone, and the mesh
+#		 	  need not be periodic. Defaults to writing them.
+#
+#	         Syntax: periodic_constraints x
+#
+#		 x: bool
 #		 ========================================================================
+#
+#		 Gauss_Points, Boundary_Type and Periodic_Constraints belong to the formats
+#		 rather than to the discretisation, so each is read under either mesh type,
+#		 and a format takes the ones it understands and ignores the rest. The other
+#		 options above belong to one mesh type, and giving one under the other is
+#		 refused rather than ignored.
 #
 # y: depends on the corresponding mesh_option_Y
 #
