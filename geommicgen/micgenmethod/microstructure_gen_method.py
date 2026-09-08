@@ -44,83 +44,6 @@ class GenerationMethod(abc.ABC):
 
         """
 
-        def min_dist_to_part(offset, particles, rve_dims):
-            """Compute the minum distance from offset to the surface of the particles."""
-            offset_array = np.array(offset)
-            # list to array
-            dim = particles[0].dim
-            all_dist = []
-            # List containing all the distances from offset to the surface of the particles
-            if dim == 2:
-                point_offset = Point(dim, "1")
-                point_offset.position_center = offset_array[0:dim]
-                # Setting up the Point object corresponding to the offset
-                for i_particle in particles:
-                    pos_offset = Particle.nearest_periodic_image(
-                        offset_array[0:dim], i_particle.position_center, rve_dims
-                    )
-                    # Nearest periodic image for the offset
-                    if (
-                        np.linalg.norm(pos_offset[:dim] - i_particle.position_center)
-                        < i_particle.radius
-                    ):
-                        # Not considering any particles not intersecting the circumsbribed
-                        # circumpherence
-                        if i_particle.point_inside(offset_array[:dim], rve_dims):
-                            # If the offset is inside the particle this will be the smallest
-                            # distance
-                            _, dist, _ = i_particle.intersection_gjk(
-                                point_offset, rve_dims, out_dist=True
-                            )
-                            all_dist = [dist]
-                            break
-
-                        _, dist, _ = i_particle.intersection_gjk(
-                            point_offset, rve_dims, out_dist=True
-                        )
-                        all_dist.append(dist)
-            elif dim == 3:
-                pass
-                # In 3D the computation of a the from the line to the surface of the
-                # particles is not working properly when the line intersects the particle
-
-                # edge_1 = Line("1", 0)
-                # edge_2 = Line("1", 1)
-                # edge_3 = Line("1", 2)
-                # edge_1.position_center = offset_array
-                # edge_2.position_center = offset_array
-                # edge_3.position_center = offset_array
-                # edges = [edge_1, edge_2, edge_3]
-                # for j_ind_edge, j_edge in enumerate(edges):
-                #     indices = [0, 1, 2]
-                #     indices.remove(j_ind_edge)
-                #     for i_particle in particles:
-                #         pos_offset = Particle.nearest_periodic_image(
-                #             offset_array, i_particle.position_center, rve_dims
-                #         )
-                #         if (
-                #             np.linalg.norm(
-                #                 pos_offset[indices]
-                #                 - i_particle.position_center[indices]
-                #             )
-                #             <= i_particle.radius
-                #         ):
-                #             intersection, overlap, _ = i_particle.intersection_gjk(
-                #                 j_edge, rve_dims, out_dist=True
-                #             )
-                #             if overlap > i_particle.radius / 2 and intersection:
-                #                 overlap = 0  # i_particle.radius / 100
-                #                 # print(
-                #                 #     intersection,
-                #                 #     j_ind_edge,
-                #                 #     vars(j_edge),
-                #                 #     vars(i_particle),
-                #                 # )
-                #             all_dist.append(overlap)
-            min_dist = np.min(all_dist) if len(all_dist) > 0 else np.max(rve_dims)
-
-            return min_dist
-
         offset = [0, 0, 0]
         all_lim_sort = [[], [], []]
         dist = [0, 0, 0]
@@ -150,63 +73,22 @@ class GenerationMethod(abc.ABC):
             # Getting the indices sorting the distances from smallest to largest
         k_ind_sort = [1, 1, 1]
         # Initializing the list for the current indices of the sort vector
-        while True:
-            for i_dim in range(particles[0].dim):
-                while True:
-                    if k_ind_sort[i_dim] > len(dist[i_dim]):
-                        # every gap has been tried; keep the widest one
-                        k_ind_sort[i_dim] = 1
-                    i_gap = sort_max[i_dim][-k_ind_sort[i_dim]]
-                    offset[i_dim] = (
-                        all_lim_sort[i_dim][i_gap] + dist[i_dim][i_gap] / 2
-                    ) % rve_dims[i_dim]
-                    # offset is the midpoint of the gap, taken on the circle. Cutting
-                    # there puts the RVE face as far as possible from the nearest
-                    # particle extreme, which is what makes the face cut a clean one
-                    # instead of a sliver.
-                    if 0 < offset[i_dim] < rve_dims[i_dim]:
-                        # accept the current offset if it is inside the simulation box
-                        # else move to the next
-                        break
-                    k_ind_sort[i_dim] += 1
+        for i_dim in range(particles[0].dim):
+            while True:
+                if k_ind_sort[i_dim] > len(dist[i_dim]):
+                    # every gap has been tried; keep the widest one
+                    k_ind_sort[i_dim] = 1
+                i_gap = sort_max[i_dim][-k_ind_sort[i_dim]]
+                offset[i_dim] = (
+                    all_lim_sort[i_dim][i_gap] + dist[i_dim][i_gap] / 2
+                ) % rve_dims[i_dim]
+                # offset is the midpoint of the gap, taken on the circle, which puts
+                # the RVE face as far as it can be from the nearest particle extreme
+                # along this direction.
+                if 0 < offset[i_dim] < rve_dims[i_dim]:
+                    # accept the current offset if it is inside the simulation box
+                    # else move to the next
+                    break
+                k_ind_sort[i_dim] += 1
 
-            min_dist = min_dist_to_part(offset, particles, rve_dims)
-            # Compute the minimum distance for the current point to the surface of all the
-            # particles.
-            if (
-                min_dist
-                > np.min(
-                    [
-                        dist[i_dim][sort_max[i_dim][-k_ind_sort[i_dim]]]
-                        for i_dim in range(particles[0].dim)
-                    ]
-                )
-                / 2
-            ) or any([k_ind_sort[i_dim] > 10 for i_dim in range(particles[0].dim)]):
-                # Accept the current offset if the minimum distance is smaller than half the
-                # distance to any of the limits
-
-                # self.mesh_size_min = (
-                #     np.min(
-                #         [self.mesh_size_min, min_dist]
-                #         + [
-                #             dist[i_dim][sort_max[i_dim][-k_ind_sort[i_dim]]]
-                #             for i_dim in range(particles[0].dim)
-                #         ]
-                #     )
-                #     / 2
-                # )
-                break
-            ind_inc = np.argmax(
-                [
-                    dist[i_dim][
-                        sort_max[i_dim][
-                            -min(k_ind_sort[i_dim] + 1, len(dist[i_dim]))
-                        ]
-                    ]
-                    for i_dim in range(particles[0].dim)
-                ]
-            )
-            k_ind_sort[ind_inc] += 1
-            # Increase the index whose next distance is the largest
         return offset
