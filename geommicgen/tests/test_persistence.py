@@ -23,7 +23,7 @@ from geommicgen.iofuncs.file_handling import (
 )
 from geommicgen.meshing.from_deck import MeshJob
 from geommicgen.meshing.voxel_mesher import VoxelMesher
-from geommicgen.micgenmethod.md_state import (
+from geommicgen.iofuncs.md_state import (
     STATE_FILE_NAME,
     load_md_state,
     save_md_state,
@@ -290,14 +290,27 @@ class SaveStatusTest(unittest.TestCase):
         )
         lines = self.status_lines()
 
-        self.assertEqual(
-            lines[3], "Mesh grid_8_8 (Regular mesh generation): ok"
-        )
+        self.assertEqual(lines[3], "Mesh grid_8_8 (Regular mesh generation): ok")
         self.assertTrue(
             lines[4].startswith("Mesh grid_8_8_8 (Regular mesh generation): failed:"),
             lines[4],
         )
         self.assertIn("ValueError", lines[4])
+
+    def test_a_discretisation_that_never_ran_does_not_say_ok(self):
+        """A job with no error has not thereby succeeded."""
+        never_ran = MeshJob(VoxelMesher([8, 8]), [], "grid_8_8")
+
+        save_status(
+            self.sample_dir, self.microstructure, self.mic_generator, [never_ran]
+        )
+
+        self.assertEqual(
+            self.status_lines()[3], "Mesh grid_8_8 (Regular mesh generation): not run"
+        )
+        # The final configuration is plotted before anything is meshed, so a run that
+        # dies there reaches the status file with jobs that carry no error because they
+        # never had the chance to fail
 
 
 class AdjustRVEDimsTest(unittest.TestCase):

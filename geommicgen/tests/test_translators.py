@@ -10,11 +10,7 @@ from geommicgen.errors.error_classes import (
 )
 from geommicgen.meshing.mesh import Mesh
 from geommicgen.translators import available_writers, get_writer
-from geommicgen.translators.links import (
-    BOUNDARY_TYPES,
-    CONFORMING_BOUNDARY_TYPES,
-    uniform_gauss_points,
-)
+from geommicgen.translators.links import uniform_gauss_points
 from geommicgen.translators.reorder import (
     LINKS_DEFAULT_GAUSS_POINTS,
     VTK_TO_LINKS,
@@ -217,15 +213,30 @@ class TestLinksWriter(unittest.TestCase):
         self.assertIn("Mortar_Periodic_Condition", str(context.exception))
         # The message lists what LINKS does accept, which is the thing a near miss needs
 
-    def test_only_the_pairing_constraints_need_a_periodic_mesh(self):
-        for i_type in BOUNDARY_TYPES:
-            self.assertEqual(
-                get_writer("links")(boundary_type=i_type).requires_periodic,
-                i_type in CONFORMING_BOUNDARY_TYPES,
-                i_type,
+    def test_the_constraints_that_pair_nodes_need_a_conforming_mesh(self):
+        for i_type in (
+            "Periodic_Condition",
+            "Kouznetsova_Periodic_Condition",
+            "Luscher_Periodic_Condition",
+            "Luscher_Periodic_Condition_LM",
+        ):
+            self.assertTrue(
+                get_writer("links")(boundary_type=i_type).requires_periodic, i_type
             )
-        # LINKS verifies the periodicity for four of them and for no other, so those
-        # four are the ones a mesh has to be conforming for
+        for i_type in (
+            "Mortar_Periodic_Condition",
+            "Mortar_Periodic_Condition_II",
+            "Luscher_Mortar_Periodic_Condition",
+            "Taylor_Condition",
+            "Linear_Condition",
+            "Uniform_Traction_Condition",
+            "Luscher_Minimal_Condition",
+        ):
+            self.assertFalse(
+                get_writer("links")(boundary_type=i_type).requires_periodic, i_type
+            )
+        # These four and no others are what LINKS runs its own periodicity verification
+        # for, in ioctrl/rve/getbcnnodes2d.f90 and the three files beside it
 
 
 class TestCrateWriter(unittest.TestCase):

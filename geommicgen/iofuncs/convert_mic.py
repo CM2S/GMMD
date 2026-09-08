@@ -13,7 +13,8 @@ import pickle
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-from geommicgen.micgenmethod.md_state import save_md_state
+from geommicgen.iofuncs.file_handling import MIC_FILE_NAME
+from geommicgen.iofuncs.md_state import save_md_state
 from geommicgen.iofuncs.microstructure_yaml import write_microstructure_yaml
 
 
@@ -52,7 +53,7 @@ def convert_mic_command(argv=None):
 
     file_path = arguments.output
     if file_path is None:
-        file_path = os.path.join(os.path.dirname(arguments.mic), "mic.yaml")
+        file_path = os.path.join(os.path.dirname(arguments.mic), MIC_FILE_NAME)
 
     write_microstructure_yaml(
         archive["microstructure"],

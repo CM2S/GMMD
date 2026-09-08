@@ -33,49 +33,40 @@ WRITE_CHUNK = 500000
 # Number of lines formatted at a time. The file object buffers the writing itself, so
 # the chunk is here only to bound the size of the string each format call builds
 
-BOUNDARY_TYPES = (
-    "Taylor_Condition",
-    "Linear_Condition",
-    "Periodic_Condition",
-    "Uniform_Traction_Condition",
-    "Uniform_Traction_Condition_II",
-    "Mortar_Periodic_Condition",
-    "Mortar_Periodic_Condition_II",
-    "Kouznetsova_Periodic_Condition",
-    "Kouznetsova_Mortar_Periodic_Condition",
-    "Luscher_Direct_Condition",
-    "Luscher_Direct_Condition_LM",
-    "Luscher_Periodic_Condition",
-    "Luscher_Periodic_Condition_LM",
-    "Luscher_Mortar_Periodic_Condition",
-    "Luscher_Minimal_Condition",
-    "Blanco_Minimal_Condition",
-    "Blanco_Trial_Condition",
-    "MMVP_NoSym_Condition",
-    "2nd_Taylor_Condition",
-    "2nd_Direct_Condition",
-    "2nd_Minimal_Condition",
-    "2nd_MinimalSym_Condition",
-)
+BOUNDARY_TYPES = {
+    "Taylor_Condition": False,
+    "Linear_Condition": False,
+    "Periodic_Condition": True,
+    "Uniform_Traction_Condition": False,
+    "Uniform_Traction_Condition_II": False,
+    "Mortar_Periodic_Condition": False,
+    "Mortar_Periodic_Condition_II": False,
+    "Kouznetsova_Periodic_Condition": True,
+    "Kouznetsova_Mortar_Periodic_Condition": False,
+    "Luscher_Direct_Condition": False,
+    "Luscher_Direct_Condition_LM": False,
+    "Luscher_Periodic_Condition": True,
+    "Luscher_Periodic_Condition_LM": True,
+    "Luscher_Mortar_Periodic_Condition": False,
+    "Luscher_Minimal_Condition": False,
+    "Blanco_Minimal_Condition": False,
+    "Blanco_Trial_Condition": False,
+    "MMVP_NoSym_Condition": False,
+    "2nd_Taylor_Condition": False,
+    "2nd_Direct_Condition": False,
+    "2nd_Minimal_Condition": False,
+    "2nd_MinimalSym_Condition": False,
+}
 # RVE constraints LINKS accepts, from the keyword it reads them with in
-# ioctrl/indata_mod.f90. Naming one it does not know is refused here, where the message
-# can list them, rather than by the solver once the analysis is launched
+# ioctrl/indata_mod.f90, and whether each one pairs the nodes of opposite faces and so
+# needs the two faces discretised alike. The four that do are exactly the ones LINKS
+# runs its own periodicity verification for, in ioctrl/rve/getbcnnodes2d.f90 and the
+# three files beside it. The mortar conditions exist in order to tie faces that do not
+# match, and the remaining ones constrain the boundary without pairing anything. Naming
+# a constraint LINKS does not know is refused here, where the message can list them,
+# rather than by the solver once the analysis is launched
 
 DEFAULT_BOUNDARY_TYPE = "Periodic_Condition"
-
-CONFORMING_BOUNDARY_TYPES = frozenset(
-    {
-        "Periodic_Condition",
-        "Kouznetsova_Periodic_Condition",
-        "Luscher_Periodic_Condition",
-        "Luscher_Periodic_Condition_LM",
-    }
-)
-# Constraints that pair the nodes of opposite faces and therefore need the two faces
-# discretised alike. These four are exactly the ones LINKS runs its own periodicity
-# verification for, in ioctrl/rve/getbcnnodes2d.f90 and the three files beside it. The
-# mortar conditions exist in order to tie faces that do not match, and the remaining
-# ones constrain the boundary without pairing anything
 
 
 def uniform_gauss_points(n_points):
@@ -123,7 +114,6 @@ class LinksWriter(SolverWriter):
 
     name = "links"
     extension = ".mesh"
-    requires_periodic = True
 
     def __init__(
         self, gauss_points=None, boundary_type=DEFAULT_BOUNDARY_TYPE, write_example=True
@@ -136,7 +126,7 @@ class LinksWriter(SolverWriter):
             )
         self.gauss_points = dict(gauss_points) if gauss_points else {}
         self.boundary_type = boundary_type
-        self.requires_periodic = boundary_type in CONFORMING_BOUNDARY_TYPES
+        self.requires_periodic = BOUNDARY_TYPES[boundary_type]
         self.write_example = write_example
         # Asking for a mortar constraint is how a mesh whose faces do not match is
         # written out on purpose, which is not the same as the writer giving up on

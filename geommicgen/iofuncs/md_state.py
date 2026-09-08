@@ -123,9 +123,9 @@ def save_md_state(sample_dir, mic_generator):
     """
     thermostat = getattr(mic_generator, "thermostat", None)
     arrays = {
-        "step": np.array(int(mic_generator.step)),
+        "step": int(mic_generator.step),
         "time": _scalar(mic_generator.time),
-        "status": np.array(bool(mic_generator.status)),
+        "status": bool(mic_generator.status),
         "max_residue": _scalar(mic_generator.max_residue),
         "total_overlap_history": _history(mic_generator.total_overlap_history),
         "kinetic_energy_history": _history(mic_generator.kinetic_energy_history),
@@ -143,7 +143,9 @@ def save_md_state(sample_dir, mic_generator):
     # that would read back as a history of no particles
 
     file_path = os.path.join(sample_dir, STATE_FILE_NAME)
-    np.savez_compressed(file_path, **arrays)
+    np.savez(file_path, **arrays)
+    # Not compressed: the histories are trajectory floats, which deflate by a few per
+    # cent and cost some thirty times the write
 
     return file_path
 
@@ -168,25 +170,25 @@ def load_md_state(file_path):
     with np.load(file_path) as state:
         positions = None
         if "position_center_history" in state:
-            positions = [
-                [j_center for j_center in i_particle_history]
-                for i_particle_history in state["position_center_history"]
-            ]
+            positions = list(state["position_center_history"])
         # The motion analysis walks the history of one particle at a time, so it is
-        # handed back the same list of lists the run built
+        # handed one entry per particle. Each is a row of the array rather than a list
+        # of its own: indexing a row by step gives the same position back, and building
+        # the lists costs an array per particle per step
 
         return GenerationState(
-            int(state["step"]),
-            _optional(state["time"]),
-            bool(state["status"]),
-            _optional(state["max_residue"]),
-            state["total_overlap_history"].tolist(),
-            positions,
-            state["kinetic_energy_history"].tolist(),
-            state["thermic_energy_history"].tolist(),
-            state["all_dt"].tolist(),
-            ThermostatState(
-                state["temp_change_steps"].tolist(), state["ratio"].tolist()
+            step=int(state["step"]),
+            time=_optional(state["time"]),
+            status=bool(state["status"]),
+            max_residue=_optional(state["max_residue"]),
+            total_overlap_history=state["total_overlap_history"].tolist(),
+            position_center_history=positions,
+            kinetic_energy_history=state["kinetic_energy_history"].tolist(),
+            thermic_energy_history=state["thermic_energy_history"].tolist(),
+            all_dt=state["all_dt"].tolist(),
+            thermostat=ThermostatState(
+                temp_change_steps=state["temp_change_steps"].tolist(),
+                ratio=state["ratio"].tolist(),
             ),
         )
 
@@ -242,7 +244,7 @@ def _history(history, dtype=float):
     array
         Array holding the history.
     """
-    return np.asarray(list(history), dtype=dtype)
+    return np.asarray(history, dtype=dtype)
 
 
 def _position_history(history):

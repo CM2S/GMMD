@@ -91,9 +91,9 @@ def run_program():
                 "Number of samples must be a positve integer larger than 1."
             )
 
-        fileio.PROVENANCE = {"source_deck": os.path.basename(input_file_path)}
+        provenance = {"source_deck": os.path.basename(input_file_path)}
         if mic_gen_parameters.get("fixed_seed") is not None:
-            fileio.PROVENANCE["fixed_seed"] = mic_gen_parameters["fixed_seed"]
+            provenance["fixed_seed"] = mic_gen_parameters["fixed_seed"]
         # Carried by every microstructure file the run writes, so that a sample says
         # what produced it
 
@@ -244,10 +244,13 @@ def run_program():
                 current_mic_generator.generate_microstructure(current_sample)
             finally:
                 # Use in data-driven framework
-                if top_level_reader.all_options["save_min"]:
-                    fileio.save_mic(sample_dir, current_sample, None)
-                else:
-                    fileio.save_mic(sample_dir, current_sample, current_mic_generator)
+                fileio.save_mic(
+                    sample_dir,
+                    current_sample,
+                    None if top_level_reader.all_options["save_min"] else
+                    current_mic_generator,
+                    provenance=provenance,
+                )
                 fileio.save_status(sample_dir, current_sample, current_mic_generator)
                 # Saving the RVE properties. The status is written here as well as
                 # after the meshing, so that a generation that raised still leaves one

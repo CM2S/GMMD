@@ -16,7 +16,11 @@ import os
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-from geommicgen.meshing.from_deck import MeshJob, write_formats
+from geommicgen.meshing.from_deck import (
+    MeshJob,
+    write_formats,
+    writers_from_options,
+)
 from geommicgen.meshing.mesher import available_meshers, get_mesher
 from geommicgen.meshing.writers import read_mesh
 from geommicgen.translators.base import available_writers, get_writer
@@ -66,7 +70,7 @@ def resolve_writers(parser, names, options=None):
     """
     options = {} if options is None else options
     try:
-        return [get_writer(i_name).from_options(options) for i_name in names]
+        return writers_from_options(dict(options, formats=names), ())
     except ValueError as error:
         parser.error(str(error))
     # Resolved before any work is done, and reported in the words of the registry,

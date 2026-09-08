@@ -139,6 +139,28 @@ class MeshJob:
         finally:
             self.time = time.time() - start
 
+    def summary(self):
+        """
+        Say in one line what became of the discretisation.
+
+        Returns
+        -------
+        str
+            The name of the files, what discretised them, and the outcome.
+        """
+        if self.time is None:
+            outcome = "not run"
+        elif self.error is None:
+            outcome = "ok"
+        else:
+            outcome = "failed: {0}: {1}".format(
+                type(self.error).__name__, self.error
+            )
+        # A job that has not run has no error either, so the absence of one is not on
+        # its own the same as having succeeded
+
+        return "{0} ({1}): {2}".format(self.base_name, self.description, outcome)
+
     def write(self, mesh, base_path):
         """
         Write a mesh in the standard format and with every writer the job asks for.
@@ -292,8 +314,8 @@ def writers_from_options(options, defaults):
     Raises
     ------
     ValueError:
-        If a format is named that there is no writer for, or if an option it is given
-        is not one it accepts.
+        If a format is named that there is no writer for, or if an option a writer does
+        understand is not a value it accepts.
     """
     names = options.get("formats", None)
     names = list(defaults) if names is None else list(names)

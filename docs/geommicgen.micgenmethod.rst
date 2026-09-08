@@ -7,7 +7,6 @@ Submodules
 .. toctree::
 
    geommicgen.micgenmethod.integration_methods
-   geommicgen.micgenmethod.md_state
    geommicgen.micgenmethod.mic_from_imagej
    geommicgen.micgenmethod.microstructure_gen_method
    geommicgen.micgenmethod.molecular_dynamics_sim

@@ -10,7 +10,7 @@ import shutil
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 from geommicgen.micgenmethod.mic_from_imagej import generate_microstructure_from_csv
-from geommicgen.micgenmethod.md_state import (
+from geommicgen.iofuncs.md_state import (
     STATE_FILE_NAME,
     load_md_state,
     save_md_state,
@@ -22,10 +22,10 @@ from geommicgen.iofuncs.microstructure_yaml import (
 from .printing import print_output
 
 RESULTS_FOLDER = ""
-PROVENANCE = {}
 
 MIC_FILE_NAME = "mic.yaml"
 MIC_EXTENSIONS = {".yaml", ".yml"}
+LOADABLE_EXTENSIONS = MIC_EXTENSIONS | {".csv"}
 
 
 def create_sample_results_directory(dp_dir):
@@ -123,19 +123,44 @@ def get_arguments_from_command_line():
     # Obtaining the directory and the name of the input file
     previous_mic_path = None
     if len(sys.argv) == 3:
-        _, ext = os.path.splitext(os.path.basename(sys.argv[2]))
-        if ext in MIC_EXTENSIONS | {".csv"}:
-            previous_mic_path = sys.argv[2]
-        else:
-            raise ValueError(
-                "Wrong extension for the previous microstructure file: {0}".format(ext)
-            )
+        previous_mic_path = sys.argv[2]
+        check_loadable(previous_mic_path)
+        # Refused while the arguments are read rather than once the run is under way,
+        # by the same check that will do the loading
     return input_file_path, input_file_dir, input_file_name, ext, previous_mic_path
+
+
+def check_loadable(previous_mic_path):
+    """
+    Refuse a previous microstructure that is not of a kind that can be read.
+
+    Parameters
+    ----------
+    previous_mic_path: str
+        Path of the microstructure file.
+
+    Returns
+    -------
+    str
+        Extension of the file.
+
+    Raises
+    ------
+    ValueError:
+        If it is not one of the kinds that can be read.
+    """
+    _, ext = os.path.splitext(os.path.basename(previous_mic_path))
+    if ext not in LOADABLE_EXTENSIONS:
+        raise ValueError(
+            "Wrong extension for the previous microstructure file: {0}".format(ext)
+        )
+
+    return ext
 
 
 def load_previous_sample(previous_mic_path):
     """Load a microstructure sample."""
-    _, ext = os.path.splitext(os.path.basename(previous_mic_path))
+    ext = check_loadable(previous_mic_path)
     if ext in MIC_EXTENSIONS:
         current_sample = read_microstructure_yaml(previous_mic_path)
         current_mic_generator = load_md_state(
@@ -144,25 +169,50 @@ def load_previous_sample(previous_mic_path):
         # No need to generate a new microstructure. Using a previous microstructure. The
         # state of the run that produced it sits beside it, and is simply absent for a
         # microstructure that came from somewhere else
-    elif ext == ".csv":
+    else:
         current_sample = generate_microstructure_from_csv(previous_mic_path)
         current_mic_generator = None
-    else:
-        raise ValueError(
-            "Wrong extension for the previous microstructure file: {0}".format(ext)
-        )
     return current_sample, current_mic_generator
 
 
-def save_mic(sample_dir, current_sample, current_mic_generator, print_out=True):
-    """Save the microstructure, and the state of the run that produced it."""
+def save_mic(
+    sample_dir, current_sample, current_mic_generator, print_out=True, provenance=None
+):
+    """
+    Save the microstructure, and the state of the run that produced it.
+
+    Parameters
+    ----------
+    sample_dir: str
+        Directory of the sample.
+
+    current_sample: `.Microstructure`
+        Microstructure to be saved.
+
+    current_mic_generator: `.MolecularDynamicsSimulation`
+        Generation method that produced it, when there is one.
+
+    print_out: bool
+        Whether to report the file that was written.
+
+    provenance: dict
+        What the microstructure came from, such as the input data file and the random
+        seed. Optional.
+
+    Returns
+    -------
+    str
+        Path of the microstructure file that was written.
+    """
     file_path = os.path.join(sample_dir, MIC_FILE_NAME)
-    write_microstructure_yaml(current_sample, file_path, provenance=PROVENANCE)
+    write_microstructure_yaml(current_sample, file_path, provenance=provenance)
     if current_mic_generator is not None:
         save_md_state(sample_dir, current_mic_generator)
     if print_out:
         print_output(file_path)
     # Saving the configuration for later use
+
+    return file_path
 
 
 def save_status(sample_dir, current_sample, current_mic_generator, mesh_jobs=()):
@@ -195,17 +245,7 @@ def save_status(sample_dir, current_sample, current_mic_generator, mesh_jobs=())
         status.writelines(overlap_line)
         status.writelines(status_line)
         for i_job in mesh_jobs:
-            if i_job.error is None:
-                outcome = "ok"
-            else:
-                outcome = "failed: {0}: {1}".format(
-                    type(i_job.error).__name__, i_job.error
-                )
-            status.writelines(
-                "Mesh {0} ({1}): {2}\n".format(
-                    i_job.base_name, i_job.description, outcome
-                )
-            )
+            status.writelines("Mesh {0}\n".format(i_job.summary()))
 
 
 def delete_screen(screen_dir):
