@@ -102,7 +102,6 @@ def run_program():
             sample_dir, sample_file_path = fileio.create_sample_results_directory(
                 results_folder
             )
-            fileio.SAMPLE_DIR = sample_dir
             # Producing the number of samples required
 
             print_funcs.SCREEN_DIR = sample_dir

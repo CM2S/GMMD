@@ -21,7 +21,6 @@ from geommicgen.iofuncs.microstructure_yaml import (
 )
 from .printing import print_output
 
-SAMPLE_DIR = ""
 RESULTS_FOLDER = ""
 PROVENANCE = {}
 

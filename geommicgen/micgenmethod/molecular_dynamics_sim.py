@@ -17,15 +17,10 @@ from scipy.stats import hmean
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 import geommicgen.errors.error_classes as errors
-import geommicgen.iofuncs.file_handling as fileio
 import geommicgen.iofuncs.printing as print_funcs
 from geommicgen.microstructure.particleclasses import Matrix
 from geommicgen.micgenmethod.microstructure_gen_method import GenerationMethod
 from geommicgen.micgenmethod.integration_methods import verlet_sync_integration
-
-# Shortest interval, in seconds, between two writes of the configuration while a
-# simulation is running
-CHECKPOINT_INTERVAL = 5.0
 
 
 class MolecularDynamicsSimulation(GenerationMethod):
@@ -267,7 +262,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.all_dt = []
 
         self.status = False
-        self._last_checkpoint = 0.0
         self._original_box = None
 
     def generate_microstructure(self, microstructure_sample):
@@ -766,17 +760,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     self.step,
                     self.total_overlap,
                 )
-                if time.time() - self._last_checkpoint > CHECKPOINT_INTERVAL:
-                    fileio.save_mic(
-                        fileio.SAMPLE_DIR,
-                        self.microstructure_sample,
-                        None,
-                        print_out=False,
-                    )
-                    self._last_checkpoint = time.time()
-                    # Writing the configuration out is worth more than the step it is
-                    # protecting, so an interrupted run leaves one behind at an interval
-                    # rather than at every step
                 if self.step > 500 and all(
                     (
                         np.abs(
