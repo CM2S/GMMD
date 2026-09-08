@@ -11,6 +11,7 @@ Submodules
 
 .. toctree::
 
+   geommicgen.translators.abaqus
    geommicgen.translators.base
    geommicgen.translators.crate
    geommicgen.translators.links

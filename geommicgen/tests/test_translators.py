@@ -9,7 +9,11 @@ from geommicgen.errors.error_classes import (
     PeriodicityError,
 )
 from geommicgen.meshing.mesh import Mesh
-from geommicgen.translators import available_writers, get_writer
+from geommicgen.translators import MeshioWriter, available_writers, get_writer
+from geommicgen.translators.abaqus import (
+    REFERENCE_NODE_NAMES,
+    abaqus_element_name,
+)
 from geommicgen.translators.links import uniform_gauss_points
 from geommicgen.translators.reorder import (
     LINKS_DEFAULT_GAUSS_POINTS,
@@ -18,7 +22,6 @@ from geommicgen.translators.reorder import (
     reorder_connectivity,
 )
 from geommicgen.tests.helpers import structured_mesh
-
 
 
 def parse_links_mesh(file_path):
@@ -37,7 +40,6 @@ def parse_links_mesh(file_path):
             blocks[current]["lines"].append(i_line)
 
     return blocks
-
 
 
 class TestReorderTables(unittest.TestCase):
@@ -182,9 +184,9 @@ class TestLinksWriter(unittest.TestCase):
             phase_names=self.mesh.phase_names,
             matrix_phase="1",
         )
-        written = get_writer("links")(
-            boundary_type="Mortar_Periodic_Condition"
-        ).write(broken, self.file_path)
+        written = get_writer("links")(boundary_type="Mortar_Periodic_Condition").write(
+            broken, self.file_path
+        )
         self.assertTrue(os.path.exists(written[0]))
         with open(written[1], "r") as example_file:
             self.assertIn(
@@ -192,7 +194,6 @@ class TestLinksWriter(unittest.TestCase):
             )
         # The escape is asking for a constraint that ties faces which do not match,
         # which is a thing the deck says rather than something the writer decides
-
 
     def test_gauss_points_asked_for_in_the_options(self):
         writer = get_writer("links").from_options({"gauss_points": 6})
@@ -237,6 +238,209 @@ class TestLinksWriter(unittest.TestCase):
             )
         # These four and no others are what LINKS runs its own periodicity verification
         # for, in ioctrl/rve/getbcnnodes2d.f90 and the three files beside it
+
+
+def parse_abaqus_equations(file_path):
+    """Read back the equations of an Abaqus input file as lists of terms."""
+    with open(file_path, "r") as deck:
+        lines = deck.read().splitlines()
+
+    equations = []
+    i_line = 0
+    while i_line < len(lines):
+        if lines[i_line].strip() != "*Equation":
+            i_line += 1
+            continue
+        n_terms = int(lines[i_line + 1])
+        entries = []
+        i_line += 2
+        while len(entries) < 3 * n_terms:
+            entries += [i_entry.strip() for i_entry in lines[i_line].split(",")]
+            i_line += 1
+        equations.append(
+            [
+                (int(entries[i]), int(entries[i + 1]), float(entries[i + 2]))
+                for i in range(0, 3 * n_terms, 3)
+            ]
+        )
+
+    return equations
+
+
+def abaqus_keyword_arguments(file_path, keyword):
+    """Read back the arguments of every occurrence of one Abaqus keyword."""
+    with open(file_path, "r") as deck:
+        return [
+            dict(
+                i_argument.strip().split("=", 1)
+                for i_argument in i_line.strip().split(",")[1:]
+                if "=" in i_argument
+            )
+            for i_line in deck
+            if i_line.strip().split(",")[0].strip().lower() == keyword.lower()
+        ]
+
+
+class TestAbaqusWriter(unittest.TestCase):
+    """Test class for the writer of the Abaqus input files."""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.file_path = os.path.join(self.temp_dir.name, "femsh.inp")
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def write(self, mesh, **kwargs):
+        """Write a mesh and give back the path of the file."""
+        get_writer("abaqus")(**kwargs).write(mesh, self.file_path)
+
+        return self.file_path
+
+    def n_periodic_pairs(self, mesh):
+        """Count the pairs of nodes the periodicity relates."""
+        boundary = mesh.boundary
+
+        return (
+            sum(len(i_pairs) for i_pairs in boundary.face_pairs.values())
+            + sum(len(i_pairs) for i_pairs in boundary.edge_pairs.values())
+            + len(boundary.corner_pairs)
+        )
+
+    def test_meshio_reads_the_mesh_back(self):
+        meshio = __import__("meshio")
+        mesh = structured_mesh((3, 3, 3), [1.0, 1.0, 1.0])
+        back = meshio.read(self.write(mesh))
+
+        self.assertTrue(np.allclose(back.points[: len(mesh.points)], mesh.points))
+        self.assertTrue(
+            np.array_equal(
+                np.vstack([i_block.data for i_block in back.cells]), mesh.cells[0][1]
+            )
+        )
+        # The reference nodes follow the nodes of the mesh, which is why the comparison
+        # is of the first ones alone
+
+    def test_one_equation_per_degree_of_freedom_per_pair(self):
+        for i_shape, i_dims in (((3, 3), [1.0, 1.0]), ((3, 3, 3), [1.0, 1.0, 1.0])):
+            with self.subTest(shape=i_shape):
+                mesh = structured_mesh(i_shape, i_dims)
+                equations = parse_abaqus_equations(self.write(mesh))
+                self.assertEqual(len(equations), mesh.dim * self.n_periodic_pairs(mesh))
+
+    def test_every_slave_degree_of_freedom_is_eliminated_once(self):
+        mesh = structured_mesh((3, 3, 3), [1.0, 1.0, 1.0])
+        equations = parse_abaqus_equations(self.write(mesh))
+
+        eliminated = [i_terms[0][:2] for i_terms in equations]
+        self.assertEqual(len(eliminated), len(set(eliminated)))
+        masters = {i_terms[1][0] for i_terms in equations}
+        self.assertFalse(masters & {i_node for i_node, _ in eliminated})
+        # Abaqus eliminates the degree of freedom of the first term, so a node named
+        # first twice, or named first and also used as a master, is over constrained
+
+    def test_the_reference_nodes_carry_the_separation(self):
+        mesh = structured_mesh((3, 3), [1.0, 1.0])
+        equations = parse_abaqus_equations(self.write(mesh))
+        reference = {len(mesh.points) + i_dir + 1: i_dir for i_dir in range(mesh.dim)}
+
+        for i_terms in equations:
+            slave, master = i_terms[0][0] - 1, i_terms[1][0] - 1
+            separation = (
+                mesh.points[slave][: mesh.dim] - mesh.points[master][: mesh.dim]
+            ) / np.asarray(mesh.rve_dims)
+            named = {reference[i_node]: -i_value for i_node, _, i_value in i_terms[2:]}
+            for i_dir in range(mesh.dim):
+                self.assertAlmostEqual(named.get(i_dir, 0.0), round(separation[i_dir]))
+        # A pair separated by one cell along an axis carries that axis' reference node,
+        # which is what makes one expression serve the faces, the edges and the corners
+
+    def test_an_element_set_per_phase(self):
+        mesh = structured_mesh(
+            (2, 2), [1.0, 1.0], phase_grid=np.array([[1, 2], [2, 1]])
+        )
+        path = self.write(mesh)
+
+        self.assertEqual(
+            sorted(
+                i_arguments["elset"]
+                for i_arguments in abaqus_keyword_arguments(path, "*Element")
+            ),
+            ["PHASE_1", "PHASE_2"],
+        )
+        self.assertEqual(
+            sorted(
+                i_arguments["elset"]
+                for i_arguments in abaqus_keyword_arguments(path, "*Solid Section")
+            ),
+            ["PHASE_1", "PHASE_2"],
+        )
+        self.assertEqual(
+            {
+                i_arguments["type"]
+                for i_arguments in abaqus_keyword_arguments(path, "*Element")
+            },
+            {"CPE4"},
+        )
+
+    def test_the_boundary_sets_are_named_after_what_holds_them(self):
+        mesh = structured_mesh((3, 3, 3), [1.0, 1.0, 1.0])
+        names = {
+            i_arguments["nset"]
+            for i_arguments in abaqus_keyword_arguments(self.write(mesh), "*Nset")
+        }
+
+        self.assertIn("FACE_XNEG", names)
+        self.assertIn("EDGE_YNEG_ZNEG", names)
+        self.assertIn("CORNER_XPOS_YPOS_ZPOS", names)
+        self.assertIn("RP_Z", names)
+
+    def test_a_two_dimensional_cell_has_corners_and_no_edges(self):
+        mesh = structured_mesh((3, 3), [1.0, 1.0])
+        names = {
+            i_arguments["nset"]
+            for i_arguments in abaqus_keyword_arguments(self.write(mesh), "*Nset")
+        }
+
+        self.assertIn("CORNER_XPOS_YPOS", names)
+        self.assertFalse({i_name for i_name in names if i_name.startswith("EDGE_")})
+        # A node on two faces is an edge in three dimensions and a corner in two
+
+    def test_refuses_a_non_periodic_mesh(self):
+        mesh = structured_mesh((3, 3), [1.0, 1.0])
+        points = mesh.points.copy()
+        points[mesh.boundary.face_interior["x+"][0], 1] += 1.0e-3
+        broken = Mesh(
+            mesh.rve_dims,
+            points=points,
+            cells=mesh.cells,
+            phase=mesh.phase,
+            phase_names=mesh.phase_names,
+            matrix_phase="1",
+        )
+
+        with self.assertRaises(PeriodicityError):
+            get_writer("abaqus")().write(broken, self.file_path)
+
+    def test_without_the_constraints_there_are_no_reference_nodes(self):
+        mesh = structured_mesh((3, 3), [1.0, 1.0])
+        path = self.write(mesh, periodic_constraints=False)
+
+        self.assertEqual(parse_abaqus_equations(path), [])
+        names = {
+            i_arguments["nset"]
+            for i_arguments in abaqus_keyword_arguments(path, "*Nset")
+        }
+        self.assertFalse(names & set(REFERENCE_NODE_NAMES))
+        with open(path) as deck:
+            self.assertEqual(len(deck.read().split("*Node")), 2)
+        # The mesh and its sets are still written; what a deck without the constraints
+        # loses is the periodicity, and with it any reason to carry reference nodes
+
+    def test_an_element_with_no_abaqus_name(self):
+        with self.assertRaises(ValueError) as context:
+            abaqus_element_name("wedge")
+        self.assertIn("hexahedron20", str(context.exception))
 
 
 class TestCrateWriter(unittest.TestCase):
@@ -295,9 +499,14 @@ class TestMeshioWriters(unittest.TestCase):
 
     def test_unsafe_formats_are_not_registered(self):
         writers = available_writers()
-        for i_format in ("abaqus", "ansys", "permas", "dolfin-xml"):
+        for i_format in ("ansys", "permas", "dolfin-xml"):
             self.assertNotIn(i_format, writers)
         # meshio would write these without the phase, or with unusable element types
+
+    def test_abaqus_is_not_the_meshio_writer(self):
+        self.assertNotIsInstance(get_writer("abaqus")(), MeshioWriter)
+        # The format is offered, but by the writer of this package: meshio names two
+        # dimensional triangles after a rigid element and cannot write a constraint
 
     def test_formats_needing_an_extra_package_say_so(self):
         for i_format in ("xdmf", "exodus"):

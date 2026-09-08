@@ -8,6 +8,7 @@ from geommicgen.translators.base import (
     get_writer,
     register_writer,
 )
+from geommicgen.translators.abaqus import AbaqusWriter
 from geommicgen.translators.crate import CrateWriter
 from geommicgen.translators.links import LinksWriter
 from geommicgen.translators.meshio_writer import MeshioWriter, register_meshio_writers
@@ -15,6 +16,7 @@ from geommicgen.translators.meshio_writer import MeshioWriter, register_meshio_w
 # imported, only when a writer is first looked up
 
 __all__ = [
+    "AbaqusWriter",
     "CrateWriter",
     "LinksWriter",
     "MeshioWriter",

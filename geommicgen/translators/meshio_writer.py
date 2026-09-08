@@ -34,10 +34,6 @@ SUPPORTED_FORMATS = {
 # package meshio needs in order to write it, when it needs one beyond its own
 
 UNSUPPORTED_FORMATS = {
-    "abaqus": (
-        "the meshio writer names the elements after rigid and shell types and cannot "
-        "write the periodic constraints an RVE needs"
-    ),
     "ansys": "the meshio writer does not carry the phase of the cells",
     "permas": "the meshio writer does not carry the phase of the cells",
     "off": "the meshio writer does not carry the phase of the cells",
