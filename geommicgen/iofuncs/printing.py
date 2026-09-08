@@ -156,6 +156,25 @@ def print_virtual_total_volume_fraction(real_vf, virtual_vf, min_distance):
     )
 
 
+def print_particle_progress(index, total):
+    """
+    Report that one more particle has been dealt with, overwriting the line before.
+
+    Parameters
+    ----------
+    index: int
+        Index of the particle that has been dealt with.
+
+    total: int
+        Total number of particles.
+    """
+    print("\t\t- Particle {0} of {1}".format(index + 1, total))
+    if index + 1 != total:
+        print_to_file("\033[F\033[K", end="", to_screen=False)
+    # The line is overwritten by the next one, so a long run reports its progress
+    # without filling the screen file with a line per particle
+
+
 def print_final_message(mic_generator, mesh_generators, times_dict):
     """Print final message."""
     print_to_file(80 * "-")
@@ -258,8 +277,10 @@ def print_failed_jobs(jobs):
             )
         )
         if i_job.trace is not None:
-            for i_line in i_job.trace.rstrip("\n").split("\n"):
-                print_to_file("\t\t" + i_line, to_terminal=False)
+            print_to_file(
+                "\t\t" + i_job.trace.rstrip("\n").replace("\n", "\n\t\t"),
+                to_terminal=False,
+            )
         # The traceback goes to the screen file only: a message is what a user needs,
         # and the frames are what whoever has to fix it needs
 

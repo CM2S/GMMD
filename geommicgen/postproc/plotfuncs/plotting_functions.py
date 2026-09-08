@@ -5,6 +5,7 @@ import numpy as np
 
 import scipy.integrate as integrate
 
+import contextlib
 import os
 
 
@@ -29,7 +30,7 @@ from geommicgen.microstructure.particleclasses import (
     Particle,
 )
 
-from geommicgen.meshing.gmsh_mesher import GmshMesher
+from geommicgen.meshing.gmsh_mesher import GmshMesher, gmsh_session
 from geommicgen.meshing.images import periodic_images
 import geommicgen.iofuncs.printing as print_funcs
 from geommicgen._optional import require_gmsh
@@ -265,9 +266,10 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
         plt.show()
 
 
-def open_gmsh_view(name, mesh_size, element_type="tetra4"):
+@contextlib.contextmanager
+def gmsh_view(name, mesh_size, element_type="tetra4"):
     """
-    Open a gmsh session set up to build a view of the particles.
+    Open a gmsh session set up to build a view of the particles, and close it after.
 
     Parameters
     ----------
@@ -280,18 +282,19 @@ def open_gmsh_view(name, mesh_size, element_type="tetra4"):
     element_type: str
         Element whose options the session is set up with.
 
-    Returns
-    -------
+    Yields
+    ------
     tuple
         The gmsh module, its model and its geometry kernel.
     """
-    gmsh = require_gmsh()
-    gmsh.initialize()
-    GmshMesher(mesh_size=mesh_size, element_type=element_type).set_options(gmsh)
-    model = gmsh.model
-    model.add(name)
+    with gmsh_session() as gmsh:
+        GmshMesher(mesh_size=mesh_size, element_type=element_type).set_options(gmsh)
+        model = gmsh.model
+        model.add(name)
 
-    return gmsh, model, model.occ
+        yield gmsh, model, model.occ
+    # The session is closed however the block ends. Leaving it open after a failure
+    # would leave the next view building its model inside the failed one
 
 
 def add_particles_to_view(factory, model, particles, rve_dims, add_images=True,
@@ -341,6 +344,76 @@ def add_particles_to_view(factory, model, particles, rve_dims, add_images=True,
     return particle_tags, phase_dim_tag
 
 
+def keep_what_the_cut_left(factory, dim, box_tag, particle_tags, phase_dim_tag):
+    """
+    Cut the particles against the box, dropping the tags the cut removed.
+
+    Parameters
+    ----------
+    factory: module
+        The geometry kernel of the open gmsh session.
+
+    dim: int
+        Number of spatial dimensions.
+
+    box_tag: int
+        Tag of the box of the RVE.
+
+    particle_tags: list
+        Tags of everything that was added for the particles.
+
+    phase_dim_tag: dict
+        The *(dimension, tag)* pairs of each phase, as they were before the cut.
+
+    Returns
+    -------
+    dict
+        The pairs of each phase that survived the cut.
+    """
+    out_dim_tag, _ = factory.intersect(
+        [(dim, box_tag)],
+        [(dim, i_tag) for i_tag in particle_tags],
+        removeObject=True,
+        removeTool=True,
+    )
+    kept = set(out_dim_tag)
+    factory.synchronize()
+    # Synchronizing here is what lets the model be read below, by getBoundary
+
+    return {
+        i_phase: [i_dim_tag for i_dim_tag in i_dim_tags if i_dim_tag in kept]
+        for i_phase, i_dim_tags in phase_dim_tag.items()
+    }
+
+
+def tag_phase_boundaries(model, phase_dim_tag, entity_dim, group_dim):
+    """
+    Name the boundary of every phase as a physical group, so that a viewer shows it.
+
+    Parameters
+    ----------
+    model: module
+        The model of the open gmsh session.
+
+    phase_dim_tag: dict
+        The *(dimension, tag)* pairs of each phase.
+
+    entity_dim: int
+        Dimension of the entities whose boundary is wanted.
+
+    group_dim: int
+        Dimension of the boundary itself.
+    """
+    for i_phase, i_dim_tags in phase_dim_tag.items():
+        bound_dim_tags = model.getBoundary(
+            [(entity_dim, i_tag) for _, i_tag in i_dim_tags]
+        )
+        material_tag = model.addPhysicalGroup(
+            group_dim, [i_tag for i_dim, i_tag in bound_dim_tags if i_dim == group_dim]
+        )
+        model.setPhysicalName(group_dim, material_tag, "Phase {0}".format(i_phase))
+
+
 def write_gmsh_view(gmsh, results_dir, name):
     """
     Write an open gmsh model for viewing, and close the session.
@@ -356,146 +429,93 @@ def write_gmsh_view(gmsh, results_dir, name):
     name: str
         Name of the files, without an extension.
 
-    Returns
-    -------
-    str
-        Path of the mesh file that was written.
     """
     mesh_path = os.path.join(results_dir, name + ".msh")
     vtk_path = os.path.join(results_dir, name + ".vtk")
     gmsh.write(mesh_path)
     gmsh.write(vtk_path)
-    gmsh.finalize()
 
     for i_path in (mesh_path, vtk_path):
         with open(i_path, "rt") as written:
             contents = written.read()
-        with open(i_path, "wt") as written:
-            written.write(contents.replace(",", "."))
-    # Gmsh sometimes writes a comma for a decimal point, depending on the locale
-
-    return mesh_path
-
-
-def report_view_particle(index, total):
-    """Report that one more particle has been added to a view."""
-    print("\t\t- Particle {0} of {1}".format(index + 1, total))
-    if index + 1 != total:
-        print_funcs.print_to_file("\033[F\033[K", end="", to_screen=False)
+        if "," in contents:
+            with open(i_path, "wt") as written:
+                written.write(contents.replace(",", "."))
+    # Gmsh sometimes writes a comma for a decimal point, depending on the locale. On a
+    # machine where it does not, which is the usual case, the file is left alone rather
+    # than read and written back identical
 
 
 def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
 
     dim = len(rve_dims)
     mesh_size = particles[0].radius / 5
-    gmsh, model, factory = open_gmsh_view(sample_dir, mesh_size)
-
-    box_tag = factory.addBox(
-        0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2]
-    )
-
-    print_funcs.print_to_file(
-        "\t> Adding particles to the model",
-    )
-    particle_tags, phase_dim_tag = add_particles_to_view(
-        factory, model, particles, rve_dims, report=report_view_particle
-    )
-    print_funcs.print_to_file("")
-
-    print_funcs.print_to_file("\t> Processing model\n")
-    out_dim_tag, _ = factory.intersect(
-        [(dim, box_tag)],
-        [(dim, particle_tag) for particle_tag in particle_tags],
-        removeObject=True,
-        removeTool=True,
-    )
-
-    temp = set(out_dim_tag)
-    for i_phase in phase_dim_tag:
-        phase_dim_tag[i_phase] = [
-            value for value in phase_dim_tag[i_phase] if value in temp
-        ]
-
-    # Set the mesh size on the geometry points
-    # Synchronize the CAD engine (always needed before generating the mesh)
-    # It may also be useful for some intermidate operations, like checking the tags of
-    # entities
-    factory.synchronize()
-
-    for i_phase, i_dim_tags in phase_dim_tag.items():
-        bound_dim_tags = model.getBoundary([(3, tag) for _, tag in i_dim_tags])
-        material_tag = model.addPhysicalGroup(
-            2, [tag for dim, tag in bound_dim_tags if dim == 2]
-        )
-        model.setPhysicalName(2, material_tag, "Phase {0}".format(i_phase))
-
-    # model.mesh.setSize(points, mesh_size)
-    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_size)
-
-    # Generate a 3D mesh
-    print_funcs.print_to_file("\t> Generating mesh\n")
-    model.mesh.generate(2)
-
-    _ = write_gmsh_view(gmsh, sample_dir, "final_config")
-
-
-def plot_particles_3d_one_by_one(particles, rve_dims, sample_dir, **kwargs):
-    gmsh = require_gmsh()
-    final_config_dir = os.path.join(sample_dir, "final_config")
-    os.makedirs(final_config_dir)
-    for i_ind, i_particle in enumerate(particles):
-        dim = len(rve_dims)
-        mesh_size = particles[0].radius / 2
-        element_type = "tetra4" if i_particle is Sphere else "tetra10"
-        gmsh, model, factory = open_gmsh_view(sample_dir, mesh_size, element_type)
+    with gmsh_view(sample_dir, mesh_size) as (gmsh, model, factory):
 
         box_tag = factory.addBox(
             0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2]
         )
 
+        print_funcs.print_to_file(
+            "\t> Adding particles to the model",
+        )
         particle_tags, phase_dim_tag = add_particles_to_view(
-            factory, model, [i_particle], rve_dims
+            factory, model, particles, rve_dims,
+            report=print_funcs.print_particle_progress,
+        )
+        print_funcs.print_to_file("")
+
+        print_funcs.print_to_file("\t> Processing model\n")
+        phase_dim_tag = keep_what_the_cut_left(
+            factory, dim, box_tag, particle_tags, phase_dim_tag
         )
 
-        out_dim_tag, _ = factory.intersect(
-            [(dim, box_tag)],
-            [(dim, particle_tag) for particle_tag in particle_tags],
-            removeObject=True,
-            removeTool=True,
-        )
-
-        temp = set(out_dim_tag)
-        for i_phase in phase_dim_tag:
-            phase_dim_tag[i_phase] = [
-                value
-                for value in phase_dim_tag[i_phase]
-                if value in temp
-            ]
-
-        # Set the mesh size on the geometry points
-        # Synchronize the CAD engine (always needed before generating the mesh)
-        # It may also be useful for some intermidate operations, like checking the tags of
-        # entities
-        factory.synchronize()
-
-        for i_phase, i_dim_tags in phase_dim_tag.items():
-            bound_dim_tags = model.getBoundary([(3, tag) for _, tag in i_dim_tags])
-            material_tag = model.addPhysicalGroup(
-                2, [tag for dim, tag in bound_dim_tags if dim == 2]
-            )
-            model.setPhysicalName(2, material_tag, "Phase {0}".format(i_phase))
+        tag_phase_boundaries(model, phase_dim_tag, 3, 2)
 
         # model.mesh.setSize(points, mesh_size)
         gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
         gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_size)
 
         # Generate a 3D mesh
+        print_funcs.print_to_file("\t> Generating mesh\n")
         model.mesh.generate(2)
 
-        _ = write_gmsh_view(
-            gmsh, final_config_dir, "final_config_{0}".format(i_ind)
-        )
+        write_gmsh_view(gmsh, sample_dir, "final_config")
+
+
+def plot_particles_3d_one_by_one(particles, rve_dims, sample_dir, **kwargs):
+    final_config_dir = os.path.join(sample_dir, "final_config")
+    os.makedirs(final_config_dir)
+    for i_ind, i_particle in enumerate(particles):
+        dim = len(rve_dims)
+        mesh_size = particles[0].radius / 2
+        element_type = "tetra4" if i_particle is Sphere else "tetra10"
+        with gmsh_view(sample_dir, mesh_size, element_type) as (gmsh, model, factory):
+
+            box_tag = factory.addBox(
+                0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2]
+            )
+
+            particle_tags, phase_dim_tag = add_particles_to_view(
+                factory, model, [i_particle], rve_dims
+            )
+
+            phase_dim_tag = keep_what_the_cut_left(
+                factory, dim, box_tag, particle_tags, phase_dim_tag
+            )
+
+            tag_phase_boundaries(model, phase_dim_tag, 3, 2)
+
+            # model.mesh.setSize(points, mesh_size)
+            gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
+            gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_size)
+
+            # Generate a 3D mesh
+            model.mesh.generate(2)
+
+            write_gmsh_view(
+                gmsh, final_config_dir, "final_config_{0}".format(i_ind)
+            )
 
 
 def plot_kinetic_energy_history(
@@ -598,7 +618,6 @@ def plot_overlap_history(
 
 def plot_paths(particles, box, position_center_history, motion_results_dir):
     """Plot particle paths."""
-    gmsh = require_gmsh()
     path_results_dir = os.path.join(motion_results_dir, "paths")
     os.makedirs(path_results_dir)
     if particles[0].dim == 2:
@@ -611,58 +630,40 @@ def plot_paths(particles, box, position_center_history, motion_results_dir):
 
             dim = len(box)
             mesh_size = particles[0].radius / 5
-            gmsh, model, factory = open_gmsh_view(path_results_dir, mesh_size, "tri6")
+            with gmsh_view(path_results_dir, mesh_size, "tri6") as (
+                gmsh,
+                model,
+                factory,
+            ):
 
-            box_tag = factory.addRectangle(
-                0,
-                0,
-                0,
-                box[0],
-                box[1],
-            )
-
-            particle_tags, phase_dim_tag = add_particles_to_view(
-                factory, model, particles, box
-            )
-
-            out_dim_tag, _ = factory.intersect(
-                [(dim, box_tag)],
-                [(dim, particle_tag) for particle_tag in particle_tags],
-                removeObject=True,
-                removeTool=True,
-            )
-
-            temp = set(out_dim_tag)
-            for i_phase in phase_dim_tag:
-                phase_dim_tag[i_phase] = [
-                    value
-                    for value in phase_dim_tag[i_phase]
-                    if value in temp
-                ]
-
-            # Set the mesh size on the geometry points
-            # Synchronize the CAD engine (always needed before generating the mesh)
-            # It may also be useful for some intermidate operations, like checking the tags of
-            # entities
-            factory.synchronize()
-
-            for i_phase, i_dim_tags in phase_dim_tag.items():
-                bound_dim_tags = model.getBoundary([(1, tag) for _, tag in i_dim_tags])
-                material_tag = model.addPhysicalGroup(
-                    1, [tag for dim, tag in bound_dim_tags if dim == 1]
+                box_tag = factory.addRectangle(
+                    0,
+                    0,
+                    0,
+                    box[0],
+                    box[1],
                 )
-                model.setPhysicalName(1, material_tag, "Phase {0}".format(i_phase))
 
-            # model.mesh.setSize(points, mesh_size)
-            gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
-            gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_size)
+                particle_tags, phase_dim_tag = add_particles_to_view(
+                    factory, model, particles, box
+                )
 
-            # Generate a 3D mesh
-            model.mesh.generate(2)
+                phase_dim_tag = keep_what_the_cut_left(
+                    factory, dim, box_tag, particle_tags, phase_dim_tag
+                )
 
-            _ = write_gmsh_view(
-                gmsh, path_results_dir, "mic_step_{0}".format(step)
-            )
+                tag_phase_boundaries(model, phase_dim_tag, 1, 1)
+
+                # model.mesh.setSize(points, mesh_size)
+                gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
+                gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_size)
+
+                # Generate a 3D mesh
+                model.mesh.generate(2)
+
+                write_gmsh_view(
+                    gmsh, path_results_dir, "mic_step_{0}".format(step)
+                )
             # with open(
             #     os.path.join(path_results_dir, "mic_step_{0}.vtk".format(step)),
             #     "a",
@@ -1633,88 +1634,83 @@ def plotVoronoi3Dpbc(
 def plot_voronoi_3d(particles, voronoi, rve_dims, sample_dir, save=True, show=False):
     """Plot the Voronoi for circular particles."""
     dim = len(rve_dims)
-    gmsh, model, factory = open_gmsh_view(sample_dir, particles[0].radius / 5)
+    with gmsh_view(sample_dir, particles[0].radius / 5) as (gmsh, model, factory):
 
-    box_tag = factory.addBox(
-        0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2]
-    )
-
-    particle_tags, phase_dim_tag = add_particles_to_view(
-        factory, model, particles, rve_dims, add_images=False
-    )
-
-    # Set the mesh size on the geometry points
-    # Synchronize the CAD engine (always needed before generating the mesh)
-    # It may also be useful for some intermidate operations, like checking the tags of
-    # entities
-    factory.synchronize()
-
-    verticesTags = np.array(
-        [
-            factory.addPoint(vertex[0], vertex[1], vertex[2])
-            for vertex in voronoi.vertices
-        ]
-    )
-    edgeTags = {}
-    edge_point = {}
-    points = set()
-    for ridge_ind, (ridge_pt_1, ridge_pt_2) in enumerate(voronoi.ridge_points):
-
-        ridge = voronoi.ridge_vertices[ridge_ind]
-        if -1 in ridge or (
-            ridge_pt_1 not in range(13, 3**3 * len(particles), 27)
-            and ridge_pt_2 not in range(13, 3**3 * len(particles), 27)
-        ):
-            continue
-        points.add(ridge_pt_1)
-        points.add(ridge_pt_2)
-        ridge_out_phase = ridge[-1:] + ridge[0:-1]
-        for vertex_1, vertex_2 in zip(ridge, ridge_out_phase):
-            if (vertex_1, vertex_2) not in edgeTags and (
-                vertex_2,
-                vertex_1,
-            ) not in edgeTags:
-                edgeTags[(vertex_1, vertex_2)] = factory.addLine(
-                    verticesTags[vertex_1], verticesTags[vertex_2]
-                )
-                edge_point[(vertex_1, vertex_2)] = {ridge_pt_1, ridge_pt_2}
-            elif (vertex_1, vertex_2) in edgeTags:
-                if edge_point[(vertex_1, vertex_2)] == {
-                    ridge_pt_1,
-                    ridge_pt_2,
-                }:
-                    del edgeTags[(vertex_1, vertex_2)]
-            elif (vertex_2, vertex_1) in edgeTags:
-                if edge_point[(vertex_2, vertex_1)] == {
-                    ridge_pt_1,
-                    ridge_pt_2,
-                }:
-                    del edgeTags[(vertex_2, vertex_1)]
-
-    factory.synchronize()
-    # all_voronoi_lines = list(set([voronoi_line[1] for voronoi_line in voronoi_lines] + [edgeTag[1] for edgeTag in out_dim_tag4]))
-    voronoiWires = model.addPhysicalGroup(
-        1, list(edgeTags.values())
-    )  # [(1, all_voronoi_line) for all_voronoi_line in all_voronoi_lines])
-    model.setPhysicalName(2, voronoiWires, "Voronoi")
-    # voronoiWires = model.addPhysicalGroup(1, [tag[1] for tag in out_dim_tag_3]) #[(1, all_voronoi_line) for all_voronoi_line in all_voronoi_lines])
-    # model.setPhysicalName(1, voronoiWires, "Voronoi")
-
-    for i_phase, i_dim_tags in phase_dim_tag.items():
-        bound_dim_tags = model.getBoundary([(3, tag) for _, tag in i_dim_tags])
-        material_tag = model.addPhysicalGroup(
-            2, [tag for dim, tag in bound_dim_tags if dim == 2]
+        box_tag = factory.addBox(
+            0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2]
         )
-        model.setPhysicalName(2, material_tag, "Phase {0}".format(i_phase))
 
-    # model.mesh.setSize(points, mesh_size)
-    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.03)
+        particle_tags, phase_dim_tag = add_particles_to_view(
+            factory, model, particles, rve_dims, add_images=False
+        )
 
-    # Generate a 3D mesh
-    model.mesh.generate(2)
+        # Set the mesh size on the geometry points
+        # Synchronize the CAD engine (always needed before generating the mesh)
+        # It may also be useful for some intermidate operations, like checking the tags of
+        # entities
+        factory.synchronize()
 
-    _ = write_gmsh_view(gmsh, sample_dir, "voronoi")
+        verticesTags = np.array(
+            [
+                factory.addPoint(vertex[0], vertex[1], vertex[2])
+                for vertex in voronoi.vertices
+            ]
+        )
+        edgeTags = {}
+        edge_point = {}
+        points = set()
+        for ridge_ind, (ridge_pt_1, ridge_pt_2) in enumerate(voronoi.ridge_points):
+
+            ridge = voronoi.ridge_vertices[ridge_ind]
+            if -1 in ridge or (
+                ridge_pt_1 not in range(13, 3**3 * len(particles), 27)
+                and ridge_pt_2 not in range(13, 3**3 * len(particles), 27)
+            ):
+                continue
+            points.add(ridge_pt_1)
+            points.add(ridge_pt_2)
+            ridge_out_phase = ridge[-1:] + ridge[0:-1]
+            for vertex_1, vertex_2 in zip(ridge, ridge_out_phase):
+                if (vertex_1, vertex_2) not in edgeTags and (
+                    vertex_2,
+                    vertex_1,
+                ) not in edgeTags:
+                    edgeTags[(vertex_1, vertex_2)] = factory.addLine(
+                        verticesTags[vertex_1], verticesTags[vertex_2]
+                    )
+                    edge_point[(vertex_1, vertex_2)] = {ridge_pt_1, ridge_pt_2}
+                elif (vertex_1, vertex_2) in edgeTags:
+                    if edge_point[(vertex_1, vertex_2)] == {
+                        ridge_pt_1,
+                        ridge_pt_2,
+                    }:
+                        del edgeTags[(vertex_1, vertex_2)]
+                elif (vertex_2, vertex_1) in edgeTags:
+                    if edge_point[(vertex_2, vertex_1)] == {
+                        ridge_pt_1,
+                        ridge_pt_2,
+                    }:
+                        del edgeTags[(vertex_2, vertex_1)]
+
+        factory.synchronize()
+        # all_voronoi_lines = list(set([voronoi_line[1] for voronoi_line in voronoi_lines] + [edgeTag[1] for edgeTag in out_dim_tag4]))
+        voronoiWires = model.addPhysicalGroup(
+            1, list(edgeTags.values())
+        )  # [(1, all_voronoi_line) for all_voronoi_line in all_voronoi_lines])
+        model.setPhysicalName(2, voronoiWires, "Voronoi")
+        # voronoiWires = model.addPhysicalGroup(1, [tag[1] for tag in out_dim_tag_3]) #[(1, all_voronoi_line) for all_voronoi_line in all_voronoi_lines])
+        # model.setPhysicalName(1, voronoiWires, "Voronoi")
+
+        tag_phase_boundaries(model, phase_dim_tag, 3, 2)
+
+        # model.mesh.setSize(points, mesh_size)
+        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
+        gmsh.option.setNumber("Mesh.MeshSizeMax", 0.03)
+
+        # Generate a 3D mesh
+        model.mesh.generate(2)
+
+        write_gmsh_view(gmsh, sample_dir, "voronoi")
 
 
 def plotVoronoi3DwithIMTspbc(

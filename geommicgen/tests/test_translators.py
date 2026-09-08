@@ -10,7 +10,6 @@ from geommicgen.errors.error_classes import (
 )
 from geommicgen.meshing.mesh import Mesh
 from geommicgen.translators import available_writers, get_writer
-from geommicgen.translators.crate import grid_file_name
 from geommicgen.translators.reorder import (
     LINKS_DEFAULT_GAUSS_POINTS,
     VTK_TO_LINKS,
@@ -226,13 +225,6 @@ class TestCrateWriter(unittest.TestCase):
             get_writer("crate")().write(
                 unstructured, os.path.join(self.temp_dir.name, "g.rgmsh")
             )
-
-    def test_file_name_carries_the_deck_and_the_resolution(self):
-        self.assertEqual(
-            grid_file_name("2D_example_ellipses.mdsim", (100, 100)),
-            "2D_example_ellipses_100_100.rgmsh",
-        )
-        self.assertEqual(grid_file_name(None, (70, 70, 70)), "70_70_70.rgmsh")
 
 
 class TestMeshioWriters(unittest.TestCase):

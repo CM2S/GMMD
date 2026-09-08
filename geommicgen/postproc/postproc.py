@@ -15,25 +15,6 @@ import geommicgen.postproc.voronoimetrics.voronoi_analysis as voronoi_analysis
 from geommicgen.postproc.plotfuncs.plotting_functions import plot_particles
 
 
-def report_particle(index, total):
-    """
-    Report that a mesher has dealt with one more particle.
-
-    Parameters
-    ----------
-    index: int
-        Index of the particle that has been dealt with.
-
-    total: int
-        Total number of particles.
-    """
-    print("\t\t- Particle {0} of {1}".format(index + 1, total))
-    if index + 1 != total:
-        print("\033[F\033[K", end="")
-    # The line is overwritten by the next one, so a long run reports its progress
-    # without filling the screen
-
-
 def post_proc(
     mesh_jobs, current_sample, current_mic_generator, sample_dir, post_proc_opts
 ):
@@ -65,7 +46,7 @@ def post_proc(
             i_job.run(
                 current_sample,
                 os.path.join(sample_dir, MESH_DIRECTORY),
-                report=report_particle,
+                report=print_funcs.print_particle_progress,
             )
             for j_warning in i_job.mesher.warnings:
                 print_funcs.print_to_file("\t\t- {0}".format(j_warning))

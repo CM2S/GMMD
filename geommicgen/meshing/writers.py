@@ -17,7 +17,7 @@ import numpy as np
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-from geommicgen.meshing.mesh import Mesh, StructuredInfo
+from geommicgen.meshing.mesh import CELL_ORDER, Mesh, StructuredInfo
 
 SIDECAR_SUFFIX = ".mesh.json"
 # Suffix of the file holding the information the mesh format cannot carry
@@ -27,8 +27,62 @@ SIDECAR_FORMAT = "geommicgen-mesh"
 IMAGE_SUFFIX = ".vti"
 # Extension of the VTK image a structured mesh is written as
 
+UNSTRUCTURED_SUFFIX = ".vtu"
+# Extension of the VTK grid an unstructured mesh is written as
+
 WRITE_CHUNK = 500000
 # Number of values formatted at a time when writing a grid
+
+
+def standard_mesh_path(mesh, base_path):
+    """
+    Give the path a mesh is written to in the standard format for its kind.
+
+    Parameters
+    ----------
+    mesh: `.Mesh`
+        Mesh to be written.
+
+    base_path: str
+        Path of the file, without an extension.
+
+    Returns
+    -------
+    str
+        Path of the file.
+    """
+    if mesh.structured is None:
+        return base_path + UNSTRUCTURED_SUFFIX
+
+    return base_path + IMAGE_SUFFIX
+    # The one place that decides this. read_mesh reads the same two kinds back, and the
+    # round trip is only a contract while the two agree
+
+
+def write_standard_mesh(mesh, base_path):
+    """
+    Write a mesh in the standard format for its kind, with its sidecar.
+
+    Parameters
+    ----------
+    mesh: `.Mesh`
+        Mesh to be written.
+
+    base_path: str
+        Path of the files, without an extension.
+
+    Returns
+    -------
+    list
+        Paths of the files that were written.
+    """
+    file_path = standard_mesh_path(mesh, base_path)
+    if mesh.structured is None:
+        write_vtu(mesh, file_path)
+    else:
+        write_vtk_image(mesh, file_path)
+
+    return [file_path, sidecar_path(file_path)]
 
 
 def sidecar_path(file_path):
@@ -68,12 +122,27 @@ def write_vtu(mesh, file_path, write_sidecar=True):
 
     meshio.write(file_path, mesh.to_meshio())
     if write_sidecar:
-        with open(sidecar_path(file_path), "w") as sidecar:
-            json.dump(_sidecar_record(mesh), sidecar, indent=2)
-            sidecar.write("\n")
+        write_sidecar_file(mesh, file_path)
 
 
-def _sidecar_record(mesh, order="C"):
+def write_sidecar_file(mesh, file_path):
+    """
+    Write the file holding what a mesh format cannot carry.
+
+    Parameters
+    ----------
+    mesh: `.Mesh`
+        Mesh being written.
+
+    file_path: str
+        Path of the mesh file the sidecar goes beside.
+    """
+    with open(sidecar_path(file_path), "w") as sidecar:
+        json.dump(_sidecar_record(mesh), sidecar, indent=2)
+        sidecar.write("\n")
+
+
+def _sidecar_record(mesh):
     """
     Build the record written to the sidecar file of a mesh.
 
@@ -81,11 +150,6 @@ def _sidecar_record(mesh, order="C"):
     ----------
     mesh: `.Mesh`
         Mesh being written.
-
-    order: {"C", "F"}
-        Order the cells of a structured mesh are written in. The cells built from a
-        grid are laid out in C order, and a VTK image is laid out in Fortran order, so
-        the grid can only be rebuilt if the file says which.
 
     Returns
     -------
@@ -106,8 +170,10 @@ def _sidecar_record(mesh, order="C"):
         record["structured"] = {
             "shape": list(mesh.structured.shape),
             "spacing": mesh.structured.spacing.tolist(),
-            "order": order,
         }
+        # Deliberately not the order the cells run in. That is fixed by the kind of
+        # file, not by the mesh, and a sidecar naming a different one than the file it
+        # is read beside would fold the grid back wrong rather than fail
 
     return record
 
@@ -188,13 +254,13 @@ def read_mesh(file_path, rve_dims=None, matrix_phase=None, phase_key=None):
     if record is not None and "structured" in record:
         shape = tuple(record["structured"]["shape"])
         structured = StructuredInfo(
-            np.ravel(phase[0]).reshape(
-                shape, order=record["structured"].get("order", "C")
-            ),
+            np.ravel(phase[0]).reshape(shape, order=CELL_ORDER),
             record["structured"]["spacing"],
         )
     # A mesh written from a grid is read back as a grid, so that the writers that need
-    # the grid rather than the cells still accept it
+    # the grid rather than the cells still accept it. These are cells, so they run in
+    # the order cells built from a grid run in; an image is read elsewhere, in the
+    # order that format holds
 
     return Mesh(
         rve_dims,
@@ -359,9 +425,7 @@ def write_vtk_image(mesh, file_path, write_sidecar=True):
     # magnitude faster than one call per value and keeps the transient string bounded
 
     if write_sidecar:
-        with open(sidecar_path(file_path), "w") as sidecar:
-            json.dump(_sidecar_record(mesh, order="F"), sidecar, indent=2)
-            sidecar.write("\n")
+        write_sidecar_file(mesh, file_path)
 
 
 def read_vtk_image(file_path):

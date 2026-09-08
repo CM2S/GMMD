@@ -178,11 +178,11 @@ class TestMeshJobRunWithGmsh(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             job.run(disk_microstructure(), temp_dir)
             self.assertIsInstance(job.error, ValueError)
-            self.assertIn("standard output", str(job.error))
+            self.assertIn("tri3.vtu", str(job.error))
             self.assertEqual(os.listdir(temp_dir), [])
         # Both would write tri3.vtu, so one would land on top of the other and only the
-        # second would survive. Nothing is written at all instead. A grid can no longer
-        # collide, since no writer claims the .vti an image is written as
+        # second would survive. Nothing is written at all instead. A grid cannot collide
+        # this way, since no writer claims the .vti an image is written as
 
     def test_the_links_deck_and_the_standard_output_are_written(self):
         job = build_mesh_jobs({"femsh": {"element_type": "tri3", "mesh_size": 0.1}})[0]

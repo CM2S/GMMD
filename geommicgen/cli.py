@@ -7,7 +7,8 @@ writes is a whole stage, so `geommicgen-translate` picks up from that file alone
 from a mesh some other tool produced.
 
 The program that generates a microstructure is `geommicgen` itself; these two never
-generate one.
+generate one, and nothing here reads a microstructure until the command that needs one
+asks for it.
 """
 
 import argparse
@@ -15,16 +16,19 @@ import os
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-from geommicgen.iofuncs.microstructure_yaml import read_microstructure_yaml
-from geommicgen.meshing.from_deck import MeshJob
+from geommicgen.meshing.from_deck import MeshJob, write_formats
 from geommicgen.meshing.mesher import available_meshers, get_mesher
 from geommicgen.meshing.writers import read_mesh
 from geommicgen.translators.base import available_writers, get_writer
 
 
-def formats_argument(value):
+def format_names(value):
     """
-    Read the formats given to --to.
+    Split the names of the formats given to --to.
+
+    The names are only split here, not resolved: argparse replaces whatever a type
+    callable raises with a message of its own, and the message that says which formats
+    there are, or why one is deliberately absent, is worth more than that.
 
     Parameters
     ----------
@@ -34,13 +38,55 @@ def formats_argument(value):
     Returns
     -------
     list
+        The names.
+    """
+    return [i_name.strip() for i_name in value.split(",") if i_name.strip()]
+
+
+def resolve_writers(parser, names):
+    """
+    Turn the names of formats into the writers, ending the program if one is unknown.
+
+    Parameters
+    ----------
+    parser: argparse.ArgumentParser
+        Parser to report through.
+
+    names: list
+        Names of the formats.
+
+    Returns
+    -------
+    list
         Classes of the writers.
     """
-    return [
-        get_writer(i_name.strip())
-        for i_name in value.split(",")
-        if i_name.strip()
-    ]
+    try:
+        return [get_writer(i_name) for i_name in names]
+    except ValueError as error:
+        parser.error(str(error))
+    # Resolved before any work is done, and reported in the words of the registry,
+    # which names the formats there are and why one is deliberately not offered
+
+    return []
+
+
+def add_output_arguments(parser):
+    """Add the arguments saying where the files go and what they are called."""
+    parser.add_argument(
+        "-o", "--output-dir", default=".", help="directory to write into"
+    )
+    parser.add_argument("--name", help="name of the files, without an extension")
+
+
+def output_name(name, source_path):
+    """Name the files after the file they came from, when no name was given."""
+    return name or os.path.splitext(os.path.basename(source_path))[0]
+
+
+def print_files(files):
+    """Print the paths of the files that were written."""
+    for i_file in files:
+        print("  {0}".format(i_file))
 
 
 def report_progress(index, total):
@@ -50,28 +96,30 @@ def report_progress(index, total):
         print()
 
 
-def report_outcome(job):
+def report_outcome(error, files):
     """
-    Report what a job produced, and give back what the program should exit with.
+    Report what was written and what stopped it, and give the status to exit with.
 
     Parameters
     ----------
-    job: `.MeshJob`
-        Job that has been run.
+    error: Exception
+        Error that stopped the work, or None.
+
+    files: list
+        Paths of the files that were written.
 
     Returns
     -------
     int
         Status the program should exit with.
     """
-    if job.error is not None:
-        print("{0}: {1}".format(type(job.error).__name__, job.error))
-        if job.files:
+    if error is not None:
+        print("{0}: {1}".format(type(error).__name__, error))
+        if files:
             print("written before it failed:")
-    for i_file in job.files:
-        print("  {0}".format(i_file))
+    print_files(files)
 
-    return 1 if job.error is not None else 0
+    return 1 if error is not None else 0
 
 
 def mesh_command(argv=None):
@@ -117,17 +165,15 @@ def mesh_command(argv=None):
     )
     parser.add_argument(
         "--to",
-        type=formats_argument,
+        type=format_names,
         default=[],
         metavar="FORMATS",
         help="formats to write besides the mesh itself, separated by commas",
     )
-    parser.add_argument(
-        "-o", "--output-dir", default=".", help="directory to write into"
-    )
-    parser.add_argument("--name", help="name of the files, without an extension")
+    add_output_arguments(parser)
     arguments = parser.parse_args(argv)
 
+    writers = resolve_writers(parser, arguments.to)
     if arguments.mesher == "voxel":
         if not arguments.n_voxels:
             parser.error("the voxel mesher needs --n-voxels")
@@ -139,16 +185,20 @@ def mesh_command(argv=None):
             elements_per_particle=arguments.elements_per_particle,
         )
 
+    from geommicgen.iofuncs.microstructure_yaml import read_microstructure_yaml
+    # Imported here rather than at the top: reading a microstructure pulls in the
+    # particle classes and the parts of scipy they use, which is most of the cost of
+    # starting up, and the other command never reads one
+
     microstructure = read_microstructure_yaml(arguments.microstructure)
-    name = arguments.name or os.path.splitext(
-        os.path.basename(arguments.microstructure)
-    )[0]
-    job = MeshJob(mesher, arguments.to, name)
+    job = MeshJob(
+        mesher, writers, output_name(arguments.name, arguments.microstructure)
+    )
     job.run(microstructure, arguments.output_dir, report=report_progress)
     for i_warning in mesher.warnings:
         print(i_warning)
 
-    return report_outcome(job)
+    return report_outcome(job.error, job.files)
 
 
 def translate_command(argv=None):
@@ -173,7 +223,7 @@ def translate_command(argv=None):
         "mesh", nargs="?", help="mesh file to be translated, in any format meshio reads"
     )
     parser.add_argument(
-        "--to", type=formats_argument, metavar="FORMATS",
+        "--to", type=format_names, metavar="FORMATS",
         help="formats to write, separated by commas",
     )
     parser.add_argument(
@@ -186,10 +236,7 @@ def translate_command(argv=None):
     parser.add_argument(
         "--matrix-phase", help="name of the matrix phase, when the mesh does not say"
     )
-    parser.add_argument(
-        "-o", "--output-dir", default=".", help="directory to write into"
-    )
-    parser.add_argument("--name", help="name of the files, without an extension")
+    add_output_arguments(parser)
     parser.add_argument(
         "--list-formats", action="store_true", help="list the formats and stop"
     )
@@ -197,26 +244,31 @@ def translate_command(argv=None):
 
     if arguments.list_formats:
         for i_name in available_writers():
-            writer = get_writer(i_name)
-            print("  {0:8s} {1}".format(i_name, writer.extension))
+            print("  {0:8s} {1}".format(i_name, get_writer(i_name).extension))
 
         return 0
     if arguments.mesh is None or not arguments.to:
         parser.error("a mesh and --to are needed, unless --list-formats is given")
 
+    writers = resolve_writers(parser, arguments.to)
     mesh = read_mesh(
         arguments.mesh,
         rve_dims=arguments.rve_dims,
         matrix_phase=arguments.matrix_phase,
     )
-    name = arguments.name or os.path.splitext(os.path.basename(arguments.mesh))[0]
     os.makedirs(arguments.output_dir, exist_ok=True)
+    base_path = os.path.join(
+        arguments.output_dir, output_name(arguments.name, arguments.mesh)
+    )
     written = []
-    for i_writer in arguments.to:
-        written += i_writer().write(
-            mesh, os.path.join(arguments.output_dir, name + i_writer.extension)
+    try:
+        write_formats(
+            mesh, base_path, writers, protected=[arguments.mesh], written=written
         )
-    for i_file in written:
-        print("  {0}".format(i_file))
+    except Exception as error:  # pylint: disable=broad-except
+        return report_outcome(error, written)
+    # The mesh that was read is protected, so asking for the format it is already in
+    # cannot overwrite the file this was given. A format failing part of the way
+    # through still reports what reached the disk, as it does when a deck drives it
 
-    return 0
+    return report_outcome(None, written)

@@ -20,7 +20,7 @@ import traceback
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 from geommicgen.meshing.mesher import get_mesher
-from geommicgen.meshing.writers import sidecar_path, write_vtk_image, write_vtu
+from geommicgen.meshing.writers import standard_mesh_path, write_standard_mesh
 from geommicgen.translators.base import get_writer
 
 DECK_MESHERS = {"femsh": "gmsh", "rgmsh": "voxel"}
@@ -77,7 +77,7 @@ class MeshJob:
         Traceback of that error, as text.
     """
 
-    def __init__(self, mesher, writers, base_name, description=None):
+    def __init__(self, mesher, writers, base_name):
         """
         Initizalizer for the MeshJob Class.
 
@@ -91,14 +91,11 @@ class MeshJob:
 
         base_name: str
             Name of the files that are written, without any extension.
-
-        description: str
-            Name the job is reported under. Defaults to the one the mesher gives.
         """
         self.mesher = mesher
         self.writers = list(writers)
         self.base_name = base_name
-        self.description = description or mesher.description
+        self.description = mesher.description
         self.time = None
         self.files = []
         self.error = None
@@ -157,47 +154,21 @@ class MeshJob:
         Every file is recorded on the job as soon as it is written, so that a format
         failing part of the way through still reports what did reach the disk.
 
-        Returns
-        -------
-        list
-            Paths of the files that were written.
-
         Raises
         ------
         ValueError:
             If a writer would write over the standard output.
         """
-        standard_path = base_path + (".vtu" if mesh.structured is None else ".vti")
-        targets = [
-            (i_writer, base_path + i_writer.extension) for i_writer in self.writers
-        ]
-        over_standard = [
-            i_writer.name for i_writer, i_path in targets if i_path == standard_path
-        ]
-        if over_standard:
-            raise ValueError(
-                "The format {0} writes {1}, which is where the standard output of this "
-                "mesh goes as well. Ask for one or the other.".format(
-                    ", ".join(over_standard), os.path.basename(standard_path)
-                )
-            )
-        # Checked before anything is written, since the two would otherwise be written
-        # one over the other and only the second would survive
-
-        if mesh.structured is None:
-            write_vtu(mesh, standard_path)
-        else:
-            write_vtk_image(mesh, standard_path)
-        self.files += [standard_path, sidecar_path(standard_path)]
+        refuse_overwrites(
+            base_path, self.writers, [standard_mesh_path(mesh, base_path)]
+        )
+        self.files += write_standard_mesh(mesh, base_path)
         # Every mesh is written in a standard format that a viewer reads, whichever
         # other formats were asked for. With its sidecar that file is the whole of the
         # second stage: it reads back as the same kind of mesh it was written from, so
         # the third stage runs off it alone, later or somewhere else
 
-        for i_writer, i_path in targets:
-            self.files += i_writer().write(mesh, i_path)
-
-        return self.files
+        write_formats(mesh, base_path, self.writers, written=self.files)
 
 
 def job_base_name(deck_name, label):
@@ -224,6 +195,80 @@ def job_base_name(deck_name, label):
     return label
     # Naming the files after the deck and the discretisation keeps two runs of the same
     # microstructure apart, which neither does on its own
+
+
+def refuse_overwrites(base_path, writers, protected):
+    """
+    Refuse a writer aimed at a file this run needs as it is.
+
+    Parameters
+    ----------
+    base_path: str
+        Path of the files to be written, without an extension.
+
+    writers: list
+        Classes of the writers.
+
+    protected: list
+        Paths no writer may be aimed at: the standard output of the mesh, or the file
+        the mesh was read from.
+
+    Raises
+    ------
+    ValueError:
+        If a writer would write over one of them.
+    """
+    guarded = {os.path.abspath(i_path) for i_path in protected}
+    over = [
+        (i_writer.name, base_path + i_writer.extension)
+        for i_writer in writers
+        if os.path.abspath(base_path + i_writer.extension) in guarded
+    ]
+    if over:
+        raise ValueError(
+            "The format {0} writes {1}, which this run needs as it is. Ask for it "
+            "under another name, or somewhere else.".format(
+                ", ".join(i_name for i_name, _ in over),
+                ", ".join(os.path.basename(i_path) for _, i_path in over),
+            )
+        )
+    # Asked before anything is written, so that a request that cannot be honoured
+    # leaves nothing behind rather than half of it
+
+
+def write_formats(mesh, base_path, writers, protected=(), written=None):
+    """
+    Write a mesh with every writer.
+
+    Parameters
+    ----------
+    mesh: `.Mesh`
+        Mesh to be written.
+
+    base_path: str
+        Path of the files, without an extension.
+
+    writers: list
+        Classes of the writers.
+
+    protected: list
+        Paths no writer may be aimed at.
+
+    written: list
+        List the paths are appended to as they are written, so that a format failing
+        part of the way through still leaves the caller with what did reach the disk.
+
+    Returns
+    -------
+    list
+        Paths of the files that were written.
+    """
+    refuse_overwrites(base_path, writers, protected)
+    written = [] if written is None else written
+    for i_writer in writers:
+        written += i_writer().write(mesh, base_path + i_writer.extension)
+
+    return written
 
 
 def writers_from_options(options, defaults):
@@ -285,48 +330,44 @@ def build_mesh_jobs(mesh_options, deck_name=None):
         anything.
     """
     jobs = []
-    for i_name in mesh_options:
-        options = mesh_options[i_name]
+    for i_name, i_options in mesh_options.items():
         if i_name not in DECK_MESHERS:
             raise ValueError("Specified mesh {0} is not supported.".format(i_name))
         mesher_class = get_mesher(DECK_MESHERS[i_name])
+
         if i_name == "femsh":
-            element_type = options["element_type"]
+            element_type = i_options["element_type"]
+            mesher = mesher_class(
+                mesh_size=i_options.get("mesh_size"),
+                element_type=element_type,
+                elements_per_particle=i_options.get("elements_per_particle"),
+            )
             jobs.append(
                 MeshJob(
-                    mesher_class(
-                        mesh_size=options.get("mesh_size", None),
-                        element_type=element_type,
-                        elements_per_particle=options.get(
-                            "elements_per_particle", None
-                        ),
-                    ),
-                    writers_from_options(options, DEFAULT_MESH_FORMATS),
+                    mesher,
+                    writers_from_options(i_options, DEFAULT_MESH_FORMATS),
                     job_base_name(deck_name, element_type),
                 )
             )
-        else:
-            if options.get("slice_dir", None) is not None:
-                raise ValueError(
-                    "Slice_Dir no longer does anything: it used to decide whether the "
-                    "grid of a three dimensional microstructure was written at all, "
-                    "and the grid is now always written. Remove it."
-                )
-            writers = writers_from_options(options, DEFAULT_GRID_FORMATS)
-            for j_n_voxels_dims in options["n_voxels_dims"]:
-                jobs.append(
-                    MeshJob(
-                        mesher_class(j_n_voxels_dims),
-                        writers,
-                        job_base_name(
-                            deck_name,
-                            "_".join(
-                                str(int(i_size)) for i_size in j_n_voxels_dims
-                            ),
-                        ),
-                    )
-                )
+            continue
         # The constructors genuinely differ, and a grid fans out into one job per
         # resolution, so the two are built apart; only the names are shared
+
+        if i_options.get("slice_dir") is not None:
+            raise ValueError(
+                "Slice_Dir no longer does anything: it used to decide whether the "
+                "grid of a three dimensional microstructure was written at all, "
+                "and the grid is now always written. Remove it."
+            )
+        writers = writers_from_options(i_options, DEFAULT_GRID_FORMATS)
+        for j_n_voxels_dims in i_options["n_voxels_dims"]:
+            label = "_".join(str(int(i_size)) for i_size in j_n_voxels_dims)
+            jobs.append(
+                MeshJob(
+                    mesher_class(j_n_voxels_dims),
+                    writers,
+                    job_base_name(deck_name, label),
+                )
+            )
 
     return jobs

@@ -49,30 +49,3 @@ class CrateWriter(SolverWriter):
         # numpy appends the extension itself, unless the name already carries it
 
         return [file_path if file_path.endswith(".npy") else file_path + ".npy"]
-
-
-def grid_file_name(deck_name, shape):
-    """
-    Build the name of the file holding a grid of phases.
-
-    Parameters
-    ----------
-    deck_name: str
-        Name of the input data file the microstructure was generated from, without its
-        extension.
-
-    shape: tuple
-        Number of voxels in each spatial direction.
-
-    Returns
-    -------
-    str
-        Name of the file, without the extension numpy appends.
-    """
-    dimensions = "_".join(str(int(i_size)) for i_size in shape)
-    if deck_name:
-        return "{0}_{1}.rgmsh".format(os.path.splitext(deck_name)[0], dimensions)
-
-    return "{0}.rgmsh".format(dimensions)
-    # Naming the grid after the deck keeps the grids of different microstructures at the
-    # same resolution apart, which the dimensions alone do not

@@ -23,6 +23,11 @@ from geommicgen.meshing.periodic import classify_periodic_boundary
 DEFAULT_MAX_CELLS = 20000000
 # Largest number of cells that is materialized from a structured grid
 
+CELL_ORDER = "C"
+# Order the cells built from a grid run in. It is not a choice that is recorded
+# anywhere: whoever reads cells that were built from a grid folds them back with this,
+# and a VTK image is read with Fortran order because that is what the format is.
+
 VTK_CELL_CORNERS = {
     2: ((0, 0), (1, 0), (1, 1), (0, 1)),
     3: (
@@ -325,4 +330,6 @@ class Mesh:
 
         self._points = points
         self._cells = [("quad" if len(shape) == 2 else "hexahedron", connectivity)]
-        self._phase = [self.structured.phase_grid.ravel(order="C").astype(int)]
+        self._phase = [
+            self.structured.phase_grid.ravel(order=CELL_ORDER).astype(int)
+        ]
