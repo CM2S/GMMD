@@ -262,7 +262,7 @@ def run_program():
                             mic_gen_parameters["verlet_factor"]
                         )
                     elif mic_gen_parameters.get("speed_up_scheme") == "Verlet2":
-                        current_spe_me =(
+                        current_speed_up_scheme = VerletPartialUpdate(
                             mic_gen_parameters["verlet_factor"]
                         )
                     elif mic_gen_parameters["speed_up_scheme"] == "Naive":
