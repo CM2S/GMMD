@@ -11,6 +11,5 @@ Submodules
    geommicgen.iofuncs.md_state
    geommicgen.iofuncs.keywords
    geommicgen.iofuncs.microstructure_yaml
-   geommicgen.iofuncs.microstructureGenInterface
    geommicgen.iofuncs.printing
 
