@@ -114,11 +114,10 @@ def run_program():
             mic_gen_parameters = top_level_reader.all_options["mic_gen_parameters"]
             rve_dims = mic_gen_parameters["rve_dimensions"]
             # Mandatory top level parameters
-        except KeyError:
-            print("Mandatory parameter not supplied.")
-            raise
+        except KeyError as err:
+            raise KeyError("Mandatory parameter not supplied.") from err
 
-        if n_dp_samples < 1 and isinstance(n_dp_samples, int):
+        if n_dp_samples < 1 or not isinstance(n_dp_samples, int):
             raise ValueError(
                 "Number of samples must be a positve integer larger than 1."
             )
@@ -154,7 +153,6 @@ def run_program():
                             "rgmsh"
                         ]
                         for i_n_voxel_dims in rgmsh_options["n_voxels_dims"]:
-                            print(rgmsh_options.get("slice_dir", None), "\n\n")
                             mesh_generators.add(
                                 RegularGridMeshGenerator(
                                     i_n_voxel_dims,
@@ -200,9 +198,8 @@ def run_program():
                         mic_gen_parameters["save_history"],
                         **md_kwargs
                     )
-                except KeyError:
-                    print("Missing mandatory parameter defining a MD simulation.")
-                    raise
+                except KeyError as err:
+                    raise KeyError("Missing mandatory parameter defining a MD simulation.") from err
 
                 try:
                     if mic_gen_parameters.get("thermostat") == "isokinetic":
@@ -248,13 +245,11 @@ def run_program():
                         )
                     else:
                         current_thermostat = MicroCanonicalEnsemble()
-                except KeyError:
-                    print(
-                        "Missing mandatory parameter defining the {0} thermostat.".format(
-                            mic_gen_parameters["thermostat"]
-                        )
-                    )
-                    raise
+                except KeyError as err:
+                    raise KeyError("Missing mandatory parameter defining the {0} thermostat.".format(
+                                        mic_gen_parameters["thermostat"])
+                                    ) from err
+
 
                 current_mic_generator.set_thermostat(current_thermostat)
                 # Adding a thermostat to the MD simulation
@@ -267,7 +262,7 @@ def run_program():
                             mic_gen_parameters["verlet_factor"]
                         )
                     elif mic_gen_parameters.get("speed_up_scheme") == "Verlet2":
-                        current_speed_up_scheme = VerletPartialUpdate(
+                        current_spe_me =(
                             mic_gen_parameters["verlet_factor"]
                         )
                     elif mic_gen_parameters["speed_up_scheme"] == "Naive":
