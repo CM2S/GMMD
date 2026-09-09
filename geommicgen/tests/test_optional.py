@@ -101,6 +101,7 @@ def source_files():
 class TestRequireGmsh(unittest.TestCase):
     """Test class for the retrieval of the optional gmsh dependency."""
 
+    @unittest.skipUnless(has_gmsh(), "gmsh not installed")
     def test_returns_module_when_recent_enough(self):
         gmsh = require_gmsh()
         self.assertTrue(hasattr(gmsh, "model"))
