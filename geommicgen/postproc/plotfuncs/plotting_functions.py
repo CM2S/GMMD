@@ -640,82 +640,53 @@ def plot_paths(particles, box, position_center_history, motion_results_dir):
     path_results_dir = os.path.join(motion_results_dir, "paths")
     os.makedirs(path_results_dir)
     if particles[0].dim == 2:
-        for step in range(len(position_center_history[0])):
-            # Updating particle position to current time
-            for i_particle_ind, i_particle in enumerate(particles):
-                i_particle.position_center = position_center_history[i_particle_ind][
-                    step
-                ]
+        original_centers = [i_particle.position_center for i_particle in particles]
+        try:
+            for step in range(len(position_center_history[0])):
+                # Updating particle position to current time
+                for i_particle_ind, i_particle in enumerate(particles):
+                    i_particle.position_center = position_center_history[
+                        i_particle_ind
+                    ][step]
 
-            dim = len(box)
-            mesh_size = particles[0].radius / 5
-            with gmsh_view(path_results_dir, mesh_size, dim) as (
-                gmsh,
-                model,
-                factory,
-            ):
+                dim = len(box)
+                mesh_size = particles[0].radius / 5
+                with gmsh_view(path_results_dir, mesh_size, dim) as (
+                    gmsh,
+                    model,
+                    factory,
+                ):
 
-                box_tag = factory.addRectangle(
-                    0,
-                    0,
-                    0,
-                    box[0],
-                    box[1],
-                )
+                    box_tag = factory.addRectangle(
+                        0,
+                        0,
+                        0,
+                        box[0],
+                        box[1],
+                    )
 
-                particle_tags, phase_dim_tag = add_particles_to_view(
-                    factory, model, particles, box
-                )
+                    particle_tags, phase_dim_tag = add_particles_to_view(
+                        factory, model, particles, box
+                    )
 
-                phase_dim_tag = keep_what_the_cut_left(
-                    factory, dim, box_tag, particle_tags, phase_dim_tag
-                )
+                    phase_dim_tag = keep_what_the_cut_left(
+                        factory, dim, box_tag, particle_tags, phase_dim_tag
+                    )
 
-                tag_phase_boundaries(model, phase_dim_tag, dim, dim - 1)
+                    tag_phase_boundaries(model, phase_dim_tag, dim, dim - 1)
 
-                # Generate a 3D mesh
-                model.mesh.generate(2)
+                    # Generate a 3D mesh
+                    model.mesh.generate(2)
 
-                write_gmsh_view(
-                    gmsh, path_results_dir, "mic_step_{0}".format(step)
-                )
-            # with open(
-            #     os.path.join(path_results_dir, "mic_step_{0}.vtk".format(step)),
-            #     "a",
-            # ) as msh_vtk:
-            #     if particles[0].dim == 2:
-            #         msh_vtk.write("# vtk DataFile Version 2.0")
-            #         msh_vtk.write("\n3D triangulation data")
-            #         msh_vtk.write("\nASCII")
-            #         msh_vtk.write("\n\nDATASET POLYDATA")
-            #         msh_vtk.write(
-            #             "\nPOINTS {0} {1}".format(9 * len(particles), "float")
-            #         )
-            #         for i_particle_index, i_particle in enumerate(particles):
-            #             for j in range(-1, 2):
-            #                 for k in range(-1, 2):
-            #                     position = (
-            #                         position_center_history[i_particle_index][step]
-            #                         + [j, k] * box
-            #                     )
-            #                     msh_vtk.write(
-            #                         "\n{0} {1} 0".format(position[0], position[1])
-            #                     )
-            #         msh_vtk.write("\n\nPOINT_DATA {0}".format(9 * len(particles)))
-            #         msh_vtk.write(
-            #             "\nSCALARS {0} {1} {2}".format("radius", "float", "1")
-            #         )
-            #         msh_vtk.write("\nLOOKUP_TABLE default")
-            #         for i_particle in particles:
-            #             for j in range(-1, 2):
-            #                 for k in range(-1, 2):
-            #                     msh_vtk.write("\n{0}".format(i_particle.radius))
-            #         msh_vtk.write("\nSCALARS {0} {1} {2}".format("phase", "float", "1"))
-            #         msh_vtk.write("\nLOOKUP_TABLE default")
-            #         for i_particle in particles:
-            #             for j in range(-1, 2):
-            #                 for k in range(-1, 2):
-            #                     msh_vtk.write("\n{0}".format(i_particle.phase))
+                    write_gmsh_view(
+                        gmsh, path_results_dir, "mic_step_{0}".format(step)
+                    )
+        finally:
+            for i_particle, i_center in zip(particles, original_centers):
+                i_particle.position_center = i_center
+            # The particles are the microstructure's own, and the history holds where
+            # they stood before the run was contracted, resized and offset, so the walk
+            # through it is undone for the analyses that read them afterwards
 
     elif particles[0].dim == 3:
 
