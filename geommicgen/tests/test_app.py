@@ -4,8 +4,6 @@ import unittest
 from unittest.mock import Mock, patch
 
 from geommicgen.app import run_program
-import io
-from contextlib import redirect_stdout
 
 
 class RunProgramTests(unittest.TestCase):
@@ -84,6 +82,7 @@ class RunProgramTests(unittest.TestCase):
         post_proc_patcher = patch("geommicgen.app.post_proc")
         self.mock_post_proc = post_proc_patcher.start()
         self.addCleanup(post_proc_patcher.stop)
+
 
     def test_missing_mandatory_parameters(self):
         " Missing mandatory parameter must raise KeyError "
