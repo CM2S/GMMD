@@ -277,6 +277,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         microstructure_sample: `.Microstructure`
             Microstructure sample to be generated
         """
+        
         self.microstructure_sample = microstructure_sample
         for phase in microstructure_sample.phases.values():
             if phase.type is not Matrix and not phase.inner_phase:

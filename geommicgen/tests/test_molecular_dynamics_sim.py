@@ -8,9 +8,10 @@ from unittest.mock import sentinel, Mock, MagicMock, patch
 # from microstructure.phase import Phase
 
 from geommicgen.microstructure.particleclasses import (
-    CylindricalFiber,
+    CylindricalFiber, Matrix, Disk, Ellipsoid
 )
 from geommicgen.micgenmethod.molecular_dynamics_sim import MolecularDynamicsSimulation
+from geommicgen.microstructure.microstructure import Microstructure
 import numpy as np
 
 
@@ -158,6 +159,8 @@ class TestRVENormalization(unittest.TestCase):
 class TestMolecularDynamicSimulation(unittest.TestCase):
     """Test class for the MolecularDynamicsSimulation class"""
 
+
+
     def setUp(self):
         self.md_init_mock_kwargs = {
             key: Mock()
@@ -172,77 +175,69 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
             ]
         }
 
-    # @patch("micgenmethod.microstructure_gen_method.GenerationMethod.generate_particles")
-    # @patch(
-    #     "micgenmethod.molecular_dynamics_sim.MolecularDynamicsSimulation.run_molecular_dynamics_simulation",
-    # )
-    # def test_generate_microstructure_particles_are_generated(
-    #     self,
-    #     _,
-    #     mock_generate_particles,
-    # ):
-    #     """Test if the particles are generated for each phase"""
-    #
-    #     current_generation_method = MolecularDynamicsSimulation(
-    #         *self.md_init_mock_kwargs
-    #     )
-    #     current_generation_method.type_init_conf = "random"
-    #     mock_microstructure_sample = Mock(rve_dims=[1.0, 1.0])
-    #     phase_1 = Mock()
-    #     phase_2 = Mock()
-    #     phase_3 = Mock()
-    #     mock_microstructure_sample.phases = {
-    #         "1": phase_1,
-    #         "2": phase_2,
-    #         "3": phase_3,
-    #     }
-    #
-    #     current_generation_method.generate_microstructure(mock_microstructure_sample)
-    #     mock_generate_particles.assert_has_calls(
-    #         [
-    #             call(
-    #                 mock_microstructure_sample.rve_dims,
-    #                 mock_microstructure_sample.phases["1"].type,
-    #                 mock_microstructure_sample.phases["1"].phase_name,
-    #                 mock_microstructure_sample.phases["1"].descriptors,
-    #             ),
-    #             call(
-    #                 mock_microstructure_sample.rve_dims,
-    #                 mock_microstructure_sample.phases["2"].type,
-    #                 mock_microstructure_sample.phases["2"].phase_name,
-    #                 mock_microstructure_sample.phases["2"].descriptors,
-    #             ),
-    #             call(
-    #                 mock_microstructure_sample.rve_dims,
-    #                 mock_microstructure_sample.phases["3"].type,
-    #                 mock_microstructure_sample.phases["3"].phase_name,
-    #                 mock_microstructure_sample.phases["3"].descriptors,
-    #             ),
-    #         ],
-    #         any_order=True,
-    #     )
 
-    # @patch(
-    #     "particleclassesmicgenmethod.microstructure_gen_method.GenerationMethod.generate_particles"
-    # )
-    # def test_generate_microstructure_set_box(self, mock_generate_particles):
-    #     """Set the simulation box correctly."""
-    #
-    #     mock_generate_particles.return_value = Mock()
-    #     mock_generate_particles.return_value
-    #     mock_microstructure_sample = Mock()
-    #     phase_1 = Mock()
-    #     phase_2 = Mock()
-    #     mock_microstructure_sample.phases = {
-    #         "1": phase_1,
-    #         "2": phase_2,
-    #     }
-    #     phase_2.type == Mock()
-    #
-    #     self.current_generation_method.generate_microstructure(
-    #         mock_microstructure_sample
-    #     )
-    #     self.assertEqual(self.current_generation_method.box, [1.0, 1.0])
+    def _build_mock_phase(self, volume = 0.1, type = None):
+        mock_phase = Mock()
+        if type == Matrix:
+            mock_phase.volume = None
+        else:
+            mock_phase.volume = volume
+        mock_phase.type = type
+        mock_phase.inner_phase = False
+        mock_phase.generate_particles.return_value = None
+
+        return mock_phase
+
+
+    def test_generate_microstructure_particles_are_generated(self):
+        """Test if the particles are generated for each phase"""
+
+        current_generation_method = MolecularDynamicsSimulation(
+            *self.md_init_mock_kwargs.values()
+        )
+
+        mock_microstructure_sample = Mock()
+        mock_phase1 = self._build_mock_phase(type=Matrix)
+        mock_phase2 = self._build_mock_phase(type=Disk)
+        mock_phase3 = self._build_mock_phase(type=Ellipsoid)
+        mock_microstructure_sample.phases = {
+            "mock_phase1": mock_phase1,
+            "mock_phase2": mock_phase2,
+            "mock_phase3": mock_phase3,
+        }
+        mock_microstructure_sample.volume_fraction = 2
+        # A volume fraction over 1 makes generate_microstructure raise right after the
+        # phase-generation loop runs, so the rest of the simulation never needs mocking.
+
+        with self.assertRaises(ValueError):
+            current_generation_method.generate_microstructure(mock_microstructure_sample)
+
+        mock_phase1.generate_particles.assert_not_called()
+        mock_phase2.generate_particles.assert_called_once_with(
+            mock_microstructure_sample.rve_dims
+        )
+        mock_phase3.generate_particles.assert_called_once_with(
+            mock_microstructure_sample.rve_dims
+        )
+
+
+    def test_set_box(self):
+        """Check if the simulation box is set correctly for any particle except a cylindrical fiber."""
+        current_generation_method = MolecularDynamicsSimulation(
+            *self.md_init_mock_kwargs.values()
+        )
+        rve_dims_options = [
+            [1.0, 2.0],
+            [1.0, 2.0, 3.0]
+        ]
+        for rve_dims in rve_dims_options:
+            with self.subTest(rve_dims):
+                mock_particle_1 = Mock()
+                mock_particle_2 = Mock()
+                particles = [mock_particle_1, mock_particle_2]
+                current_generation_method.set_box(particles, rve_dims)
+                self.assertEqual(current_generation_method.box, rve_dims)
+
 
     def test_set_box_cylindrical_fiber_set_box(self):
         """Check if the simulation box is correctly set if there a cylindrical fibers."""
