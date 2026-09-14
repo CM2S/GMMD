@@ -11,8 +11,33 @@ from scipy import integrate
 import time
 from geommicgen.postproc.plotfuncs.plotting_functions import plot_particles_3d
 import pickle
-from geommicgen.micgenmethod.thermostats import MultiTemperatureIsokineticThermostat
+from geommicgen.micgenmethod.thermostats import MultiTemperatureIsokineticThermostat, IsokineticThermostat
 from geommicgen.micgenmethod.molecular_dynamics_sim import MolecularDynamicsSimulation
+
+
+
+
+class TestIsokineticThermostat(unittest.TestCase):
+
+    def test_negative_temperature_raises_error(self):
+        reference_temp = -1
+        with self.assertRaises(ValueError):
+            IsokineticThermostat(reference_temp)
+
+    def test_apply_thermostat(self):
+        reference_temp = 1
+        thermostat = IsokineticThermostat(reference_temp)
+        particle_velocities = [np.array([1.0, 1.0]), np.array([2.0, 2.0])]
+        kin_energy = 0.001
+
+        thermostat.apply_thermostat(particle_velocities, kin_energy)
+
+        dim, n_particles = 2, 2
+        resulting_kin_energy = 0.5 * sum(np.sum(v**2) for v in particle_velocities)
+        # For unit masses, this should equal ½·dim·N·k_b·reference_temp
+        expected_kin_energy = 0.5 * dim * n_particles * thermostat.k_b * reference_temp
+        self.assertAlmostEqual(resulting_kin_energy, expected_kin_energy)
+
 
 
 class TestRatioInOut(unittest.TestCase):
