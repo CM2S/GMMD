@@ -136,7 +136,7 @@ A complete GMMD input data file where each parameter specification (either manda
   2.3. *One stage at a time:* The output is produced in three stages -- a microstructure, a mesh of it, and that mesh in the formats solvers read -- and each can be run on its own. `geommicgen-mesh` discretises a microstructure and writes the mesh; `geommicgen-translate` writes a mesh in the formats solvers read, taking the file the previous stage wrote, or one another tool produced:
     ```bash
     geommicgen-mesh mic.yaml --mesher gmsh --mesh-size 0.05 --element-type tri6 --to links
-    geommicgen-mesh mic.yaml --mesher voxel --n-voxels 100 100 --to crate
+    geommicgen-mesh mic.yaml --mesher voxel --n-voxels-dims 100 100 --to crate
     geommicgen-translate mic.vtu --to links,xdmf
     geommicgen-translate --list-formats
     ```

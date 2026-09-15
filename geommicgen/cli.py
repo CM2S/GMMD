@@ -21,7 +21,7 @@ from geommicgen.pipeline import (
     write_formats,
     writers_from_options,
 )
-from geommicgen.meshing.mesher import available_meshers, get_mesher
+from geommicgen.meshing.mesher import available_meshers, get_mesher, mesher_options
 from geommicgen.meshing.writers import read_mesh
 from geommicgen.translators.base import available_writers, get_writer, writer_options
 
@@ -49,14 +49,15 @@ def format_names(value):
 
 ARGUMENT_KWARGS = {
     "int": {"type": int},
+    "int_list": {"type": int, "nargs": "+", "metavar": "N"},
     "float": {"type": float},
     "str": {"type": str},
     "str_list": {"type": format_names, "metavar": "NAMES"},
     "bool": {"action": argparse.BooleanOptionalAction, "default": None},
 }
-# How each type a format declares an option with is read from the command line. Every
-# type the input data file accepts is here: one that is missing would read from a deck
-# and then fail when the parser is built, which is the wrong end to find out
+# How each type a mesher or a format declares an option with is read from the command
+# line. Every type the input data file accepts is here: one that is missing would read
+# from a deck and then fail when the parser is built, which is the wrong end to find out
 
 
 def resolve_writers(parser, names, options=None):
@@ -91,25 +92,32 @@ def resolve_writers(parser, names, options=None):
     return []
 
 
-def add_format_arguments(parser):
-    """Add the arguments a written format is configured with."""
-    for i_name in sorted(writer_options()):
-        description = writer_options()[i_name]
+def add_declared_arguments(parser, options):
+    """
+    Add the arguments for the options the meshers or the formats declare.
+
+    Parameters
+    ----------
+    parser: argparse.ArgumentParser
+        Parser to add them to.
+
+    options: dict
+        The declared options, of the form *{option_name: description}*.
+    """
+    for i_name in sorted(options):
+        description = options[i_name]
         parser.add_argument(
             "--{0}".format(i_name.lower().replace("_", "-")),
             help=description["help"],
             **ARGUMENT_KWARGS[description["type"]]
         )
-    # Taken from the formats themselves, so a writer that declares an option is asked
-    # for it here without this module naming it
+    # Taken from the meshers and the formats themselves, so one that declares an
+    # option is asked for it here without this module naming it
 
 
-def format_options(arguments):
-    """Collect the format arguments the way the input data file keys them."""
-    return {
-        i_name.lower(): getattr(arguments, i_name.lower())
-        for i_name in writer_options()
-    }
+def declared_options(arguments, options):
+    """Collect the declared arguments the way the input data file keys them."""
+    return {i_name.lower(): getattr(arguments, i_name.lower()) for i_name in options}
 
 
 def add_output_arguments(parser):
@@ -189,22 +197,7 @@ def mesh_command(argv=None):
         choices=available_meshers(),
         help="mesher to discretise with (default: gmsh)",
     )
-    parser.add_argument("--mesh-size", type=float, help="largest element size")
-    parser.add_argument(
-        "--elements-per-particle",
-        type=float,
-        help="elements across the smallest particle, instead of a size",
-    )
-    parser.add_argument(
-        "--element-type", default="tri3", help="element to mesh with (default: tri3)"
-    )
-    parser.add_argument(
-        "--n-voxels",
-        type=int,
-        nargs="+",
-        metavar="N",
-        help="number of voxels in each direction, for the voxel mesher",
-    )
+    add_declared_arguments(parser, mesher_options())
     parser.add_argument(
         "--to",
         type=format_names,
@@ -212,21 +205,23 @@ def mesh_command(argv=None):
         metavar="FORMATS",
         help="formats to write besides the mesh itself, separated by commas",
     )
-    add_format_arguments(parser)
+    add_declared_arguments(parser, writer_options())
     add_output_arguments(parser)
     arguments = parser.parse_args(argv)
 
-    writers = resolve_writers(parser, arguments.to, format_options(arguments))
-    if arguments.mesher == "voxel":
-        if not arguments.n_voxels:
-            parser.error("the voxel mesher needs --n-voxels")
-        mesher = get_mesher("voxel")(arguments.n_voxels)
-    else:
-        mesher = get_mesher(arguments.mesher)(
-            mesh_size=arguments.mesh_size,
-            element_type=arguments.element_type,
-            elements_per_particle=arguments.elements_per_particle,
+    writers = resolve_writers(
+        parser, arguments.to, declared_options(arguments, writer_options())
+    )
+    try:
+        meshers = get_mesher(arguments.mesher).from_options(
+            declared_options(arguments, mesher_options())
         )
+    except ValueError as error:
+        parser.error(str(error))
+    if len(meshers) != 1:
+        parser.error("a command line asks for one discretisation at a time")
+    mesher = meshers[0]
+    # Built the way a deck builds it, from the options the mesher declares
 
     from geommicgen.iofuncs.microstructure_yaml import read_microstructure_yaml
     # Imported here rather than at the top: reading a microstructure pulls in the
@@ -279,7 +274,7 @@ def translate_command(argv=None):
     parser.add_argument(
         "--matrix-phase", help="name of the matrix phase, when the mesh does not say"
     )
-    add_format_arguments(parser)
+    add_declared_arguments(parser, writer_options())
     add_output_arguments(parser)
     parser.add_argument(
         "--list-formats", action="store_true", help="list the formats and stop"
@@ -294,7 +289,9 @@ def translate_command(argv=None):
     if arguments.mesh is None or not arguments.to:
         parser.error("a mesh and --to are needed, unless --list-formats is given")
 
-    writers = resolve_writers(parser, arguments.to, format_options(arguments))
+    writers = resolve_writers(
+        parser, arguments.to, declared_options(arguments, writer_options())
+    )
     mesh = read_mesh(
         arguments.mesh,
         rve_dims=arguments.rve_dims,

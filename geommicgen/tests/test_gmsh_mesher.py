@@ -152,6 +152,28 @@ class TestGmshMesherConfiguration(unittest.TestCase):
     def test_registered_under_its_name(self):
         self.assertIs(get_mesher("gmsh"), GmshMesher)
 
+    def test_built_from_the_options_it_declares(self):
+        (mesher,) = GmshMesher.from_options(
+            {"mesh_size": 0.2, "element_type": "tetra4", "elements_per_particle": None}
+        )
+
+        self.assertEqual(mesher.mesh_size, 0.2)
+        self.assertEqual(mesher.element_type, "tetra4")
+        self.assertIsNone(mesher.elements_per_particle)
+        self.assertEqual(mesher.label, "tetra4")
+        # The base class passes each declared option to the initializer by name, and
+        # leaves the ones that were not given to its defaults
+
+    def test_an_option_left_out_takes_the_default(self):
+        (mesher,) = GmshMesher.from_options({"mesh_size": 0.2})
+
+        self.assertEqual(mesher.element_type, "tri3")
+
+    def test_the_initializer_still_checks_what_it_is_given(self):
+        with self.assertRaises(ValueError):
+            GmshMesher.from_options({"element_type": "tri3"})
+        # Neither size given: refused by the initializer, as it is when called directly
+
 
 @unittest.skipUnless(has_gmsh(), "gmsh is not installed")
 class TestGmshMesherMeshes(unittest.TestCase):

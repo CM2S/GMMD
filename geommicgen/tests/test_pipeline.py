@@ -1,3 +1,4 @@
+import inspect
 import os
 import tempfile
 import types
@@ -7,11 +8,13 @@ from unittest.mock import patch
 from geommicgen._optional import has_gmsh
 from geommicgen.iofuncs.keywords import Keyword
 from geommicgen.pipeline import (
+    DECK_MESHERS,
     MeshJob,
     build_mesh_jobs,
     writers_from_options,
 )
 from geommicgen.meshing.gmsh_mesher import GmshMesher
+from geommicgen.meshing.mesher import get_mesher
 from geommicgen.meshing.voxel_mesher import VoxelMesher
 from geommicgen.tests.helpers import disk_microstructure
 from geommicgen.translators.crate import CrateWriter
@@ -74,24 +77,31 @@ class TestBuildMeshJobs(unittest.TestCase):
         # The gmsh file is no longer written on the way to the solver deck, so it is
         # asked for like any other format
 
-    def test_voxel_filename_names_the_grid(self):
+    def test_file_name_names_the_files(self):
         jobs = build_mesh_jobs(
-            {"rgmsh": {"n_voxels_dims": [[10, 10]], "voxel_filename": "my_grid"}},
+            {
+                "rgmsh": {"n_voxels_dims": [[10, 10]], "file_name": "my_grid"},
+                "femsh": {"mesh_size": 0.1, "file_name": "my_mesh"},
+            },
             "example.mdsim",
         )
-        self.assertEqual([i_job.base_name for i_job in jobs], ["my_grid"])
+        self.assertEqual(
+            [i_job.base_name for i_job in jobs], ["my_grid", "my_mesh"]
+        )
+        # The name belongs to the files rather than to the mesher, so either takes it
 
-    def test_voxel_filename_for_more_than_one_grid_is_refused(self):
+    def test_file_name_for_more_than_one_grid_is_refused(self):
         with self.assertRaises(ValueError) as context:
             build_mesh_jobs(
                 {
                     "rgmsh": {
                         "n_voxels_dims": [[10, 10], [20, 20]],
-                        "voxel_filename": "my_grid",
+                        "file_name": "my_grid",
                     }
                 }
             )
-        self.assertIn("Voxel_Filename", str(context.exception))
+        self.assertIn("File_Name", str(context.exception))
+        self.assertIn("2", str(context.exception))
         # Every resolution would otherwise be written over the one before it
 
     def test_the_options_reach_the_writer(self):
@@ -127,12 +137,23 @@ class TestBuildMeshJobs(unittest.TestCase):
         # Every writer is handed the options of the discretisation and takes what it
         # declared, so one format's keyword costs the others nothing
 
-    def test_slice_dir_is_refused(self):
+    def test_the_jobs_are_built_from_what_the_meshers_declare(self):
+        for i_name, i_mesher in DECK_MESHERS.items():
+            mesher_class = get_mesher(i_mesher)
+            self.assertTrue(mesher_class.options)
+            self.assertTrue(mesher_class.default_formats)
+            for j_option in mesher_class.options:
+                self.assertIn(
+                    j_option.lower(), inspect.signature(mesher_class).parameters
+                )
+        # Nothing in build_mesh_jobs names a mesher, so what one takes and what it is
+        # written in by default have to come from the mesher, and the options it
+        # declares have to be the parameters it is built with
+
+    def test_a_grid_without_a_resolution_is_refused(self):
         with self.assertRaises(ValueError) as context:
-            build_mesh_jobs({"rgmsh": {"n_voxels_dims": [[10, 10]], "slice_dir": 0}})
-        self.assertIn("Slice_Dir", str(context.exception))
-        # It used to decide whether the grid was written at all, and silently produced
-        # nothing for a three dimensional microstructure
+            build_mesh_jobs({"rgmsh": {}})
+        self.assertIn("voxels", str(context.exception))
 
     def test_unknown_discretisation(self):
         with self.assertRaises(ValueError):

@@ -221,6 +221,18 @@ class GmshMesher(Mesher):
 
     name = "gmsh"
     description = "Finite element mesh generation"
+    default_formats = ("links",)
+    options = {
+        "Mesh_Size": {"type": "float", "help": "largest element size"},
+        "Elements_Per_Particle": {
+            "type": "float",
+            "help": "elements across the smallest particle, instead of a size",
+        },
+        "Element_Type": {
+            "type": "str",
+            "help": "element to mesh with (default: tri3)",
+        },
+    }
 
     def __init__(
         self, mesh_size=None, element_type="tri3", elements_per_particle=None,
@@ -268,6 +280,7 @@ class GmshMesher(Mesher):
         self.descriptors = ELEMENT_DESCRIPTORS[element_type]
         self.max_attempts = max_attempts
         self.warnings = []
+        self.label = element_type
 
     def mesh(self, microstructure, report=None):
         """

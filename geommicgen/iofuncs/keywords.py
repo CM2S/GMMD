@@ -13,6 +13,8 @@ import numpy as np
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 import geommicgen.microstructure.particleclasses as part_cls
+from geommicgen.meshing.mesher import get_mesher
+from geommicgen.pipeline import DECK_MESHERS
 from geommicgen.translators import writer_options
 import geommicgen.microstructure.phase as phase
 
@@ -101,6 +103,24 @@ class Keyword:
             elif self.type_str == "str":
                 value_str = line.split()[1]
                 final_val = value_str
+            elif self.type_str == "int_list":
+                value_str = " ".join(line.split()[1:])
+                if "[" in value_str:
+                    final_val = [
+                        [
+                            int(i_value)
+                            for i_value in i_group.replace("[", " ").split(",")
+                            if i_value.strip()
+                        ]
+                        for i_group in value_str.split("]")[:-1]
+                    ]
+                else:
+                    final_val = [
+                        int(i_value) for i_value in value_str.replace(",", " ").split()
+                    ]
+                # Written as [a, b], or as [a, b] [c, d] for several lists at once, in
+                # which case each is read as a list of its own. A bare row of numbers
+                # is read as one list
             elif self.type_str == "str_list":
                 value_str = " ".join(line.split()[1:]).strip()
                 if value_str.startswith("[") and value_str.endswith("]"):
@@ -715,6 +735,10 @@ top_level_reader.add_top_level_keyword(
 
 # Mesh generation parameters
 # ------------------------------------------------------------------------------------------
+JOB_KEYWORDS = {Keyword("File_Name", type_str="str")}
+# The options of a discretisation that belong to neither what discretises it nor the
+# formats it is written in, but to the files as such
+
 FORMAT_KEYWORDS = {
     Keyword("Formats", type_str="str_list"),
     Keyword("Write_Msh", type_str="bool"),
@@ -727,26 +751,25 @@ FORMAT_KEYWORDS = {
 # module knowing which format declared them, so writing a new one that takes an option
 # is a change to that writer alone
 
+
+def mesher_keywords(mesher_name):
+    """Keywords for the options a mesher declares, the way the formats declare theirs."""
+    return {
+        Keyword(i_name, type_str=i_description["type"])
+        for i_name, i_description in get_mesher(mesher_name).options.items()
+    }
+
+
 top_level_reader.add_top_level_keyword(
     KeywordTypeC(
         "Mesh_Options",
-        header_keys={
-            Keyword("femsh", type_str="none"),
-            Keyword("rgmsh", type_str="none"),
-        },
+        header_keys={Keyword(i_name, type_str="none") for i_name in DECK_MESHERS},
         sub_keys={
-            "femsh": {
-                Keyword("Element_Type", type_str="str"),
-                Keyword("Mesh_Size", type_str="float"),
-                Keyword("Elements_Per_Particle", type_str="float"),
-            }
-            | FORMAT_KEYWORDS,
-            "rgmsh": {
-                Keyword("N_Voxels_Dims", type_str="int"),
-                Keyword("Slice_Dir", type_str="int"),
-                Keyword("Voxel_Filename", type_str="str"),
-            }
-            | FORMAT_KEYWORDS,
+            i_name: mesher_keywords(i_mesher) | FORMAT_KEYWORDS | JOB_KEYWORDS
+            for i_name, i_mesher in DECK_MESHERS.items()
         },
     )
 )
+# One header per discretisation an input data file can name, each reading the options
+# of the mesher that produces it: a mesher that declares an option is asked for it here
+# without this module naming it, as a format is

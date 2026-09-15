@@ -273,17 +273,6 @@
 #		 x1: float
 #		 x2: float
 #		 x3: float
-#                ........................................................................
-#		 Voxel filename                                                       [O]
-#
-#		 Meaning: Name of the files of the grid, without any extension. Defaults to
-#		 	  the name of this file followed by the number of voxels, which is
-#		 	  what tells one resolution from another; naming the grid is therefore
-#		 	  refused when more than one resolution is asked for.
-#
-#	         Syntax: voxel_filename x
-#
-#		 x: str
 #		 ========================================================================
 #
 #		 ========================================================================
@@ -328,6 +317,18 @@
 #		 ========================================================================
 #		 Options of either mesh type
 #		 ------------------------------------------------------------------------
+#		 File name                                                            [O]
+#
+#		 Meaning: Name of the files of the discretisation, without any extension.
+#		 	  Defaults to the name of this file followed by what discretises it,
+#		 	  the element for a mesh and the number of voxels for a grid, which
+#		 	  is what tells two of them apart; naming the files is therefore
+#		 	  refused when more than one resolution is asked for.
+#
+#	         Syntax: file_name x
+#
+#		 x: str
+#                ........................................................................
 #		 Formats                                                              [O]
 #
 #		 Meaning: Formats the mesh is written in, beyond the VTK file that is always
@@ -386,9 +387,9 @@
 #
 #		 Gauss_Points, Boundary_Type and Periodic_Constraints belong to the formats
 #		 rather than to the discretisation, so each is read under either mesh type,
-#		 and a format takes the ones it understands and ignores the rest. The other
-#		 options above belong to one mesh type, and giving one under the other is
-#		 refused rather than ignored.
+#		 and a format takes the ones it understands and ignores the rest. The
+#		 options of a mesh type are the ones its mesher declares, and giving one
+#		 under the other mesh type is refused rather than ignored.
 #
 # y: depends on the corresponding mesh_option_Y
 #

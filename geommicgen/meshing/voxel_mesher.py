@@ -38,6 +38,16 @@ class VoxelMesher(Mesher):
 
     name = "voxel"
     description = "Regular mesh generation"
+    default_formats = ("crate",)
+    options = {
+        "N_Voxels_Dims": {
+            "type": "int_list",
+            "help": "number of voxels in each direction",
+        },
+    }
+    # What a grid can be turned into is not settled here: a writer declares whether it
+    # needs the cells or the grid, so a grid writes a LINKS deck perfectly well, from
+    # the cells it is built into. Only the default differs from the other mesher
 
     def __init__(self, n_voxels_dims, max_cells=DEFAULT_MAX_CELLS):
         """
@@ -62,6 +72,41 @@ class VoxelMesher(Mesher):
             )
         self.n_voxels_dims = np.array([int(i_n) for i_n in n_voxels_dims])
         self.max_cells = max_cells
+        self.label = "_".join(str(i_n) for i_n in self.n_voxels_dims)
+
+    @classmethod
+    def from_options(cls, options):
+        """
+        Build one mesher for every resolution the options ask for.
+
+        Parameters
+        ----------
+        options: dict
+            Options given for the discretisation. *n_voxels_dims* holds one resolution
+            as a list of the number of voxels in each direction, or several as a list
+            of such lists.
+
+        Returns
+        -------
+        list
+            One mesher per resolution.
+
+        Raises
+        ------
+        ValueError:
+            If no resolution is given.
+        """
+        resolutions = options.get("n_voxels_dims")
+        if not resolutions:
+            raise ValueError(
+                "The voxel mesher needs the number of voxels in each direction."
+            )
+        if not isinstance(resolutions[0], (list, tuple, np.ndarray)):
+            resolutions = [resolutions]
+        # An input data file may ask for several resolutions at once, and a command
+        # line gives one as a bare list
+
+        return [cls(i_resolution) for i_resolution in resolutions]
 
     def mesh(self, microstructure, report=None):
         """

@@ -48,11 +48,61 @@ class Mesher(abc.ABC):
     warnings: list
         Messages about the run, for the caller to report. A mesher that collects them
         rebinds this in its initializer.
+
+    options: dict
+        Options the mesher is built with, keyed by the name of the keyword an input
+        data file gives them under. Each is described by its *type*, one of the types
+        an input data file reads, and a *help* line for the command line. The name in
+        lower case is the parameter of the initializer the option is passed as, which
+        is how `from_options` builds the mesher without the mesher saying more.
+
+    default_formats: tuple
+        Names of the formats the mesh is written in when neither an input data file
+        nor a command line names any.
+
+    label: str
+        What tells a discretisation by this mesher apart from another of the same
+        microstructure, such as the element or the number of voxels. Set by the
+        initializer, and used to name the files.
     """
 
     name = None
     description = None
     warnings = ()
+    options = {}
+    default_formats = ()
+    label = None
+
+    @classmethod
+    def from_options(cls, options):
+        """
+        Build the meshers the options ask for.
+
+        Each option the mesher declares that the options hold is passed to the
+        initializer under its own name, so a mesher whose options are its parameters
+        needs nothing beyond declaring them. A mesher that is asked for several
+        discretisations at once, such as a grid at several resolutions, overrides this
+        and returns one mesher for each.
+
+        Parameters
+        ----------
+        options: dict
+            Options given for the discretisation, keyed by the name of the keyword in
+            lower case, the way an input data file and the command line both key them.
+
+        Returns
+        -------
+        list
+            The meshers, one for each discretisation to be produced.
+        """
+        kwargs = {}
+        for i_name in cls.options:
+            value = options.get(i_name.lower())
+            if value is not None:
+                kwargs[i_name.lower()] = value
+        # An option that was not given is left to the default of the initializer
+
+        return [cls(**kwargs)]
 
     @abc.abstractmethod
     def mesh(self, microstructure, report=None):
@@ -138,3 +188,34 @@ def available_meshers():
     load_builtin_meshers()
 
     return sorted(MESHERS)
+
+
+def mesher_options():
+    """
+    Get every option a registered mesher declares.
+
+    Returns
+    -------
+    dict
+        Dictionary of the form *{option_name: description}*, over every mesher.
+
+    Raises
+    ------
+    ValueError:
+        If two meshers describe an option of the same name differently.
+    """
+    load_builtin_meshers()
+    options = {}
+    for i_mesher in MESHERS.values():
+        for j_name, j_description in i_mesher.options.items():
+            if options.get(j_name, j_description) != j_description:
+                raise ValueError(
+                    "The option {0} is described differently by two meshers.".format(
+                        j_name
+                    )
+                )
+            options[j_name] = j_description
+
+    return options
+    # An option shared by two meshers has to mean the same to both, since the command
+    # line offers it once

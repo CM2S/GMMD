@@ -6,7 +6,7 @@ from functools import partial
 import numpy as np
 
 from geommicgen.meshing.mesh import Mesh
-from geommicgen.meshing.mesher import available_meshers, get_mesher
+from geommicgen.meshing.mesher import available_meshers, get_mesher, mesher_options
 from geommicgen.meshing.voxel_mesher import VoxelMesher
 from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.microstructure.phase import Phase
@@ -212,6 +212,32 @@ class TestVoxelMesherErrors(unittest.TestCase):
             VoxelMesher([8, 8]).mesh(microstructure)
 
 
+class TestVoxelMesherFromOptions(unittest.TestCase):
+    """Test class for building the voxel mesher from the options it declares."""
+
+    def test_one_mesher_per_resolution(self):
+        meshers = VoxelMesher.from_options({"n_voxels_dims": [[8, 8], [16, 16]]})
+
+        self.assertEqual([i_mesher.label for i_mesher in meshers], ["8_8", "16_16"])
+        np.testing.assert_array_equal(meshers[1].n_voxels_dims, [16, 16])
+
+    def test_a_bare_resolution_is_one_mesher(self):
+        meshers = VoxelMesher.from_options({"n_voxels_dims": [8, 8, 8]})
+
+        self.assertEqual([i_mesher.label for i_mesher in meshers], ["8_8_8"])
+        # A command line gives one resolution as a bare list
+
+    def test_no_resolution_is_refused(self):
+        with self.assertRaises(ValueError):
+            VoxelMesher.from_options({})
+        with self.assertRaises(ValueError):
+            VoxelMesher.from_options({"n_voxels_dims": None})
+
+    def test_declares_its_options_and_default_formats(self):
+        self.assertEqual(set(VoxelMesher.options), {"N_Voxels_Dims"})
+        self.assertEqual(VoxelMesher.default_formats, ("crate",))
+
+
 class TestMesherRegistry(unittest.TestCase):
     """Test class for the registry of the meshers."""
 
@@ -222,6 +248,17 @@ class TestMesherRegistry(unittest.TestCase):
     def test_unknown_mesher(self):
         with self.assertRaises(ValueError):
             get_mesher("no_such_mesher")
+
+    def test_every_mesher_option_is_declared_once(self):
+        options = mesher_options()
+
+        self.assertIn("N_Voxels_Dims", options)
+        self.assertIn("Mesh_Size", options)
+        for i_description in options.values():
+            self.assertIn("type", i_description)
+            self.assertIn("help", i_description)
+        # What the command line offers is the union over the meshers, each option
+        # described the same way wherever it is declared
 
 
 if __name__ == "__main__":

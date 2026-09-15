@@ -38,7 +38,7 @@ class TestMeshCommand(unittest.TestCase):
 
     def test_a_grid_without_gmsh(self):
         status, _ = self.run_command(
-            [self.microstructure_path, "--mesher", "voxel", "--n-voxels", "16", "16",
+            [self.microstructure_path, "--mesher", "voxel", "--n-voxels-dims", "16", "16",
              "--to", "crate", "-o", self.output_dir]
         )
         self.assertEqual(status, 0)
@@ -50,7 +50,7 @@ class TestMeshCommand(unittest.TestCase):
 
     def test_the_mesh_alone_when_no_format_is_asked_for(self):
         status, _ = self.run_command(
-            [self.microstructure_path, "--mesher", "voxel", "--n-voxels", "8", "8",
+            [self.microstructure_path, "--mesher", "voxel", "--n-voxels-dims", "8", "8",
              "-o", self.output_dir]
         )
         self.assertEqual(status, 0)
@@ -58,7 +58,7 @@ class TestMeshCommand(unittest.TestCase):
 
     def test_the_files_can_be_named(self):
         self.run_command(
-            [self.microstructure_path, "--mesher", "voxel", "--n-voxels", "8", "8",
+            [self.microstructure_path, "--mesher", "voxel", "--n-voxels-dims", "8", "8",
              "--name", "chosen", "-o", self.output_dir]
         )
         self.assertEqual(self.written(), ["chosen.mesh.json", "chosen.vti"])
@@ -72,14 +72,14 @@ class TestMeshCommand(unittest.TestCase):
         with self.assertRaises(SystemExit):
             with contextlib.redirect_stderr(io.StringIO()):
                 mesh_command(
-                    [self.microstructure_path, "--mesher", "voxel", "--n-voxels", "8",
+                    [self.microstructure_path, "--mesher", "voxel", "--n-voxels-dims", "8",
                      "8", "--to", "linkss", "-o", self.output_dir]
                 )
         self.assertFalse(os.path.exists(self.output_dir))
 
     def test_a_failure_is_reported_and_gives_a_status(self):
         status, printed = self.run_command(
-            [self.microstructure_path, "--mesher", "voxel", "--n-voxels", "8", "8", "8",
+            [self.microstructure_path, "--mesher", "voxel", "--n-voxels-dims", "8", "8", "8",
              "-o", self.output_dir]
         )
         self.assertEqual(status, 1)
@@ -109,7 +109,7 @@ class TestTranslateCommand(unittest.TestCase):
         self.staged = os.path.join(self.temp_dir.name, "staged")
         with contextlib.redirect_stdout(io.StringIO()):
             mesh_command(
-                [microstructure_path, "--mesher", "voxel", "--n-voxels", "16", "16",
+                [microstructure_path, "--mesher", "voxel", "--n-voxels-dims", "16", "16",
                  "-o", self.staged]
             )
         self.output_dir = os.path.join(self.temp_dir.name, "out")

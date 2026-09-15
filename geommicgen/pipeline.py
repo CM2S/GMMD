@@ -28,16 +28,6 @@ DECK_MESHERS = {"femsh": "gmsh", "rgmsh": "voxel"}
 # Correspondence between the discretisations an input data file names and the meshers
 # registered to produce them
 
-DEFAULT_MESH_FORMATS = ("links",)
-# Formats a finite element mesh is written in when the input file does not say
-
-DEFAULT_GRID_FORMATS = ("crate",)
-# Formats a regular grid is written in when the input file does not say. Only the
-# default differs between the two: what a mesh can be turned into is settled by the
-# writer, which declares whether it needs the cells or the grid, not by which
-# discretisation produced it -- a grid writes a LINKS deck perfectly well, from the
-# cells it is built into
-
 MESH_DIRECTORY = "meshes"
 # Directory of a sample the meshes are written into
 
@@ -341,7 +331,7 @@ def build_mesh_jobs(mesh_options, deck_name=None):
         discretisation.
 
     deck_name: str
-        Name of the input data file, used to name the grids of a regular mesh.
+        Name of the input data file, used to name the files of a job.
 
     Returns
     -------
@@ -352,59 +342,36 @@ def build_mesh_jobs(mesh_options, deck_name=None):
     ------
     ValueError:
         If a discretisation is asked for that there is no mesher for, if a format is
-        named that there is no writer for, or if an option is given that no longer does
-        anything.
+        named that there is no writer for, or if one name is given for several files.
     """
     jobs = []
     for i_name, i_options in mesh_options.items():
         if i_name not in DECK_MESHERS:
             raise ValueError("Specified mesh {0} is not supported.".format(i_name))
         mesher_class = get_mesher(DECK_MESHERS[i_name])
+        meshers = mesher_class.from_options(i_options)
+        writers = writers_from_options(i_options, mesher_class.default_formats)
+        # The mesher takes from the options what it declares, and so does each writer,
+        # so nothing here knows what either is built from
 
-        if i_name == "femsh":
-            element_type = i_options["element_type"]
-            mesher = mesher_class(
-                mesh_size=i_options.get("mesh_size"),
-                element_type=element_type,
-                elements_per_particle=i_options.get("elements_per_particle"),
-            )
-            jobs.append(
-                MeshJob(
-                    mesher,
-                    writers_from_options(i_options, DEFAULT_MESH_FORMATS),
-                    job_base_name(deck_name, element_type),
+        file_name = i_options.get("file_name")
+        if file_name and len(meshers) > 1:
+            raise ValueError(
+                "File_Name names one discretisation, and {0} were asked for under "
+                "{1}. Remove it, and the files are named after the input data file "
+                "and what discretises them, which tells them apart.".format(
+                    len(meshers), i_name
                 )
             )
-            continue
-        # The constructors genuinely differ, and a grid fans out into one job per
-        # resolution, so the two are built apart; only the names are shared
+        # Refused rather than resolved, because every one would otherwise be written
+        # over the one before it and the run would end with the last alone
 
-        if i_options.get("slice_dir") is not None:
-            raise ValueError(
-                "Slice_Dir no longer does anything: it used to decide whether the "
-                "grid of a three dimensional microstructure was written at all, "
-                "and the grid is now always written. Remove it."
-            )
-        writers = writers_from_options(i_options, DEFAULT_GRID_FORMATS)
-        voxel_filename = i_options.get("voxel_filename")
-        if voxel_filename and len(i_options["n_voxels_dims"]) > 1:
-            raise ValueError(
-                "Voxel_Filename names one grid, and {0} resolutions were asked for. "
-                "Remove it, and the grids are named after the input data file and the "
-                "number of voxels, which tells them apart.".format(
-                    len(i_options["n_voxels_dims"])
-                )
-            )
-        # Refused rather than resolved, because every resolution would otherwise be
-        # written over the one before it and the run would end with the last alone
-
-        for j_n_voxels_dims in i_options["n_voxels_dims"]:
-            label = "_".join(str(int(i_size)) for i_size in j_n_voxels_dims)
+        for j_mesher in meshers:
             jobs.append(
                 MeshJob(
-                    mesher_class(j_n_voxels_dims),
+                    j_mesher,
                     writers,
-                    voxel_filename or job_base_name(deck_name, label),
+                    file_name or job_base_name(deck_name, j_mesher.label),
                 )
             )
 
