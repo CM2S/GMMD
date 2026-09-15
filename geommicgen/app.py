@@ -10,7 +10,7 @@ import geommicgen.iofuncs.printing as print_funcs
 
 # from postproc.plotfuncs.plotting_functions import plot_particles
 
-from geommicgen.meshing.from_deck import build_mesh_jobs
+from geommicgen.pipeline import build_mesh_jobs
 
 from geommicgen.postproc.postproc import post_proc
 

@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from geommicgen.iofuncs.printing import print_failed_jobs, print_final_message
-from geommicgen.meshing.from_deck import MeshJob
+from geommicgen.pipeline import MeshJob
 from geommicgen.meshing.gmsh_mesher import GmshMesher
 from geommicgen.meshing.voxel_mesher import VoxelMesher
 

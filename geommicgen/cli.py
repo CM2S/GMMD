@@ -16,7 +16,7 @@ import os
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-from geommicgen.meshing.from_deck import (
+from geommicgen.pipeline import (
     MeshJob,
     write_formats,
     writers_from_options,

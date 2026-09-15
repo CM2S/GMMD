@@ -7,7 +7,7 @@ import time
 # pylint: disable=relative-beyond-top-level
 # pylint: disable=no-name-in-module
 import geommicgen.iofuncs.printing as print_funcs
-from geommicgen.meshing.from_deck import MESH_DIRECTORY
+from geommicgen.pipeline import MESH_DIRECTORY
 import geommicgen.postproc.voronoimetrics.motion_analysis as motion_analysis
 import geommicgen.postproc.voronoimetrics.stat_analysis as stat_analysis
 import geommicgen.postproc.voronoimetrics.voronoi_analysis as voronoi_analysis

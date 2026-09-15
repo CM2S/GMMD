@@ -11,7 +11,6 @@ Submodules
 
 .. toctree::
 
-   geommicgen.meshing.from_deck
    geommicgen.meshing.gmsh_mesher
    geommicgen.meshing.images
    geommicgen.meshing.mesh

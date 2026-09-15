@@ -27,4 +27,5 @@ Submodules
 
    geommicgen.app
    geommicgen.cli
+   geommicgen.pipeline
 

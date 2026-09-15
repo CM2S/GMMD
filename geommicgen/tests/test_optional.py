@@ -28,7 +28,7 @@ sys.meta_path.insert(0, BlockGmsh())
 import geommicgen
 import geommicgen.postproc.postproc
 import geommicgen.postproc.plotfuncs.plotting_functions
-import geommicgen.meshing.from_deck
+import geommicgen.pipeline
 import geommicgen.cli
 import geommicgen.iofuncs.microstructure_yaml
 

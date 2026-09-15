@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from geommicgen._optional import has_gmsh
 from geommicgen.iofuncs.keywords import Keyword
-from geommicgen.meshing.from_deck import (
+from geommicgen.pipeline import (
     MeshJob,
     build_mesh_jobs,
     writers_from_options,

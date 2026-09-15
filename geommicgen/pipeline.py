@@ -1,12 +1,13 @@
 """
-Module containing the meshing jobs an input data file asks for.
+Module containing the pipeline that joins the meshers to the writers.
 
-An input data file asks for a discretisation by naming it, femsh for a finite element
-mesh and rgmsh for a regular grid, and this module turns that request into the mesher
-that produces the mesh and the writers the mesh is then handed to. It is the only place
-that knows the keywords of the input file, so the meshers and the writers stay usable
-without one, and the two branches of the program that used to build mesh generators
-side by side now build them here.
+A `.MeshJob` holds the mesher that produces a mesh and the writers the mesh is then
+handed to, and runs them together, so that this is the one place a mesh passes from
+the second stage to the third. The meshers and the writers know nothing of each other,
+and nothing of the input file: an input data file asks for a discretisation by naming
+it, femsh for a finite element mesh and rgmsh for a regular grid, and `build_mesh_jobs`
+turns that request into the jobs; the command line builds the same jobs from its
+arguments.
 
 Everything the input file can get wrong is settled while it is being read: the mesher
 and every writer are resolved before the first sample is generated, so a name that does

@@ -21,7 +21,7 @@ from geommicgen.iofuncs.file_handling import (
     save_mic,
     save_status,
 )
-from geommicgen.meshing.from_deck import MeshJob
+from geommicgen.pipeline import MeshJob
 from geommicgen.meshing.voxel_mesher import VoxelMesher
 from geommicgen.iofuncs.md_state import (
     STATE_FILE_NAME,
