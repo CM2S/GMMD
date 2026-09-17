@@ -205,6 +205,7 @@ class TestEllipseIntersectionArea(unittest.TestCase):
 
         with self.subTest("Test intersection area"):
             self.assertEqual( ellipse_1.intersection_area(ellipse_2,[1,1]), 0 )
+
     @unittest.skip("Exact tangency is numerically unstable in intersection_points_ellipses, and thus the case of there being only one intersection point does not happen. In this example, intersection_points_ellipses returns 0 points.")
     def test_not_intersecting_1_point_in_common(self):
         self.rve_dims = [1.0, 1.0]
