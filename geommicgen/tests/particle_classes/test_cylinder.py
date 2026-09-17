@@ -2,65 +2,96 @@
 Unit tests regarding the Cylinder particle class.
 """
 import unittest
+from unittest.mock import Mock
+
 
 import numpy as np
-from geommicgen.microstructure.particleclasses import Cylinder, Ellipsoid
+from geommicgen.microstructure.particleclasses import Cylinder, Ellipsoid, Sphere
 
 
 class TestCylinder(unittest.TestCase):
     def test_init(self):
-        """Check if the attributes were set correctly in __init__."""
-        phase = "1"
-        descriptors = {
-            "r_cyl": 0.1,
-            "length": 0.1,
-            "n": 2,
-            "azimuth_angle": 0,
-            "polar_angle": 0,
-        }
+        """Check if the attributes were set correctly in __init__. using different descriptor sets or errors are raised when an attribut has an invalid value"""
         rve_dims = [1, 1, 1]
-        cyl = Cylinder(phase, descriptors, rve_dims)
-        self.assertEqual(cyl.length, 0.1)
-        self.assertEqual(cyl.r_cyl, 0.1)
-        self.assertEqual(cyl.azimuth_angle, 0)
-        self.assertEqual(cyl.polar_angle, 0)
-
-    def test_descriptors(self):
-        """Check if the correct geometrical descriptors are obtained."""
         phase = "1"
-        descriptors = {
-            "vf": 0.1,
-            "length": 0.2,
-            "n": 10,
-            "azimuth_angle": 0,
-            "polar_angle": 0,
-        }
-        rve_dims = [1, 1, 1]
-        cyl = Cylinder(phase, descriptors, rve_dims)
-        self.assertEqual(cyl.length, 0.2)
-        self.assertTrue(np.abs(cyl.r_cyl - np.sqrt(0.1 / (0.2 * 10 * np.pi))) < 1e-4)
-        self.assertEqual(cyl.azimuth_angle, 0)
-        self.assertEqual(cyl.polar_angle, 0)
 
-    def test_descriptors_ratio(self):
-        """Check if the correct geometrical descriptors are obtained speficiyng the ratio."""
-        phase = "1"
-        descriptors = {
-            "ratio": 2,
-            "length": 0.2,
-            "n": 10,
-            "azimuth_angle": 0,
-            "polar_angle": 0,
-        }
-        rve_dims = [1, 1, 1]
-        cyl = Cylinder(phase, descriptors, rve_dims)
-        self.assertEqual(cyl.length, 0.2)
-        self.assertTrue(np.abs(cyl.r_cyl - 0.1) < 1e-4)
-        self.assertEqual(cyl.azimuth_angle, 0)
-        self.assertEqual(cyl.polar_angle, 0)
+        with self.subTest("Descriptor set 1"):
+            descriptors = {
+                "r_cyl": 0.1,
+                "length": 0.1,
+                "n": 2,
+                "azimuth_angle": 0,
+                "polar_angle": 0,
+            }
 
-    def test_volume(self):
-        """Check if the volume property is correctly specified."""
+            cyl = Cylinder(phase, descriptors, rve_dims)
+            self.assertEqual(cyl.length, 0.1)
+            self.assertEqual(cyl.r_cyl, 0.1)
+            self.assertEqual(cyl.azimuth_angle, 0)
+            self.assertEqual(cyl.polar_angle, 0)
+
+        with self.subTest("Descriptor set 2"):
+            descriptors = {
+                "vf": 0.1,
+                "length": 0.2,
+                "n": 10,
+                "azimuth_angle": 0,
+                "polar_angle": 0,
+            }
+            cyl = Cylinder(phase, descriptors, rve_dims)
+            self.assertEqual(cyl.length, 0.2)
+            self.assertTrue(np.abs(cyl.r_cyl - np.sqrt(0.1 / (0.2 * 10 * np.pi))) < 1e-4)
+
+        with self.subTest("Descriptor set 3"):
+            descriptors = {
+                "ratio": 2,
+                "length": 0.2,
+                "n": 10,
+                "azimuth_angle": 0,
+                "polar_angle": 0,
+            }
+            cyl = Cylinder(phase, descriptors, rve_dims)
+            self.assertEqual(cyl.length, 0.2)
+            self.assertTrue(np.abs(cyl.r_cyl - 0.1) < 1e-4)
+
+        with self.subTest("Descriptor set 4"):
+            descriptors = {
+                "ratio": 2,
+                "r_cyl": 0.2,
+                "n": 10,
+                "azimuth_angle": 0,
+                "polar_angle": 0,
+            }
+            cyl = Cylinder(phase, descriptors, rve_dims)
+            self.assertEqual(cyl.length, 0.4)
+            self.assertEqual(cyl.r_cyl, 0.2)
+
+        with self.subTest("Descriptor set 5 (invalid r_cyl value)"):
+            descriptors = {
+                "r_cyl": -0.1,
+                "length": 0.1,
+                "n": 2,
+                "azimuth_angle": 0,
+                "polar_angle": 0,
+            }
+            with self.assertRaises(ValueError):
+                Cylinder(phase, descriptors, rve_dims)
+
+        with self.subTest("Descriptor set 6 (invalid length value)"):
+            descriptors = {
+                "r_cyl": 0.1,
+                "length": -0.1,
+                "n": 2,
+                "azimuth_angle": 0,
+                "polar_angle": 0,
+            }
+            with self.assertRaises(ValueError):
+                Cylinder(phase, descriptors, rve_dims)
+
+
+
+    def test_properties(self):
+        """Check if the volume, radius and radius_insc properties are correctly specified."""
         phase = "1"
         descriptors = {
             "r_cyl": 0.1,
@@ -72,34 +103,76 @@ class TestCylinder(unittest.TestCase):
         rve_dims = [1, 1, 1]
         cyl = Cylinder(phase, descriptors, rve_dims)
         self.assertTrue(np.abs(cyl.volume - 0.1 ** 2 * np.pi * 0.2) < 1e-4)
+        self.assertAlmostEqual(cyl.radius, 0.14142, places = 5)
+        self.assertAlmostEqual(cyl.radius_insc, 0.1, places = 5)
 
-    def test_invalid_inputs_radius(self):
-        """Check if the proper exception is raise for negative radius."""
-        phase = "1"
+
+    def test_contract_and_dilate(self):
         descriptors = {
-            "r_cyl": -0.1,
+            "r_cyl": 0.1,
             "length": 0.2,
             "n": 10,
             "azimuth_angle": 0,
             "polar_angle": 0,
         }
-        rve_dims = [1, 1, 1]
-        with self.assertRaises(ValueError):
-            _ = Cylinder(phase, descriptors, rve_dims)
+        cyl = Cylinder("1", descriptors, [1,1,1])
+        with self.subTest("dilate"):
+            cyl.dilate(0.05)
+            self.assertAlmostEqual(cyl.radius,0.19142, places = 5 )
+            self.assertAlmostEqual(cyl.volume, 0.3 * np.pi * 0.15 ** 2)
+        with self.subTest("contract back to the original size"):
+            cyl.contract(0.05)
+            self.assertAlmostEqual(cyl.radius, 0.14142, places = 5)
+            self.assertAlmostEqual(cyl.volume, 0.2 * np.pi * 0.1 ** 2)
 
-    def test_invalid_inputs_length(self):
-        """Check if the proper exception is raise for negative length."""
-        phase = "1"
+    def test_rescale(self):
         descriptors = {
             "r_cyl": 0.1,
-            "length": -0.2,
+            "length": 0.2,
             "n": 10,
             "azimuth_angle": 0,
             "polar_angle": 0,
         }
-        rve_dims = [1, 1, 1]
-        with self.assertRaises(ValueError):
-            _ = Cylinder(phase, descriptors, rve_dims)
+        cyl = Cylinder("1", descriptors, [1,1,1])
+        cyl.position_center = np.array([0.3, 0.4, 0.5])
+        cyl.rescale(2)
+        self.assertAlmostEqual(cyl.r_cyl, 0.2)
+        np.testing.assert_allclose(cyl.position_center, np.array([0.6, 0.8, 1.0]))
+
+
+
+    def test_point_inside(self):
+        rve_dims = [1,1,1]
+        descriptors = {
+            "r_cyl": 0.1,
+            "length": 0.2,
+            "n": 10,
+            "azimuth_angle": 0,
+            "polar_angle": 0,
+        }
+        cyl = Cylinder("1", descriptors, rve_dims)
+        cyl.position_center = np.array([0.6, 0.7, 0.3])
+        with self.subTest("Point inside the cylinder"):
+            self.assertTrue(cyl.point_inside(np.array([0.56, 0.74, 0.39]), rve_dims))
+        with self.subTest("Point outside the cylinder"):
+            self.assertTrue(not cyl.point_inside(np.array([0.9, 0.9, 0.5]), rve_dims))
+
+    def test_generate_point_inside(self):
+        "This test only works if cyl.point_inside function is working"
+        rve_dims = [1,1,1]
+        descriptors = {
+            "r_cyl": 0.1,
+            "length": 0.2,
+            "n": 10,
+            "azimuth_angle": 0,
+            "polar_angle": 0,
+        }
+        cyl = Cylinder("1", descriptors, rve_dims)
+        cyl.position_center = np.array([0.6, 0.7, 0.3])
+        random_point_inside = cyl.generate_point_inside()
+        self.assertTrue( cyl.point_inside(random_point_inside, rve_dims) )
+
+
 
     def test_support_function(self):
         """Check supprt function."""
@@ -125,146 +198,248 @@ class TestCylinder(unittest.TestCase):
             all(np.abs(furthest_point_2 - np.array([0.6, 0.8, 0.4])) < 1e-4)
         )
 
-    def test_intersection_cylinder_cylinder_non_intersecting(self):
+
+    def test_intersection_calls(self):
+        "Check if the function intersection calls the correct function to compute the intersection based on the other particle type"
+        phase = "1"
+        descriptors = {
+            "r_cyl": 0.1,
+            "length": 0.2,
+            "n": 1,
+            "azimuth_angle": 0,
+            "polar_angle": 0,
+        }
+        rve_dims = [1, 1, 1]
+        cyl = Cylinder(phase, descriptors, rve_dims)
+        with self.subTest("Other particle is a sphere"):
+            other_particle = Mock(spec= Cylinder)
+            cyl.intersection_cylinder_cylinder = Mock()
+            cyl.intersection(other_particle, rve_dims)
+            cyl.intersection_cylinder_cylinder.assert_called_once()
+
+        with self.subTest("Other particle is other type"):
+            other_particle = Mock()
+            cyl.intersection_gjk = Mock()
+            cyl.intersection(other_particle, rve_dims)
+            cyl.intersection_gjk.assert_called_once()
+
+
+
+    def test_intersection_lenght_calls(self):
+        "Check if the function intersection_lenght calls the correct function to compute the intersection lenght based on the other particle type"
+        descriptors = {
+            "r_cyl": 0.1,
+            "length": 0.2,
+            "n": 1,
+            "azimuth_angle": 0,
+            "polar_angle": 0,
+        }
+        rve_dims = [1, 1, 1]
+        cyl = Cylinder("1", descriptors, rve_dims)
+        
+        with self.subTest("Other particle is any type"):
+            other_particle = Mock()
+            cyl.intersection_gjk = Mock(return_value=True)
+            cyl.intersection_length_mink_diff = Mock(return_value=["intersection_length", "unit_vector"])
+            cyl.intersection_length(other_particle, rve_dims)
+            cyl.intersection_length_mink_diff.assert_called_once()
+
+
+    def test_intersection_area_calls(self):
+        "Check if the function intersection_area calls the correct function to compute the intersection area based on the other particle type"
+        phase = "1"
+        descriptors = {
+            "r_cyl": 0.1,
+            "length": 0.2,
+            "n": 1,
+            "azimuth_angle": 0,
+            "polar_angle": 0,
+        }
+        rve_dims = [1, 1, 1]
+        cyl = Cylinder(phase, descriptors, rve_dims)
+        
+        with self.subTest("Other particle is any type"):
+            other_particle = Mock()
+            cyl.intersection_area_monte_carlo = Mock()
+            cyl.intersection_area(other_particle, rve_dims)
+            cyl.intersection_area_monte_carlo.assert_called_once()
+
+
+
+class TestCylinderIntersection(unittest.TestCase):
+    "Class with tests for two cylinder intersection"
+
+    def setUp(self):
+        self.rve_dims = [1, 1, 1]
+        self.phase_1 = "1"
+        self.descriptors_1 = {
+            "r_cyl": 0.1,
+            "length": 0.2,
+            "n": 1,
+            "azimuth_angle": 0,
+            "polar_angle": 0,
+        }       
+        self.cyl_1 = Cylinder(self.phase_1, self.descriptors_1, self.rve_dims)
+        self.cyl_1.position_center = np.array([0.5, 0.5, 0.5])
+
+    def test_intersection_not_intersecting(self):
         """Test for intersection_cylinder_cylinder with non-intersecting cylinder."""
-        rve_dims = [1, 1, 1]
-        phase_1 = "1"
-        descriptors_1 = {
-            "r_cyl": 0.1,
-            "length": 0.2,
-            "n": 1,
-            "azimuth_angle": 0,
-            "polar_angle": 0,
-        }
-        cyl_1 = Cylinder(phase_1, descriptors_1, rve_dims)
-        cyl_1.position_center = np.array([0.5, 0.5, 0.5])
+        # the function intersection_cylinder_cylinder first checks the position of the cylinders' axis. The axis are infinite lines and if they are not close enough at any point the cylinders cannot intersect (case 1). If the axix are close enhough, the cylinders may still no intersect if the axis' closest point is far away from the real cylinders (case 2)
+        
+        with self.subTest("Case 1: cylinder axis far away"):
+            phase_2 = "1"
+            descriptors_2 = {
+                "r_cyl": 0.15,
+                "length": 0.3,
+                "n": 1,
+                "azimuth_angle": 0,
+                "polar_angle": 0,
+            }
+            cyl_2 = Cylinder(phase_2, descriptors_2, self.rve_dims)
+            cyl_2.position_center = np.array([0.5, 0.9, 0.5])
+            intersection, _ = self.cyl_1.intersection_cylinder_cylinder(cyl_2, self.rve_dims)
+            self.assertTrue(not intersection)
 
-        phase_2 = "1"
-        descriptors_2 = {
-            "r_cyl": 0.15,
-            "length": 0.3,
-            "n": 1,
-            "azimuth_angle": 0,
-            "polar_angle": 0,
-        }
-        cyl_2 = Cylinder(phase_2, descriptors_2, rve_dims)
-        cyl_2.position_center = np.array([0.5, 0.9, 0.5])
-        intersection, _ = cyl_1.intersection_cylinder_cylinder(cyl_2, rve_dims)
-        self.assertTrue(not intersection)
+        with self.subTest("Case 2: cylinder axis close enough so that intersection could be possible"):
+            phase_2 = "1"
+            descriptors_2 = {
+                "r_cyl": 0.15,
+                "length": 0.30,
+                "n": 1,
+                "azimuth_angle": 0,
+                "polar_angle": -np.pi/2,
+            }
+            cyl_2 = Cylinder(phase_2, descriptors_2, self.rve_dims)
+            cyl_2.position_center = np.array([0.35, 0.35, 0.35])
+            intersection, overlap_length = self.cyl_1.intersection_cylinder_cylinder(
+                cyl_2, self.rve_dims
+            )
 
-    def test_intersection_cylinder_cylinder_intersecting_cc1_1(self):
-        """Test for intersection_cylinder_cylinder with intersecting cylinder, type cc1."""
-        rve_dims = [1, 1, 1]
-        phase_1 = "1"
-        descriptors_1 = {
-            "r_cyl": 0.1,
-            "length": 0.2,
-            "n": 1,
-            "azimuth_angle": 0,
-            "polar_angle": 0,
-        }
-        cyl_1 = Cylinder(phase_1, descriptors_1, rve_dims)
-        cyl_1.position_center = np.array([0.5, 0.5, 0.5])
+            self.assertTrue(not intersection)
 
-        phase_2 = "1"
-        descriptors_2 = {
-            "r_cyl": 0.05,
-            "length": 0.3,
-            "n": 1,
-            "azimuth_angle": 0,
-            "polar_angle": np.pi / 2,
-        }
-        cyl_2 = Cylinder(phase_2, descriptors_2, rve_dims)
-        cyl_2.position_center = np.array([0.5, 0.6, 0.5])
-        intersection, overlap_length = cyl_1.intersection_cylinder_cylinder(
-            cyl_2, rve_dims
-        )
-        self.assertTrue(intersection)
+    def test_side_side_intersection(self):
+        """Test intersection_cylinder_cylinder for cylinders overlapping side-side, that is, the lateral wall of one cylinder is touching the lateral wall of the other"""
 
-    def test_intersection_cylinder_cylinder_intersecting_cc1_2(self):
-        """Test for intersection_cylinder_cylinder with intersecting cylinder, type cc1."""
-        rve_dims = [1, 1, 1]
-        phase_1 = "1"
-        descriptors_1 = {
-            "r_cyl": 0.1,
-            "length": 0.2,
-            "n": 1,
-            "azimuth_angle": 0,
-            "polar_angle": 0,
-        }
-        cyl_1 = Cylinder(phase_1, descriptors_1, rve_dims)
-        cyl_1.position_center = np.array([0.5, 0.5, 0.5])
+        with self.subTest("Case 1"):
+            phase_2 = "1"
+            descriptors_2 = {
+                "r_cyl": 0.05,
+                "length": 0.3,
+                "n": 1,
+                "azimuth_angle": 0,
+                "polar_angle": np.pi / 2,
+            }
+            cyl_2 = Cylinder(phase_2, descriptors_2, self.rve_dims)
+            cyl_2.position_center = np.array([0.5, 0.6, 0.5])
+            intersection, overlap_length = self.cyl_1.intersection_cylinder_cylinder(
+                cyl_2, self.rve_dims
+            )
+            self.assertTrue(intersection)
 
-        phase_2 = "1"
-        descriptors_2 = {
-            "r_cyl": 0.15,
-            "length": 0.3,
-            "n": 1,
-            "azimuth_angle": 0,
-            "polar_angle": 0,
-        }
-        cyl_2 = Cylinder(phase_2, descriptors_2, rve_dims)
-        cyl_2.position_center = np.array([0.65, 0.5, 0.5])
-        intersection, overlap_length = cyl_1.intersection_cylinder_cylinder(
-            cyl_2, rve_dims
-        )
-        intersection_1 = cyl_1.intersection_gjk(cyl_2, rve_dims)
+        with self.subTest("Case 2"):
+            phase_2 = "1"
+            descriptors_2 = {
+                "r_cyl": 0.15,
+                "length": 0.3,
+                "n": 1,
+                "azimuth_angle": 0,
+                "polar_angle": 0,
+            }
+            cyl_2 = Cylinder(phase_2, descriptors_2, self.rve_dims)
+            cyl_2.position_center = np.array([0.65, 0.5, 0.5])
+            intersection, overlap_length = self.cyl_1.intersection_cylinder_cylinder(
+                cyl_2, self.rve_dims
+            )
+            _ = self.cyl_1.intersection_gjk(cyl_2, self.rve_dims)
 
-        self.assertTrue(intersection)
+            self.assertTrue(intersection)
 
-    def test_intersection_cylinder_cylinder_intersecting_cd_1(self):
-        """Test for intersection_cylinder_cylinder with intersecting cylinder, type cd."""
-        rve_dims = [1, 1, 1]
-        phase_1 = "1"
-        descriptors_1 = {
-            "r_cyl": 0.05,
-            "length": 0.2,
-            "n": 1,
-            "azimuth_angle": 0,
-            "polar_angle": 0,
-        }
-        cyl_1 = Cylinder(phase_1, descriptors_1, rve_dims)
-        cyl_1.position_center = np.array([0.5, 0.65, 0.5])
 
-        phase_2 = "1"
-        descriptors_2 = {
-            "r_cyl": 0.15,
-            "length": 0.3,
-            "n": 1,
-            "azimuth_angle": 0,
-            "polar_angle": np.pi / 4,
-        }
-        cyl_2 = Cylinder(phase_2, descriptors_2, rve_dims)
-        cyl_2.position_center = np.array([0.65, 0.5, 0.65])
-        intersection, _ = cyl_1.intersection_cylinder_cylinder(cyl_2, rve_dims)
-        self.assertTrue(intersection)
+    def test_side_top_intersection(self):
+        """Test intersection_cylinder_cylinder for cylinders overlapping side-top, that is, the lateral wall of one cylinder is touching the top wall of the other"""
 
-    def test_intersection_top_disks(self):
-        """Test for intersection_cylinder_cylinder with intersecting cylinder, type d1."""
-        rve_dims = [1, 1, 1]
-        phase_1 = "1"
-        descriptors_1 = {
-            "r_cyl": 0.1,
-            "length": 0.2,
-            "n": 1,
-            "azimuth_angle": 0,
-            "polar_angle": 0,
-        }
-        cyl_1 = Cylinder(phase_1, descriptors_1, rve_dims)
-        cyl_1.position_center = np.array([0.5, 0.5, 0.5])
+        with self.subTest("Case 1"):
+            phase_2 = "1"
+            descriptors_2 = {
+                "r_cyl": 0.05,
+                "length": 0.1,
+                "n": 1,
+                "azimuth_angle": 0,
+                "polar_angle": np.pi / 4,
+            }
+            cyl_2 = Cylinder(phase_2, descriptors_2, self.rve_dims)
+            cyl_2.position_center = np.array([0.5, 0.5, 0.65])
+            intersection, _ = self.cyl_1.intersection_cylinder_cylinder(cyl_2, self.rve_dims)
+            self.assertTrue(intersection)
 
-        phase_2 = "1"
-        descriptors_2 = {
-            "r_cyl": 0.05,
-            "length": 0.1,
-            "n": 1,
-            "azimuth_angle": 0,
-            "polar_angle": np.pi / 4,
-        }
-        cyl_2 = Cylinder(phase_2, descriptors_2, rve_dims)
-        cyl_2.position_center = np.array([0.5, 0.5, 0.65])
-        intersection, _ = cyl_1.intersection_cylinder_cylinder(cyl_2, rve_dims)
-        self.assertTrue(intersection)
+        with self.subTest("Case 1"):
+            phase_2 = "1"
+            descriptors_2 = {
+                "r_cyl": 0.05,
+                "length": 0.1,
+                "n": 1,
+                "azimuth_angle": 0,
+                "polar_angle": -np.pi / 4,
+            }
+            cyl_2 = Cylinder(phase_2, descriptors_2, self.rve_dims)
+            cyl_2.position_center = np.array([0.65, 0.5, 0.5])
+            intersection, _ = self.cyl_1.intersection_cylinder_cylinder(cyl_2, self.rve_dims)
+            self.assertTrue(intersection)
+
+        with self.subTest("Case 3"):
+            phase_2 = "1"
+            descriptors_2 = {
+                "r_cyl": 0.05,
+                "length": 0.1,
+                "n": 1,
+                "azimuth_angle": np.pi/4,
+                "polar_angle": -np.pi / 4,
+            }
+            cyl_2 = Cylinder(phase_2, descriptors_2, self.rve_dims)
+            cyl_2.position_center = np.array([0.5, 0.65, 0.65])
+            intersection, _ = self.cyl_1.intersection_cylinder_cylinder(cyl_2, self.rve_dims)
+            self.assertTrue(intersection)
+
+
+
+    def test_top_top_intersection(self):
+        """Test intersection_cylinder_cylinder for cylinders overlapping top-top, that is, the top wall of one cylinder is touching the top wall of the other"""
+
+        with self.subTest("Case 1"):
+            phase_2 = "1"
+            descriptors_2 = {
+                "r_cyl": 0.15,
+                "length": 0.30,
+                "n": 1,
+                "azimuth_angle": np.pi/2,
+                "polar_angle": np.pi/2,
+            }
+            cyl_2 = Cylinder(phase_2, descriptors_2, self.rve_dims)
+            cyl_2.position_center = np.array([0.55, 0.7, 0.65])
+            intersection, overlap_length = self.cyl_1.intersection_cylinder_cylinder(
+                cyl_2, self.rve_dims
+            )
+
+            self.assertTrue(intersection)
+
+        with self.subTest("Case 2"):
+            phase_2 = "1"
+            descriptors_2 = {
+                "r_cyl": 0.15,
+                "length": 0.30,
+                "n": 1,
+                "azimuth_angle": 0,
+                "polar_angle": -np.pi/2,
+            }
+            cyl_2 = Cylinder(phase_2, descriptors_2, self.rve_dims)
+            cyl_2.position_center = np.array([0.3, 0.4, 0.45])
+            intersection, overlap_length = self.cyl_1.intersection_cylinder_cylinder(
+                cyl_2, self.rve_dims
+            )
+
+            self.assertTrue(intersection)
+
+
 
 
 class TestGJKIntersectionCylinder(unittest.TestCase):
@@ -434,37 +609,6 @@ class TestGJKIntersectionCylinder(unittest.TestCase):
         cyl_2.position_center = np.array([0.3770918, 0.12216294, 0.92497031])
         intersection = cyl_1.intersection_gjk(cyl_2, rve_dims)
         self.assertTrue(not intersection)
-
-
-class TestPointInsideCylinder(unittest.TestCase):
-    """Test the point_inside function for the cylinder."""
-
-    def setUp(self):
-        self.rve_dims = [1, 1, 1]
-        self.cylinder = Cylinder(
-            "1",
-            {
-                "r_cyl": 0.2,
-                "length": 0.4,
-                "azimuth_angle": 0,
-                "polar_angle": np.pi / 2,
-                "n": 1,
-            },
-            self.rve_dims,
-        )
-        self.cylinder.position_center = np.array([0.5, 0.5, 0.5])
-
-    def test_point_inside_in(self):
-        point_inside = self.cylinder.point_inside(
-            np.array([0.5, 0.5, 0.5]), self.rve_dims
-        )
-        self.assertTrue(point_inside)
-
-    def test_point_inside_out(self):
-        point_inside = self.cylinder.point_inside(
-            np.array([0.75, 0.5, 0.5]), self.rve_dims
-        )
-        self.assertTrue(not point_inside)
 
 
 class TestIntegrationCylinder(unittest.TestCase):
