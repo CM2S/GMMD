@@ -55,7 +55,7 @@ class TestSphere(unittest.TestCase):
         sphere.position_center = np.array([0.6, 0.8, 0])
         with self.subTest("Point inside the sphere"):
             self.assertTrue(sphere.point_inside(np.array([0.56, 0.84, 0.04]), rve_dims))
-        with self.subTest("Point outside the ellipse"):
+        with self.subTest("Point outside the sphere"):
             self.assertTrue(not sphere.point_inside(np.array([0.9, 0.9, 0.5]), rve_dims))
 
     def test_generate_points_on_surface(self):
