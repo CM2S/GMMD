@@ -103,20 +103,11 @@ class Cylinder(Particle):
         """
         self.check_if_descriptor_values_are_valid(descriptors, rve_dims)
         if "r_cyl" in descriptors:
-            if descriptors["r_cyl"] <= 0:
-                raise ValueError(
-                    "In Phase {0}:".format(phase)
-                    + "The radius of a cylinder particle must be a positive number."
-                )
             self.r_cyl = descriptors["r_cyl"]
             if "ratio" in descriptors:
                 self.length = self.r_cyl * descriptors["ratio"]
+                
         if "length" in descriptors:
-            if descriptors["length"] <= 0:
-                raise ValueError(
-                    "In Phase {0}:".format(phase)
-                    + "The length of a cylinder particle must be a positive number."
-                )
             self.length = descriptors["length"]
             if "vf" in descriptors and "n" in descriptors:
                 self.r_cyl = np.sqrt(
