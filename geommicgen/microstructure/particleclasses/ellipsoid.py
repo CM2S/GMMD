@@ -380,7 +380,7 @@ class Ellipsoid(Particle):
     def radius(self):
         """Radius of the circumscribed sphere to the ellipsoid."""
         radius = (
-            np.max([self.semi_axis_1, self.semi_axis_3, self.semi_axis_3]) + self.delta
+            np.max([self.semi_axis_1, self.semi_axis_2, self.semi_axis_3]) + self.delta
         )
         # Radius of the circunscribed sphere
 
@@ -389,7 +389,7 @@ class Ellipsoid(Particle):
     @property
     def radius_insc(self):
         """Radius of the inscribed circle to the ellipsoid."""
-        radius_insc = np.min([self.semi_axis_1, self.semi_axis_3, self.semi_axis_3])
+        radius_insc = np.min([self.semi_axis_1, self.semi_axis_2, self.semi_axis_3])
 
         return radius_insc
 
