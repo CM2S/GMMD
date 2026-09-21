@@ -1,7 +1,18 @@
+import contextlib
+import io
+import os
+import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from geommicgen.iofuncs.printing import print_failed_jobs, print_final_message
+import geommicgen.iofuncs.printing as print_funcs
+from geommicgen.iofuncs.file_handling import delete_screen
+from geommicgen.iofuncs.printing import (
+    print_failed_jobs,
+    print_final_message,
+    print_to_file,
+    screen_to,
+)
 from geommicgen.pipeline import MeshJob
 from geommicgen.meshing.gmsh_mesher import GmshMesher
 from geommicgen.meshing.voxel_mesher import VoxelMesher
@@ -73,24 +84,86 @@ class TestPrintFinalMessage(unittest.TestCase):
         # Three quarters of a total of four seconds
 
 
-class TestPrintFailedJobs(unittest.TestCase):
-    """Test class for the report of the discretisations that could not be produced."""
+class ScreenLogTest(unittest.TestCase):
+    """
+    Base class for tests that read what the program reports.
+
+    The screen file is attached to a directory of the test's own, and the terminal is
+    read through a redirected standard output.
+    """
 
     def setUp(self):
-        self.printed = []
-        self.terminal = []
-        patcher = patch(
-            "geommicgen.iofuncs.printing.print_to_file",
-            side_effect=self.record,
-        )
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        print_funcs.log_to_terminal()
+        self.screen_path = screen_to(self.directory.name)
+        self.addCleanup(screen_to, None)
 
-    def record(self, message, **kwargs):
-        """Record a printed message, and whether it reached the terminal."""
-        self.printed.append(str(message))
-        if kwargs.get("to_terminal", True):
-            self.terminal.append(str(message))
+    def screen(self):
+        """Give what reached the screen file."""
+        with open(self.screen_path) as screen:
+            return screen.read()
+
+    def terminal(self, function, *arguments):
+        """Give what a call sent to the terminal."""
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            function(*arguments)
+
+        return printed.getvalue()
+
+
+class TestScreenLog(ScreenLogTest):
+    """Test class for where what the program reports ends up."""
+
+    def test_a_line_reaches_both(self):
+        terminal = self.terminal(print_to_file, "a line")
+        self.assertEqual(terminal, "a line\n")
+        self.assertEqual(self.screen(), "a line\n")
+
+    def test_the_screen_file_is_appended_to(self):
+        with open(self.screen_path, "a") as screen:
+            screen.write("an earlier run\n")
+        screen_to(self.directory.name)
+        print_to_file("a later one")
+        self.assertEqual(self.screen(), "an earlier run\na later one\n")
+
+    def test_the_debug_level_is_the_file_alone(self):
+        terminal = self.terminal(print_funcs.LOGGER.debug, "the frames")
+        self.assertEqual(terminal, "")
+        self.assertEqual(self.screen(), "the frames\n")
+
+    def test_detaching_leaves_the_file_alone(self):
+        print_to_file("before")
+        screen_to(None)
+        terminal = self.terminal(print_to_file, "after")
+        self.assertEqual(terminal, "after\n")
+        self.assertEqual(self.screen(), "before\n")
+
+    def test_attaching_elsewhere_moves_the_log(self):
+        print_to_file("first")
+        with tempfile.TemporaryDirectory() as elsewhere:
+            other_path = screen_to(elsewhere)
+            print_to_file("second")
+            with open(other_path) as other:
+                self.assertEqual(other.read(), "second\n")
+        self.assertEqual(self.screen(), "first\n")
+
+    def test_the_terminal_is_attached_once(self):
+        print_funcs.log_to_terminal()
+        print_funcs.log_to_terminal()
+        self.assertEqual(self.terminal(print_to_file, "once"), "once\n")
+
+    def test_the_screen_file_can_be_deleted_while_attached(self):
+        print_to_file("something")
+        delete_screen(self.directory.name)
+        self.assertFalse(os.path.exists(self.screen_path))
+        # The handler holds the file open; delete_screen lets go of it first, which is
+        # what a removal on Windows needs
+
+
+class TestPrintFailedJobs(ScreenLogTest):
+    """Test class for the report of the discretisations that failed."""
 
     def failed_job(self):
         """Build a job carrying a failure."""
@@ -101,23 +174,27 @@ class TestPrintFailedJobs(unittest.TestCase):
         return job
 
     def test_nothing_is_printed_when_every_job_succeeded(self):
-        self.assertEqual(print_failed_jobs([finished_job(1.0)]), [])
-        self.assertEqual(self.printed, [])
+        terminal = self.terminal(print_failed_jobs, [finished_job(1.0)])
+        self.assertEqual(terminal, "")
+        self.assertEqual(self.screen(), "")
 
     def test_the_failures_are_returned_and_named(self):
         failed = self.failed_job()
-        self.assertEqual(print_failed_jobs([finished_job(1.0), failed]), [failed])
-        summary = "\n".join(self.printed)
-        self.assertIn("Regular mesh generation", summary)
-        self.assertIn("ValueError", summary)
-        self.assertIn("the mesher gave up", summary)
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            returned = print_failed_jobs([finished_job(1.0), failed])
+        self.assertEqual(returned, [failed])
+        self.assertIn("Regular mesh generation", printed.getvalue())
+        self.assertIn("ValueError", printed.getvalue())
+        self.assertIn("the mesher gave up", printed.getvalue())
         # Returning them is what lets the caller decide the exit status without
         # working out for itself what counts as a failure
 
-    def test_the_traceback_goes_to_the_file_and_not_the_screen(self):
-        print_failed_jobs([self.failed_job()])
-        self.assertIn("the frames", "\n".join(self.printed))
-        self.assertNotIn("the frames", "\n".join(self.terminal))
+    def test_the_traceback_goes_to_the_file_and_not_the_terminal(self):
+        terminal = self.terminal(print_failed_jobs, [self.failed_job()])
+        self.assertIn("the mesher gave up", terminal)
+        self.assertNotIn("the frames", terminal)
+        self.assertIn("the frames", self.screen())
         # A message is what a user needs; the frames are for whoever has to fix it
 
 

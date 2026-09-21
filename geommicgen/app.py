@@ -36,6 +36,7 @@ from geommicgen.micgenmethod.speed_up_schemes import (
 
 def run_program():
     """Run program."""
+    print_funcs.log_to_terminal()
     (
         input_file_path,
         input_file_dir,
@@ -50,29 +51,32 @@ def run_program():
     results_folder = fileio.create_design_point_results_directory(
         input_file_dir, input_file_name
     )
-    fileio.RESULTS_FOLDER = results_folder
     fileio.copy_input_file(input_file_path, results_folder)
 
     if previous_mic_path is not None:
-        print_funcs.SCREEN_DIR = results_folder
-        print_funcs.print_initial_message(input_file_path)
-        print_funcs.print_analysis_previous(previous_mic_path)
-        # It is an action on a previously generated microstructure
-        current_sample, current_mic_generator = fileio.load_previous_sample(
-            previous_mic_path
-        )
-        mesh_jobs = build_mesh_jobs(
-            top_level_reader.all_options.get("mesh_options", {}), input_file_name
-        )
-        print_funcs.print_output_header()
-        post_proc(
-            mesh_jobs,
-            current_sample,
-            current_mic_generator,
-            results_folder,
-            top_level_reader.all_options["post_proc"],
-        )
-        if print_funcs.print_failed_jobs(mesh_jobs):
+        print_funcs.screen_to(results_folder)
+        try:
+            print_funcs.print_initial_message(input_file_path)
+            print_funcs.print_analysis_previous(previous_mic_path)
+            # It is an action on a previously generated microstructure
+            current_sample, current_mic_generator = fileio.load_previous_sample(
+                previous_mic_path
+            )
+            mesh_jobs = build_mesh_jobs(
+                top_level_reader.all_options.get("mesh_options", {}), input_file_name
+            )
+            print_funcs.print_output_header()
+            post_proc(
+                mesh_jobs,
+                current_sample,
+                current_mic_generator,
+                results_folder,
+                top_level_reader.all_options["post_proc"],
+            )
+            failed = print_funcs.print_failed_jobs(mesh_jobs)
+        finally:
+            print_funcs.screen_to(None)
+        if failed:
             raise SystemExit(1)
     else:
         try:
@@ -104,7 +108,7 @@ def run_program():
             )
             # Producing the number of samples required
 
-            print_funcs.SCREEN_DIR = sample_dir
+            print_funcs.screen_to(sample_dir)
             print_funcs.print_initial_message(input_file_path)
             # Printing initial message
 
@@ -275,9 +279,12 @@ def run_program():
                     sample_dir, current_sample, current_mic_generator, mesh_jobs
                 )
                 if top_level_reader.all_options["save_min"]:
-                    fileio.delete_screen(print_funcs.SCREEN_DIR)
+                    fileio.delete_screen(sample_dir)
+                print_funcs.screen_to(None)
                 # Rewritten now that the discretisations have been attempted, so that
-                # the sample records which of them were produced
+                # the sample records which of them were produced. The screen file is
+                # then let go of, so that the summary of the batch that follows the
+                # loop is not written into the last sample
 
             failed_jobs.extend(i_job for i_job in mesh_jobs if i_job.error)
             # Collected across the batch, so that one sample failing to mesh does not

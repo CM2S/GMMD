@@ -1,11 +1,104 @@
 """Module containing the printing functions."""
 
-import os
 import datetime
+import logging
+import os
+import sys
+
 from tabulate import tabulate
 
-# Screen directory
-SCREEN_DIR = ""
+LOGGER = logging.getLogger("geommicgen")
+LOGGER.setLevel(logging.DEBUG)
+LOGGER.addHandler(logging.NullHandler())
+# Everything the program reports passes through this logger. The package attaches no
+# handler of its own beyond the null one, as a library should: an entry point attaches
+# the terminal, a run attaches its screen file, and a script that imports the package
+# hears nothing unless it asks to
+
+FORMATTER = logging.Formatter("%(message)s")
+# The lines are written as they are given, so that the terminal and the screen file
+# read exactly as the print statements they replace did
+
+SCREEN_FILE_NAME = "mic.screen"
+
+
+class TerminalHandler(logging.StreamHandler):
+    """Handler writing to whatever *sys.stdout* is when a record is emitted."""
+
+    def __init__(self):
+        """Initializer for the TerminalHandler class."""
+        super().__init__(sys.stdout)
+
+    @property
+    def stream(self):
+        """The current standard output."""
+        return sys.stdout
+
+    @stream.setter
+    def stream(self, value):
+        """Ignore the stream given, since it is looked up at each record instead."""
+
+    # print looks the standard output up at every call, and so must this, so that
+    # output redirected by the caller is still seen -- which is how the tests read it
+
+
+_TERMINAL = None
+_SCREEN = None
+# The handlers attached at the moment, if any, so that each can be detached again
+
+
+def log_to_terminal():
+    """
+    Send what the program reports to the terminal, once.
+
+    Returns
+    -------
+    `.TerminalHandler`
+        The handler attached, whether by this call or an earlier one.
+    """
+    global _TERMINAL
+    if _TERMINAL is None:
+        _TERMINAL = TerminalHandler()
+        _TERMINAL.setLevel(logging.INFO)
+        _TERMINAL.setFormatter(FORMATTER)
+        LOGGER.addHandler(_TERMINAL)
+    # Called by every entry point, and idempotent so that the tests can call it too
+
+    return _TERMINAL
+
+
+def screen_to(directory):
+    """
+    Send what the program reports to the screen file of a directory, or stop doing so.
+
+    Parameters
+    ----------
+    directory: str
+        Directory the screen file is written in, appended to when it exists. None
+        detaches the current screen file and attaches nothing.
+
+    Returns
+    -------
+    str
+        Path of the screen file, or None when there is none.
+    """
+    global _SCREEN
+    if _SCREEN is not None:
+        LOGGER.removeHandler(_SCREEN)
+        _SCREEN.close()
+        _SCREEN = None
+    if directory is None:
+        return None
+
+    path = os.path.join(directory, SCREEN_FILE_NAME)
+    _SCREEN = logging.FileHandler(path, mode="a")
+    _SCREEN.setLevel(logging.DEBUG)
+    _SCREEN.setFormatter(FORMATTER)
+    LOGGER.addHandler(_SCREEN)
+    # The file takes everything, the traceback of a failed discretisation included,
+    # where the terminal is kept to what a user needs
+
+    return path
 
 
 def print_initial_message(input_file_path):
@@ -66,18 +159,9 @@ def print_final_message_md(time, total_overlap, number_iterations, max_overlap):
     print_to_file("\n")
 
 
-def print_to_file(message, end="\n", to_screen=True, to_terminal=True):
-    """Print to the screen file of corresponding to the current microstructure sample."""
-    if to_screen:
-        screen_path = os.path.join(SCREEN_DIR, "mic.screen")
-        if os.path.exists(screen_path):
-            action = "a"
-        else:
-            action = "w"
-        with open(screen_path, action) as screen:
-            print(message, file=screen, end=end)
-    if to_terminal:
-        print(message, end=end)
+def print_to_file(message):
+    """Report a line, to the terminal and to the screen file of the current run."""
+    LOGGER.info(message)
 
 
 def print_to_terminal_refresh(step, total_overlap, **kwargs):
@@ -109,21 +193,26 @@ def print_microstructure_info(microstructure):
         if i_phase.type.__name__ == "Matrix":
             print_to_file("")
             continue
-        print_to_file("\t\t- {:.6f}%".format(i_phase.volume_fraction * 100), end=" ")
+        volume_fraction = "\t\t- {:.6f}%".format(i_phase.volume_fraction * 100)
         if "vf" in i_phase.descriptors:
             print_to_file(
-                "(Specified: {:.6f}%)".format(i_phase.descriptors["vf"].value * 100)
+                "{0} (Specified: {1:.6f}%)".format(
+                    volume_fraction, i_phase.descriptors["vf"].value * 100
+                )
             )
             print_to_file("")
         else:
-            print_to_file("\n")
+            print_to_file(volume_fraction + "\n")
         print_to_file("\t- Number of particles:")
-        print_to_file("\t\t- {0}".format(i_phase.number_particles), end=" ")
+        number = "\t\t- {0}".format(i_phase.number_particles)
         if "n" in i_phase.descriptors:
-            print_to_file("(Specified: {0})".format(i_phase.descriptors["n"].value))
+            print_to_file(
+                "{0} (Specified: {1})".format(number, i_phase.descriptors["n"].value)
+            )
             print_to_file("")
         else:
-            print_to_file("\n")
+            print_to_file(number + "\n")
+        # Each line is built whole: a report is a line, not a stream
 
         for j_descriptor_name, j_descriptor in i_phase.descriptors.items():
             if j_descriptor_name in ("vf", "n"):
@@ -170,9 +259,10 @@ def print_particle_progress(index, total):
     """
     print("\t\t- Particle {0} of {1}".format(index + 1, total))
     if index + 1 != total:
-        print_to_file("\033[F\033[K", end="", to_screen=False)
+        print("\033[F\033[K", end="")
     # The line is overwritten by the next one, so a long run reports its progress
-    # without filling the screen file with a line per particle
+    # without filling the screen file with a line per particle. This is the terminal
+    # being driven, not a report, so it does not go through the logger
 
 
 def print_final_message(mic_generator, mesh_generators, times_dict):
@@ -277,12 +367,10 @@ def print_failed_jobs(jobs):
             )
         )
         if i_job.trace is not None:
-            print_to_file(
-                "\t\t" + i_job.trace.rstrip("\n").replace("\n", "\n\t\t"),
-                to_terminal=False,
-            )
+            LOGGER.debug("\t\t" + i_job.trace.rstrip("\n").replace("\n", "\n\t\t"))
         # The traceback goes to the screen file only: a message is what a user needs,
-        # and the frames are what whoever has to fix it needs
+        # and the frames are what whoever has to fix it needs. The file listens at the
+        # debug level and the terminal does not, which is all the routing there is
 
     print_to_file("")
 

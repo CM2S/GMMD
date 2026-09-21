@@ -19,9 +19,7 @@ from geommicgen.iofuncs.microstructure_yaml import (
     read_microstructure_yaml,
     write_microstructure_yaml,
 )
-from .printing import print_output
-
-RESULTS_FOLDER = ""
+from .printing import print_output, screen_to, SCREEN_FILE_NAME
 
 MIC_FILE_NAME = "mic.yaml"
 MIC_EXTENSIONS = {".yaml", ".yml"}
@@ -250,4 +248,7 @@ def save_status(sample_dir, current_sample, current_mic_generator, mesh_jobs=())
 
 def delete_screen(screen_dir):
     """Delete screen file."""
-    os.remove(os.path.join(screen_dir, "mic.screen"))
+    screen_to(None)
+    os.remove(os.path.join(screen_dir, SCREEN_FILE_NAME))
+    # Detached first: the file is held open while it is written to, and Windows
+    # refuses to remove an open file
