@@ -153,6 +153,24 @@ class TestEllipsoid(unittest.TestCase):
             self.assertAlmostEqual(ellipsoid.axis_2, expected_axis_2)
             self.assertAlmostEqual(ellipsoid.axis_3, expected_axis_3)
 
+        with self.subTest("p_3 and phi_3 supplied"):
+            p_3 = 0.8
+            phi_z = 1.6
+            ellipsoid = Ellipsoid(
+                "1",
+                {"vf" : 0.1,
+                 "axis_1": 0.2,
+                 "axis_2":0.1,
+                 "axis_3": 0.1,
+                 "p_3": p_3,
+                 "phi_z" : phi_z},
+                self.rve_dims,
+            )
+            self.assertAlmostEqual(ellipsoid.angle, 1.748142665 )
+            np.testing.assert_allclose( ellipsoid.rotation_axis, np.array([0.36423807, -0.35375333, 0.86150404]) )
+            
+
+
 
     def test_properties(self):
         with self.subTest("Volume"):
