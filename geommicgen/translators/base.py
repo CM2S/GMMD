@@ -17,9 +17,11 @@ WRITE_CHUNK = 20000
 # the file in peak memory without writing it any faster
 
 PLACEHOLDER_ELASTIC = (1.0e3, 0.3)
-# Young modulus and Poisson ratio written for a phase whose properties nobody has given.
-# A microstructure carries no constitutive behaviour, so a deck that is to be run has to
-# be edited; writing the same placeholder everywhere is what makes that one edit
+# Young modulus and Poisson ratio written for every phase of the example decks. A
+# microstructure carries no constitutive behaviour, so the properties cannot be known
+# here, and a deck that is to be run has to be edited first. Every phase gets this same
+# pair, with a TODO beside it, so that the deck says plainly that its materials are made
+# up rather than looking like a choice made for each phase, and one search finds them all
 
 WRITERS = {}
 # Correspondence between the name of a format and the class that writes it
