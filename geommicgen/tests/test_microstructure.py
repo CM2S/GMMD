@@ -105,6 +105,40 @@ class TestMicrostructure(unittest.TestCase):
     #     _ = Microstructure(descriptors, rve_dims)
 
 
+class TestFromDescriptors(unittest.TestCase):
+    """Test class for the microstructure built from the descriptors of a deck."""
+
+    DESCRIPTORS = {"0": {"phase_type": 1}, "1": {"phase_type": 2, "vf": 0.2, "n": 4}}
+    # A matrix and a phase of disks, as the input data file reader hands them over
+
+    def test_the_phases_are_declared(self):
+        microstructure = Microstructure.from_descriptors([1.0, 1.0], self.DESCRIPTORS)
+        self.assertEqual(list(microstructure.phases), ["0", "1"])
+        self.assertEqual(microstructure.matrix_phase, "0")
+        self.assertEqual(microstructure.phases["1"].type.__name__, "Disk")
+        self.assertEqual(microstructure.phases["1"].descriptors["n"].value, 4)
+        self.assertEqual(microstructure.particles, [])
+        for i_phase in microstructure.phases.values():
+            self.assertIs(i_phase.microstructure, microstructure)
+
+    def test_a_deck_without_a_matrix_is_refused(self):
+        with self.assertRaises(ValueError) as context:
+            Microstructure.from_descriptors([1.0, 1.0], {"1": self.DESCRIPTORS["1"]})
+        self.assertIn("matrix", str(context.exception))
+
+    def test_a_deck_with_two_matrices_is_refused(self):
+        with self.assertRaises(ValueError):
+            Microstructure.from_descriptors(
+                [1.0, 1.0], {"0": {"phase_type": 1}, "2": {"phase_type": 1}}
+            )
+
+    def test_each_call_builds_a_microstructure_of_its_own(self):
+        first = Microstructure.from_descriptors([1.0, 1.0], self.DESCRIPTORS)
+        second = Microstructure.from_descriptors([1.0, 1.0], self.DESCRIPTORS)
+        self.assertIsNot(first.phases["1"], second.phases["1"])
+        # Each sample of a run is generated into a microstructure of its own
+
+
 class TestInsideParticlePhase(unittest.TestCase):
     """Test class for telling the points inside a particle from the ones outside."""
 

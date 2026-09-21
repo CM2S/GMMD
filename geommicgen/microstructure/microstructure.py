@@ -10,6 +10,7 @@ import numpy as np
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 from geommicgen.micgenmethod.speed_up_schemes import CellList
+from geommicgen.microstructure.phase import Phase
 
 
 class Microstructure:
@@ -57,6 +58,40 @@ class Microstructure:
         self.volume = np.prod(rve_dims)
         self.phases = {}
         self.total_overlap = None
+
+    @classmethod
+    def from_descriptors(cls, rve_dims, descriptors):
+        """
+        Build the microstructure an input data file describes, with its phases.
+
+        Parameters
+        ----------
+        rve_dims: array
+            Dimensions of the microstructure in each spatial direction.
+
+        descriptors: dict
+            Descriptors of each phase, keyed by the name of the phase, as the input data
+            file gives them.
+
+        Returns
+        -------
+        `.Microstructure`
+            The microstructure, with no particles yet.
+
+        Raises
+        ------
+        ValueError:
+            If no phase is a matrix, or if two are.
+        """
+        microstructure = cls(rve_dims)
+        for i_name, i_descriptors in descriptors.items():
+            microstructure.add_phase(Phase(i_name, i_descriptors))
+        if microstructure.matrix_phase is None:
+            raise ValueError("No matrix phase was specified.")
+        # Refused here, where the phases are declared, rather than by whichever
+        # mesher first fills the RVE and finds nothing to fill it with
+
+        return microstructure
 
     def add_phase(self, phase):
         """

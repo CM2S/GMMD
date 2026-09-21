@@ -18,7 +18,6 @@ import geommicgen.iofuncs.file_handling as fileio
 from geommicgen.iofuncs.keywords import top_level_reader
 
 from geommicgen.microstructure.microstructure import Microstructure
-from geommicgen.microstructure.phase import Phase
 from geommicgen.micgenmethod.molecular_dynamics_sim import MolecularDynamicsSimulation
 
 
@@ -117,8 +116,11 @@ def run_program(argv=None):
             )
             # Initializing the mesh generators
 
-            current_sample = Microstructure(rve_dims)
-            # Initializing the current sample
+            current_sample = Microstructure.from_descriptors(
+                rve_dims, mic_gen_descriptors
+            )
+            # A microstructure of the phases the input data file describes, built anew
+            # for each sample, since the generation fills it with particles
 
             if ext == ".mdsim":
                 current_mic_generator = MolecularDynamicsSimulation.from_options(
@@ -128,13 +130,6 @@ def run_program(argv=None):
                 # and speed up scheme included, and refuses a name it does not know
             else:
                 raise ValueError("Unknown input file extension: {0}".format(ext))
-
-            for phase_name, phase_descriptors in mic_gen_descriptors.items():
-                current_phase = Phase(phase_name, phase_descriptors)
-                current_sample.add_phase(current_phase)
-                # Populating the microstructure sample with phases
-            if current_sample.matrix_phase is None:
-                raise ValueError("No matrix phase was specified.")
 
             try:
                 current_mic_generator.generate_microstructure(current_sample)
