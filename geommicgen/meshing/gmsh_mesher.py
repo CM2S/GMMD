@@ -928,6 +928,21 @@ class GmshMesher(Mesher):
             (i_type, np.vstack(i_blocks)) for i_type, i_blocks in blocks.items()
         ]
         phase = [np.concatenate(phases[i_type]) for i_type, _ in cells]
+        if len(cells) > 1:
+            self.warnings.append(
+                "WARNING: {0} was asked for and gmsh produced {1}; the mesh is written "
+                "with every element it produced.".format(
+                    self.element_type,
+                    " and ".join(
+                        "{0} {1}".format(len(i_connectivity), i_type)
+                        for i_type, i_connectivity in cells
+                    ),
+                )
+            )
+        # One element type is asked for, so a second one is gmsh's doing: the quad
+        # recombination leaves a triangle behind where it finds no pair for it, and
+        # says nothing. The writers carry every type through, so the solver gets the
+        # mix, and the user is told about it here
 
         return Mesh(
             microstructure.rve_dims,

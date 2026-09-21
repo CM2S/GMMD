@@ -216,6 +216,21 @@ class TestGmshMesherMeshes(unittest.TestCase):
         self.assertTrue(mesh.periodic)
         mesh.check_periodic_conformity()
 
+    def test_a_recombination_that_leaves_triangles_is_reported(self):
+        mesher = GmshMesher(mesh_size=0.1, element_type="quad4")
+        mesh = mesher.mesh(disk_microstructure())
+        self.assertEqual({i_type for i_type, _ in mesh.cells}, {"quad", "triangle"})
+        self.assertTrue(any("quad4 was asked for" in i for i in mesher.warnings))
+        self.assertTrue(any("2 triangle" in i for i in mesher.warnings))
+        # Blossom recombines what it can pair and keeps the rest as triangles, and at
+        # this size two are left; a size of 0.05 gives a mesh of quads alone
+
+    def test_a_mesh_of_one_element_type_is_not_reported(self):
+        mesher = GmshMesher(mesh_size=0.05, element_type="quad4")
+        mesh = mesher.mesh(disk_microstructure())
+        self.assertEqual([i_type for i_type, _ in mesh.cells], ["quad"])
+        self.assertFalse(any("was asked for" in i for i in mesher.warnings))
+
     def test_the_mesh_records_how_it_was_made(self):
         mesh = GmshMesher(mesh_size=0.08, element_type="tri3").mesh(
             disk_microstructure()
