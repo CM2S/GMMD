@@ -495,12 +495,17 @@ class VerletList:
                 break
         if self.a_new_verlet_list_has_to_be_computed:
             self.a_new_verlet_list_has_to_be_computed = False
-            self.cell_list.new_list(self.verlet_neighborhoods)
-            self.particle_list = [[] for _ in particles]
             for i_particle_index, i_particle in enumerate(particles):
                 self.verlet_neighborhoods[i_particle_index].position_center = (
                     i_particle.position_center
                 )
+            self.cell_list.new_list(self.verlet_neighborhoods)
+            self.particle_list = [[] for _ in particles]
+            # The neighbourhoods are moved onto the particles before the cell list is
+            # built from them. It was built first, from where they were at the last
+            # rebuild, and the neighbourhoods that had crossed into another cell since
+            # were then looked for in the wrong one: with a small factor the lists
+            # missed pairs, and the run took a different path from the other schemes
             for i_particle_index, i_particle in enumerate(particles):
                 for j_particle_index in self.cell_list.particle_list[i_particle_index]:
 

@@ -374,6 +374,50 @@ class TestSpeedUpScheme(unittest.TestCase):
         self.assertEqual(8, current_cell_list.neighbor_cell(26, 22, 3, [3, 3, 3]))
 
 
+class TestSchemesAgree(unittest.TestCase):
+    """Test class for the schemes computing the same forces as checking every pair."""
+
+    def overlap_history(self, scheme, n_particles=150, n_steps=5):
+        """Run a seeded generation of disks with a scheme, giving the overlap history."""
+        from geommicgen.micgenmethod.thermostats import MultiTemperatureIsokineticThermostat
+        from geommicgen.microstructure.microstructure import Microstructure
+
+        microstructure = Microstructure.from_descriptors(
+            [1.0, 1.0],
+            {"0": {"phase_type": 1}, "1": {"phase_type": 2, "vf": 0.5, "n": n_particles}},
+        )
+        generator = MolecularDynamicsSimulation(
+            0.0, n_steps, 1, 1e-3, 0.0, "random", False, fixed_seed=1
+        )
+        generator.set_thermostat(
+            MultiTemperatureIsokineticThermostat(
+                None, criterion="ratio_in_out", max_ratio_osc=2, temp_low_ratio=1 / 4
+            )
+        )
+        generator.set_speed_up_scheme(scheme)
+        generator.generate_microstructure(microstructure)
+
+        return np.array(generator.total_overlap_history)
+
+    def test_every_scheme_gives_the_history_of_checking_every_pair(self):
+        reference = self.overlap_history(Naive())
+        self.assertEqual(len(reference), 6)
+        for i_name, i_scheme in (
+            ("Cell", CellList()),
+            ("Verlet 1.05", VerletList(1.05)),
+            ("Verlet 1.1", VerletList(1.1)),
+            ("Verlet 2.0", VerletList(2.0)),
+        ):
+            with self.subTest(scheme=i_name):
+                np.testing.assert_allclose(self.overlap_history(i_scheme), reference, rtol=1e-9)
+        # The lists only decide which pairs are checked, so a list that is complete
+        # gives the forces of checking every pair up to the order the pairs are summed
+        # in; a missed pair shows in the second digit. The Verlet list
+        # with a small factor did not: its cell list was built before the
+        # neighbourhoods were moved onto the particles, and a neighbourhood that had
+        # crossed into another cell was looked for in the old one
+
+
 class TestVerlet(unittest.TestCase):
     def test_intersection_issue_small_large_2(self):
         """Test for the Verlet list with two small ellipses inside a larger one."""
