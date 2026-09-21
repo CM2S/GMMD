@@ -56,7 +56,7 @@ This program initial version was documented and fully coded by José Luís P. Vi
 ### Meshing
 
 - Regular mesh with the desired number of voxels in each spatial direction.
-- Non-conforming finite element mesh using Gmsh.
+- Finite element mesh conforming to the particle boundaries, using Gmsh: first and second order triangles, quadrilaterals and tetrahedra.
 - Meshes written as VTK files, and translated into the formats solvers read (LINKS, CRATE, XDMF, MED, Exodus, ...).
 
 ### Analysis
@@ -188,6 +188,8 @@ geommicgen-translate --list-formats
 ```
 
 A mesh is written as a VTK file whichever mesher produced it, `.vtu` for an unstructured mesh and `.vti` for a grid, with a small `.mesh.json` beside it holding what those formats cannot carry. Giving no `--to` stops after that file, which is a complete stage: `geommicgen-translate` picks up from it later, or somewhere else.
+
+The gmsh mesher offers `tri3`, `tri6`, `quad4` and `quad8` in two dimensions and `tetra4` and `tetra10` in three. A quadrilateral mesh is made by recombining triangles, and Gmsh keeps a triangle where it finds no pair for it, so a `quad4` or `quad8` mesh may hold a few triangles; when it does, the mesher says so with the counts, and the mesh is written with both, each type in a group of its own.
 
 ### Analysing a microstructure
 
