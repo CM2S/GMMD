@@ -299,11 +299,7 @@ class Ellipsoid(Particle):
             rot_mat_y = np.array(
                 [
                     [np.cos(p_3), 0, -np.sin(p_3)],
-                    [
-                        0,
-                        1,
-                        0,
-                    ],
+                    [0, 1, 0],
                     [np.sin(p_3), 0, np.cos(p_3)],
                 ],
             )
