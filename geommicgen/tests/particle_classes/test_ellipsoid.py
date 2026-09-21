@@ -2,14 +2,213 @@
 Unit tests regarding the Ellipsoid particle class.
 """
 import unittest
+from unittest.mock import Mock
 
 import numpy as np
 import time
-from geommicgen.microstructure.particleclasses import Ellipsoid
+from geommicgen.microstructure.particleclasses import Ellipsoid, Cylinder
 
 
 class TestEllipsoid(unittest.TestCase):
-    """Tests concening Ellipsoids"""
+    """Tests concerning Ellipsoids"""
+
+    def setUp(self):
+        "Creates a ellipsoid with position_center assigned. It is used in some of the tests."
+        self.rve_dims = [1, 1, 1]
+        self.rotation_descriptors = {
+            "rot_axis_comp_x": 0,
+            "rot_axis_comp_y": 0,
+            "rot_axis_comp_z": 1,
+            "angle": 0,
+        }
+        self.ellipsoid = Ellipsoid(
+                "1",
+                {"axis_1": 0.4, "axis_2": 0.3, "axis_3": 0.2, **self.rotation_descriptors},
+                self.rve_dims,
+            )
+        
+        self.ellipsoid.position_center = [0.5,0.5,0.5]
+
+
+    def test_init(self):
+        "Tests if all ways of describing an ellipsoid are supported by the constructor."
+
+        with self.subTest("axis_1, axis_2 and axis_3 supplied"):
+            ellipsoid = Ellipsoid(
+                "1",
+                {"axis_1": 0.4, "axis_2": 0.3, "axis_3": 0.2, **self.rotation_descriptors},
+                self.rve_dims,
+            )
+            self.assertAlmostEqual(ellipsoid.axis_1, 0.4)
+            self.assertAlmostEqual(ellipsoid.axis_2, 0.3)
+            self.assertAlmostEqual(ellipsoid.axis_3, 0.2)
+            self.assertAlmostEqual(ellipsoid.angle, 0)
+
+        with self.subTest("ratio_12, ratio_13, n and vf supplied"):
+            ratio_12 = 2
+            ratio_13 = 4
+            ellipsoid = Ellipsoid(
+                "1",
+                {
+                    "ratio_12": ratio_12,
+                    "ratio_13": ratio_13,
+                    "n": 10,
+                    "vf": 0.1,
+                    **self.rotation_descriptors,
+                },
+                self.rve_dims,
+            )
+            volume_part = 0.1 * self.rve_dims[0] * self.rve_dims[1] * self.rve_dims[2] / 10
+            expected_axis_1 = np.cbrt(
+                volume_part * ratio_12 * ratio_13 * 8 / (np.pi * 4 / 3)
+            )
+            expected_axis_2 = expected_axis_1 / ratio_12
+            expected_axis_3 = expected_axis_1 / ratio_13
+            self.assertAlmostEqual(ellipsoid.axis_1, expected_axis_1)
+            self.assertAlmostEqual(ellipsoid.axis_2, expected_axis_2)
+            self.assertAlmostEqual(ellipsoid.axis_3, expected_axis_3)
+
+        with self.subTest("ratio_12, ratio_13 and axis_1 supplied"):
+            ratio_12 = 2
+            ratio_13 = 4
+            ellipsoid = Ellipsoid(
+                "1",
+                {
+                    "axis_1": 0.4,
+                    "ratio_12": ratio_12,
+                    "ratio_13": ratio_13,
+                    **self.rotation_descriptors,
+                },
+                self.rve_dims,
+            )
+            self.assertAlmostEqual(ellipsoid.axis_1, 0.4)
+            self.assertAlmostEqual(ellipsoid.axis_2, 0.4 / ratio_12)
+            self.assertAlmostEqual(ellipsoid.axis_3, 0.4 / ratio_13)
+
+        with self.subTest("ratio_321 and semi_axis_1 supplied"):
+            ratio_321 = 0.5
+            semi_axis_1 = 0.2
+            ellipsoid = Ellipsoid(
+                "1",
+                {
+                    "semi_axis_1": semi_axis_1,
+                    "ratio_321": ratio_321,
+                    **self.rotation_descriptors,
+                },
+                self.rve_dims,
+            )
+            expected_axis_1 = semi_axis_1*2
+            self.assertAlmostEqual(ellipsoid.axis_1, expected_axis_1)
+            self.assertAlmostEqual(ellipsoid.axis_2, ratio_321 * expected_axis_1)
+            self.assertAlmostEqual(ellipsoid.axis_3, ratio_321 * expected_axis_1)
+
+        with self.subTest("ratio_321 and axis_1 supplied"):
+            ratio_321 = 0.5
+            ellipsoid = Ellipsoid(
+                "1",
+                {"axis_1": 0.4, "ratio_321": ratio_321, **self.rotation_descriptors},
+                self.rve_dims,
+            )
+            self.assertAlmostEqual(ellipsoid.axis_1, 0.4)
+            self.assertAlmostEqual(ellipsoid.axis_2, ratio_321 * 0.4)
+            self.assertAlmostEqual(ellipsoid.axis_3, ratio_321 * 0.4)
+
+        with self.subTest("ratio_32, ratio_21 and semi_axis_1 supplied"):
+            ratio_32 = 0.5
+            ratio_21 = 0.5
+            ellipsoid = Ellipsoid(
+                "1",
+                {
+                    "semi_axis_1": 0.2,
+                    "ratio_32": ratio_32,
+                    "ratio_21": ratio_21,
+                    **self.rotation_descriptors,
+                },
+                self.rve_dims,
+            )
+            expected_axis_1 = 2 * 0.2
+            expected_axis_2 = ratio_21 * expected_axis_1
+            expected_axis_3 = ratio_32 * expected_axis_2
+            self.assertAlmostEqual(ellipsoid.axis_1, expected_axis_1)
+            self.assertAlmostEqual(ellipsoid.axis_2, expected_axis_2)
+            self.assertAlmostEqual(ellipsoid.axis_3, expected_axis_3)
+
+        with self.subTest("ratio_32, ratio_21 and axis_2 supplied"):
+            ratio_32 = 0.5
+            ratio_21 = 0.5
+            ellipsoid = Ellipsoid(
+                "1",
+                {
+                    "axis_2": 0.2,
+                    "ratio_32": ratio_32,
+                    "ratio_21": ratio_21,
+                    **self.rotation_descriptors,
+                },
+                self.rve_dims,
+            )
+            expected_axis_1 = 2 * 0.2
+            expected_axis_2 = ratio_21 * expected_axis_1
+            expected_axis_3 = ratio_32 * expected_axis_2
+            self.assertAlmostEqual(ellipsoid.axis_1, expected_axis_1)
+            self.assertAlmostEqual(ellipsoid.axis_2, expected_axis_2)
+            self.assertAlmostEqual(ellipsoid.axis_3, expected_axis_3)
+
+
+    def test_properties(self):
+        with self.subTest("Volume"):
+            self.assertAlmostEqual(self.ellipsoid.volume, (4/3)*np.pi * 0.2*0.15*0.1)
+        with self.subTest("radius"):
+            self.assertAlmostEqual(self.ellipsoid.radius, 0.2)
+        with self.subTest("radius_insc"):
+            self.assertAlmostEqual(self.ellipsoid.radius_insc, 0.1)
+        with self.subTest("all semi_axis"):
+            self.assertAlmostEqual(self.ellipsoid.semi_axis_1, 0.2)
+            self.assertAlmostEqual(self.ellipsoid.semi_axis_2, 0.15)
+
+
+    def test_contract_and_dilate(self):
+        with self.subTest("dilate"):
+            self.ellipsoid.dilate(0.05)
+            self.assertAlmostEqual(self.ellipsoid.volume, (4/3)*np.pi * 0.25*0.2*0.15)
+        with self.subTest("contract back to the original size"):
+            self.ellipsoid.contract(0.05)
+            self.assertAlmostEqual(self.ellipsoid.volume, (4/3)*np.pi * 0.2*0.15*0.1)
+
+    def test_point_inside(self):
+        self.ellipsoid.position_center = [0.5,0.5,0.5]
+        with self.subTest("Point inside the ellipsoid"):
+            self.assertTrue(self.ellipsoid.point_inside(np.array([0.35, 0.55, 0.5]), self.rve_dims))
+        with self.subTest("Point outside the ellipsoid"):
+            self.assertTrue(not self.ellipsoid.point_inside(np.array([0.9, 0.9, 0.5]), self.rve_dims))
+
+    def test_generate_points_on_surface(self):
+        # Without erosion
+        points = self.ellipsoid.generate_points_on_surface(4)
+        # location of the points relative to the center of the unrotated ellipsoid
+        points_loc = (points - self.ellipsoid.position_center).dot(
+            self.ellipsoid.rotation_mat
+        )
+        surface_eq = (
+            points_loc[:, 0] ** 2 / self.ellipsoid.semi_axis_1 ** 2
+            + points_loc[:, 1] ** 2 / self.ellipsoid.semi_axis_2 ** 2
+            + points_loc[:, 2] ** 2 / self.ellipsoid.semi_axis_3 ** 2
+        )
+        np.testing.assert_allclose(surface_eq, 1.0, atol=1e-10)
+
+
+    def test_compute_critical_erosion_thickness(self):
+        self.assertAlmostEqual(self.ellipsoid.compute_critical_erosion_thickness(), 0.1**2/0.2)
+
+    def test_rescale(self):
+        self.ellipsoid.position_center = np.array([0.3, 0.4, 0.5])
+        self.ellipsoid.rescale(2)
+        #self.assertAlmostEqual(sphere.radius, 0.4)
+        np.testing.assert_allclose(self.ellipsoid.position_center, np.array([0.6, 0.8, 1.0]))
+
+    def test_generate_point_inside(self):
+        for _ in range(20):
+            self.assertTrue(self.ellipsoid.point_inside(self.ellipsoid.generate_point_inside(), self.rve_dims))
+
 
     def test_support_function(self):
         """Check support function."""
@@ -46,13 +245,95 @@ class TestEllipsoid(unittest.TestCase):
         )
 
 
-class EllipsoidTestPartiallyIntersecting(unittest.TestCase):
-    """Tests for the Ellipsoid class."""
+
+class EllipsoidIntersection(unittest.TestCase):
+    "Test regarding the intersection check, area and length for different scenarios with two ellipsoids."
+
 
     def setUp(self):
-        self.rve_dims = [1.0, 1.0, 1.0]
+        "Creates a ellipsoid with position_center assigned."
+        self.rve_dims = [1, 1, 1]
+        self.rotation_descriptors = {
+            "rot_axis_comp_x": 0,
+            "rot_axis_comp_y": 0,
+            "rot_axis_comp_z": 1,
+            "angle": 0,
+        }
+        self.ellipsoid = Ellipsoid(
+                "1",
+                {"axis_1": 0.3, "axis_2": 0.2, "axis_3": 0.2, **self.rotation_descriptors},
+                self.rve_dims,
+            )
+        
+        self.ellipsoid.position_center = [0.5,0.5,0.5]
 
-        self.ellipsoid_1 = Ellipsoid(
+    def test_not_intersecting(self):
+        other_ellipsoid = Ellipsoid(
+            "1",
+            {
+                "axis_1": 0.3,
+                "axis_2": 0.2,
+                "axis_3": 0.2,
+                "rot_axis_comp_x": 0,
+                "rot_axis_comp_y": 0,
+                "rot_axis_comp_z": 1.0,
+                "angle": np.pi,
+            },
+            self.rve_dims
+            )
+        other_ellipsoid.position_center = np.array([0.1, 0.2, 0.8])
+        with self.subTest("Test intersection check"):
+            self.assertTrue(not self.ellipsoid.intersection(other_ellipsoid, self.rve_dims))
+        with self.subTest("Test intersection area"):
+            self.assertEqual(self.ellipsoid.intersection_area(other_ellipsoid, self.rve_dims), 0)
+        with self.subTest("Test intersection length"):
+            intersection_length, unit_vector = self.ellipsoid.intersection_length(other_ellipsoid, self.rve_dims)
+            self.assertEqual(intersection_length, 0)
+            np.testing.assert_allclose( unit_vector, [0,0,0] )
+
+
+    def test_other_ellipsoid_inside(self):
+        "other_ellipsoid is completely inside self.ellipsoid "
+
+        other_ellipsoid = Ellipsoid(
+            "1",
+            {
+                "axis_1": 0.1,
+                "axis_2": 0.1,
+                "axis_3": 0.15,
+                "rot_axis_comp_x": np.sqrt(3) / 3,
+                "rot_axis_comp_y": np.sqrt(3) / 3,
+                "rot_axis_comp_z": np.sqrt(3) / 3,
+                "angle": 0,
+            },
+            self.rve_dims,
+        )
+        other_ellipsoid.position_center = np.array([0.5, 0.5, 0.5])
+
+        box = self.rve_dims
+        
+        with self.subTest("Test intersection check"):
+            self.assertTrue(
+                self.ellipsoid.intersection(other_ellipsoid, self.rve_dims)
+            )
+        with self.subTest("Test intersection volume"):
+            overlap_volume = self.ellipsoid.intersection_area(other_ellipsoid, box)
+            self.assertAlmostEqual(overlap_volume, 4/3 * np.pi * 0.05*0.05*0.075, places = 3)
+            # The intersection area is obtained via a monte carlo process and, thus, it has some error. Due to this, the intersection volume only has to be equal to the expected volume with places=3. The test, as the code is now, passes some times for places=4, but fails some times as well.
+
+        with self.subTest("Test intersection volume monte carlo"):
+            overlap_volume, _ = self.ellipsoid.intersection_area_monte_carlo(other_ellipsoid, box)
+            self.assertAlmostEqual(overlap_volume, 4/3 * np.pi * 0.05*0.05*0.075, places = 3)
+
+        with self.subTest("Test intersection length"):
+            intersection_length, unit_vector = self.ellipsoid.intersection_length(other_ellipsoid, box)
+
+            other_ellipsoid.position_center = intersection_length * unit_vector
+            self.assertTrue(not self.ellipsoid.intersection(other_ellipsoid, box))
+
+    def test_partially_intersecting(self):
+
+        other_ellipsoid = Ellipsoid(
             "1",
             {
                 "axis_1": 0.3,
@@ -65,262 +346,33 @@ class EllipsoidTestPartiallyIntersecting(unittest.TestCase):
             },
             self.rve_dims,
         )
-        self.ellipsoid_1.position_center = np.array([0.95, 0.5, 0.5])
-
-        self.ellipsoid_2 = Ellipsoid(
-            "1",
-            {
-                "axis_1": 0.3,
-                "axis_2": 0.3,
-                "axis_3": 0.3,
-                "rot_axis_comp_x": 0,
-                "rot_axis_comp_y": 0,
-                "rot_axis_comp_z": 1.0,
-                "angle": 0,
-            },
-            self.rve_dims,
-        )
-        self.ellipsoid_2.position_center = np.array([0.05, 0.5, 0.6])
+        other_ellipsoid.position_center = np.array([0.6, 0.5, 0.5])
 
         box = self.rve_dims
-        # Saving the array defining the RVE box
-        diff_in_box = (
-            self.ellipsoid_1.position_center - self.ellipsoid_2.position_center
-        )
-        self.diff_nearest_other = box * np.round(diff_in_box / box)
-        # Computing the difference vector between the centers of the current sphere and
-
-    def test_ellipsoid_intersection(self):
-        """Test if the ellipsoids intersect."""
-
-        self.assertTrue(
-            self.ellipsoid_1.intersection_ellipsoid_ellipsoid(
-                self.ellipsoid_2, self.rve_dims
+        with self.subTest("Test intersection check"):
+            self.assertTrue(
+                self.ellipsoid.intersection(other_ellipsoid, self.rve_dims)
             )
-        )
+        with self.subTest("Test intersection volume"):
+            overlap_volume_1 = self.ellipsoid.intersection_volume_ellipsoid_other(
+                other_ellipsoid, self.rve_dims, alg_type="regular")
+            overlap_volume_2 = self.ellipsoid.intersection_volume_ellipsoid_other(
+                other_ellipsoid, self.rve_dims, alg_type="random")
+            self.assertAlmostEqual(overlap_volume_1, 0.0037, places = 2)
+            self.assertAlmostEqual(overlap_volume_2, 0.0037, places = 3)
 
-    def test_ellipsoid_intersection_volume(self):
-        """Checking the computed intersection volume.
+        with self.subTest("Test intersection volume monte carlo"):
+            overlap_volume, _ = self.ellipsoid.intersection_area_monte_carlo(other_ellipsoid, box)
+            self.assertAlmostEqual(overlap_volume, 0.0037, places = 3)
 
-        Computed using a random distribution of points and a grid."""
-        overlap_volume_1 = self.ellipsoid_1.intersection_volume_ellipsoid_other(
-            self.ellipsoid_2, self.rve_dims, alg_type="random"
-        )
-        overlap_volume_2 = self.ellipsoid_1.intersection_volume_ellipsoid_other(
-            self.ellipsoid_2, self.rve_dims, alg_type="regular"
-        )
+        with self.subTest("Test intersection length"):
+            intersection_length, unit_vector = self.ellipsoid.intersection_length(other_ellipsoid, box)
 
-        # v_ellipsoid_2 = ellipsoid_2.volume
-        # # print(overlap_volume_1, end_1 - start_1, overlap_volume_2, end_2 - start_2)
-        self.assertTrue(np.abs(overlap_volume_1 - overlap_volume_2) < 1e-2)
+            self.assertAlmostEqual(intersection_length, 0.17888543)
+            np.testing.assert_allclose(
+                unit_vector,
+                [4.47199053e-01, 4.56811048e-06, 8.94434462e-01],
+                rtol=1e-6,
+                atol=1e-9,
+            )
 
-    def test_ellipsoid_intersection_volume_general_monte_carlo(self):
-        """Checking the computed intersection volume.
-
-        Computed using a random distribution of points and a grid."""
-        begin_1 = time.time()
-        overlap_volume_1 = self.ellipsoid_1.intersection_volume_ellipsoid_other(
-            self.ellipsoid_2, self.rve_dims, alg_type="random"
-        )
-        time_1 = time.time() - begin_1
-        begin_2 = time.time()
-        (
-            overlap_volume_2,
-            error_estimate,
-        ) = self.ellipsoid_1.intersection_area_monte_carlo(
-            self.ellipsoid_2,
-            self.rve_dims,
-        )
-        time_2 = time.time() - begin_2
-        # # print("time", time_1, time_2)
-        # # print("error_estimate", error_estimate)
-        # # print("overlap", overlap_volume_1, overlap_volume_2)
-        # v_ellipsoid_2 = ellipsoid_2.volume
-        # # print(overlap_volume_1, end_1 - start_1, overlap_volume_2, end_2 - start_2)
-        self.assertTrue(np.abs(overlap_volume_1 - overlap_volume_2) < 1e-2)
-
-    def test_intersection_gjk(self):
-        intersection = self.ellipsoid_1.intersection_gjk(
-            self.ellipsoid_2, self.rve_dims
-        )
-        self.assertTrue(intersection)
-
-
-class EllipsoidTestPartiallyIntersecting_1(unittest.TestCase):
-    """Tests for the Ellipsoid class."""
-
-    def setUp(self):
-        self.rve_dims = [1.0, 1.0, 1.0]
-
-        self.ellipsoid_1 = Ellipsoid(
-            "1",
-            {
-                "axis_1": 0.3367780601921259,
-                "axis_2": 0.16838903009606296,
-                "axis_3": 0.2245187067947506,
-                "rot_axis_comp_x": 0,
-                "rot_axis_comp_y": 0,
-                "rot_axis_comp_z": 1.0,
-                "angle": 2.6157302920449386,
-            },
-            self.rve_dims,
-        )
-        self.ellipsoid_1.position_center = np.array(
-            [0.08452537, 0.64733004, 0.96206736]
-        )
-
-        self.ellipsoid_2 = Ellipsoid(
-            "1",
-            {
-                "axis_1": 0.3367780601921259,
-                "axis_2": 0.16838903009606296,
-                "axis_3": 0.2245187067947506,
-                "rot_axis_comp_x": 0,
-                "rot_axis_comp_y": 0,
-                "rot_axis_comp_z": 1.0,
-                "angle": 4.420185407416334,
-            },
-            self.rve_dims,
-        )
-        self.ellipsoid_2.position_center = np.array([0.15250794, 0.3756831, 0.96278858])
-
-        box = self.rve_dims
-        # Saving the array defining the RVE box
-        diff_in_box = (
-            self.ellipsoid_1.position_center - self.ellipsoid_2.position_center
-        )
-        self.diff_nearest_other = box * np.round(diff_in_box / box)
-        # Computing the difference vector between the centers of the current sphere and
-
-    def test_intersection_gjk_2(self):
-
-        intersection = self.ellipsoid_1.intersection_gjk(
-            self.ellipsoid_2, self.rve_dims
-        )
-        self.assertTrue(intersection)
-
-        # previous_mic_path = (
-        #     "/home/jose/Documents/code/test_runs/3D/cylindrs_94/mic_0/mic.mic"
-        # )
-        # with open(previous_mic_path, "rb") as mic:
-        #     info_previous_sample = pickle.load(mic)
-        #     # No need to generate a new microstructure. Using a previous microstructure.
-        #     current_sample = info_previous_sample["microstructure"]
-        #     current_mic_generator = info_previous_sample["generation_method"]
-        #     trouble_pair = []
-        #     for i_particle in current_sample.particles:
-        #         if (
-        #             i_particle.position_center[0] < 0.25
-        #             and 0.25 < i_particle.position_center[1] < 0.75
-        #             and i_particle.position_center[2] > 0.75
-        #         ):
-        #             trouble_pair.append(i_particle)
-        #             i_particle.delta = 0
-        #             # print(
-        #                 i_particle.axis_1,
-        #                 i_particle.axis_2,
-        #                 i_particle.axis_3,
-        #                 i_particle.rotation_axis,
-        #                 i_particle.angle,
-        #                 i_particle.position_center,
-        #             )
-        #             # # print(vars(i_particle))
-        #     intersection = trouble_pair[0].intersection_gjk(trouble_pair[1], [1, 1, 1])
-
-        # self.assertTrue(intersection)
-        # with open(previous_mic_path, "rb") as mic:
-        #     info_previous_sample = pickle.load(mic)
-        #     # No need to generate a new microstructure. Using a previous microstructure.
-        #     current_sample = info_previous_sample["microstructure"]
-        #     current_mic_generator = info_previous_sample["generation_method"]
-        #     trouble_pair = []
-        #     for i_particle in current_sample.particles:
-        #         if (
-        #             i_particle.position_center[0] < 0.25
-        #             and 0.25 < i_particle.position_center[1] < 0.75
-        #             and i_particle.position_center[2] > 0.75
-        #         ):
-        #             trouble_pair.append(i_particle)
-        #             # # print(vars(i_particle))
-        #     intersection, overlap_length, _ = trouble_pair[0].intersection_gjk(
-        #         trouble_pair[1], [1, 1, 1]
-        #     )
-        #     self.assertTrue(intersection)
-
-
-class TestGJKIntersectionOverlapLengthEllipsoid(unittest.TestCase):
-    def test_two_intersecting_ellipsoids(self):
-        rve_dims = [1, 1, 1]
-        phase_1 = "1"
-        descriptors_1 = {
-            "axis_1": 0.1,
-            "axis_2": 0.3,
-            "axis_3": 0.2,
-            "n": 1,
-            "rot_axis_comp_x": 1,
-            "rot_axis_comp_y": 0,
-            "rot_axis_comp_z": 0,
-            "angle": 0,
-        }
-        ellipsoid_1 = Ellipsoid(phase_1, descriptors_1, rve_dims)
-        ellipsoid_1.position_center = np.array([0.5, 0.5, 0.5])
-
-        phase_2 = "1"
-        descriptors_2 = {
-            "axis_1": 0.1,
-            "axis_2": 0.3,
-            "axis_3": 0.2,
-            "n": 1,
-            "rot_axis_comp_x": 1,
-            "rot_axis_comp_y": 0,
-            "rot_axis_comp_z": 0,
-            "angle": 0,
-        }
-        ellipsoid_2 = Ellipsoid(phase_2, descriptors_2, rve_dims)
-        ellipsoid_2.position_center = np.array([0.5, 0.65, 0.5])
-        intersection = ellipsoid_1.intersection_gjk(ellipsoid_2, rve_dims)
-        overlap_length, unit_vector = ellipsoid_1.intersection_length_mink_diff(
-            ellipsoid_2, rve_dims
-        )
-        self.assertTrue(intersection)
-        ellipsoid_2.position_center += overlap_length * unit_vector
-        intersection = ellipsoid_1.intersection_gjk(ellipsoid_2, rve_dims)
-        self.assertTrue(not intersection)
-
-    def test_two_intersecting_ellipsoids_2(self):
-        rve_dims = [1, 1, 1]
-        phase_1 = "1"
-        descriptors_1 = {
-            "axis_1": 0.1,
-            "axis_2": 0.3,
-            "axis_3": 0.2,
-            "n": 1,
-            "rot_axis_comp_x": 1,
-            "rot_axis_comp_y": 0,
-            "rot_axis_comp_z": 0,
-            "angle": 0,
-        }
-        ellipsoid_1 = Ellipsoid(phase_1, descriptors_1, rve_dims)
-        ellipsoid_1.position_center = np.array([0.5, 0.5, 0.6])
-
-        phase_2 = "1"
-        descriptors_2 = {
-            "axis_1": 0.1,
-            "axis_2": 0.3,
-            "axis_3": 0.2,
-            "n": 1,
-            "rot_axis_comp_x": 1,
-            "rot_axis_comp_y": 0,
-            "rot_axis_comp_z": 0,
-            "angle": 0,
-        }
-        ellipsoid_2 = Ellipsoid(phase_2, descriptors_2, rve_dims)
-        ellipsoid_2.position_center = np.array([0.5, 0.65, 0.5])
-        intersection = ellipsoid_1.intersection_gjk(ellipsoid_2, rve_dims)
-        overlap_length, unit_vector = ellipsoid_1.intersection_length_mink_diff(
-            ellipsoid_2, rve_dims
-        )
-        self.assertTrue(intersection)
-        ellipsoid_2.position_center += overlap_length * unit_vector
-        intersection = ellipsoid_1.intersection_gjk(ellipsoid_2, rve_dims)
-        self.assertTrue(not intersection)
