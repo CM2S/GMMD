@@ -1,12 +1,14 @@
 """
-Module containing the command line entry points of the meshing and the translation.
+Module containing the command line entry points that pick up from a file.
 
 The stages of the output are usable one at a time, and these are how that is done from
 a shell. `geommicgen-mesh` reads a microstructure and discretises it; the mesh it
 writes is a whole stage, so `geommicgen-translate` picks up from that file alone, or
-from a mesh some other tool produced.
+from a mesh some other tool produced. `geommicgen-analyze` is a path off the
+microstructure file rather than a stage after it: the analyses read the microstructure
+and, for the motion of its particles, the state of the run written beside it.
 
-The program that generates a microstructure is `geommicgen` itself; these two never
+The program that generates a microstructure is `geommicgen` itself; these never
 generate one, and nothing here reads a microstructure until the command that needs one
 asks for it.
 """
@@ -16,6 +18,7 @@ import os
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
+import geommicgen.iofuncs.printing as print_funcs
 from geommicgen.pipeline import (
     MeshJob,
     write_formats,
@@ -118,6 +121,100 @@ def add_declared_arguments(parser, options):
 def declared_options(arguments, options):
     """Collect the declared arguments the way the input data file keys them."""
     return {i_name.lower(): getattr(arguments, i_name.lower()) for i_name in options}
+
+
+ANALYSIS_OPTIONS = {
+    "final_config": {
+        "type": "bool",
+        "default": False,
+        "help": "plot the final configuration of the particles",
+    },
+    "motion_analysis": {
+        "type": "bool",
+        "default": False,
+        "help": "plot what the run recorded -- overlap, energies, time step and the "
+        "paths of the particles -- read from md_state.npz beside the microstructure "
+        "file",
+    },
+    "voronoi_analysis": {
+        "type": "bool",
+        "default": False,
+        "help": "compute the Voronoi diagram of the particles and the Minkowski "
+        "tensors of its cells",
+    },
+    "voronoi_type": {
+        "type": "str",
+        "default": "standard",
+        "help": "kind of Voronoi diagram: standard, set or weighted, the last in two "
+        "dimensions only (default: standard)",
+    },
+    "n_surf_points": {
+        "type": "int",
+        "default": 10,
+        "help": "surface points per particle of a set Voronoi diagram (default: 10)",
+    },
+    "plot_voronoi": {
+        "type": "bool",
+        "default": False,
+        "help": "plot the Voronoi diagram",
+    },
+    "plot_imts": {
+        "type": "bool",
+        "default": False,
+        "help": "plot the Voronoi cells coloured by their Minkowski tensors",
+    },
+    "stat_nearest_neighbor": {
+        "type": "bool",
+        "default": False,
+        "help": "distribution of the distance to the nearest neighbour",
+    },
+    "stat_ripleys_k": {
+        "type": "bool",
+        "default": False,
+        "help": "Ripley's K function",
+    },
+    "stat_two_pt_corr": {
+        "type": "bool",
+        "default": False,
+        "help": "two point correlation function",
+    },
+}
+# The analyses, keyed as the input data file keys its post processing group and with
+# the same defaults, so that one is asked for the same way from either; a test holds
+# the two together
+
+ANALYSES = (
+    "final_config",
+    "motion_analysis",
+    "voronoi_analysis",
+    "stat_nearest_neighbor",
+    "stat_ripleys_k",
+    "stat_two_pt_corr",
+)
+# The options that ask for work; the others configure the Voronoi analysis
+
+
+def analysis_options(arguments):
+    """
+    Collect the analysis arguments the way the input data file keys them.
+
+    Parameters
+    ----------
+    arguments: argparse.Namespace
+        The parsed arguments.
+
+    Returns
+    -------
+    dict
+        Dictionary of the form *{option: value}*, with the default of every option
+        that was not given, which is what a deck that does not name it produces.
+    """
+    options = declared_options(arguments, ANALYSIS_OPTIONS)
+    for i_name, i_description in ANALYSIS_OPTIONS.items():
+        if options[i_name] is None:
+            options[i_name] = i_description["default"]
+
+    return options
 
 
 def add_output_arguments(parser):
@@ -313,3 +410,77 @@ def translate_command(argv=None):
     # through still reports what reached the disk, as it does when a deck drives it
 
     return report_outcome(None, written)
+
+
+def analyze_command(argv=None):
+    """
+    Analyse a microstructure read from a file, and the run that produced it.
+
+    Parameters
+    ----------
+    argv: list
+        Arguments, taken from the command line when they are not given.
+
+    Returns
+    -------
+    int
+        Status to exit with.
+    """
+    parser = argparse.ArgumentParser(
+        prog="geommicgen-analyze",
+        description="Analyse a generated microstructure, and the run that produced it.",
+    )
+    parser.add_argument(
+        "microstructure",
+        help="microstructure file to be analysed; the state of the run that produced "
+        "it is read from md_state.npz beside it, when an analysis needs it",
+    )
+    add_declared_arguments(parser, ANALYSIS_OPTIONS)
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        default=".",
+        help="directory to write into; an earlier analysis there is written over",
+    )
+    arguments = parser.parse_args(argv)
+    # No --name: the analyses name their own directories and files
+
+    options = analysis_options(arguments)
+    if not any(options[i_name] for i_name in ANALYSES):
+        parser.error(
+            "no analysis was asked for; give at least one of {0}".format(
+                ", ".join("--" + i_name.replace("_", "-") for i_name in ANALYSES)
+            )
+        )
+
+    from geommicgen.iofuncs.md_state import STATE_FILE_NAME, load_md_state
+    from geommicgen.iofuncs.microstructure_yaml import read_microstructure_yaml
+    from geommicgen.postproc.postproc import run_analyses
+    # Imported here rather than at the top, as the meshing command does: the analyses
+    # pull in matplotlib and the particle classes, and the other commands never need
+    # them
+
+    microstructure = read_microstructure_yaml(arguments.microstructure)
+    state = None
+    if options["motion_analysis"]:
+        state = load_md_state(
+            os.path.join(
+                os.path.dirname(os.path.abspath(arguments.microstructure)),
+                STATE_FILE_NAME,
+            )
+        )
+    # Read only when an analysis wants it: the positions are the bulk of the file. The
+    # absolute path is taken first, since the directory of a bare file name is empty
+
+    print_funcs.log_to_terminal()
+    # The analyses report through the logger; the terminal is where a command's
+    # report goes, and no screen file is written -- as the other commands do not
+
+    try:
+        run_analyses(microstructure, state, arguments.output_dir, options)
+    except Exception as error:  # pylint: disable=broad-except
+        return report_outcome(error, [])
+    # The analyses do not say what they wrote, so nothing is listed; what was refused
+    # before anything was written, and why, is what the report carries
+
+    return report_outcome(None, [])

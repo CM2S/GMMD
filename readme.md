@@ -150,6 +150,13 @@ A complete GMMD input data file where each parameter specification (either manda
     ```
     A mesh is written as a VTK file whichever mesher produced it, `.vtu` for an unstructured mesh and `.vti` for a grid, with a small `.mesh.json` beside it holding what those formats cannot carry. Giving no `--to` stops after that file, which is a complete stage: `geommicgen-translate` picks up from it later, or somewhere else.
 
+    The analyses are a path off the microstructure file rather than a stage after it. `geommicgen-analyze` runs them from that file and, for the motion of the particles, from the `md_state.npz` a generation run writes beside it:
+    ```bash
+    geommicgen-analyze mic_0/mic.yaml --motion-analysis --stat-two-pt-corr -o mic_0/analysis
+    geommicgen-analyze mic.yaml --voronoi-analysis --voronoi-type set --plot-voronoi
+    ```
+    Every analysis the input data file can ask for is a flag of the same name, and an earlier analysis in the output directory is written over.
+
   2.4. *Microstructures generated before the change of format:* a microstructure used to be stored as a `.mic` file, a pickle of the objects that held it. It is a YAML file now, which any tool can read and a person can edit. `geommicgen-convert-mic` turns the one into the other, writing the state of the generation run beside it:
     ```bash
     geommicgen-convert-mic mic_0/mic.mic

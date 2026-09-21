@@ -196,7 +196,9 @@ def run_analyses(microstructure, state, sample_dir, options):
         If an analysis is asked for that cannot be carried out; see `check_analyses`.
     """
     check_analyses(microstructure, state, options)
+    os.makedirs(sample_dir, exist_ok=True)
     times = {}
+    # The directory is made once it is known something will be written in it
 
     # Plotting final configuration
     # --------------------------------------------------------------------------------------
