@@ -303,10 +303,14 @@ class Mesh:
         return meshio.Mesh(
             self.points,
             self.cells,
-            cell_data={"phase": [np.asarray(i_phase) for i_phase in self.phase]},
+            cell_data={
+                "phase": [np.asarray(i_phase, dtype=np.int32) for i_phase in self.phase]
+            },
         )
         # The boundary classification is deliberately not written, since it is derived
-        # from the coordinates and is recomputed wherever it is needed
+        # from the coordinates and is recomputed wherever it is needed. The phase is
+        # written as a 32 bit integer, which is what the readers of cell tags expect;
+        # FEniCS in particular reads its mesh tags as such
 
     def _materialize(self, max_cells=None):
         """

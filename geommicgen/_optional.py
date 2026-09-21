@@ -10,6 +10,8 @@ import error raised deep inside the call stack.
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
+import importlib
+
 from geommicgen.errors.error_classes import MissingOptionalDependency
 
 MINIMUM_GMSH_VERSION = (4, 15)
@@ -74,6 +76,28 @@ def has_gmsh():
     try:
         require_gmsh()
     except MissingOptionalDependency:
+        return False
+
+    return True
+
+
+def has_package(name):
+    """
+    Check whether a package can be imported.
+
+    Parameters
+    ----------
+    name: str
+        Name of the package.
+
+    Returns
+    -------
+    bool
+        True when importing it succeeds.
+    """
+    try:
+        importlib.import_module(name)
+    except ImportError:
         return False
 
     return True

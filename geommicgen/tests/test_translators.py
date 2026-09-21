@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import numpy as np
 
+from geommicgen._optional import has_package
 from geommicgen.errors.error_classes import (
     MissingOptionalDependency,
     PeriodicityError,
@@ -555,7 +556,30 @@ class TestMeshioWriters(unittest.TestCase):
         get_writer("vtu")().write(self.mesh, path)
         read = meshio.read(path)
         self.assertEqual(len(read.points), len(self.mesh.points))
+        self.assertEqual(read.points.shape[1], 3)
         self.assertIn("phase", read.cell_data)
+
+    @unittest.skipUnless(has_package("h5py"), "h5py not installed")
+    def test_xdmf_is_written_the_way_fenics_reads_it(self):
+        import meshio
+
+        path = os.path.join(self.temp_dir.name, "mesh.xdmf")
+        get_writer("xdmf")().write(self.mesh, path)
+        read = meshio.read(path)
+        with open(path) as xdmf:
+            self.assertIn('GeometryType="XY"', xdmf.read())
+        self.assertEqual(read.points.shape, (len(self.mesh.points), 2))
+        self.assertEqual(read.cell_data["phase"][0].dtype, np.int32)
+        np.testing.assert_array_equal(read.cell_data["phase"][0], self.mesh.phase[0])
+        # FEniCS takes the number of coordinates as the dimension of the problem, so a
+        # two dimensional mesh written with three would become a surface in space, and
+        # it reads its cell tags as 32 bit integers
+
+    def test_the_vtk_family_keeps_three_coordinates(self):
+        for i_format in ("vtu", "vtk", "gmsh"):
+            self.assertFalse(get_writer(i_format).flat_points)
+        for i_format in ("xdmf", "med", "exodus"):
+            self.assertTrue(get_writer(i_format).flat_points)
 
 
 if __name__ == "__main__":

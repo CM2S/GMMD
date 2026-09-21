@@ -23,15 +23,19 @@ from geommicgen.translators.base import (
 )
 
 SUPPORTED_FORMATS = {
-    "vtu": (".vtu", None),
-    "vtk": (".vtk", None),
-    "gmsh": (".msh", None),
-    "xdmf": (".xdmf", "h5py"),
-    "med": (".med", "h5py"),
-    "exodus": (".e", "netCDF4"),
+    "vtu": (".vtu", None, False),
+    "vtk": (".vtk", None, False),
+    "gmsh": (".msh", None, False),
+    "xdmf": (".xdmf", "h5py", True),
+    "med": (".med", "h5py", True),
+    "exodus": (".e", "netCDF4", True),
 }
-# Formats that carry the phase of every cell, with the extension each one uses and the
-# package meshio needs in order to write it, when it needs one beyond its own
+# Formats that carry the phase of every cell, with the extension each one uses, the
+# package meshio needs in order to write it when it needs one beyond its own, and
+# whether the points are written with as many coordinates as the mesh has dimensions.
+# The VTK family and gmsh always take three; the others take two for a two dimensional
+# mesh, and a solver that reads them takes the number of coordinates as the dimension
+# of the problem -- FEniCS builds a surface in space from a triangle mesh with three
 
 UNSUPPORTED_FORMATS = {
     "ansys": "the meshio writer does not carry the phase of the cells",
@@ -58,9 +62,14 @@ class MeshioWriter(SolverWriter):
     requires_package: str
         Name of the package meshio needs in order to write the format, when it needs
         one beyond its own dependencies.
+
+    flat_points: bool
+        Whether the points are written with as many coordinates as the mesh has
+        dimensions, rather than always three.
     """
 
     requires_package = None
+    flat_points = False
 
     def __init__(self, file_format=None):
         """Initizalizer for the MeshioWriter Class."""
@@ -104,7 +113,10 @@ class MeshioWriter(SolverWriter):
         # naming the package and the extra that installs it, which is named after the
         # format so that the command can be read off the message
 
-        meshio.write(file_path, mesh.to_meshio(), file_format=self.file_format)
+        meshio_mesh = mesh.to_meshio()
+        if self.flat_points:
+            meshio_mesh.points = meshio_mesh.points[:, : mesh.dim]
+        meshio.write(file_path, meshio_mesh, file_format=self.file_format)
 
         return [file_path]
 
@@ -118,7 +130,9 @@ def register_meshio_writers():
     list
         Names of the formats that were registered.
     """
-    for i_format, (i_extension, i_package) in sorted(SUPPORTED_FORMATS.items()):
+    for i_format, (i_extension, i_package, i_flat) in sorted(
+        SUPPORTED_FORMATS.items()
+    ):
         register_writer(
             type(
                 "Meshio{0}Writer".format(i_format.title().replace("-", "")),
@@ -127,6 +141,7 @@ def register_meshio_writers():
                     "name": i_format,
                     "extension": i_extension,
                     "requires_package": i_package,
+                    "flat_points": i_flat,
                     "__doc__": "Class for the writer of the {0} format.".format(
                         i_format
                     ),
