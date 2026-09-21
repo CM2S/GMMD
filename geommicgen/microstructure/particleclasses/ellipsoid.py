@@ -662,39 +662,7 @@ class Ellipsoid(Particle):
             )
 
         return np.round(overlap_volume, decimals=5)
-
-    def generate_regular_grid(self, n_samples):
-        """Generate a regular sample of points in the ellipsoid."""
-        n_theta = int(np.sqrt(n_samples ** (1)))
-        n_phi = int(np.cbrt(n_samples ** (1)))
-        # Number of sample points for the angle
-        n_r = int(np.round(n_samples / n_theta / n_phi))
-        # Number of sample points for the radius. Muliplied by the number of points for the
-        # angle gives the number of sample points
-        radius = (np.linspace(0.01, 1, n_r, endpoint=True)) ** (1 / 3)
-        theta = np.linspace(0, np.pi, n_theta, endpoint=False)
-        phi = np.linspace(0, 2 * np.pi, n_phi, endpoint=False)
-        # Regularly and uniformly sampling the angle and the radius
-        x_samples = []
-        for i_theta in theta:
-            for j_phi in phi:
-                for k_radius in radius:
-                    x_loc = np.array(
-                        [
-                            k_radius
-                            * self.semi_axis_1
-                            * np.sin(i_theta)
-                            * np.cos(j_phi),
-                            k_radius
-                            * self.semi_axis_2
-                            * np.sin(i_theta)
-                            * np.sin(j_phi),
-                            k_radius * self.semi_axis_3 * np.cos(i_theta),
-                        ]
-                    )
-                    x_glob = self.rotation_mat.dot(x_loc) + self.position_center
-                    x_samples.append(x_glob)
-        return x_samples
+    
 
     def generate_point_inside(self):
         """Generate a random point inside the ellipsoid.
