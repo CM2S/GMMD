@@ -236,14 +236,41 @@ def save_status(sample_dir, current_sample, current_mic_generator, mesh_jobs=())
     """
     status_file_name = os.path.join(sample_dir, "status")
     with open(status_file_name, "w") as status:
-        time_line = "Time: {0:.3f}s\n".format(current_mic_generator.time)
-        overlap_line = "Overlap: {0:.3f}\n".format(current_sample.total_overlap)
+        time_line = "Time: {0}\n".format(
+            _status_value(current_mic_generator.time, "{0:.3f}s")
+        )
+        overlap_line = "Overlap: {0}\n".format(
+            _status_value(current_sample.total_overlap, "{0:.3f}")
+        )
         status_line = "Status: {0}\n".format(current_mic_generator.status)
         status.writelines(time_line)
         status.writelines(overlap_line)
         status.writelines(status_line)
         for i_job in mesh_jobs:
             status.writelines("Mesh {0}\n".format(i_job.summary()))
+
+
+def _status_value(value, layout):
+    """
+    Lay out a value of the status, or say that there is none.
+
+    Parameters
+    ----------
+    value: float
+        The value, or None when the run never produced it.
+
+    layout: str
+        Format of the value when there is one.
+
+    Returns
+    -------
+    str
+        The value laid out, or *none*.
+    """
+    return "none" if value is None else layout.format(value)
+    # The status is written in the finally of a run that may have stopped before its
+    # time or its overlap existed, and an error raised there would replace the one
+    # that stopped it
 
 
 def delete_screen(screen_dir):

@@ -42,6 +42,25 @@ class MDStateTest(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.state_dir)
         self.mic_generator = a_generation_run()
 
+    def test_a_run_that_failed_before_its_first_step(self):
+        """The placeholders of a run that never moved are not positions."""
+        self.mic_generator.position_center_history = [[None], [None]]
+        save_md_state(self.state_dir, self.mic_generator)
+        state = load_md_state(os.path.join(self.state_dir, STATE_FILE_NAME))
+        self.assertIsNone(state.position_center_history)
+        # The state is written in the finally of a run that failed, and the write used
+        # to fail on the placeholders, replacing the error that stopped the run
+
+    def test_a_run_interrupted_after_placing_some_particles(self):
+        """The history is cut where every particle still has a real position."""
+        self.mic_generator.position_center_history = [
+            [np.array([0.1, 0.1]), np.array([0.2, 0.2])],
+            [np.array([0.3, 0.3]), None],
+        ]
+        save_md_state(self.state_dir, self.mic_generator)
+        state = load_md_state(os.path.join(self.state_dir, STATE_FILE_NAME))
+        self.assertEqual(len(state.position_center_history[0]), 1)
+
     def test_round_trip(self):
         """The state that is read back is the state that was written."""
         save_md_state(self.state_dir, self.mic_generator)
@@ -225,6 +244,18 @@ class SaveStatusTest(unittest.TestCase):
         """Read back the lines of the status file."""
         with open(os.path.join(self.sample_dir, "status")) as status_file:
             return status_file.read().splitlines()
+
+    def test_a_run_that_did_not_finish(self):
+        """A run stopped before its time or its overlap existed still leaves a status."""
+        self.mic_generator.time = None
+        self.mic_generator.status = False
+        self.microstructure.total_overlap = None
+        save_status(self.sample_dir, self.microstructure, self.mic_generator)
+        self.assertEqual(
+            self.status_lines(), ["Time: none", "Overlap: none", "Status: False"]
+        )
+        # Written in the finally of a failed run; it used to raise on the None and
+        # replace the error that stopped the run
 
     def test_the_generation_alone(self):
         """A status written before the meshing says nothing about it."""

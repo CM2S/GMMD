@@ -265,10 +265,17 @@ def _position_history(history):
         return None
 
     n_steps = min(len(i_particle_history) for i_particle_history in history)
+    while n_steps and any(
+        i_particle_history[n_steps - 1] is None for i_particle_history in history
+    ):
+        n_steps -= 1
     if n_steps == 0:
         return None
     # A run interrupted part way through a step leaves one particle with an entry the
-    # others do not have, so the history is cut at the last step every particle reached
+    # others do not have, and one that failed before its first step leaves the
+    # placeholders it started with, so the history is cut at the last step every
+    # particle reached. This runs in the finally of a failed run, and an error raised
+    # here would replace the one that stopped it
 
     return np.asarray(
         [i_particle_history[:n_steps] for i_particle_history in history], dtype=float
