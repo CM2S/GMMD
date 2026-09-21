@@ -4,7 +4,10 @@ from unittest.mock import sentinel, Mock, patch
 # from microstructure.phase import Phase
 
 
+import numpy as np
+
 from geommicgen.microstructure.microstructure import Microstructure
+from geommicgen.tests.helpers import disk_microstructure, sphere_microstructure
 
 
 class TestMicrostructure(unittest.TestCase):
@@ -100,6 +103,42 @@ class TestMicrostructure(unittest.TestCase):
     #         "2": {"Phase_Type": 1},
     #     }
     #     _ = Microstructure(descriptors, rve_dims)
+
+
+class TestInsideParticlePhase(unittest.TestCase):
+    """Test class for telling the points inside a particle from the ones outside."""
+
+    def brute_force(self, microstructure, points):
+        """Test every point against every particle, with no cell list in between."""
+        return [
+            int(
+                any(
+                    i_particle.point_inside(i_point, microstructure.rve_dims)
+                    for i_particle in microstructure.particles
+                )
+            )
+            for i_point in points
+        ]
+
+    def check(self, microstructure):
+        """Check the lookup against the brute force on points all over and beyond."""
+        rng = np.random.RandomState(0)
+        dim = microstructure.dim
+        points = rng.uniform(-0.5, 1.5, size=(2000, dim))
+        # Beyond the RVE on both sides, so that the wrapping of the points is exercised
+        inside = microstructure.inside_particle_phase(list(points))
+        self.assertEqual(inside, self.brute_force(microstructure, points))
+        self.assertGreater(sum(inside), 0)
+        self.assertLess(sum(inside), len(inside))
+        # Both answers occur, so the equality is not two lists of the same constant
+
+    def test_two_dimensional(self):
+        self.check(disk_microstructure())
+        # One of the disks crosses a face of the RVE
+
+    def test_three_dimensional(self):
+        self.check(sphere_microstructure())
+        # One of the spheres crosses two faces
 
 
 if __name__ == "__main__":

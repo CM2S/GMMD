@@ -109,34 +109,10 @@ class CellList(SpeedUpScheme):
         self.pos_cell_list = [None for _ in particles]
         for i_index, i_particle in enumerate(particles):
             # Running through all the particles
-            pos_cell_list_dim = []
-            # Initializing the list containing the position of the cell in each direction
-            # with the origin at the top left
-            for j_dim in range(dim):
-                # Running through all the dimensions
-                pos_cell_list_dim.append(
-                    int(
-                        i_particle.position_center[j_dim]
-                        // self.cell_side_length[j_dim]
-                    )
-                )
-                # j_dim-position of the particle in the grid
-            if dim == 2:
-                # 2D problem
-                pos_cell_list = (
-                    pos_cell_list_dim[0] + pos_cell_list_dim[1] * self.n_cell_dim[0]
-                )
-                # Saving the position in the cell list of particle i_particle
-            if dim == 3:
-                # 3D problem
-                pos_cell_list = (
-                    pos_cell_list_dim[0]
-                    + pos_cell_list_dim[1] * self.n_cell_dim[0]
-                    + pos_cell_list_dim[2] * self.n_cell_dim[0] * self.n_cell_dim[1]
-                )
-                # Saving the position in the cell list of particle i_particle
+            pos_cell_list = self.cell_of(i_particle.position_center)
             self.cell_list[pos_cell_list].add(i_index)
             self.pos_cell_list[i_index] = pos_cell_list
+            # Saving the position in the cell list of particle i_particle
         for i_particle_index, _ in enumerate(particles):
             for k_neighbor_cell in range(3**dim):
                 # Running through the neighbor cells
@@ -153,6 +129,33 @@ class CellList(SpeedUpScheme):
                     # If the neighborhoods of the particles intersect
                     self.particle_list[i_particle_index].add(j_particle_index)
                     # Add the particle j_particle to i_particle's Verlet list
+
+    def cell_of(self, position):
+        """
+        Give the index in the cell list of the cell a position falls in.
+
+        Parameters
+        ----------
+        position: array
+            Position inside the box.
+
+        Returns
+        -------
+        int
+            Index of the cell, counting along the first direction first.
+        """
+        dim = len(self.n_cell_dim)
+        cell = [
+            min(int(position[i_dim] // self.cell_side_length[i_dim]), self.n_cell_dim[i_dim] - 1)
+            for i_dim in range(dim)
+        ]
+        index = cell[0] + cell[1] * self.n_cell_dim[0]
+        if dim == 3:
+            index += cell[2] * self.n_cell_dim[0] * self.n_cell_dim[1]
+        # A position on the far face of the box, which the wrapping of a coordinate
+        # can round it onto, is counted in the last cell rather than one past it
+
+        return index
 
     def new_list_partial(self, particles, lists_to_recalc):
         """
