@@ -190,6 +190,45 @@ class TestReferenceInputFile(unittest.TestCase):
         # The names a deck can give are the names the program accepts, no more and no
         # fewer; Verlet2 was documented as a scheme after it had stopped existing
 
+    def test_every_distribution_is_documented(self):
+        from geommicgen.microstructure import phase
+
+        source = open(phase.__file__).read()
+        offered = set(re.findall(r'descriptor_distribution == "(\w+)"', source))
+        documented = set(re.findall(r"^#\s+parameter_distribution (\w+)$", self.text, re.M))
+        self.assertEqual(offered - {"fixed"}, documented)
+        # Read off the dispatch in the phase, where a distribution is added; the fixed
+        # value is the one given without naming a distribution
+
+    def test_every_shape_parameter_is_documented_with_its_sets(self):
+        from geommicgen.microstructure.phase import Phase
+
+        for i_code, i_class in Phase.phase_types.items():
+            if i_code == 1:
+                continue
+            with self.subTest(shape=i_class.__name__):
+                usable = set(i_class.possible_parameters) & set().union(
+                    *i_class.acceptable_descriptions
+                )
+                table = self.text[self.text.index("({0})\n".format(i_code)):]
+                table = table[: table.index("\n#        ====")]
+                rows = set(re.findall(r"^#        ([a-z_0-9]+) +(?:float|integer) ", table, re.M))
+                self.assertEqual(rows, usable)
+                sets = {
+                    frozenset(i_line.replace(",", "").replace("\n#", " ").split())
+                    for i_line in re.findall(r"^#          - (.*(?:\n#            .*)*)", table, re.M)
+                }
+                self.assertEqual(
+                    sets,
+                    {
+                        frozenset(i_set)
+                        for i_set in i_class.acceptable_descriptions
+                        if i_set <= set(i_class.possible_parameters)
+                    },
+                )
+        # Each shape's table lists the parameters one of its acceptable descriptions
+        # uses, and the descriptions themselves, as the classes declare them
+
 
 if __name__ == "__main__":
     unittest.main()
