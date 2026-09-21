@@ -184,7 +184,6 @@ class RunProgramTests(unittest.TestCase):
         speed_up_schemes = {
             "Cell": {"class_path": "geommicgen.app.CellList", "extra_parameter": None},
             "Verlet": {"class_path": "geommicgen.app.VerletList", "extra_parameter": "verlet_factor"},
-            "Verlet2": {"class_path": "geommicgen.app.VerletPartialUpdate", "extra_parameter": "verlet_factor"},
             "Naive": {"class_path": "geommicgen.app.Naive", "extra_parameter": None},
         }
 

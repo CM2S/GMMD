@@ -32,7 +32,6 @@ from geommicgen.micgenmethod.thermostats import (
 from geommicgen.micgenmethod.speed_up_schemes import (
     CellList,
     VerletList,
-    VerletPartialUpdate,
     Naive,
 )
 
@@ -259,10 +258,6 @@ def run_program():
                         current_speed_up_scheme = CellList()
                     elif mic_gen_parameters.get("speed_up_scheme") == "Verlet":
                         current_speed_up_scheme = VerletList(
-                            mic_gen_parameters["verlet_factor"]
-                        )
-                    elif mic_gen_parameters.get("speed_up_scheme") == "Verlet2":
-                        current_speed_up_scheme = VerletPartialUpdate(
                             mic_gen_parameters["verlet_factor"]
                         )
                     elif mic_gen_parameters["speed_up_scheme"] == "Naive":

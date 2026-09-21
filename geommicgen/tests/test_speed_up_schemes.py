@@ -16,7 +16,6 @@ from geommicgen.micgenmethod.speed_up_schemes import (
     SpeedUpScheme,
     CellList,
     VerletList,
-    VerletPartialUpdate,
     Naive
 )
 from geommicgen.microstructure.particleclasses import Ellipse, Disk
@@ -177,57 +176,6 @@ class TestCellList(unittest.TestCase):
 
         self.assertTrue(current_cell_list.particle_list == correct_particle_list)
 
-    def test_new_list_partial_2d(self):
-        """Test that new_list_partial builds the cell/neighbor lists from scratch, and then
-        correctly updates only the cell and neighbor lists affected when a single particle
-        moves to a new cell (the other particles are left out of lists_to_recalc)."""
-        # this method in the class speed_up_schemes.CellList is only used in speed_up_schemes.VerletPartialUpdate, which is currently not working.
-
-        radii = [0.125, 0.125, 0.125]
-        center_positions = [
-            np.array([0.1, 0.1]),
-            np.array([0.6, 0.1]),
-            np.array([0.35, 0.35]),
-        ]
-        particles = [
-            Mock(radius=radius, position_center=position, dim=2)
-            for radius, position in zip(radii, center_positions)
-        ]
-        mock_molecular_dynamics_sim = Mock(box=[1, 1])
-        current_cell_list = CellList()
-        current_cell_list.molecular_dynamics_sim = mock_molecular_dynamics_sim
-
-        # Building the lists from scratch (self.cell_list starts as None)
-        current_cell_list.new_list_partial(particles, particles)
-        self.assertEqual(current_cell_list.pos_cell_list, [0, 2, 5])
-        correct_cell_list = 16 * [set()]
-        correct_cell_list[0] = {0}
-        correct_cell_list[2] = {1}
-        correct_cell_list[5] = {2}
-        self.assertTrue(current_cell_list.cell_list == correct_cell_list)
-        # Particle 2 (cell 5) is diagonally adjacent to both particle 0 (cell 0) and
-        # particle 1 (cell 2), but particles 0 and 1 are not adjacent to each other.
-        correct_cell_particle_list = [{0, 2}, {1, 2}, {0, 1, 2}]
-        self.assertTrue(
-            current_cell_list.cell_particle_list == correct_cell_particle_list
-        )
-
-        # Moving particle 1 into the cell next to particle 0, and recalculating only its
-        # lists.
-        particles[1].position_center = np.array([0.3, 0.1])
-        current_cell_list.new_list_partial(particles, [particles[1]])
-        self.assertEqual(current_cell_list.pos_cell_list, [0, 1, 5])
-        correct_cell_list = 16 * [set()]
-        correct_cell_list[0] = {0}
-        correct_cell_list[1] = {1}
-        correct_cell_list[5] = {2}
-        self.assertTrue(current_cell_list.cell_list == correct_cell_list)
-        # Particle 1 is now also adjacent to particle 0, so both gain each other as
-        # neighbors; particle 2 was already a neighbor of both and is unaffected.
-        correct_cell_particle_list = [{0, 1, 2}, {0, 1, 2}, {0, 1, 2}]
-        self.assertTrue(
-            current_cell_list.cell_particle_list == correct_cell_particle_list
-        )
 
     def test_neighbor_cell_is_bottom(self):
         radii = [0.1, 0.05, 0.1, 0.1, 0.14]
@@ -484,11 +432,7 @@ class TestVerlet(unittest.TestCase):
                 == np.array([0.5, 0.5])
             )
         )
-    @unittest.skip("VerletPartialUpdate is not working.")
-    def test_verlet_partial_update(self):
-        """VerletPartialUpdate is not working.
-        This test is here to signal VerletPartialUpdate needs revision."""
-        pass
+
 
 
 def load_a_troublesome_example(previous_mic_path):
