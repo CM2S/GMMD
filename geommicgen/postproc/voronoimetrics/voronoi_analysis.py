@@ -738,45 +738,6 @@ def compute_2d_set_voronoi(particles, rve_dims, n_surf_points=10):
     return set_voronoi
 
 
-def compute_2d_weigthed_voronoi():  # particles):
-    """
-    Compute the set Voronoi of the *particles*.
-
-    Parameters
-    ----------
-    particles: list(`.Particle`)
-        List of particles in the RVE.
-
-    Returns
-    -------
-    weighted_voronoi: `.WeightedVoronoi`
-        Weighted voronoi of the particles.
-    """
-    # particle_centers = []
-    # # Intializing the list containing the centers of the particles and their images
-    # C = np.max([i_particle.radius for i_particle in particles])
-    # # Obtaining the largest radius
-    # for i_part_ind, i_particle in enumerate(particles):
-    #     for j in range(-1, 2):
-    #         for k in range(-1, 2):
-    #             # Running through all the particles and their periodic images
-    #             particle_centers.append(
-    #                 np.concatenate(
-    #                     (
-    #                         i_particle.position_center + rve_dims * np.array([j, k]),
-    #                         [np.sqrt(C - i_particle.radius)],
-    #                     )
-    #                 )
-    #             )
-    #             # Sampling points on the surface of each eroded particle and collecing
-    # then
-    # auxiliar_voronoi = Voronoi(particle_centers)
-    # # Obraining the auxiliar voronoi for the construction of the set voronoi
-    # # weighted_voronoi = weighted2DVoronoi(auxiliar_voronoi, particles)
-    # # Computing the set voronoi of the particles
-    # # return weighted_voronoi
-
-
 def compute_3d_set_voronoi(particles, rve_dims, n_surf_points=10):
     """
     Compute the set Voronoi of the *particles*.
@@ -965,7 +926,7 @@ def do_voronoi_analysis(
     rve_dims: list(float)
         Dimensions of the RVE.
 
-    voronoi_type: {'set', 'standard', 'weighted'}, optional
+    voronoi_type: {'set', 'standard'}, optional
         Type of Voronoi to be computed.
 
     plot_voronoi: bool, optional
@@ -992,9 +953,6 @@ def do_voronoi_analysis(
             voronoi = compute_2d_set_voronoi(particles, rve_dims, **kwargs)
         elif voronoi_type == "standard":
             # The required Voronoi is a standard Voronoi
-            voronoi = compute_2d_standard_voronoi(particles, rve_dims)
-        elif voronoi_type == "weighted":
-            # The required Voronoi is a weighted Voronoi
             voronoi = compute_2d_standard_voronoi(particles, rve_dims)
         if plot_voronoi:
             plot_voronoi_2d(

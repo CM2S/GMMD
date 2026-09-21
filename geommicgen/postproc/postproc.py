@@ -27,9 +27,11 @@ from geommicgen.postproc.plotfuncs.plotting_functions import plot_particles
 FINAL_CONFIG_STEP = "Generating final configuration for visualization"
 # Name under which the time the final configuration took is reported
 
-VORONOI_TYPES = ("standard", "set", "weighted")
+VORONOI_TYPES = ("standard", "set")
 # The Voronoi diagrams the analysis knows how to compute. A name outside this tuple
-# used to be found out deep inside the analysis, as an unbound variable
+# used to be found out deep inside the analysis, as an unbound variable; a weighted
+# one was accepted and quietly computed the standard diagram, its implementation
+# never having been written
 
 VORONOI_OPTIONS = ("n_surf_points", "plot_voronoi", "plot_imts", "voronoi_type")
 # The options handed on to the Voronoi analysis, when they are given
@@ -155,10 +157,6 @@ def check_analyses(microstructure, state, options):
                 "The Voronoi diagram {0} is not one of the kinds computed: {1}.".format(
                     voronoi_type, ", ".join(VORONOI_TYPES)
                 )
-            )
-        if voronoi_type == "weighted" and microstructure.dim == 3:
-            raise ValueError(
-                "The weighted Voronoi diagram is computed in two dimensions only."
             )
     if needs_gmsh(microstructure, state, options):
         require_gmsh()

@@ -119,11 +119,14 @@ class TestCheckAnalyses(PostProcTest):
         self.assertIn("other", str(context.exception))
         self.assertIn("standard", str(context.exception))
 
-    def test_the_weighted_diagram_is_two_dimensional(self):
-        options = {"voronoi_analysis": True, "voronoi_type": "weighted"}
+    def test_the_weighted_diagram_is_no_longer_offered(self):
         with self.assertRaises(ValueError):
-            check_analyses(sphere_microstructure(), None, options)
-        check_analyses(disk_microstructure(), None, options)
+            check_analyses(
+                disk_microstructure(),
+                None,
+                {"voronoi_analysis": True, "voronoi_type": "weighted"},
+            )
+        # It was accepted and computed the standard diagram in its place
 
     def test_a_diagram_is_not_checked_when_no_analysis_asks_for_it(self):
         check_analyses(disk_microstructure(), None, {"voronoi_type": "other"})

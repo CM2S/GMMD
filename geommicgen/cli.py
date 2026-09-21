@@ -145,8 +145,7 @@ ANALYSIS_OPTIONS = {
     "voronoi_type": {
         "type": "str",
         "default": "standard",
-        "help": "kind of Voronoi diagram: standard, set or weighted, the last in two "
-        "dimensions only (default: standard)",
+        "help": "kind of Voronoi diagram: standard or set (default: standard)",
     },
     "n_surf_points": {
         "type": "int",
