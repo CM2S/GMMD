@@ -150,17 +150,11 @@ python -m sphinx -b html docs docs/_build/html
 
 ## Usage
 
-GMMD is used in two main ways:
-
-1. **from an input data file**, which generates a new set of microstructures and post-processes each one as the file asks;
-2. **from an existing microstructure file**, which post-processes a microstructure generated earlier.
-
-The post-processing is the same in both -- **meshing** and **analysis** -- and each of the two can also be run on its own, by a command of its own.
+GMMD generates a set of microstructures from an **input data file**, and post-processes each one as the file asks. The post-processing -- **meshing** and **analysis** -- can also be run on its own, on any microstructure file, by a command of its own: this is how a microstructure generated earlier is meshed again or analysed further.
 
 | What | Command |
 |---|---|
 | Generate a set of microstructures | `geommicgen input_data_file.mdsim` |
-| Post-process an existing microstructure | `geommicgen input_data_file.mdsim mic.yaml` |
 | Mesh a microstructure | `geommicgen-mesh mic.yaml ...` |
 | Translate a mesh for a solver | `geommicgen-translate mesh.vtu --to ...` |
 | Analyse a microstructure | `geommicgen-analyze mic.yaml ...` |
@@ -182,17 +176,7 @@ geommicgen input_data_file.mdsim
 
 Each sample is generated, written to a folder of its own, and then meshed and analysed as the input data file asks. The program execution can be followed in the terminal, where data associated with the program launch, progress of the main execution phases, and the program end is output.
 
-### Post-processing an existing microstructure
-
-To generate new meshes or perform an analysis of a previously generated microstructure, provide both the input data file (`.mdsim`) and the microstructure file (`.yaml`), in this order:
-
-```bash
-geommicgen input_data_file.mdsim previous_mic.yaml
-```
-
-The input data file needs only the meshing and post-processing options; any generation parameters in it are ignored. The microstructure file may also be a `.csv` of particles exported from ImageJ.
-
-### Meshing on its own
+### Meshing a microstructure
 
 The meshing is two stages -- a mesh of the microstructure, and that mesh in the formats solvers read -- and each has a command of its own. `geommicgen-mesh` discretises a microstructure file and writes the mesh; `geommicgen-translate` writes a mesh in the formats solvers read, taking the file the previous stage wrote, or one another tool produced:
 
@@ -205,7 +189,7 @@ geommicgen-translate --list-formats
 
 A mesh is written as a VTK file whichever mesher produced it, `.vtu` for an unstructured mesh and `.vti` for a grid, with a small `.mesh.json` beside it holding what those formats cannot carry. Giving no `--to` stops after that file, which is a complete stage: `geommicgen-translate` picks up from it later, or somewhere else.
 
-### Analysis on its own
+### Analysing a microstructure
 
 `geommicgen-analyze` runs the analyses from a microstructure file and, for the motion of the particles, from the `md_state.npz` a generation run writes beside it:
 
@@ -249,4 +233,4 @@ input_data_file/
 
 \* Not written in the lightweight mode geared towards data-driven frameworks (`save_min`).
 
-When run from an existing microstructure, the meshes and analyses are written into the `input_data_file/` folder itself, there being no sample to write them beside. `geommicgen-mesh`, `geommicgen-translate` and `geommicgen-analyze` write where their `-o` option says, the current directory by default.
+`geommicgen-mesh`, `geommicgen-translate` and `geommicgen-analyze` write where their `-o` option says, the current directory by default.
