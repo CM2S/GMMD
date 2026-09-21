@@ -13,6 +13,7 @@ from geommicgen.microstructure.particleclasses import Disk, Point, Sphere
 from geommicgen.tests.helpers import (
     build_microstructure,
     disk_microstructure,
+    ellipse_microstructure,
     sphere_microstructure,
 )
 
@@ -23,20 +24,31 @@ from geommicgen.meshing.gmsh_mesher import (
 )
 
 
+def triangle_areas(first, second, third):
+    """Give the areas of the triangles with these corners."""
+    return 0.5 * np.abs(
+        (second[:, 0] - first[:, 0]) * (third[:, 1] - first[:, 1])
+        - (third[:, 0] - first[:, 0]) * (second[:, 1] - first[:, 1])
+    )
+
+
 def cell_measures(mesh):
     """Give the area or the volume of the cells of a mesh, by phase."""
     points = mesh.points
     measures = {}
-    for (_, i_connectivity), i_phase in zip(mesh.cells, mesh.phase):
+    for (i_type, i_connectivity), i_phase in zip(mesh.cells, mesh.phase):
         corners = [
             points[i_connectivity[:, i_node]] for i_node in range(mesh.dim + 1)
         ]
         if mesh.dim == 2:
             first, second, third = corners
-            measure = 0.5 * np.abs(
-                (second[:, 0] - first[:, 0]) * (third[:, 1] - first[:, 1])
-                - (third[:, 0] - first[:, 0]) * (second[:, 1] - first[:, 1])
-            )
+            measure = triangle_areas(first, second, third)
+            if i_type.startswith("quad"):
+                measure = measure + triangle_areas(
+                    first, third, points[i_connectivity[:, 3]]
+                )
+            # A quad is its two triangles; the corners come first in the connectivity
+            # of a second order element too
         else:
             first, second, third, fourth = corners
             measure = (
@@ -230,6 +242,16 @@ class TestGmshMesherMeshes(unittest.TestCase):
         mesh = mesher.mesh(disk_microstructure())
         self.assertEqual([i_type for i_type, _ in mesh.cells], ["quad"])
         self.assertFalse(any("was asked for" in i for i in mesher.warnings))
+
+    def test_first_order_quads_mesh_ellipses(self):
+        mesher = GmshMesher(mesh_size=0.1, element_type="quad4")
+        mesh = mesher.mesh(ellipse_microstructure())
+        measures = cell_measures(mesh)
+        self.assertAlmostEqual(sum(measures.values()), 1.0, places=9)
+        self.assertFalse(any("optimizing" in i for i in mesher.warnings))
+        # The high order optimizer was run on every mesh, and on first order quads
+        # around an ellipse it raised over the element quality; it is now run on the
+        # second order meshes it exists for. The same mesh with tri3 or quad8 was fine
 
     def test_the_mesh_records_how_it_was_made(self):
         mesh = GmshMesher(mesh_size=0.08, element_type="tri3").mesh(

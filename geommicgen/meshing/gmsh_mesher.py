@@ -568,9 +568,15 @@ class GmshMesher(Mesher):
         model.mesh.generate(dim)
         if model.mesh.getLastEntityError():
             self.warnings.append("Gmsh detected an error while generating the mesh")
-        model.mesh.optimize("HighOrder", force=False, niter=10)
-        if model.mesh.getLastEntityError():
-            self.warnings.append("Gmsh detected an error while optimizing the mesh")
+        if self.descriptors["element_order"] > 1:
+            model.mesh.optimize("HighOrder", force=False, niter=10)
+            if model.mesh.getLastEntityError():
+                self.warnings.append(
+                    "Gmsh detected an error while optimizing the mesh"
+                )
+        # The optimizer places the mid-side nodes of second order elements; on straight
+        # sided ones it has nothing to place, and on first order quads it raised over
+        # the element quality instead, so a quad4 mesh of ellipses could not be made
 
         self.enforce_pbc(gmsh, rve_dims)
         # Repeated because gmsh sometimes behaves unpredictably

@@ -5,7 +5,7 @@ import numpy as np
 from geommicgen.meshing.mesh import Mesh, StructuredInfo
 from geommicgen.micgenmethod.molecular_dynamics_sim import MolecularDynamicsSimulation
 from geommicgen.micgenmethod.thermostats import IsokineticThermostat
-from geommicgen.microstructure.particleclasses import Disk, Sphere
+from geommicgen.microstructure.particleclasses import Disk, Ellipse, Sphere
 from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.microstructure.phase import Phase
 
@@ -113,6 +113,20 @@ def disk_microstructure():
         particles.append(particle)
 
     return build_microstructure(rve_dims, Disk, particles)
+
+
+def ellipse_microstructure():
+    """Build a microstructure of two ellipses, one of them crossing a face of the RVE."""
+    rve_dims = [1.0, 1.0]
+    particles = []
+    for i_center, i_angle in (([0.3, 0.35], 0.4), ([0.95, 0.75], -0.9)):
+        particle = Ellipse(
+            "2", {"major_axis": 0.15, "minor_axis": 0.1, "angle": i_angle}, rve_dims
+        )
+        particle.position_center = np.array(i_center)
+        particles.append(particle)
+
+    return build_microstructure(rve_dims, Ellipse, particles)
 
 
 def sphere_microstructure():
