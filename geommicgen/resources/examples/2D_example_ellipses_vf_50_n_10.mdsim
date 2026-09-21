@@ -3,7 +3,6 @@
 # The orientation of the ellipses varies according to a Normal distribution and the ratio
 # between principal axis is 1.2.
 
-Problem_Type 1
 N_DP_Samples 1
 RVE_Dimensions [1, 1]
 

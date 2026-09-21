@@ -73,21 +73,31 @@ def run_program(argv=None):
         if failed:
             raise SystemExit(1)
     else:
-        try:
-            n_dp_samples = top_level_reader.all_options["n_dp_samples"]
-            _ = top_level_reader.all_options["problem_type"]
-            mic_gen_descriptors = top_level_reader.all_options["mic_gen_descriptors"]
-            mic_gen_parameters = top_level_reader.all_options["mic_gen_parameters"]
-            rve_dims = mic_gen_parameters["rve_dimensions"]
-            # Mandatory top level parameters
-        except KeyError:
-            print("Mandatory parameter not supplied.")
-            raise
+        options = top_level_reader.all_options
+        mic_gen_parameters = options.get("mic_gen_parameters", {})
+        missing = [
+            i_keyword
+            for i_keyword, i_given in (
+                ("N_DP_Samples", "n_dp_samples" in options),
+                ("RVE_Dimensions", "rve_dimensions" in mic_gen_parameters),
+                ("Mic_Gen_Descriptors", "mic_gen_descriptors" in options),
+            )
+            if not i_given
+        ]
+        if missing:
+            raise ValueError(
+                "The input data file does not give {0}, which a generation "
+                "needs.".format(", ".join(missing))
+            )
+        n_dp_samples = options["n_dp_samples"]
+        mic_gen_descriptors = options["mic_gen_descriptors"]
+        rve_dims = mic_gen_parameters["rve_dimensions"]
+        # Named in the spelling of the input data file, all of the missing ones at
+        # once, before anything is generated; the parameters of the method are
+        # checked the same way when it is built
 
         if n_dp_samples < 1 or not isinstance(n_dp_samples, int):
-            raise ValueError(
-                "Number of samples must be a positve integer larger than 1."
-            )
+            raise ValueError("Number of samples must be a positive integer.")
 
         provenance = {"source_deck": os.path.basename(input_file_path)}
         fixed_seed = mic_gen_parameters.get("fixed_seed")

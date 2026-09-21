@@ -67,7 +67,6 @@ class TestMainFromCommandLine(unittest.TestCase):
     #         self.assertTrue(particle.name, "Disk()")
 
 SEEDED_DECK = """
-Problem_Type 1
 N_DP_Samples 2
 RVE_Dimensions [1, 1]
 Fixed_Seed 3
@@ -83,6 +82,60 @@ Max_Step 3
 Speed_Up_Scheme Naive
 Save_History False
 """
+
+
+class TestMandatoryKeywords(unittest.TestCase):
+    """Test class for what a deck has to give before anything is generated."""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_dir.cleanup)
+
+    def run_deck(self, text):
+        """Run a deck in a process of its own, giving its status and its stderr."""
+        deck_path = os.path.join(self.temp_dir.name, "deck.mdsim")
+        with open(deck_path, "w") as deck:
+            deck.write(text)
+        completed = subprocess.run(
+            [sys.executable, "-c", "from geommicgen.app import run_program; import sys; "
+             "run_program(sys.argv[1:])", deck_path],
+            capture_output=True, text=True, check=False,
+        )
+        # In a process of its own because the reader keeps what an earlier deck gave
+        # for a keyword this one leaves out, and there is one reader per process
+
+        return completed.returncode, completed.stderr
+
+    def test_the_missing_keywords_are_named_together(self):
+        status, stderr = self.run_deck(
+            SEEDED_DECK.replace("N_DP_Samples 2\n", "").replace(
+                "RVE_Dimensions [1, 1]\n", ""
+            )
+        )
+        self.assertNotEqual(status, 0)
+        self.assertIn("ValueError", stderr)
+        self.assertIn("N_DP_Samples, RVE_Dimensions", stderr)
+        self.assertNotIn("KeyError", stderr)
+        # It used to be a KeyError on the first of them, after a line saying that a
+        # mandatory parameter was missing without saying which
+
+    def test_a_deck_without_problem_type_runs(self):
+        self.assertNotIn("Problem_Type", SEEDED_DECK)
+        status, stderr = self.run_deck(SEEDED_DECK)
+        self.assertEqual(status, 0, stderr)
+        self.assertTrue(
+            os.path.exists(os.path.join(self.temp_dir.name, "deck", "mic_1", "mic.yaml"))
+        )
+        # The keyword was required and read by nothing; it is still accepted
+
+    def test_a_deck_with_problem_type_still_reads(self):
+        status, stderr = self.run_deck("Problem_Type 1\n" + SEEDED_DECK)
+        self.assertEqual(status, 0, stderr)
+
+    def test_no_samples_is_refused(self):
+        status, stderr = self.run_deck(SEEDED_DECK.replace("N_DP_Samples 2", "N_DP_Samples 0"))
+        self.assertNotEqual(status, 0)
+        self.assertIn("positive integer", stderr)
 
 
 class TestFixedSeedAcrossSamples(unittest.TestCase):

@@ -1,7 +1,6 @@
 # 3D Example
 # Microstructure containing a single phase with ellipsoids. Its volume fraction is 10%.
 
-Problem_Type 1
 N_DP_Samples 5
 RVE_Dimensions [1, 1, 1]
 

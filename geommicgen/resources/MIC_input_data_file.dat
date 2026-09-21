@@ -14,18 +14,14 @@
 # José Luís P. Vila-Chã | June 2021 | Updated version
 # ==========================================================================================
 #
-#                                                                           Problem Type [M]
+#                                                                           Problem Type [O]
 # ==========================================================================================
-# Meaning:   Problem type (2D: plain strain, plain stress or axisymmetric and 3D).
+# Meaning:   Not used. The dimension of the problem is that of RVE_Dimensions, and the
+#            analysis type of a solver deck is written by its writer. The keyword is
+#            still read so that older input data files, which had to give it, still do.
 #
 # Syntax:    Problem_Type x
-#
-#            1 - 2D problem (plain strain)
-#            2 - 2D problem (plain stress)
-#            3 - 2D problem (axisymmetric)
-#            4 - 3D problem
 # ------------------------------------------------------------------------------------------
-[insert here]
 
 #                                         Number of samples for the current design point [M]
 # ==========================================================================================
