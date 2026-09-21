@@ -1,10 +1,4 @@
-
-
-<p align="center">
-  <a href=""><img alt="logo" src="doc/media/CRATE_logo_horizontal_long.png" width="80%"></a>
-</p>
-
-# Overview
+# GMMD
 
 ### Summary
 GMMD is a numerical tool developed in the context of computational mechanics to aid the design and development of advanced materials.
@@ -41,12 +35,13 @@ other software implemented in different programming languages, and benefiting fr
 ### Methods:
 * Time-driven molecular dynamics simulation with repulsive forces proportional to the intersection length of the particles.
 * Intersection length computed for general particles with convex shape using the GJK algorithm.
-* Force computation using a Verlet lists computed from Cell lists
+* Force computation sped up by a cell list, a Verlet list or a Verlet list computed from a cell list, as chosen in the input data file.
 * Integration of the equations of motion using the Verlet integration scheme.
-* Thermostat used is a multi-temperature isokinetic scheme. The temperature is lowered until a legal configuration is found.
+* Isokinetic thermostats: at a fixed temperature, or at temperature stages lowered until a legal configuration is found.
 * Physically-based temperature lowering criterion capable of detecting equilibrium.
 * Adaptive time step preventing instability of the integration method.
-* Starting configuration for the simulation found through a Poisson Point Process;
+* Starting configuration for the simulation found through a Poisson Point Process or placed on a regular grid.
+* Reproducible runs: a fixed seed gives the same microstructure on every run, and a different one for each sample of the set.
 
 ### Data-driven framework
 * Option with lightweight output for data-driven-based frameworks.
@@ -55,41 +50,39 @@ other software implemented in different programming languages, and benefiting fr
 * Mesh output files.
   - Regular mesh with the desired number of voxels in each spatial direction.
   - Non conform finite element mesh using Gmsh.
-* VTK  output files allowing the visualization of data associated with the material microstructure (material phases, ...);
+  - Written as VTK files, and translated into the formats solvers read (LINKS, CRATE, XDMF, MED, Exodus, ...).
+* VTK output files allowing the visualization of the microstructure and its meshes in ParaView (material phases, ...);
 * Statistical analysis of the microstructure
-  - Statistical descriptors (2-point correlation function, Ripley's K function, ...)
+  - Statistical descriptors (2-point correlation function, Ripley's K function, nearest neighbour distances)
   - Voronoi metrics based on the Minkowski Structure Metrics and the Minkowski Irreducible Tensors.
+* Analysis of the generation run: kinetic energy, overlap and time step histories, and the paths of the particles.
 
 # Quick guide
 
 ### Requirements
 Some software must be installed to successfully run GMMD:
-* Python 3.X (see [here](https://www.python.org/downloads/)) - Required to compile (byte code) and run (Python Virtual Machine) GMMD;
+* Python **3.10 or newer** (see [here](https://www.python.org/downloads/)) - Required to compile (byte code) and run (Python Virtual Machine) GMMD. GMMD is tested on Python 3.10 to 3.13, on Linux and Windows;
 
   > In Linux/UNIX operative systems, python can be simply installed from apt library by executing the following command:  
-  `sudo apt install python3.X`  
+  `sudo apt install python3`  
 
 * PyPi pip (see [here](https://pypi.org/project/pip/)) - Required to install Python 3 packages (learn [here](https://docs.python.org/3/installing/));
 
   > In Linux/UNIX operative systems, pip can be simply installed from apt library by executing the following command:  
   `sudo apt install python3-pip`
 
-* ParaView (see [here](https://www.paraview.org/download/)) - Required to visualize the data contained in the VTK output files (learn [here](https://www.paraview.org/resources/));  
+* ParaView (see [here](https://www.paraview.org/download/)) - Required only to visualize the microstructures and meshes GMMD writes as VTK files (`.vti`, `.vtu`, `.vtk`), which ParaView opens directly (learn [here](https://www.paraview.org/resources/));  
 
   > In Linux/UNIX operative systems, ParaView can be installed by placing the tarball in the installation directory and extracting it by executing the following command:  
   `sudo tar -xvf ParaView-< version >.tar.gz`
 
-* Gmsh - Required to produce finite element meshes of the microstructures. It is an optional dependency, so a run that only asks for a regular grid needs none of it. Install it with the extra:
+* Gmsh - Required to produce finite element meshes of the microstructures and the three dimensional visualizations. It is an optional dependency, so a run that only asks for a regular grid needs none of it. Install it with the extra:
   ```bash
   pip install 'geommicgen[gmsh]'
   ```
-  The LINKS input files are written by `GMMD` itself and no longer go through the `gmsh2links` package.
-  `GMMD` is tested against the Gmsh Python API 4.13.1 and 4.15.2, which produce identical
-  meshes for a given microstructure. It requires **4.7 or newer**, which is when the
-  mesh-size options were renamed from `Mesh.CharacteristicLength*` to `Mesh.MeshSize*`;
-  GMMD now uses the new names, so Gmsh 4.5/4.6 are no longer supported.
-  If you instead install the SDK tarball by hand from
-  [gmsh.info](https://gmsh.info/bin/Linux/), add its Python API to your `PYTHONPATH`:
+  `GMMD` requires **Gmsh 4.15 or newer**, the version it is tested against. If you instead
+  install the SDK tarball by hand from [gmsh.info](https://gmsh.info/bin/Linux/), add its
+  Python API to your `PYTHONPATH`:
   ```bash
   export PYTHONPATH=$PYTHONPATH:/path/to/gmsh/lib
   ```
@@ -105,76 +98,90 @@ Some software must be installed to successfully run GMMD:
 ### Installation
 `GMMD` can be installed by first cloning this repository:
 ```bash
-git clone git@github.com:CM2S/GMMD.git
+git clone https://github.com/CM2S/GMMD.git
 ```
-Then, change directory into the cloned repository (where the `setup.py` is located) and install the package. The `setup.py` file defines the package metadata, dependencies, and a command-line entry point. Running `pip install` will automatically install all required dependencies and register the `geommicgen` command on your system.
+Then, change directory into the cloned repository (where the `pyproject.toml` is located) and install the package. The `pyproject.toml` file defines the package metadata, dependencies, and the command-line entry points. Running `pip install` will automatically install all required dependencies and register the `geommicgen` commands on your system.
 
 For a **regular install**:
 ```bash
-pip3 install .
+pip install .
 ```
 
 For an **editable (development) install**, where changes to the source code are reflected immediately without reinstalling:
 ```bash
-pip3 install -e .
+pip install -e .
 ```
 
-After installation, the `geommicgen` command becomes available system-wide and can be called from any directory.
+After installation, the `geommicgen`, `geommicgen-mesh`, `geommicgen-translate`, `geommicgen-analyze` and `geommicgen-convert-mic` commands become available and can be called from any directory.
+
+### Testing
+The test suite runs with pytest, installed by the `test` extra:
+```bash
+pip install -e '.[test]'
+pytest geommicgen/tests
+```
+The tests that need Gmsh are skipped when it is not installed. The documentation is built with Sphinx, installed by the `docs` extra:
+```bash
+pip install -e '.[docs]'
+python -m sphinx -b html docs docs/_build/html
+```
 
 ### GMMD workflow
-In what follows, the general workflow of GMMD in the generation of a set of samples with a given set of microstructural descriptors:
+GMMD is used in two main ways: from an **input data file**, which generates a new set of microstructures and post-processes each one as the file asks; or from an **existing microstructure file**, which post-processes a microstructure generated earlier. The post-processing is the same in both -- meshing and analysis -- and each of the two can also be run on its own by a command of its own.
 
-1. **Write input data file.** This file contains all the required information to generate the samples of a microstructure, including its descriptors and parameters of the generation process.
-A complete GMMD input data file where each parameter specification (either mandatory or optional) is fully documented (meaning, syntax, available options) can be found in the `geommicgen/resources` directory (or [here](https://github.com/josevilacha/GMMD/blob/master/geommicgen/resources/MIC_input_data_file.dat)). This file can be copied to a given directory and be readily used by replacing the `[insert here]` boxes with the suitable specification.
+1. **Write input data file.** This file contains all the required information to generate the samples of a microstructure, including its descriptors and parameters of the generation process, and the meshes and analyses to produce of each sample.
+A complete GMMD input data file where each parameter specification (either mandatory or optional) is fully documented (meaning, syntax, available options) can be found in the `geommicgen/resources` directory (or [here](https://github.com/CM2S/GMMD/blob/master/geommicgen/resources/MIC_input_data_file.dat)). This file can be copied to a given directory and be readily used by replacing the `[insert here]` boxes with the suitable specification.
 
 2. **Run GMMD.**
 
-  2.1. *New set of microstructures:* To generate a new microstructure, provide the input data file as an argument to the `geommicgen` command:
+  2.1. *From an input data file -- new set of microstructures:* To generate a new set of microstructures, provide the input data file as the only argument to the `geommicgen` command:
     ```bash
     geommicgen input_data_file.mdsim
     ```
-    The program execution can be followed in the terminal, where data associated with the program launch, progress of the main execution phases, and the program end is output.
+    Each sample is generated, written to a folder of its own, and then meshed and analysed as the input data file asks. The program execution can be followed in the terminal, where data associated with the program launch, progress of the main execution phases, and the program end is output.
 
-  2.2. *Meshing/analysis of microstructures:* To generate a new mesh or perform statistical analysis on a previously generated microstructure, provide both the input data file (`.mdsim`) and the microstructure file (`.yaml`), in this order:
+  2.2. *From an existing microstructure -- meshing/analysis:* To generate new meshes or perform an analysis of a previously generated microstructure, provide both the input data file (`.mdsim`) and the microstructure file (`.yaml`), in this order:
     ```bash
     geommicgen input_data_file.mdsim previous_mic.yaml
     ```
-    The program execution can be followed in the terminal, where data associated with the program launch, progress of the main execution phases, and the program end is output.
+    The input data file needs only the meshing and post-processing options; any generation parameters in it are ignored. The microstructure file may also be a `.csv` of particles exported from ImageJ.
 
-  2.3. *One stage at a time:* The output is produced in three stages -- a microstructure, a mesh of it, and that mesh in the formats solvers read -- and each can be run on its own. `geommicgen-mesh` discretises a microstructure and writes the mesh; `geommicgen-translate` writes a mesh in the formats solvers read, taking the file the previous stage wrote, or one another tool produced:
+  2.3. *Meshing on its own:* The meshing is two stages -- a mesh of the microstructure, and that mesh in the formats solvers read -- and each has a command of its own. `geommicgen-mesh` discretises a microstructure file and writes the mesh; `geommicgen-translate` writes a mesh in the formats solvers read, taking the file the previous stage wrote, or one another tool produced:
     ```bash
     geommicgen-mesh mic.yaml --mesher gmsh --mesh-size 0.05 --element-type tri6 --to links
     geommicgen-mesh mic.yaml --mesher voxel --n-voxels-dims 100 100 --to crate
     geommicgen-translate mic.vtu --to links,xdmf
     geommicgen-translate --list-formats
     ```
-    A mesh is written as a VTK file whichever mesher produced it, `.vtu` for an unstructured mesh and `.vti` for a grid, with a small `.mesh.json` beside it holding what those formats cannot carry. Giving no `--to` stops after that file, which is a complete stage: `geommicgen-translate` picks up from it later, or somewhere else.
+    A mesh is written as a VTK file whichever mesher produced it, `.vtu` for an unstructured mesh and `.vti` for a grid, with a small `.mesh.json` beside it holding what those formats cannot carry. Giving no `--to` stops after that file, which is a complete stage: `geommicgen-translate` picks up from it later, or somewhere else. Each command lists its options with `--help`.
 
-    The analyses are a path off the microstructure file rather than a stage after it. `geommicgen-analyze` runs them from that file and, for the motion of the particles, from the `md_state.npz` a generation run writes beside it:
+  2.4. *Analysis on its own:* `geommicgen-analyze` runs the analyses from a microstructure file and, for the motion of the particles, from the `md_state.npz` a generation run writes beside it:
     ```bash
     geommicgen-analyze mic_0/mic.yaml --motion-analysis --stat-two-pt-corr -o mic_0/analysis
     geommicgen-analyze mic.yaml --voronoi-analysis --voronoi-type set --plot-voronoi
     ```
     Every analysis the input data file can ask for is a flag of the same name, and an earlier analysis in the output directory is written over.
 
-  2.4. *Microstructures generated before the change of format:* a microstructure used to be stored as a `.mic` file, a pickle of the objects that held it. It is a YAML file now, which any tool can read and a person can edit. `geommicgen-convert-mic` turns the one into the other, writing the state of the generation run beside it:
+  2.5. *Microstructures generated before the change of format:* a microstructure used to be stored as a `.mic` file, a pickle of the objects that held it. It is a YAML file now, which any tool can read and a person can edit. `geommicgen-convert-mic` turns the one into the other, writing the state of the generation run beside it:
     ```bash
     geommicgen-convert-mic mic_0/mic.mic
     ```
 
 3. **Get results.** As soon as GMMD is executed according to an input data file (let us say, `input_data_file.mdsim`), a folder with the same name is created in the same directory (`input_data_file/`). This folder contains all the output data related to the microstructure generation, namely:
   * a folder `mic_*` for each microstructure generated.
-    - microstructure file (`mic.yaml`)<sup>[*](#f6)[+](#f5)</sup>;
-    - state of the generation run (`md_state.npz`), holding the histories the motion analysis plots<sup>[+](#f5)</sup>;
-    - status file (`status`), containing a flag for the status of the generation, time and final overlap<sup>[*](#f6)[+](#f5)</sup>;
-    - log file (`input_data_file.screen`), where all data printed to the default standard output is stored<sup>[+](#f5)</sup>;
-    - visualization file for the microstructure (`final_config.vtk`);
+    - microstructure file (`mic.yaml`)<sup>[+](#f5)</sup>;
+    - status file (`status`), containing a flag for the status of the generation, time and final overlap<sup>[+](#f5)</sup>;
+    - state of the generation run (`md_state.npz`), holding the histories the motion analysis plots<sup>[*](#f6)</sup>;
+    - log file (`mic.screen`), where all data printed to the default standard output is stored<sup>[*](#f6)</sup>;
+    - visualization of the microstructure, when `final_config` is asked for: `final_config.pdf` in two dimensions, `final_config.msh` and `final_config.vtk` in three;
     - folder containing the specified meshes (`meshes`);
     - folder containing the motion analysis (`motion_results`), such as the plot of the kinetic energy, total overlap, ...;
     - folder containing the statistical analysis (`stat_analysis_results`), such as the 2-point correlation function, Ripley's K function, as specified in the input file;
-    - folder containing the statistical analysis (`voronoi_analysis_results`), such as the Voronoi diagrams, Voronoi diagrams with IMTs, and corresponding histograms, as specified in the input file
+    - folder containing the Voronoi analysis (`voronoi_analysis_results`), such as the Voronoi diagrams, Voronoi diagrams with IMTs, and corresponding histograms, as specified in the input file
   * a copy of the input file `.mdsim`
 
+  When run from an existing microstructure (2.2), the meshes and analyses are written into the `input_data_file/` folder itself, there being no sample to write them beside.
 
-> <sup id="f6"> * </sup> Files generated in the mode geared towards data-driven frameworks.
- <sup id="f5"> + </sup> Files always generated as output.
+
+> <sup id="f5"> + </sup> Files always generated as output.
+ <sup id="f6"> * </sup> Files not generated in the lightweight mode geared towards data-driven frameworks (`save_min`).
