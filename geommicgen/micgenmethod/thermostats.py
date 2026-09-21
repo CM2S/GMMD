@@ -13,7 +13,29 @@ import numpy as np
 
 
 class Thermostat(abc.ABC):
-    """This is the abstract class for thermostats."""
+    """
+    This is the abstract class for thermostats.
+
+    Attributes
+    ----------
+    k_b: float
+        Boltzmann constant relating the kinetic energy to the temperature.
+
+    force_coeff: float
+        Coefficient of the damping force the thermostat applies, proportional to the
+        velocity. None when the thermostat applies no such force.
+
+    kin_energy_div: bool
+        Whether the kinetic energy has diverged from the thermic energy, which makes
+        the simulation compute the intersections exactly. Only the multi temperature
+        thermostat ever sets it.
+    """
+
+    k_b = 1e-15
+    force_coeff = None
+    kin_energy_div = False
+    # What the simulation reads off any thermostat, so that one that does not set an
+    # attribute has its default rather than none at all
 
     def apply_thermostat(self, particle_velocities, kin_energy):
         """Apply the thermostat."""
