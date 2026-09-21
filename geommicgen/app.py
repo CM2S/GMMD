@@ -76,6 +76,7 @@ def run_program(argv=None):
     # what produced it
 
     failed_jobs = []
+    failed_samples = []
     for i_sample in range(n_dp_samples):
         if fixed_seed is not None:
             mic_gen_parameters["fixed_seed"] = fixed_seed + i_sample
@@ -132,13 +133,23 @@ def run_program(argv=None):
 
         try:
             times_dict = {}
-            times_dict = post_proc(
-                mesh_jobs,
-                current_sample,
-                current_mic_generator,
-                sample_dir,
-                top_level_reader.all_options["post_proc"],
-            )
+            if current_mic_generator.status:
+                times_dict = post_proc(
+                    mesh_jobs,
+                    current_sample,
+                    current_mic_generator,
+                    sample_dir,
+                    top_level_reader.all_options["post_proc"],
+                )
+            else:
+                failed_samples.append(
+                    (i_sample, current_sample.total_overlap, current_mic_generator.max_residue)
+                )
+                print_funcs.print_failed_sample(
+                    current_sample.total_overlap, current_mic_generator.max_residue
+                )
+            # A sample whose particles still overlap is not meshed or analysed: a mesh
+            # of it is a wrong input to a solver, and the run says so instead
         finally:
             print_funcs.print_final_message(
                 current_mic_generator, mesh_jobs, times_dict
@@ -155,8 +166,11 @@ def run_program(argv=None):
             # loop is not written into the last sample
 
         failed_jobs.extend(i_job for i_job in mesh_jobs if i_job.error)
-        # Collected across the batch, so that one sample failing to mesh does not
-        # cost the samples after it
+        # Collected across the batch, so that one sample failing does not cost the
+        # samples after it
 
-    if print_funcs.print_failed_jobs(failed_jobs):
+    failed = print_funcs.print_failed_samples(failed_samples)
+    failed = print_funcs.print_failed_jobs(failed_jobs) or failed
+    if failed:
         raise SystemExit(1)
+    # Both are reported, whichever happened, and either fails the run

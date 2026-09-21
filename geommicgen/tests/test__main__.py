@@ -83,8 +83,8 @@ Save_History False
 """
 
 
-class TestMandatoryKeywords(unittest.TestCase):
-    """Test class for what a deck has to give before anything is generated."""
+class DeckRunTest(unittest.TestCase):
+    """Base class for tests that run a deck in a process of its own."""
 
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -98,15 +98,19 @@ class TestMandatoryKeywords(unittest.TestCase):
         completed = subprocess.run(
             [sys.executable, "-c", "from geommicgen.app import run_program; import sys; "
              "run_program(sys.argv[1:])", deck_path],
-            capture_output=True, text=True, check=False,
+            capture_output=True, text=True, check=False, cwd=self.temp_dir.name,
         )
         # In a process of its own because the reader keeps what an earlier deck gave
         # for a keyword this one leaves out, and there is one reader per process
 
-        return completed.returncode, completed.stderr
+        return completed.returncode, completed.stderr, completed.stdout
+
+
+class TestMandatoryKeywords(DeckRunTest):
+    """Test class for what a deck has to give before anything is generated."""
 
     def test_the_missing_keywords_are_named_together(self):
-        status, stderr = self.run_deck(
+        status, stderr, _ = self.run_deck(
             SEEDED_DECK.replace("N_DP_Samples 2\n", "").replace(
                 "RVE_Dimensions [1, 1]\n", ""
             )
@@ -120,7 +124,7 @@ class TestMandatoryKeywords(unittest.TestCase):
 
     def test_a_deck_without_problem_type_runs(self):
         self.assertNotIn("Problem_Type", SEEDED_DECK)
-        status, stderr = self.run_deck(SEEDED_DECK)
+        status, stderr, _ = self.run_deck(SEEDED_DECK)
         self.assertEqual(status, 0, stderr)
         self.assertTrue(
             os.path.exists(os.path.join(self.temp_dir.name, "deck", "mic_1", "mic.yaml"))
@@ -128,13 +132,48 @@ class TestMandatoryKeywords(unittest.TestCase):
         # The keyword was required and read by nothing; it is still accepted
 
     def test_a_deck_with_problem_type_still_reads(self):
-        status, stderr = self.run_deck("Problem_Type 1\n" + SEEDED_DECK)
+        status, stderr, _ = self.run_deck("Problem_Type 1\n" + SEEDED_DECK)
         self.assertEqual(status, 0, stderr)
 
     def test_no_samples_is_refused(self):
-        status, stderr = self.run_deck(SEEDED_DECK.replace("N_DP_Samples 2", "N_DP_Samples 0"))
+        status, stderr, _ = self.run_deck(SEEDED_DECK.replace("N_DP_Samples 2", "N_DP_Samples 0"))
         self.assertNotEqual(status, 0)
         self.assertIn("positive integer", stderr)
+
+
+class TestFailedSample(DeckRunTest):
+    """Test class for a sample the run leaves overlapping."""
+
+    OVERLAPPING_DECK = SEEDED_DECK.replace("vf 0.2", "vf 0.5").replace(
+        "Max_Step 3", "Max_Step 2"
+    ) + "Mesh_Options\nrgmsh\nn_voxels_dims [8, 8]\n"
+    # Six disks at half the area in two steps stay overlapping, with a mesh asked for
+
+    def test_it_is_written_but_not_meshed_and_the_run_fails(self):
+        status, stderr, stdout = self.run_deck(self.OVERLAPPING_DECK)
+        self.assertEqual(status, 1, stderr)
+        self.assertNotIn("Traceback", stderr)
+        sample_dir = os.path.join(self.temp_dir.name, "deck", "mic_0")
+        self.assertTrue(os.path.exists(os.path.join(sample_dir, "mic.yaml")))
+        self.assertFalse(os.path.exists(os.path.join(sample_dir, "meshes")))
+        with open(os.path.join(sample_dir, "status")) as status_file:
+            self.assertIn("Status: False", status_file.read())
+        self.assertIn("2 of the samples asked for could not be generated", stdout)
+        self.assertIn("mic_1: overlap", stdout)
+        # Reported per sample and again in the summary, with the exit status of a
+        # run that failed; it used to mesh the overlapping particles and exit 0
+
+    def test_a_sample_that_converges_is_meshed_and_the_run_succeeds(self):
+        status, stderr, stdout = self.run_deck(
+            self.OVERLAPPING_DECK.replace("vf 0.5", "vf 0.1").replace(
+                "Max_Step 2", "Max_Step 200"
+            )
+        )
+        self.assertEqual(status, 0, stderr)
+        self.assertTrue(
+            os.path.exists(os.path.join(self.temp_dir.name, "deck", "mic_0", "meshes"))
+        )
+        self.assertNotIn("could not be generated", stdout)
 
 
 class TestFixedSeedAcrossSamples(unittest.TestCase):

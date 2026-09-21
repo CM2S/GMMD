@@ -458,6 +458,54 @@ class TestGridInitialConfiguration(unittest.TestCase):
                 self.assertEqual(grid_side(i_count, i_dim), i_side)
 
 
+class TestStatus(unittest.TestCase):
+    """Test class for whether a run reports the configuration it kept as legal."""
+
+    def generate(self, vf, max_step):
+        """Run a seeded generation of disks, giving the simulation."""
+        microstructure = Microstructure.from_descriptors(
+            [1.0, 1.0], {"0": {"phase_type": 1}, "1": {"phase_type": 2, "vf": vf, "n": 6}}
+        )
+        generator = MolecularDynamicsSimulation(
+            0.0, max_step, 1, 1e-3, 0.0, "random", False, fixed_seed=3
+        )
+        generator.set_thermostat(
+            MultiTemperatureIsokineticThermostat(
+                None, criterion="ratio_in_out", max_ratio_osc=2, temp_low_ratio=1 / 4
+            )
+        )
+        generator.set_speed_up_scheme(Naive())
+        generator.generate_microstructure(microstructure)
+
+        return generator
+
+    def test_a_run_that_reaches_the_overlap_is_a_success(self):
+        generator = self.generate(0.1, 200)
+        self.assertLessEqual(generator.total_overlap, generator.max_residue + 1e-12)
+        self.assertTrue(generator.status)
+
+    def test_a_run_that_runs_out_of_steps_overlapping_is_a_failure(self):
+        generator = self.generate(0.5, 2)
+        self.assertGreater(generator.total_overlap, generator.max_residue)
+        self.assertFalse(generator.status)
+
+    def test_the_status_is_that_of_the_configuration_kept(self):
+        generator = self.generate(0.5, 2)
+        generator.status = True
+        generator.max_residue = generator.total_overlap * 2
+        generator.generate_microstructure(
+            Microstructure.from_descriptors(
+                [1.0, 1.0], {"0": {"phase_type": 1}, "1": {"phase_type": 2, "vf": 0.5, "n": 6}}
+            )
+        )
+        self.assertEqual(
+            generator.status, generator.total_overlap <= generator.max_residue + 1e-12
+        )
+        # Set once from the overlap the run ended with. It used to be set the first
+        # time the overlap dipped under the tolerance and never unset, so a run that
+        # was legal once and ran out of steps illegal reported success
+
+
 class TestFixedSeed(unittest.TestCase):
     """Test class for the seed that makes a generation the same in every run."""
 

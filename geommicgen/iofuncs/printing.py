@@ -321,6 +321,59 @@ def print_final_message(mic_generator, mesh_generators, times_dict):
     print_to_file("{0: ^80}\n".format("Program Completed"))
 
 
+def print_failed_sample(total_overlap, max_residue):
+    """
+    Report that a sample was left with more overlap than allowed, and what follows.
+
+    Parameters
+    ----------
+    total_overlap: float
+        Overlap the run ended with.
+
+    max_residue: float
+        Overlap the run was allowed to end with.
+    """
+    print_to_file("Sample not generated")
+    print_to_file("=" * 80 + "\n")
+    print_to_file(
+        "The run ended with an overlap of {0:.2e} where {1:.2e} was allowed, so the "
+        "microstructure is not legal. It is written, but not meshed or "
+        "analysed.\n".format(total_overlap, max_residue)
+    )
+
+
+def print_failed_samples(samples):
+    """
+    Report the samples that were left illegal, once the batch has been run.
+
+    Parameters
+    ----------
+    samples: list
+        Tuples *(index, total overlap, allowed overlap)* of the samples that failed.
+
+    Returns
+    -------
+    list
+        The same list, so that the caller can tell whether there were any.
+    """
+    if not samples:
+        return samples
+
+    print_to_file("\n" + "=" * 80)
+    print_to_file(
+        "{0} of the samples asked for could not be generated:\n".format(len(samples))
+    )
+    for i_index, i_overlap, i_max_residue in samples:
+        print_to_file(
+            "\t- mic_{0}: overlap {1:.2e} where {2:.2e} was allowed".format(
+                i_index, i_overlap, i_max_residue
+            )
+        )
+    print_to_file("")
+
+    return samples
+
+
 def print_failed_jobs(jobs):
     """
     Report the discretisations that failed, once everything else has been attempted.

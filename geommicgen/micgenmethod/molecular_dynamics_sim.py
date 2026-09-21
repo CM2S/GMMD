@@ -359,6 +359,10 @@ class MolecularDynamicsSimulation(GenerationMethod):
             if self.final_overlap_check:
                 self.check_overlap_naive(microstructure_sample.particles)
             microstructure_sample.total_overlap = self.total_overlap
+            self.status = self.total_overlap <= self.max_residue + 1e-12
+            # Whether the configuration that is kept is legal. It used to be set the
+            # first time the overlap dipped under the tolerance and never unset, so a
+            # run that was legal once and ran out of steps illegal reported success
             # Placing inner phases
             # ------------------------------------------------------------------------------
             for phase in microstructure_sample.phases.values():
@@ -808,7 +812,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
 
                 if self.total_overlap <= self.max_residue + 1e-12:
                     # If the configuration has an overlap area smaller than the tolerance
-                    self.status = True
                     n_steps_relax += 1
                 else:
                     n_steps_relax = 0
@@ -831,7 +834,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     # If after 500 iterations all the iterations produced a relative change
                     # smaller than 1e-5% assume it is not possible to find a legal
                     # configuration
-                    self.status = False
                     print_funcs.print_to_file("Failed sample")
                     break
 
