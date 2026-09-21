@@ -418,6 +418,71 @@ class TestSchemesAgree(unittest.TestCase):
         # crossed into another cell was looked for in the old one
 
 
+class TestPartialUpdate(unittest.TestCase):
+    """Test class for the Verlet lists kept up to date one leaver at a time."""
+
+    def test_the_lists_are_those_of_a_full_build_after_every_step(self):
+        from geommicgen.microstructure.microstructure import Microstructure
+
+        microstructure = Microstructure.from_descriptors(
+            [1.0, 1.0], {"0": {"phase_type": 1}, "1": {"phase_type": 2, "vf": 0.5, "n": 150}}
+        )
+        generator = MolecularDynamicsSimulation.from_options(
+            {
+                "max_residue_per_particle": 0.0,
+                "max_step": 80,
+                "max_steps_to_relax": 0,
+                "dt": 0.05,
+                "min_distance": 0.0,
+                "type_initial_configuration": "random",
+                "save_history": False,
+                "initial_vel_coeff": 0.1,
+                "particle_mass_opt": "radius",
+                "fixed_seed": 5,
+                "initial_temp": None,
+                "max_ratio_osc": 2,
+                "temp_low_ratio": 0.25,
+                "speed_up_scheme": "Verlet",
+                "verlet_factor": 1.1,
+            }
+        )
+        # The defaults of a deck, under which the run settles: the first steps move
+        # most of the particles out of their neighbourhoods and the last ones a few
+        scheme = generator.speed_up_scheme
+        regimes = set()
+        original = scheme.new_list
+
+        def checked(particles):
+            before = None if scheme.verlet_neighborhoods is None else [
+                i for i, p in enumerate(particles)
+                if scheme.particle_intersects_its_own_neighborhood(p, scheme.verlet_neighborhoods[i])
+            ]
+            original(particles)
+            if before is not None and before:
+                regimes.add("partial" if len(before) <= scheme.FULL_REBUILD_FRACTION * len(particles) else "full")
+            neighborhoods = scheme.verlet_neighborhoods
+            expected = [set() for _ in particles]
+            for i in range(len(particles)):
+                for j in range(i + 1, len(particles)):
+                    if neighborhoods[i].intersection(neighborhoods[j], generator.box):
+                        expected[i].add(j)
+                        expected[j].add(i)
+            self.assertEqual(scheme.particle_list, expected)
+            for i, p in enumerate(particles):
+                self.assertFalse(
+                    scheme.particle_intersects_its_own_neighborhood(p, neighborhoods[i])
+                )
+
+        scheme.new_list = checked
+        generator.generate_microstructure(microstructure)
+        self.assertTrue(generator.status)
+        self.assertEqual(regimes, {"full", "partial"})
+        # After every step the lists are exactly the pairs of neighbourhoods that
+        # intersect, checked over every pair, and every particle is inside its
+        # neighbourhood; the run goes through both the steps where most particles
+        # leave and the steps where a few do
+
+
 class TestVerlet(unittest.TestCase):
     def test_intersection_issue_small_large_2(self):
         """Test for the Verlet list with two small ellipses inside a larger one."""
@@ -464,11 +529,11 @@ class TestVerlet(unittest.TestCase):
         molecular_dynamics_sim.box = rve_dims
         molecular_dynamics_sim.set_speed_up_scheme(verlet_list)
 
-        verlet_list.a_new_verlet_list_has_to_be_computed = True
         verlet_list.new_list(particles)
-        self.assertTrue(verlet_list.particle_list[0] == [0, 1, 2])
-        self.assertTrue(verlet_list.particle_list[1] == [0, 1, 2])
-        self.assertTrue(verlet_list.particle_list[2] == [0, 1, 2])
+        self.assertEqual(verlet_list.particle_list[0], {1, 2})
+        self.assertEqual(verlet_list.particle_list[1], {0, 2})
+        self.assertEqual(verlet_list.particle_list[2], {0, 1})
+        # Each list holds the others and not the particle itself
 
     def test_intersection_issue_small_large_3(self):
 
