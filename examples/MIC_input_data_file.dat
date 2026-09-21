@@ -26,7 +26,7 @@
 #                                         Number of samples for the current design point [M]
 # ==========================================================================================
 # Meaning:   Number of samples to be generated with the specified microstructural
-	     descriptors corresponding to the current design point.
+#	     descriptors corresponding to the current design point.
 #
 # Syntax:    N_DP_Samples n
 #
@@ -237,7 +237,7 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
-#                                                     			                Mesh options [M]
+#                                                     			                Mesh options [O]
 # ==========================================================================================
 # Meaning:   Mesh options.
 #
@@ -401,7 +401,7 @@
 #            parameter_scheme_1 y
 #            parameter_scheme_2 y
 #
-# x:         {'Naive', 'Cell', 'Verlet} (default to 'Cell')
+# x:         {'Naive', 'Cell', 'Verlet'} (default to 'Cell')
 #	     'Naive' - no scheme is used. Interaction checks are computed for every pair of
 #	     	particles. O(N**2), where N is the number of particles.
 #	        It doesn't need any extra parameters.
@@ -439,7 +439,7 @@
 #               simulation a compromise must be struck between these two tendencies.
 #
 #			Speed_Up_Scheme Verlet
-#			Verlet_Factor y (default to 1.5)
+#			Verlet_Factor y
 #
 # y: depends on the corresponding parameter_scheme_Y
 # ------------------------------------------------------------------------------------------
@@ -469,7 +469,7 @@
 #
 # Syntax:    final_overlap_check x
 #
-# x:         float
+# x:         bool
 # ------------------------------------------------------------------------------------------
 [insert here]
 
@@ -532,12 +532,15 @@
 #
 # Syntax:    Thermostat x (default to 'multi_temperature')
 #
-# x:         {'isokinetic', 'multi_temperature'}
-#	     'isokinetic' - the system of particles is simulated at a constant temperature
-#	     	enforced through the isokinetic scheme.
-#	     'multi_temperatue' - the system of particles is simulated at a decreasing
+# x:         {'multi_temperature', 'isokinetic', 'micro_canonical', 'berendsen'}
+#	     'multi_temperature' - the system of particles is simulated at decreasing
 #	        temperature stages enforced through the isokinetic scheme.
 #		The temperature is lowered when equilibrium has been reached.
+#	     'isokinetic' - the system of particles is simulated at a constant temperature
+#	     	enforced through the isokinetic scheme.
+#	     'micro_canonical' - no thermostat: the energy is left to the damping.
+#	     'berendsen' - the velocities are rescaled towards the reference temperature
+#	        at the rate Berendsen_Coeff sets.
 # ------------------------------------------------------------------------------------------
 [insert here]
 
@@ -607,9 +610,9 @@
 # Meaning:   Coefficient used to set the initial temperature through the connection with the
 #						 kinetic energy expressed in the equipartition theorem.
 #
-# Syntax:    final_overlap_check x
+# Syntax:    initial_vel_coeff x (default to 0.1)
 #
-# x:         bool
+# x:         float
 # ------------------------------------------------------------------------------------------
 [insert here]
 

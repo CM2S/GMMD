@@ -2,13 +2,16 @@
 Unit tests regarding the reading of the input data file.
 
 These cover the mesh options, whose sub keywords are read under the discretisation they
-belong to and are assembled in part from what the solver writers declare.
+belong to and are assembled in part from what the solver writers declare, and the
+reference input data file, which is held to what the reader declares.
 """
 
 import os
+import re
 import tempfile
 import unittest
 
+import geommicgen
 from geommicgen.iofuncs.keywords import (
     FORMAT_KEYWORDS,
     mesher_keywords,
@@ -99,6 +102,93 @@ class MeshOptionsTest(unittest.TestCase):
         self.assertTrue(declared <= read_here)
         # Whatever a writer declares is read from the input data file without this
         # module naming it
+
+
+REFERENCE_DECK = os.path.join(
+    os.path.dirname(os.path.dirname(geommicgen.__file__)),
+    "examples",
+    "MIC_input_data_file.dat",
+)
+# The documented input data file, beside the examples at the top of the repository;
+# an installed package has no repository around it, and these tests are skipped
+
+REQUIRED_KEYWORDS = {
+    "N_DP_Samples",
+    "RVE_Dimensions",
+    "Mic_Gen_Descriptors",
+    "Max_Residue_Per_Particle",
+    "Max_Step",
+}
+# What a deck has to give: the three the program asks for before generating, and the
+# two parameters of the simulation that have no default
+
+
+@unittest.skipUnless(os.path.exists(REFERENCE_DECK), "not run from the repository")
+class TestReferenceInputFile(unittest.TestCase):
+    """Test class holding the documented input data file to what the reader declares."""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(REFERENCE_DECK) as reference:
+            cls.text = reference.read()
+        cls.syntax = re.findall(r"^#\s*Syntax:\s*([A-Za-z_][A-Za-z0-9_]*)", cls.text, re.M)
+        cls.entries = re.findall(
+            r"^#.*\[([MO])\]\n# =+\n(?:#.*\n)*?#\s*Syntax:\s*([A-Za-z_][A-Za-z0-9_]*)",
+            cls.text,
+            re.M,
+        )
+        # Every entry opens with a title marked [M] or [O], then a rule, then the
+        # syntax line naming the keyword; the sub options of the meshes are documented
+        # the same way, indented
+
+    def declared(self):
+        """Give every keyword name the reader accepts, top level and sub keyword."""
+        names = {i_keyword.name for i_keyword in top_level_reader.top_level_keywords}
+        for i_name in ("Mesh_Options",):
+            group = top_level_reader.all_keywords[i_name]
+            names |= {i_keyword.name for i_keyword in group.all_sub_keys}
+        return {i_name.lower() for i_name in names}
+
+    def test_every_keyword_declared_is_documented(self):
+        documented = {i_name.lower() for i_name in self.syntax}
+        documented |= {
+            i_name.lower()
+            for i_name in re.findall(r"^#\s+([A-Z][A-Za-z_]+) y", self.text, re.M)
+        }
+        # A parameter of another keyword, like Verlet_Factor, is shown under it as an
+        # example line rather than with a syntax line of its own
+        self.assertEqual(self.declared() - documented, set())
+
+    def test_every_keyword_documented_is_declared(self):
+        self.assertEqual({i_name.lower() for i_name in self.syntax} - self.declared(), set())
+
+    def test_no_keyword_is_documented_twice(self):
+        top_level = re.findall(r"^# Syntax:\s*([A-Za-z_][A-Za-z0-9_]*)", self.text, re.M)
+        self.assertEqual(len(top_level), len(set(top_level)), sorted(top_level))
+        # An entry once carried the syntax line of another keyword, so the one it was
+        # about had none
+
+    def test_mandatory_is_what_the_program_requires(self):
+        mandatory = {i_name for i_mark, i_name in self.entries if i_mark == "M"}
+        self.assertEqual(mandatory, REQUIRED_KEYWORDS)
+
+    def test_the_options_named_are_the_ones_there_are(self):
+        from geommicgen.micgenmethod.speed_up_schemes import SPEED_UP_SCHEMES
+        from geommicgen.micgenmethod.thermostats import LOWERING_TEMP_CRITERIA, THERMOSTATS
+
+        for i_keyword, i_options in (
+            ("Speed_Up_Scheme", SPEED_UP_SCHEMES),
+            ("Thermostat", THERMOSTATS),
+            ("Lowering_Temp_Criterion", LOWERING_TEMP_CRITERIA),
+        ):
+            with self.subTest(keyword=i_keyword):
+                entry = self.text[self.text.index("Syntax:    " + i_keyword):]
+                listed = re.search(r"^# x:\s*\{([^}]*)\}", entry, re.M).group(1)
+                self.assertEqual(
+                    set(re.findall(r"['\"]([^'\"]*)['\"]", listed)), set(i_options)
+                )
+        # The names a deck can give are the names the program accepts, no more and no
+        # fewer; Verlet2 was documented as a scheme after it had stopped existing
 
 
 if __name__ == "__main__":
