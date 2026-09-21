@@ -29,6 +29,10 @@ dependencies = [
 
 [project.optional-dependencies]
 gmsh = ["gmsh>=4.15"]
+xdmf = ["h5py"]
+med = ["h5py"]
+exodus = ["netCDF4"]
+formats = ["h5py", "netCDF4"]
 docs = ["sphinx", "myst-parser", "sphinx-rtd-theme", "sphinx-favicon"]
 test = ["pytest", "pytest-cov", "coverage"]
 

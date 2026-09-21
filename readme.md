@@ -93,6 +93,14 @@ Some software must be installed to successfully run GMMD:
   ```bash
   export PYTHONPATH=$PYTHONPATH:/path/to/gmsh/lib
   ```
+* h5py and netCDF4 - Required only by the mesh formats that store their arrays in HDF5 or
+  NetCDF: `xdmf` (read by FEniCS), `med` (Code_Aster) and `exodus` (MOOSE). Each is an
+  extra named after the format, and `formats` installs all of them:
+  ```bash
+  pip install 'geommicgen[xdmf]'      # or [med], [exodus], [formats]
+  ```
+  Asking for one of these formats without its library fails that format alone, with the
+  command that installs it; the mesh itself and the other formats are still written.
 
 ### Installation
 `GMMD` can be installed by first cloning this repository:

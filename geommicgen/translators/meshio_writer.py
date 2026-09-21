@@ -96,12 +96,13 @@ class MeshioWriter(SolverWriter):
             except ImportError:
                 raise MissingOptionalDependency(
                     self.requires_package,
-                    "pip install {0}".format(self.requires_package),
+                    "pip install 'geommicgen[{0}]'".format(self.file_format),
                     reason="meshio needs it to write the {0} format and it is not "
                     "installed".format(self.file_format),
                 ) from None
         # Checking first turns a bare import error raised inside meshio into a sentence
-        # naming the package and the command that installs it
+        # naming the package and the extra that installs it, which is named after the
+        # format so that the command can be read off the message
 
         meshio.write(file_path, mesh.to_meshio(), file_format=self.file_format)
 

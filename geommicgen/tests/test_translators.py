@@ -1,6 +1,8 @@
 import os
+import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 
@@ -531,19 +533,20 @@ class TestMeshioWriters(unittest.TestCase):
         # dimensional triangles after a rigid element and cannot write a constraint
 
     def test_formats_needing_an_extra_package_say_so(self):
-        for i_format in ("xdmf", "exodus"):
+        for i_format in ("xdmf", "med", "exodus"):
             writer = get_writer(i_format)
-            if writer.requires_package is None:
-                continue
-            try:
-                __import__(writer.requires_package)
-            except ImportError:
-                path = os.path.join(self.temp_dir.name, "m" + writer.extension)
+            self.assertIsNotNone(writer.requires_package)
+            path = os.path.join(self.temp_dir.name, "m" + writer.extension)
+            with patch.dict(sys.modules, {writer.requires_package: None}):
                 with self.assertRaises(MissingOptionalDependency) as context:
                     writer().write(self.mesh, path)
-                self.assertIn(writer.requires_package, str(context.exception))
+            message = str(context.exception)
+            self.assertIn(writer.requires_package, message)
+            self.assertIn("geommicgen[{0}]".format(i_format), message)
         # meshio raises a bare import error from inside itself for these formats, which
-        # says nothing about how to fix it
+        # says nothing about how to fix it. Setting the entry to None makes the import
+        # raise whether or not the package is installed, so this runs everywhere, and
+        # the extra is named after the format so the command can be read off the message
 
     def test_vtu_is_readable_again(self):
         import meshio
