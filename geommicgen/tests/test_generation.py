@@ -15,9 +15,13 @@ from geommicgen.micgenmethod.microstructure_gen_method import (
 from geommicgen.micgenmethod.molecular_dynamics_sim import (
     MolecularDynamicsSimulation,
 )
+from geommicgen.micgenmethod.speed_up_schemes import Naive
+from geommicgen.micgenmethod.thermostats import MultiTemperatureIsokineticThermostat
+from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.microstructure.particleclasses import (
     CylindricalFiber,
 )
+from geommicgen.microstructure.phase import Phase
 
 
 class MicGenTest(GenerationMethod):
@@ -304,6 +308,65 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
                     == particle.position_center
                 )
             )
+
+
+class TestFixedSeed(unittest.TestCase):
+    """Test class for the seed that makes a generation the same in every run."""
+
+    def generate(self, seed):
+        """Generate a small microstructure of ellipses with the given seed."""
+        microstructure = Microstructure([1.0, 1.0])
+        microstructure.add_phase(Phase("0", {"phase_type": 1}))
+        microstructure.add_phase(
+            Phase(
+                "1",
+                {
+                    "phase_type": 3,
+                    "vf": 0.2,
+                    "n": 4,
+                    "ratio": 1.5,
+                    "angle_distribution": "normal",
+                    "angle_mean": 0.0,
+                    "angle_sigma": 0.3,
+                },
+            )
+        )
+        generator = MolecularDynamicsSimulation(
+            0.0, 3, 1, 1e-3, 0.0, "random", False, fixed_seed=seed
+        )
+        generator.set_thermostat(
+            MultiTemperatureIsokineticThermostat(
+                None, criterion="ratio_in_out", max_ratio_osc=2, temp_low_ratio=1 / 4
+            )
+        )
+        # The thermostat a deck gets when it names none, with the deck's defaults
+        generator.set_speed_up_scheme(Naive())
+        generator.generate_microstructure(microstructure)
+
+        return microstructure
+
+    def particle_records(self, microstructure):
+        """The centre and the orientation of every particle."""
+        return [
+            (tuple(i_particle.position_center), i_particle.angle)
+            for i_particle in microstructure.particles
+        ]
+
+    def test_the_same_seed_gives_the_same_microstructure(self):
+        first = self.particle_records(self.generate(7))
+        second = self.particle_records(self.generate(7))
+        self.assertEqual(first, second)
+        # The orientations are drawn from the descriptors before the run starts, and
+        # the seed used to be set after them, with the initial positions: the positions
+        # came out the same in every run and the orientations never did
+
+    def test_another_seed_gives_another_microstructure(self):
+        first = self.particle_records(self.generate(7))
+        other = self.particle_records(self.generate(8))
+        self.assertNotEqual(
+            [i_angle for _, i_angle in first], [i_angle for _, i_angle in other]
+        )
+        # The control: the equality above is not the orientations being constant
 
 
 class TestMolecularDynamicSimulationForce(unittest.TestCase):

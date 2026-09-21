@@ -277,6 +277,12 @@ class MolecularDynamicsSimulation(GenerationMethod):
             Microstructure sample to be generated
         """
         self.microstructure_sample = microstructure_sample
+        if self.fixed_seed is not None:
+            np.random.seed(self.fixed_seed)
+        # Seeded before the first draw. The particles themselves are drawn next -- their
+        # sizes and orientations from the descriptors -- so a seed set any later, as it
+        # was when it was set with the initial positions, left them different in every
+        # run and only the positions the same
         for phase in microstructure_sample.phases.values():
             if phase.type is not Matrix and not phase.inner_phase:
                 phase.generate_particles(microstructure_sample.rve_dims)
@@ -375,9 +381,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.particle_velocities = [None for _ in particles]
         if self.type_init_conf == "random":
             # Random configuration for the particle centers and the zero velocity
-            if self.fixed_seed is not None:
-                np.random.seed(self.fixed_seed)
-                # Generating the same initial configuration in different runs.
             for i_ind, i_particle in enumerate(particles):
                 # Running through all the particles
                 i_particle.position_center = self.box * np.random.uniform(

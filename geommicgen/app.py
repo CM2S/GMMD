@@ -96,13 +96,18 @@ def run_program():
             )
 
         provenance = {"source_deck": os.path.basename(input_file_path)}
-        if mic_gen_parameters.get("fixed_seed") is not None:
-            provenance["fixed_seed"] = mic_gen_parameters["fixed_seed"]
+        fixed_seed = mic_gen_parameters.get("fixed_seed")
         # Carried by every microstructure file the run writes, so that a sample says
         # what produced it
 
         failed_jobs = []
-        for _ in range(n_dp_samples):
+        for i_sample in range(n_dp_samples):
+            if fixed_seed is not None:
+                mic_gen_parameters["fixed_seed"] = fixed_seed + i_sample
+                provenance["fixed_seed"] = fixed_seed + i_sample
+            # Each sample of a seeded run gets a seed of its own, the deck's plus its
+            # index, so the samples differ from each other and each is the same in
+            # every run -- one seed for all of them made every sample the same
             sample_dir, sample_file_path = fileio.create_sample_results_directory(
                 results_folder
             )
