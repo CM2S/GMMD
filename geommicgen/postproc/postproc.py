@@ -281,8 +281,7 @@ def post_proc(
         Microstructure the run produced.
 
     current_mic_generator: `.MolecularDynamicsSimulation`
-        The run that produced it, or None when it was read from a file with no record
-        of one.
+        The run that produced it.
 
     sample_dir: str
         Directory of the sample.

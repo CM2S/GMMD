@@ -117,18 +117,6 @@ def print_initial_message(input_file_path):
     print_to_file("\n")
 
 
-def print_analysis_previous(previous_mic_path):
-    """Print previous mic path."""
-    print_to_file("Previous microstructure: {0}".format(previous_mic_path))
-    print_to_file("\n")
-
-
-def print_output_header():
-    """Print the output header."""
-    print_to_file("Output")
-    print_to_file("=" * 80 + "\n")
-
-
 def print_output(filepath):
     """Print output."""
     print_to_file("Output")

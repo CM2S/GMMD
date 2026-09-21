@@ -36,18 +36,17 @@ class TestMainFromCommandLine(unittest.TestCase):
         # a traceback
 
     def test_too_many_arguments(self):
-        self.assertIn("unrecognized arguments", self.run_with(["a.mdsim", "b.yaml", "c"]))
+        self.assertIn("unrecognized arguments", self.run_with(["a.mdsim", "b.yaml"]))
+        # A microstructure generated earlier used to be a second argument; it is meshed
+        # and analysed by the commands made for that
 
     def test_help_is_help(self):
         with contextlib.redirect_stdout(io.StringIO()) as stdout:
             with self.assertRaises(SystemExit) as context:
                 run_program(["--help"])
         self.assertEqual(context.exception.code, 0)
-        self.assertIn("previous_mic", stdout.getvalue())
+        self.assertIn("input_file", stdout.getvalue())
         # It used to be opened as the input data file, and to fail for not existing
-
-    def test_a_previous_microstructure_of_the_wrong_kind_is_refused(self):
-        self.assertIn(".txt", self.run_with(["a.mdsim", "previous.txt"]))
 
     # @patch("microstructure.particleclasses.Disk")
     # @patch("microstructure.phase.FixedValue")

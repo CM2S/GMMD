@@ -9,7 +9,6 @@ import shutil
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-from geommicgen.micgenmethod.mic_from_imagej import generate_microstructure_from_csv
 from geommicgen.iofuncs.md_state import (
     STATE_FILE_NAME,
     load_md_state,
@@ -23,7 +22,6 @@ from .printing import print_output, screen_to, SCREEN_FILE_NAME
 
 MIC_FILE_NAME = "mic.yaml"
 MIC_EXTENSIONS = {".yaml", ".yml"}
-LOADABLE_EXTENSIONS = MIC_EXTENSIONS | {".csv"}
 
 
 def create_sample_results_directory(dp_dir):
@@ -118,36 +116,22 @@ def parse_arguments(argv=None):
     Returns
     -------
     argparse.Namespace
-        The arguments: *input_file*, the input data file, and *previous_mic*, the
-        microstructure file to post-process instead of generating, or None.
+        The arguments: *input_file*, the input data file.
     """
     parser = argparse.ArgumentParser(
         prog="geommicgen",
         description="Generate a set of microstructures from an input data file, and "
-        "mesh and analyse each one as the file asks.",
+        "mesh and analyse each one as the file asks. A microstructure generated "
+        "earlier is meshed with geommicgen-mesh and analysed with geommicgen-analyze.",
     )
     parser.add_argument("input_file", help="input data file (.mdsim)")
-    parser.add_argument(
-        "previous_mic",
-        nargs="?",
-        help="a microstructure file generated earlier: it is meshed and analysed as "
-        "the input data file asks, and nothing is generated",
-    )
-    arguments = parser.parse_args(argv)
-    if arguments.previous_mic is not None:
-        try:
-            check_loadable(arguments.previous_mic)
-        except ValueError as error:
-            parser.error(str(error))
-        # Refused while the arguments are read rather than once the run is under way,
-        # by the same check that will do the loading
 
-    return arguments
+    return parser.parse_args(argv)
 
 
-def check_loadable(previous_mic_path):
+def load_previous_sample(previous_mic_path):
     """
-    Refuse a previous microstructure that is not of a kind that can be read.
+    Read a microstructure back, with the state of the run that produced it.
 
     Parameters
     ----------
@@ -156,37 +140,27 @@ def check_loadable(previous_mic_path):
 
     Returns
     -------
-    str
-        Extension of the file.
+    tuple
+        The `.Microstructure`, and the `.GenerationState` read from the state file
+        beside it, or None when there is none.
 
     Raises
     ------
     ValueError:
-        If it is not one of the kinds that can be read.
+        If the file is not a microstructure file.
     """
     _, ext = os.path.splitext(os.path.basename(previous_mic_path))
-    if ext not in LOADABLE_EXTENSIONS:
+    if ext not in MIC_EXTENSIONS:
         raise ValueError(
             "Wrong extension for the previous microstructure file: {0}".format(ext)
         )
+    current_sample = read_microstructure_yaml(previous_mic_path)
+    current_mic_generator = load_md_state(
+        os.path.join(os.path.dirname(previous_mic_path), STATE_FILE_NAME)
+    )
+    # The state of the run that produced it sits beside it, and is simply absent for
+    # a microstructure that came from somewhere else
 
-    return ext
-
-
-def load_previous_sample(previous_mic_path):
-    """Load a microstructure sample."""
-    ext = check_loadable(previous_mic_path)
-    if ext in MIC_EXTENSIONS:
-        current_sample = read_microstructure_yaml(previous_mic_path)
-        current_mic_generator = load_md_state(
-            os.path.join(os.path.dirname(previous_mic_path), STATE_FILE_NAME)
-        )
-        # No need to generate a new microstructure. Using a previous microstructure. The
-        # state of the run that produced it sits beside it, and is simply absent for a
-        # microstructure that came from somewhere else
-    else:
-        current_sample = generate_microstructure_from_csv(previous_mic_path)
-        current_mic_generator = None
     return current_sample, current_mic_generator
 
 
