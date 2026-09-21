@@ -86,7 +86,7 @@ def run_program():
             print("Mandatory parameter not supplied.")
             raise
 
-        if n_dp_samples < 1 and isinstance(n_dp_samples, int):
+        if n_dp_samples < 1 or not isinstance(n_dp_samples, int):
             raise ValueError(
                 "Number of samples must be a positve integer larger than 1."
             )
@@ -143,7 +143,7 @@ def run_program():
                         mic_gen_parameters["min_distance"],
                         mic_gen_parameters["type_initial_configuration"],
                         mic_gen_parameters["save_history"],
-                        **md_kwargs
+                        **md_kwargs,
                     )
                 except KeyError:
                     print("Missing mandatory parameter defining a MD simulation.")
@@ -247,8 +247,11 @@ def run_program():
                 fileio.save_mic(
                     sample_dir,
                     current_sample,
-                    None if top_level_reader.all_options["save_min"] else
-                    current_mic_generator,
+                    (
+                        None
+                        if top_level_reader.all_options["save_min"]
+                        else current_mic_generator
+                    ),
                     provenance=provenance,
                 )
                 fileio.save_status(sample_dir, current_sample, current_mic_generator)
