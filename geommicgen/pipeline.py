@@ -357,14 +357,20 @@ def build_mesh_jobs(mesh_options, deck_name=None):
         file_name = i_options.get("file_name")
         if file_name and len(meshers) > 1:
             raise ValueError(
-                "File_Name names one discretisation, and {0} were asked for under "
-                "{1}. Remove it, and the files are named after the input data file "
-                "and what discretises them, which tells them apart.".format(
-                    len(meshers), i_name
+                "File_Name {0} would be given to each of the {1} discretisations asked "
+                "for under {2} ({3}), so each would be written over the one before. "
+                "Remove it and they are named {4} instead.".format(
+                    file_name,
+                    len(meshers),
+                    i_name,
+                    ", ".join(j_mesher.label for j_mesher in meshers),
+                    ", ".join(
+                        job_base_name(deck_name, j_mesher.label) for j_mesher in meshers
+                    ),
                 )
             )
-        # Refused rather than resolved, because every one would otherwise be written
-        # over the one before it and the run would end with the last alone
+        # Refused rather than resolved, because the run would otherwise end with the
+        # last one alone
 
         for j_mesher in meshers:
             jobs.append(
