@@ -3,6 +3,8 @@
 import numpy as np
 
 from geommicgen.meshing.mesh import Mesh, StructuredInfo
+from geommicgen.micgenmethod.molecular_dynamics_sim import MolecularDynamicsSimulation
+from geommicgen.micgenmethod.thermostats import IsokineticThermostat
 from geommicgen.microstructure.particleclasses import Disk, Sphere
 from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.microstructure.phase import Phase
@@ -123,3 +125,40 @@ def sphere_microstructure():
         particles.append(particle)
 
     return build_microstructure(rve_dims, Sphere, particles)
+
+
+def a_generation_run(n_particles=2, n_steps=3):
+    """
+    Build a generation method carrying the state a finished run would have recorded.
+
+    Parameters
+    ----------
+    n_particles: int
+        Number of particles whose motion was recorded.
+
+    n_steps: int
+        Number of steps that were recorded.
+
+    Returns
+    -------
+    `.MolecularDynamicsSimulation`
+        The generation method.
+    """
+    mic_generator = MolecularDynamicsSimulation(0.0, 10, 5, 1e-3, 0.0, "random", True)
+    mic_generator.set_thermostat(IsokineticThermostat(1.0))
+    mic_generator.step = n_steps
+    mic_generator.time = 12.5
+    mic_generator.status = True
+    mic_generator.max_residue = 1e-6
+    mic_generator.total_overlap_history = [3.0, 2.0, 1.0]
+    mic_generator.kinetic_energy_history = [0.5, 0.4, 0.3]
+    mic_generator.thermic_energy_history = [0.1, 0.2, 0.3]
+    mic_generator.all_dt = [1e-3, 1e-3, 2e-3]
+    mic_generator.position_center_history = [
+        [np.array([0.1 * i_step, 0.2 * i_particle]) for i_step in range(n_steps)]
+        for i_particle in range(n_particles)
+    ]
+    mic_generator.thermostat.temp_change_steps = [0, 2]
+    mic_generator.thermostat.ratio = [1.2, 0.9]
+
+    return mic_generator

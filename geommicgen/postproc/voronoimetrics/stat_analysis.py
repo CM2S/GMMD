@@ -537,7 +537,7 @@ def do_stat_analysis(microstructure, sample_dir, stat_options):
         Options are {"stat_nearest_neighbor", "stat_ripleys_k", "stat_two_pt_corr"}.
     """
     stat_anal_results_dir = os.path.join(sample_dir, "stat_analysis_results")
-    os.makedirs(stat_anal_results_dir)
+    os.makedirs(stat_anal_results_dir, exist_ok=True)
     stat_results = {}
     # Creating a directory for the results
 

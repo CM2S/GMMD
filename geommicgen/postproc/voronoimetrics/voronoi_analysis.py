@@ -982,7 +982,7 @@ def do_voronoi_analysis(
 
     """
     voronoi_results_dir = os.path.join(sample_dir, "voronoi_analysis_results")
-    os.makedirs(voronoi_results_dir)
+    os.makedirs(voronoi_results_dir, exist_ok=True)
     # Creating a directory for the results
 
     if particles[0].dim == 2:

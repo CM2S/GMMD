@@ -638,7 +638,7 @@ def plot_overlap_history(
 def plot_paths(particles, box, position_center_history, motion_results_dir):
     """Plot particle paths."""
     path_results_dir = os.path.join(motion_results_dir, "paths")
-    os.makedirs(path_results_dir)
+    os.makedirs(path_results_dir, exist_ok=True)
     if particles[0].dim == 2:
         original_centers = [i_particle.position_center for i_particle in particles]
         try:
@@ -693,7 +693,7 @@ def plot_paths(particles, box, position_center_history, motion_results_dir):
         for step in range(len(position_center_history[0])):
             with open(
                 os.path.join(path_results_dir, "mic_step_{0}.vtk".format(step)),
-                "a",
+                "w",
             ) as msh_vtk:
                 msh_vtk.write("# vtk DataFile Version 2.0")
                 msh_vtk.write("\n3D triangulation data")
