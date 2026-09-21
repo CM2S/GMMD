@@ -218,8 +218,8 @@ input_data_file/
 ├── mic_0/
 │   ├── mic.yaml                   microstructure file
 │   ├── status                     status of the generation: flag, time, final overlap
-│   ├── md_state.npz               state of the generation run: the histories the motion analysis plots *
-│   ├── mic.screen                 log file, everything printed to the terminal *
+│   ├── md_state.npz               histories of the generation run, read by the motion analysis  (not with save_min)
+│   ├── mic.screen                 log of the run, everything printed to the terminal             (not with save_min)
 │   ├── final_config.pdf           visualization of the microstructure, when final_config is asked for
 │   │                              (final_config.msh and final_config.vtk in three dimensions)
 │   ├── meshes/                    the meshes asked for
@@ -231,6 +231,6 @@ input_data_file/
 └── ...
 ```
 
-\* Not written in the lightweight mode geared towards data-driven frameworks (`save_min`).
+`save_min`, the lightweight mode geared towards data-driven frameworks, keeps only the microstructure and status files.
 
 `geommicgen-mesh`, `geommicgen-translate` and `geommicgen-analyze` write where their `-o` option says, the current directory by default.
