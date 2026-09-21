@@ -346,7 +346,7 @@ class LinksWriter(SolverWriter):
                 "Boundary_Type {5}\n\n"
                 "Prescribed_Deformation_Gradient\n{2}\n\n"
                 "Number_of_Increments 1\n\n"
-                "CONVERGENCE_TOLERANCE 1E-8\n\n"
+                "CONVERGENCE_TOLERANCE\n1E-8\n\n"
                 "SOLVER PARDISO\n\n"
                 "VTK_OUTPUT ASCII\n\n"
                 "MATERIALS {3}\n{4}\n".format(
@@ -359,4 +359,5 @@ class LinksWriter(SolverWriter):
                 )
             )
         # The analysis type is 2 for a two dimensional microscale problem and 6 for a
-        # three dimensional one
+        # three dimensional one. The convergence tolerance is read from the line after
+        # its keyword, unlike the other scalars here, which sit on the keyword's line
