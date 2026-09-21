@@ -22,6 +22,33 @@ import geommicgen.iofuncs.printing as print_funcs
 from geommicgen.microstructure.particleclasses import Matrix
 from geommicgen.micgenmethod.microstructure_gen_method import GenerationMethod
 from geommicgen.micgenmethod.integration_methods import verlet_sync_integration
+from geommicgen.micgenmethod.speed_up_schemes import speed_up_scheme_from_options
+from geommicgen.micgenmethod.thermostats import thermostat_from_options
+
+REQUIRED_OPTIONS = (
+    "max_residue_per_particle",
+    "max_step",
+    "max_steps_to_relax",
+    "dt",
+    "min_distance",
+    "type_initial_configuration",
+    "save_history",
+)
+# The generation parameters a simulation is built from, in the order the initializer
+# takes them; the input data file gives every one, by default where it has one
+
+OPTIONAL_OPTIONS = (
+    "damping_coeff",
+    "particle_mass_opt",
+    "force_option",
+    "force_rescale",
+    "dt_adapt",
+    "offset",
+    "fixed_seed",
+    "initial_vel_coeff",
+    "final_overlap_check",
+)
+# The generation parameters the initializer takes by keyword, and has a default for
 
 
 def grid_side(n_particles, dim):
@@ -383,6 +410,44 @@ class MolecularDynamicsSimulation(GenerationMethod):
             del self.box[particles[0].direction_fibers]
         else:
             self.box = list(rve_dims)
+
+    @classmethod
+    def from_options(cls, options):
+        """
+        Build the simulation an input data file asks for, thermostat and scheme included.
+
+        Parameters
+        ----------
+        options: dict
+            Generation parameters, keyed as the input data file keys them.
+
+        Returns
+        -------
+        `.MolecularDynamicsSimulation`
+            The simulation, ready to generate a microstructure.
+
+        Raises
+        ------
+        ValueError:
+            If a parameter the simulation needs is not given, or if the thermostat or
+            the speed up scheme named is not one there is.
+        """
+        missing = [i_name for i_name in REQUIRED_OPTIONS if i_name not in options]
+        if missing:
+            raise ValueError(
+                "The input data file does not give {0}, which a molecular dynamics "
+                "simulation needs.".format(", ".join(missing))
+            )
+        simulation = cls(
+            *(options[i_name] for i_name in REQUIRED_OPTIONS),
+            **{i_name: options[i_name] for i_name in OPTIONAL_OPTIONS if i_name in options}
+        )
+        simulation.set_thermostat(thermostat_from_options(options))
+        simulation.set_speed_up_scheme(speed_up_scheme_from_options(options))
+        # Built the way the meshers and the writers are built from their options, so
+        # the program that reads the input data file names no parameter of the method
+
+        return simulation
 
     def set_thermostat(self, thermostat):
         """Set the thermostat for the moleuclar dynamics simulation."""

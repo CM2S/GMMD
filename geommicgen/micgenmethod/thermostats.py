@@ -426,3 +426,91 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
                 equilibrium_flag = False
 
         return equilibrium_flag
+
+
+THERMOSTATS = ("multi_temperature", "isokinetic", "micro_canonical", "berendsen")
+# The thermostats an input data file can ask for, under the names it asks with
+
+LOWERING_TEMP_CRITERIA = ("ratio_in_out", "rolling_ave", "original")
+# The criteria the multi-temperature thermostat lowers the temperature by
+
+
+def _required(options, name, purpose):
+    """Get an option that has to be given, saying what needs it when it is not."""
+    if name not in options:
+        raise ValueError(
+            "The input data file does not give {0}, which {1} needs.".format(
+                name, purpose
+            )
+        )
+
+    return options[name]
+
+
+def thermostat_from_options(options):
+    """
+    Build the thermostat an input data file asks for.
+
+    Parameters
+    ----------
+    options: dict
+        Generation parameters, keyed as the input data file keys them.
+
+    Returns
+    -------
+    `.Thermostat`
+        The thermostat, a multi-temperature one when none is named.
+
+    Raises
+    ------
+    ValueError:
+        If the thermostat, or the criterion of the multi-temperature one, is not one
+        there is, or if a parameter it needs is not given.
+    """
+    name = options.get("thermostat", THERMOSTATS[0])
+    if name == "micro_canonical":
+        return MicroCanonicalEnsemble()
+    if name == "isokinetic":
+        return IsokineticThermostat(
+            _required(options, "initial_temp", "the isokinetic thermostat")
+        )
+    if name == "berendsen":
+        return BerendsenForceThermostat(
+            _required(options, "initial_temp", "the Berendsen thermostat"),
+            _required(options, "berendsen_coeff", "the Berendsen thermostat"),
+        )
+    if name == "multi_temperature":
+        criterion = options.get("lowering_temp_criterion", LOWERING_TEMP_CRITERIA[0])
+        purpose = "the {0} criterion of the multi-temperature thermostat".format(
+            criterion
+        )
+        if criterion == "ratio_in_out":
+            kwargs = {"max_ratio_osc": _required(options, "max_ratio_osc", purpose)}
+        elif criterion == "rolling_ave":
+            kwargs = {"average_window": _required(options, "average_window", purpose)}
+        elif criterion == "original":
+            kwargs = {
+                "min_eq_steps_at_temp": _required(
+                    options, "min_eq_steps_at_temp", purpose
+                )
+            }
+        else:
+            raise ValueError(
+                "{0} is not a criterion for lowering the temperature. The available "
+                "options are {1}.".format(criterion, ", ".join(LOWERING_TEMP_CRITERIA))
+            )
+        kwargs["temp_low_ratio"] = _required(
+            options, "temp_low_ratio", "the multi-temperature thermostat"
+        )
+        return MultiTemperatureIsokineticThermostat(
+            _required(options, "initial_temp", "the multi-temperature thermostat"),
+            criterion,
+            **kwargs
+        )
+    raise ValueError(
+        "{0} is not a thermostat. The available options are {1}.".format(
+            name, ", ".join(THERMOSTATS)
+        )
+    )
+    # A name that is not known is refused here, where the message can list the names,
+    # rather than quietly given the micro canonical ensemble as it used to be

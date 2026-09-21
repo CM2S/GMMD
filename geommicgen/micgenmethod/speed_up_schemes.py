@@ -671,3 +671,49 @@ class Naive(SpeedUpScheme):
         Particles in the simulatin box, whose cell list is to be computed.
         """
         self.particle_list = [list(range(len(particles))) for _ in particles]
+
+
+SPEED_UP_SCHEMES = ("Cell", "Verlet", "Verlet2", "Naive")
+# The speed up schemes an input data file can ask for, under the names it asks with
+
+
+def speed_up_scheme_from_options(options):
+    """
+    Build the speed up scheme an input data file asks for.
+
+    Parameters
+    ----------
+    options: dict
+        Generation parameters, keyed as the input data file keys them.
+
+    Returns
+    -------
+    `.SpeedUpScheme`
+        The scheme, a cell list when none is named.
+
+    Raises
+    ------
+    ValueError:
+        If the scheme is not one there is, or if a Verlet list is asked for without
+        its factor.
+    """
+    name = options.get("speed_up_scheme", SPEED_UP_SCHEMES[0])
+    if name == "Cell":
+        return CellList()
+    if name == "Naive":
+        return Naive()
+    if name in ("Verlet", "Verlet2"):
+        if "verlet_factor" not in options:
+            raise ValueError(
+                "The input data file does not give verlet_factor, which the {0} speed "
+                "up scheme needs.".format(name)
+            )
+        scheme = VerletList if name == "Verlet" else VerletPartialUpdate
+        return scheme(options["verlet_factor"])
+    raise ValueError(
+        "{0} is not a speed up scheme. The available options are {1}.".format(
+            name, ", ".join(SPEED_UP_SCHEMES)
+        )
+    )
+    # A name that is not known is refused here, where the message can list the names,
+    # rather than quietly given the cell list as it used to be

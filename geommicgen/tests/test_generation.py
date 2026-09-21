@@ -13,11 +13,17 @@ from geommicgen.micgenmethod.microstructure_gen_method import (
     GenerationMethod,
 )
 from geommicgen.micgenmethod.molecular_dynamics_sim import (
+    OPTIONAL_OPTIONS,
+    REQUIRED_OPTIONS,
     MolecularDynamicsSimulation,
     grid_side,
 )
-from geommicgen.micgenmethod.speed_up_schemes import Naive
-from geommicgen.micgenmethod.thermostats import MultiTemperatureIsokineticThermostat
+from geommicgen.iofuncs.keywords import top_level_reader
+from geommicgen.micgenmethod.speed_up_schemes import CellList, Naive
+from geommicgen.micgenmethod.thermostats import (
+    IsokineticThermostat,
+    MultiTemperatureIsokineticThermostat,
+)
 from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.microstructure.particleclasses import (
     CylindricalFiber,
@@ -314,6 +320,99 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
                     == particle.position_center
                 )
             )
+
+
+def deck_defaults():
+    """Give the generation parameters of a deck that sets only what has no default."""
+    options = {
+        i_keyword.name.lower(): i_keyword.default_value
+        for i_keyword in top_level_reader.top_level_keywords
+        if getattr(i_keyword, "keyword_group", None) == "Mic_Gen_Parameters"
+        and hasattr(i_keyword, "default_value")
+    }
+    options.update({"max_residue_per_particle": 0.0, "max_step": 10, "initial_temp": 1e5})
+
+    return options
+
+
+class TestFromOptions(unittest.TestCase):
+    """Test class for the simulation built from the generation parameters of a deck."""
+
+    def test_a_deck_of_defaults_builds_the_documented_simulation(self):
+        simulation = MolecularDynamicsSimulation.from_options(deck_defaults())
+        self.assertIsInstance(
+            simulation.thermostat, MultiTemperatureIsokineticThermostat
+        )
+        self.assertIs(simulation.thermostat.molecular_dynamics_sim, simulation)
+        self.assertIsInstance(simulation.speed_up_scheme, CellList)
+        self.assertIs(simulation.speed_up_scheme.molecular_dynamics_sim, simulation)
+        self.assertEqual(simulation.max_step, 10)
+        self.assertEqual(simulation.delta_t, 0.05)
+        self.assertEqual(simulation.type_init_conf, "random")
+        # Read off the keywords, so the defaults the documentation states are the ones
+        # a simulation is built with
+
+    def test_every_parameter_of_the_deck_is_read(self):
+        options = deck_defaults()
+        options.update(
+            {
+                "damping_coeff": 0.3,
+                "particle_mass_opt": "unit",
+                "force_rescale": True,
+                "dt_adapt": False,
+                "offset": False,
+                "fixed_seed": 7,
+                "initial_vel_coeff": 0.5,
+                "final_overlap_check": True,
+                "save_history": True,
+                "min_distance": 0.01,
+            }
+        )
+        simulation = MolecularDynamicsSimulation.from_options(options)
+        self.assertEqual(simulation.damping_coeff, 0.3)
+        self.assertEqual(simulation.particle_mass_opt, "unit")
+        self.assertTrue(simulation.force_rescale)
+        self.assertFalse(simulation.dt_adapt)
+        self.assertFalse(simulation.offset)
+        self.assertEqual(simulation.fixed_seed, 7)
+        self.assertEqual(simulation.initial_vel_coeff, 0.5)
+        self.assertTrue(simulation.final_overlap_check)
+        self.assertTrue(simulation.save_history)
+        self.assertEqual(simulation.min_distance, 0.01)
+
+    def test_the_options_are_the_ones_the_initializer_takes(self):
+        simulation = MolecularDynamicsSimulation.from_options(deck_defaults())
+        for i_name in REQUIRED_OPTIONS + OPTIONAL_OPTIONS:
+            with self.subTest(option=i_name):
+                self.assertTrue(
+                    hasattr(simulation, i_name)
+                    or i_name in ("dt", "type_initial_configuration")
+                )
+        # Two are stored under another name; the rest are attributes of the same name
+
+    def test_a_missing_parameter_is_named(self):
+        options = deck_defaults()
+        del options["max_step"]
+        with self.assertRaises(ValueError) as context:
+            MolecularDynamicsSimulation.from_options(options)
+        self.assertIn("max_step", str(context.exception))
+        # It used to be a bare KeyError once the program had printed a line about it
+
+    def test_the_thermostat_and_scheme_named_are_the_ones_built(self):
+        options = deck_defaults()
+        options.update({"thermostat": "isokinetic", "speed_up_scheme": "Naive"})
+        simulation = MolecularDynamicsSimulation.from_options(options)
+        self.assertIs(type(simulation.thermostat), IsokineticThermostat)
+        self.assertIsInstance(simulation.speed_up_scheme, Naive)
+
+    def test_a_misspelt_name_is_refused(self):
+        for i_option in ("thermostat", "speed_up_scheme"):
+            with self.subTest(option=i_option):
+                with self.assertRaises(ValueError) as context:
+                    MolecularDynamicsSimulation.from_options(
+                        dict(deck_defaults(), **{i_option: "nope"})
+                    )
+                self.assertIn("nope", str(context.exception))
 
 
 class TestGridInitialConfiguration(unittest.TestCase):
