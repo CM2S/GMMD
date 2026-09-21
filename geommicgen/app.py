@@ -22,16 +22,23 @@ from geommicgen.microstructure.phase import Phase
 from geommicgen.micgenmethod.molecular_dynamics_sim import MolecularDynamicsSimulation
 
 
-def run_program():
-    """Run program."""
+def run_program(argv=None):
+    """
+    Run the program.
+
+    Parameters
+    ----------
+    argv: list
+        Arguments, taken from the command line when they are not given.
+    """
     print_funcs.log_to_terminal()
-    (
-        input_file_path,
-        input_file_dir,
-        input_file_name,
-        ext,
-        previous_mic_path,
-    ) = fileio.get_arguments_from_command_line()
+    arguments = fileio.parse_arguments(argv)
+    input_file_path = arguments.input_file
+    previous_mic_path = arguments.previous_mic
+    input_file_dir = os.path.dirname(input_file_path)
+    input_file_name, ext = os.path.splitext(os.path.basename(input_file_path))
+    # The results go in a directory named after the input data file, beside it, and
+    # the extension says which generation method the file describes
 
     top_level_reader.read_input_file(input_file_path)
     # Create results directory

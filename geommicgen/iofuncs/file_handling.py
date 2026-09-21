@@ -3,8 +3,8 @@ Module for file handling.
 
 Making directories. Load and save files.
 """
+import argparse
 import os
-import sys
 import shutil
 
 # pylint: disable=import-error
@@ -106,26 +106,43 @@ def create_design_point_results_directory(
     return results_folder
 
 
-def get_arguments_from_command_line():
-    """Get arguments from the command line."""
-    if len(sys.argv) == 1:
-        # No input file has been supplied
-        raise ValueError("No input file was supplied.")
-        # Exiting the script
-    if len(sys.argv) > 3:
-        raise ValueError("Too many input files were supplied.")
+def parse_arguments(argv=None):
+    """
+    Read the arguments of the program, ending it with a usage line when they are wrong.
 
-    input_file_path = sys.argv[1]
-    input_file_dir = os.path.dirname(sys.argv[1])
-    input_file_name, ext = os.path.splitext(os.path.basename(sys.argv[1]))
-    # Obtaining the directory and the name of the input file
-    previous_mic_path = None
-    if len(sys.argv) == 3:
-        previous_mic_path = sys.argv[2]
-        check_loadable(previous_mic_path)
+    Parameters
+    ----------
+    argv: list
+        Arguments, taken from the command line when they are not given.
+
+    Returns
+    -------
+    argparse.Namespace
+        The arguments: *input_file*, the input data file, and *previous_mic*, the
+        microstructure file to post-process instead of generating, or None.
+    """
+    parser = argparse.ArgumentParser(
+        prog="geommicgen",
+        description="Generate a set of microstructures from an input data file, and "
+        "mesh and analyse each one as the file asks.",
+    )
+    parser.add_argument("input_file", help="input data file (.mdsim)")
+    parser.add_argument(
+        "previous_mic",
+        nargs="?",
+        help="a microstructure file generated earlier: it is meshed and analysed as "
+        "the input data file asks, and nothing is generated",
+    )
+    arguments = parser.parse_args(argv)
+    if arguments.previous_mic is not None:
+        try:
+            check_loadable(arguments.previous_mic)
+        except ValueError as error:
+            parser.error(str(error))
         # Refused while the arguments are read rather than once the run is under way,
         # by the same check that will do the loading
-    return input_file_path, input_file_dir, input_file_name, ext, previous_mic_path
+
+    return arguments
 
 
 def check_loadable(previous_mic_path):

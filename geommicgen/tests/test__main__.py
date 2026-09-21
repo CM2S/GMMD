@@ -2,6 +2,8 @@
 Unit tests regarding microstructure generation.
 The classes tested are the GenerationMethod class and the MolecularDynamicsSimulation class.
 """
+import contextlib
+import io
 import os
 import tempfile
 import unittest
@@ -16,25 +18,36 @@ import yaml
 from geommicgen.app import run_program
 
 
-@patch("sys.argv")
 class TestMainFromCommandLine(unittest.TestCase):
     """Class for the unit tests regarding the __main__ of the geommicgen package."""
 
-    def test_no_arguments(self, mock_sys_argv):
-        """Test if no argumemts raises the correct exception."""
+    def run_with(self, argv):
+        """Run the program with these arguments, giving what it printed to stderr."""
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit) as context:
+                run_program(argv)
+        self.assertEqual(context.exception.code, 2)
 
-        mock_sys_argv.__len__.return_value = 1
-        with self.assertRaises(ValueError):
+        return stderr.getvalue()
 
-            run_program()
+    def test_no_arguments(self):
+        self.assertIn("usage: geommicgen", self.run_with([]))
+        # A usage line and status 2, as the other commands give, where it used to be
+        # a traceback
 
-    def test_too_many_arguments(self, mock_sys_argv):
-        """Test if too many argumemts raises the correct exception."""
+    def test_too_many_arguments(self):
+        self.assertIn("unrecognized arguments", self.run_with(["a.mdsim", "b.yaml", "c"]))
 
-        mock_sys_argv.__len__.return_value = 4
-        with self.assertRaises(ValueError):
+    def test_help_is_help(self):
+        with contextlib.redirect_stdout(io.StringIO()) as stdout:
+            with self.assertRaises(SystemExit) as context:
+                run_program(["--help"])
+        self.assertEqual(context.exception.code, 0)
+        self.assertIn("previous_mic", stdout.getvalue())
+        # It used to be opened as the input data file, and to fail for not existing
 
-            run_program()
+    def test_a_previous_microstructure_of_the_wrong_kind_is_refused(self):
+        self.assertIn(".txt", self.run_with(["a.mdsim", "previous.txt"]))
 
     # @patch("microstructure.particleclasses.Disk")
     # @patch("microstructure.phase.FixedValue")
@@ -84,8 +97,7 @@ class TestFixedSeedAcrossSamples(unittest.TestCase):
         deck_path = os.path.join(self.temp_dir.name, name + ".mdsim")
         with open(deck_path, "w") as deck:
             deck.write(SEEDED_DECK)
-        with patch("sys.argv", ["geommicgen", deck_path]):
-            run_program()
+        run_program([deck_path])
         results_dir = os.path.join(self.temp_dir.name, name)
         documents = []
         for i_sample in range(2):
