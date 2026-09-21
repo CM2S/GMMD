@@ -10,6 +10,7 @@ Thermostat and SpeedUpScheme abstract classes to work.
 """
 
 from contextlib import contextmanager
+import itertools
 import time
 import numpy as np
 from scipy.stats import hmean
@@ -21,6 +22,34 @@ import geommicgen.iofuncs.printing as print_funcs
 from geommicgen.microstructure.particleclasses import Matrix
 from geommicgen.micgenmethod.microstructure_gen_method import GenerationMethod
 from geommicgen.micgenmethod.integration_methods import verlet_sync_integration
+
+
+def grid_side(n_particles, dim):
+    """
+    Number of cells per side of the smallest cubic grid with a cell per particle.
+
+    Parameters
+    ----------
+    n_particles: int
+        Number of particles to place.
+
+    dim: int
+        Number of spatial dimensions.
+
+    Returns
+    -------
+    int
+        Number of cells along each side.
+    """
+    side = max(1, int(round(n_particles ** (1 / dim))))
+    while side**dim < n_particles:
+        side += 1
+    while side > 1 and (side - 1) ** dim >= n_particles:
+        side -= 1
+    # Settled on the integer rather than on the float root, which rounds 27 ** (1/3) to
+    # a hair over three and would take four cells a side for twenty-seven particles
+
+    return side
 
 
 class MolecularDynamicsSimulation(GenerationMethod):
@@ -394,75 +423,35 @@ class MolecularDynamicsSimulation(GenerationMethod):
             # Particles randomly assigned to a place in a grid constructed to have an equal
             # number of cells in each direction and a total number of cells larger than the
             # number of particles
-            if particles[0].dim == 3:
-                # n_cells_side = int(np.ceil(np.cbrt(len(particles))))
-                n_cells_side = 6
-                # Number of cells in each direction
-                cell_length = np.array(self.box) / n_cells_side
-                # Length of the cells in each direction
-                k_counter = 0
-                # Initializing the counter
-                grid_places = np.arange(n_cells_side**3)
-                # Label of each grid place
-                np.random.shuffle(grid_places)
-                # Distributing the particles randomly to different cells of the grid
-                for x_cell, y_cell, z_cell in (
-                    (x_cell, y_cell, z_cell)
-                    for x_cell in range(n_cells_side)
-                    for y_cell in range(n_cells_side)
-                    for z_cell in range(n_cells_side)
-                ):
-                    if grid_places[k_counter] < len(particles):
-                        particles[grid_places[k_counter]].position_center = np.array(
-                            [
-                                x_cell * cell_length[0] + cell_length[0] / 2,
-                                y_cell * cell_length[1] + cell_length[1] / 2,
-                                z_cell * cell_length[2] + cell_length[2] / 2,
-                            ]
-                        )
-
-                        # Generating the positions from a random uniform
-                        # distribution between
-                        self.particle_velocities[grid_places[k_counter]] = (
-                            np.random.uniform(low=-0.1, high=0.1, size=3)
-                        )
-                        self.position_center_history[grid_places[k_counter]][0] = (
-                            particles[grid_places[k_counter]].position_center
-                        )
-                        # Saving particle history
-                    k_counter += 1
-            elif particles[0].dim == 2:
-                n_cells_side = int(np.ceil(np.sqrt(len(particles))))
-                # Number of cells in each direction
-                cell_length = self.box / n_cells_side
-                # Length of the cells in each direction
-                k_counter = 0
-                # Initializing the counter
-                grid_places = np.arange(n_cells_side**2)
-                # Label of each grid place
-                np.random.shuffle(grid_places)
-                # Distributing the particles randomly to different cells of the grid
-                for x_cell, y_cell in (
-                    (x_cell, y_cell)
-                    for x_cell in range(n_cells_side)
-                    for y_cell in range(n_cells_side)
-                ):
-                    if grid_places[k_counter] < len(particles):
-                        particles[grid_places[k_counter]].position_center = np.array(
-                            [
-                                x_cell * cell_length[0] + cell_length[0] / 2,
-                                y_cell * cell_length[1] + cell_length[1] / 2,
-                            ]
-                        )
-                        # Generating the positions from a random uniform distribution
-                        self.particle_velocities = np.random.uniform(
-                            low=-0.1, high=0.1, size=2
-                        )
-                        self.position_center_history[grid_places[k_counter]][0] = (
-                            particles[grid_places[k_counter]].position_center
-                        )
-                    # # Saving particle history
-                    k_counter += 1
+            dim = particles[0].dim
+            n_cells_side = grid_side(len(particles), dim)
+            # Number of cells in each direction
+            cell_length = np.array(self.box, dtype=float) / n_cells_side
+            # Length of the cells in each direction
+            grid_places = np.arange(n_cells_side**dim)
+            # Label of each grid place
+            np.random.shuffle(grid_places)
+            # Distributing the particles randomly to different cells of the grid
+            for k_counter, k_cell in enumerate(
+                itertools.product(range(n_cells_side), repeat=dim)
+            ):
+                i_particle = grid_places[k_counter]
+                if i_particle < len(particles):
+                    particles[i_particle].position_center = (
+                        np.array(k_cell) + 0.5
+                    ) * cell_length
+                    self.particle_velocities[i_particle] = np.random.uniform(
+                        low=-0.1, high=0.1, size=dim
+                    )
+                    self.position_center_history[i_particle][0] = particles[
+                        i_particle
+                    ].position_center
+                    # Placing the particle at the centre of its cell, with a small
+                    # random velocity, and saving where it started
+            # Written once for both dimensions. The three dimensional version had the
+            # number of cells per side fixed at six, so a run of more than 216 particles
+            # left the rest with no position at all; the two dimensional one divided the
+            # box, a list, by an integer, and gave every particle the one velocity
         elif self.type_init_conf == "bcc":
             step = self.box[0] / 4
             ind_part = 0

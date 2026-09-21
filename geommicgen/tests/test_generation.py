@@ -14,6 +14,7 @@ from geommicgen.micgenmethod.microstructure_gen_method import (
 )
 from geommicgen.micgenmethod.molecular_dynamics_sim import (
     MolecularDynamicsSimulation,
+    grid_side,
 )
 from geommicgen.micgenmethod.speed_up_schemes import Naive
 from geommicgen.micgenmethod.thermostats import MultiTemperatureIsokineticThermostat
@@ -231,12 +232,17 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
             *self.md_init_mock_kwargs.values()
         )
         particles = [Mock(dim=2) for _ in range(10)]
-        current_generation_method.box = np.array([0.5, 2.0])
+        current_generation_method.box = [0.5, 2.0]
         current_generation_method.type_init_conf = "grid"
         current_generation_method.generate_initial_configuration(
             particles,
         )
-        self.assertTrue(any(current_generation_method.particle_velocities != 0))
+        velocities = current_generation_method.particle_velocities
+        self.assertEqual(len(velocities), len(particles))
+        self.assertTrue(all(np.any(i_velocity != 0) for i_velocity in velocities))
+        # The box is the list set_box makes it, which the grid used to divide by an
+        # integer; and every particle has a velocity of its own, where the grid used to
+        # leave one velocity in place of the list of them
 
     def test_generate_initial_configuration_velocities_grid_3d(self):
         """Check if any of the particles for a grid configuration in 3D has non-zero
@@ -308,6 +314,49 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
                     == particle.position_center
                 )
             )
+
+
+class TestGridInitialConfiguration(unittest.TestCase):
+    """Test class for the initial configuration that places the particles on a grid."""
+
+    def place(self, n_particles, dim):
+        """Place mock particles on a grid in a unit box."""
+        generator = MolecularDynamicsSimulation(0.0, 10, 5, 1e-3, 0.0, "grid", True)
+        particles = [Mock(dim=dim, position_center=None) for _ in range(n_particles)]
+        generator.box = [1.0] * dim
+        generator.generate_initial_configuration(particles)
+
+        return particles
+
+    def test_every_particle_is_placed(self):
+        for i_dim, i_count in ((2, 10), (3, 273), (3, 8), (2, 1)):
+            with self.subTest(dim=i_dim, n_particles=i_count):
+                particles = self.place(i_count, i_dim)
+                self.assertTrue(
+                    all(i_particle.position_center is not None for i_particle in particles)
+                )
+        # 273 is the three dimensional example deck, which used to leave 57 of them with
+        # no position because the grid was fixed at six cells a side
+
+    def test_the_particles_are_at_the_centres_of_distinct_cells(self):
+        particles = self.place(27, 3)
+        centres = {tuple(np.round(i_particle.position_center, 12)) for i_particle in particles}
+        self.assertEqual(len(centres), 27)
+        side = grid_side(27, 3)
+        self.assertEqual(side, 3)
+        self.assertTrue(
+            all(
+                np.allclose((np.array(i_centre) * side) % 1, 0.5)
+                for i_centre in centres
+            )
+        )
+        # Twenty-seven particles fit a three-by-three-by-three grid exactly; the float
+        # cube root of 27 is a hair over three and used to ask for four
+
+    def test_the_grid_is_the_smallest_that_fits(self):
+        for i_dim, i_count, i_side in ((2, 10, 4), (2, 16, 4), (2, 17, 5), (3, 8, 2), (3, 9, 3), (3, 216, 6), (3, 217, 7), (2, 1, 1)):
+            with self.subTest(dim=i_dim, n_particles=i_count):
+                self.assertEqual(grid_side(i_count, i_dim), i_side)
 
 
 class TestFixedSeed(unittest.TestCase):
