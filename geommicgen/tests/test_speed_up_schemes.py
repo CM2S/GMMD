@@ -13,7 +13,6 @@ from geommicgen.micgenmethod.speed_up_schemes import (
     Naive,
     SpeedUpScheme,
     VerletList,
-    VerletPartialUpdate,
     speed_up_scheme_from_options,
 )
 from geommicgen.microstructure.particleclasses import Ellipse, Disk
@@ -32,12 +31,7 @@ class TestSpeedUpSchemeFromOptions(unittest.TestCase):
     """Test class for the scheme built from the generation parameters of a deck."""
 
     def test_each_scheme_is_built_under_its_name(self):
-        expected = {
-            "Cell": CellList,
-            "Naive": Naive,
-            "Verlet": VerletList,
-            "Verlet2": VerletPartialUpdate,
-        }
+        expected = {"Cell": CellList, "Naive": Naive, "Verlet": VerletList}
         self.assertEqual(set(expected), set(SPEED_UP_SCHEMES))
         for i_name, i_class in expected.items():
             with self.subTest(scheme=i_name):
@@ -45,30 +39,28 @@ class TestSpeedUpSchemeFromOptions(unittest.TestCase):
                     {"speed_up_scheme": i_name, "verlet_factor": 1.1}
                 )
                 self.assertIsInstance(scheme, i_class)
-        self.assertNotIsInstance(
-            speed_up_scheme_from_options({"speed_up_scheme": "Verlet", "verlet_factor": 1.1}),
-            VerletPartialUpdate,
-        )
-        # The partial update derives from the Verlet list, so the plain one is checked
-        # not to be the other
 
     def test_the_cell_list_is_the_default(self):
         self.assertIsInstance(speed_up_scheme_from_options({}), CellList)
 
     def test_a_verlet_list_needs_its_factor(self):
-        for i_name in ("Verlet", "Verlet2"):
-            with self.subTest(scheme=i_name):
-                with self.assertRaises(ValueError) as context:
-                    speed_up_scheme_from_options({"speed_up_scheme": i_name})
-                self.assertIn("verlet_factor", str(context.exception))
+        with self.assertRaises(ValueError) as context:
+            speed_up_scheme_from_options({"speed_up_scheme": "Verlet"})
+        self.assertIn("verlet_factor", str(context.exception))
 
     def test_an_unknown_scheme_is_refused(self):
         with self.assertRaises(ValueError) as context:
             speed_up_scheme_from_options({"speed_up_scheme": "cell"})
         self.assertIn("cell", str(context.exception))
-        self.assertIn("Verlet2", str(context.exception))
+        self.assertIn("Verlet", str(context.exception))
         # It used to be given the cell list without a word, which a lower case name
         # is at least as likely to have been as a choice
+
+    def test_the_partial_update_is_no_longer_offered(self):
+        with self.assertRaises(ValueError):
+            speed_up_scheme_from_options({"speed_up_scheme": "Verlet2", "verlet_factor": 1.1})
+        # It was accepted and failed on the first force computation, calling a method
+        # that did not exist
 
 
 class TestSpeedUpScheme(unittest.TestCase):

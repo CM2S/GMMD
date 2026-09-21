@@ -542,106 +542,6 @@ class VerletList:
         )
 
 
-class VerletPartialUpdate(VerletList):
-    """Class for the Verlet list with partial update (currently not working)."""
-
-    def new_list(self, particles):
-        """
-        Compute a new verlet list for particles.
-
-        Parameters
-        ----------
-        particles: list(`.Particle`)
-            Particles in the simulatin box, whose cell list is to be computed.
-        """
-        if self.verlet_neighborhoods is None:
-            self.a_new_verlet_list_has_to_be_computed = True
-            self.verlet_neighborhoods = deepcopy(particles)
-            self.particle_list = [[] for _ in particles]
-            # Resetting the Verlet list of
-            for i_particle_index, i_particle in enumerate(particles):
-                self.verlet_neighborhoods[i_particle_index].dilate(
-                    (self.verlet_factor - 1) * particles[i_particle_index].radius
-                )
-            self.verlet_neighborhoods_move = deepcopy(particles)
-            for i_particle_index, i_particle in enumerate(particles):
-                self.verlet_neighborhoods_move[i_particle_index].contract(
-                    (2 - self.verlet_factor) * particles[i_particle_index].radius
-                )
-            lists_to_recalc = set(particles)
-            lists_to_recalc_ind = set(range(len(particles)))
-            # Initializing the displacement_last_verlet
-        else:
-            lists_to_recalc = set()
-            lists_to_recalc_ind = set()
-            # Possible Verlet lists to recalculate
-            for i_particle_index, i_particle in enumerate(particles):
-                # Computing the displacement of the center of the particle
-                if not self.verlet_neighborhoods_move[i_particle_index].point_inside(
-                    i_particle.position_center, self.box
-                ):
-                    # if (
-                    #     i_particle.intersection(
-                    #         self.verlet_neighborhoods[i_particle_index],
-                    #         self.box,
-                    #         inside=False,
-                    #     )
-                    #     or not self.verlet_neighborhoods[i_particle_index].point_inside(
-                    #         i_particle.position_center, self.box
-                    #     )
-                    # ):
-                    # Checking if the displacement takes the particle out of its
-                    # neighborhood
-                    self.a_new_verlet_list_has_to_be_computed = True
-                    # There is a need to compute a new verlet list
-                    lists_to_recalc.add(i_particle)
-                    lists_to_recalc_ind.add(i_particle_index)
-        if self.a_new_verlet_list_has_to_be_computed:
-            self.a_new_verlet_list_has_to_be_computed = False
-            # old_verlet_fac = self.verlet_factor
-            # self.verlet_factor = np.max([1.05, old_verlet_fac * 0.95])
-            # print(self.verlet_factor, "verlet\n\n")
-            # if old_verlet_fac != self.verlet_factor:
-            #     for i_particle_index, i_particle in enumerate(particles):
-            #         self.verlet_neighborhoods[i_particle_index].contract(
-            #             (old_verlet_fac - self.verlet_factor)
-            #             * particles[i_particle_index].radius
-            #         )
-
-            for i_particle_index, i_particle in enumerate(particles):
-                if i_particle not in lists_to_recalc:
-                    continue
-                # Running though all the particles
-                self.verlet_neighborhoods[i_particle_index].position_center = (
-                    i_particle.position_center
-                )
-                self.verlet_neighborhoods_move[i_particle_index].position_center = (
-                    i_particle.position_center
-                )
-                # Updating the position of all the Verlet neighborhoods to coincide with
-                # the particles current position
-            super().new_list_partial(particles, lists_to_recalc)
-            # print(self.cell_particle_list)
-            # Creating the cell list used to compute the Verlet list
-            for i_particle_index, i_particle in enumerate(particles):
-                # Running though all the particles
-                if i_particle not in lists_to_recalc:
-                    continue
-                self.particle_list[i_particle_index] = []
-                for j_particle_index in self.cell_particle_list[i_particle_index]:
-                    # Running through all the particles in the neighboring cell
-                    if self.verlet_neighborhoods[i_particle_index].intersection(
-                        self.verlet_neighborhoods[j_particle_index],
-                        self.box,
-                    ):
-                        # If the neighborhoods of the particles intersect
-                        self.particle_list[i_particle_index].append(j_particle_index)
-                        self.particle_list[j_particle_index].append(i_particle_index)
-                        # Add the particle j_particle to i_particle's Verlet list
-                    elif i_particle_index in self.particle_list[j_particle_index]:
-                        self.particle_list[j_particle_index].remove(i_particle_index)
-
-
 class Naive(SpeedUpScheme):
     """
     Class for the verlet list used to speed up force computation.
@@ -673,8 +573,10 @@ class Naive(SpeedUpScheme):
         self.particle_list = [list(range(len(particles))) for _ in particles]
 
 
-SPEED_UP_SCHEMES = ("Cell", "Verlet", "Verlet2", "Naive")
-# The speed up schemes an input data file can ask for, under the names it asks with
+SPEED_UP_SCHEMES = ("Cell", "Verlet", "Naive")
+# The speed up schemes an input data file can ask for, under the names it asks with. A
+# Verlet list with partial update, Verlet2, was offered as well and had never worked:
+# it called a method that did not exist on the first force computation
 
 
 def speed_up_scheme_from_options(options):
@@ -702,14 +604,13 @@ def speed_up_scheme_from_options(options):
         return CellList()
     if name == "Naive":
         return Naive()
-    if name in ("Verlet", "Verlet2"):
+    if name == "Verlet":
         if "verlet_factor" not in options:
             raise ValueError(
-                "The input data file does not give verlet_factor, which the {0} speed "
-                "up scheme needs.".format(name)
+                "The input data file does not give verlet_factor, which the Verlet "
+                "speed up scheme needs."
             )
-        scheme = VerletList if name == "Verlet" else VerletPartialUpdate
-        return scheme(options["verlet_factor"])
+        return VerletList(options["verlet_factor"])
     raise ValueError(
         "{0} is not a speed up scheme. The available options are {1}.".format(
             name, ", ".join(SPEED_UP_SCHEMES)
