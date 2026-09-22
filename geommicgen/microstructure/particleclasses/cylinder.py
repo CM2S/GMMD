@@ -124,19 +124,19 @@ class Cylinder(Particle):
         self.rot_mat = np.array(
             [
                 [
-                    np.sin(self.polar_angle) * np.cos(self.azimuth_angle),
-                    np.sin(self.polar_angle) * np.sin(self.azimuth_angle),
-                    np.cos(self.polar_angle),
-                ],
-                [
                     np.cos(self.polar_angle) * np.cos(self.azimuth_angle),
-                    np.cos(self.polar_angle) * np.sin(self.azimuth_angle),
-                    -np.sin(self.polar_angle),
+                    -np.sin(self.azimuth_angle),
+                    np.sin(self.polar_angle) * np.cos(self.azimuth_angle),
                 ],
                 [
-                    -np.sin(self.azimuth_angle),
+                    np.cos(self.polar_angle) * np.sin(self.azimuth_angle),
                     np.cos(self.azimuth_angle),
+                    np.sin(self.polar_angle) * np.sin(self.azimuth_angle),
+                ],
+                [
+                    -np.sin(self.polar_angle),
                     0,
+                    np.cos(self.polar_angle),
                 ],
             ]
         )
