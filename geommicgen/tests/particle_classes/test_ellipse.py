@@ -625,8 +625,9 @@ class TestEllipseIntersectionLength(unittest.TestCase):
         with self.subTest("Test ellipse intersection not"):
             self.ellipse_1.position_center = np.array([0.8, 0.9])
             self.ellipse_2.position_center = np.array([0.1, 0.2])
-            intersection = self.ellipse_1.intersection(self.ellipse_2, self.rve_dims)
-            self.assertTrue(not intersection)
+            intersection_length, unit_vector = self.ellipse_1.intersection_length(self.ellipse_2, self.rve_dims)
+            self.assertEqual(intersection_length, 0)
+            np.testing.assert_allclose(unit_vector, np.array([0,0]))
 
         with self.subTest("Test ellipse intersection 2 pts"):
             self.ellipse_1.position_center = np.array([0.4, 0.5])
@@ -666,7 +667,7 @@ class TestEllipseIntersectionLength(unittest.TestCase):
         (
             intersection_length,
             unit_vector,
-        ) = ellipse_1.intersection_length_mink_diff(ellipse_2, rve_dims)
+        ) = ellipse_1.intersection_length(ellipse_2, rve_dims)
         ellipse_2.position_center += intersection_length * unit_vector
         intersection = ellipse_1.intersection_gjk(ellipse_2, rve_dims)
         self.assertTrue(not intersection)

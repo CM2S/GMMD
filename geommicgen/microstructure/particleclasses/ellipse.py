@@ -601,7 +601,7 @@ class Ellipse(Particle):
 
     def intersection(self, other_particle: Particle, box: list) -> bool:
         """Check this ellipses intersects the other particle."""
-        if isinstance(other_particle, Ellipse) and False:
+        if isinstance(other_particle, Ellipse):
             other_particle: Ellipse
             intersection_bool = self.intersection_ellipse_ellipse(other_particle, box)
         else:
@@ -740,11 +740,12 @@ class Ellipse(Particle):
             Method used for the intersection length computation. Exact or approximate.
         """
         dist_met = kwargs.get("dist_met", "dist_exact")
-        if True:
-            intersection = self.intersection_gjk(other_particle, box)
-        elif isinstance(other_particle, Ellipse):
+
+        if isinstance(other_particle, Ellipse):
             other_particle: Ellipse
             intersection = self.intersection_ellipse_ellipse(other_particle, box)
+        else:
+            intersection = self.intersection_gjk(other_particle, box)
         if intersection:
             intersection_length, unit_vector = self.intersection_length_mink_diff(
                 other_particle, box, dist_met=dist_met
