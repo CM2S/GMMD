@@ -17,6 +17,9 @@ import numpy as np
 from geommicgen.iofuncs.convert_mic import convert_mic_command
 from geommicgen.iofuncs.file_handling import (
     MIC_FILE_NAME,
+    create_design_point_results_directory,
+    create_sample_results_directory,
+    first_free_directory,
     load_previous_sample,
     save_mic,
     save_status,
@@ -130,6 +133,43 @@ class MDStateTest(unittest.TestCase):
     def test_no_state_file(self):
         """A microstructure with no state beside it reads back as no state."""
         self.assertIsNone(load_md_state(os.path.join(self.state_dir, STATE_FILE_NAME)))
+
+
+class ResultsDirectoryTest(unittest.TestCase):
+    """Test class for the directories a run writes into, which are never reused."""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_dir.cleanup)
+        self.base = os.path.join(self.temp_dir.name, "deck")
+
+    def test_the_deck_directory_is_numbered_once_taken(self):
+        self.assertEqual(
+            create_design_point_results_directory(self.temp_dir.name, "deck"), self.base
+        )
+        self.assertEqual(
+            create_design_point_results_directory(self.temp_dir.name, "deck"),
+            self.base + "_1",
+        )
+        self.assertEqual(
+            create_design_point_results_directory(self.temp_dir.name, "deck"),
+            self.base + "_2",
+        )
+        for i_path in (self.base, self.base + "_1", self.base + "_2"):
+            self.assertTrue(os.path.isdir(i_path))
+        # A second run of the same deck beside the first does not write over it
+
+    def test_the_samples_count_from_zero(self):
+        self.assertEqual(
+            [create_sample_results_directory(self.base) for _ in range(3)],
+            [os.path.join(self.base, "mic_{0}".format(i)) for i in range(3)],
+        )
+
+    def test_a_gap_in_the_series_is_filled(self):
+        os.makedirs(self.base + "_1")
+        self.assertEqual(first_free_directory(self.base), self.base)
+        self.assertEqual(first_free_directory(self.base), self.base + "_2")
+        # The first name still free, so a directory removed by hand is used again
 
 
 class SaveMicTest(unittest.TestCase):

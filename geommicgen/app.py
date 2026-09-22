@@ -84,9 +84,7 @@ def run_program(argv=None):
         # Each sample of a seeded run gets a seed of its own, the deck's plus its
         # index, so the samples differ from each other and each is the same in
         # every run -- one seed for all of them made every sample the same
-        sample_dir, sample_file_path = fileio.create_sample_results_directory(
-            results_folder
-        )
+        sample_dir = fileio.create_sample_results_directory(results_folder)
         # Producing the number of samples required
 
         print_funcs.screen_to(sample_dir)

@@ -212,7 +212,7 @@ geommicgen-convert-mic mic_0/mic.mic
 
 ## Output
 
-Running GMMD on an input data file, say `input_data_file.mdsim`, creates a folder of the same name beside it holding a copy of the file and a folder `mic_*` for each microstructure generated:
+Running GMMD on an input data file, say `input_data_file.mdsim`, creates a folder of the same name beside it holding a copy of the file and a folder `mic_*` for each microstructure generated. A run never writes over an earlier one: a second run of the same file goes into `input_data_file_1/`, a third into `input_data_file_2/`.
 
 ```
 input_data_file/

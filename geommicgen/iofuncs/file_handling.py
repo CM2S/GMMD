@@ -24,36 +24,51 @@ MIC_FILE_NAME = "mic.yaml"
 MIC_EXTENSIONS = {".yaml", ".yml"}
 
 
+def first_free_directory(base, start=None):
+    """
+    Create the first directory of a numbered series that does not exist yet.
+
+    Parameters
+    ----------
+    base: str
+        Path the series is named after.
+
+    start: int
+        Number of the first name tried, appended to *base* with an underscore. None
+        tries *base* itself first, then numbers it from 1.
+
+    Returns
+    -------
+    str
+        Path of the directory created.
+    """
+    candidate = base if start is None else "{0}_{1}".format(base, start)
+    number = 1 if start is None else start + 1
+    while os.path.exists(candidate):
+        candidate = "{0}_{1}".format(base, number)
+        number += 1
+    os.makedirs(candidate)
+    # A run never writes over an earlier one: the deck's directory and each sample's
+    # are the first name in their series that is still free
+
+    return candidate
+
+
 def create_sample_results_directory(dp_dir):
     """
-    Create the results directory.
+    Create the directory of the next sample, mic_0, mic_1, ...
 
     Parameters
     ----------
     dp_dir: string
         Directory where the results are going to be stored.
-    """
-    results_folder = os.path.join(dp_dir, "mic")
-    # Creating a tentative path for the results folder
-    results_folder_old = results_folder
-    # Saving the original name of the results folder
-    i = 0
-    # Initializing the filename suffix
-    while True:
-        results_folder = "{0}_{1}".format(results_folder_old, i)
-        # Creating a new folder name appending an integer to the name of the original
-        # folder
-        i += 1
-        # Increasing the filenam suffix
-        if not os.path.exists(results_folder):
-            # Repeat while the folder names already exists
-            break
-    os.makedirs(results_folder)
-    # Creating the directory
-    file_path = os.path.join(results_folder, "mic")
-    # Saving the file path in the Particle class
 
-    return results_folder, file_path
+    Returns
+    -------
+    str
+        Path of the directory created.
+    """
+    return first_free_directory(os.path.join(dp_dir, "mic"), start=0)
 
 
 def copy_input_file(input_file_path, results_folder):
@@ -66,7 +81,7 @@ def create_design_point_results_directory(
     input_file_dir: str, input_file_name: str
 ) -> str:
     """
-    Create the results directory.
+    Create the results directory of a deck, named after it and beside it.
 
     Parameters
     ----------
@@ -74,34 +89,15 @@ def create_design_point_results_directory(
         Directory where the results are going to be stored.
 
     input_file_name: str
-        Name of the input file.
+        Name of the input file, without its extension.
 
     Returns
     -------
     results_folder: str
-        Directory created to stored the results with same name as the input file.
+        Directory created: the name of the input file, or that name numbered from 1
+        when a run has already used it.
     """
-    results_folder = os.path.join(input_file_dir, input_file_name)
-    # Creating a tentative path for the results folder
-    results_folder_old = results_folder
-    # Saving the original name of the results folder
-    i = 0
-    # Initializing the filename suffix
-    results_folder = results_folder_old
-    # Creating a new folder name appending an integer to the name of the original
-    while True:
-        # folder
-        i += 1
-        # Increasing the filenam suffix
-        if not os.path.exists(results_folder):
-            # Repeat while the folder names already exists
-            break
-        results_folder = "{0}_{1}".format(results_folder_old, i)
-        # Creating a new folder name appending an integer to the name of the original
-    os.makedirs(results_folder)
-    # Creating the directory
-
-    return results_folder
+    return first_free_directory(os.path.join(input_file_dir, input_file_name))
 
 
 def parse_arguments(argv=None):
