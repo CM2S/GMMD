@@ -1,3 +1,5 @@
+import contextlib
+import io
 import os
 import sys
 import tempfile
@@ -505,6 +507,53 @@ class TestCrateWriter(unittest.TestCase):
             get_writer("crate")().write(
                 unstructured, os.path.join(self.temp_dir.name, "g.rgmsh")
             )
+
+
+class TestWriterContract(unittest.TestCase):
+    """Test class holding every registered writer to what a job needs of it."""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_dir.cleanup)
+        phase_grid = np.ones((3, 3), dtype=int)
+        phase_grid[1, 1] = 2
+        self.mesh = structured_mesh((3, 3), [1.0, 1.0], phase_grid)
+        # A grid, so that the writers of a grid and the writers of cells both have
+        # what they need; the cells are built on demand
+
+    def test_every_writer_declares_itself(self):
+        for i_name in available_writers():
+            with self.subTest(writer=i_name):
+                writer_class = get_writer(i_name)
+                self.assertEqual(writer_class.name, i_name)
+                self.assertTrue(writer_class.extension.startswith("."))
+                self.assertIsInstance(writer_class.options, dict)
+                for j_name, j_description in writer_class.options.items():
+                    self.assertIn("type", j_description, j_name)
+                    self.assertIn("help", j_description, j_name)
+
+    def test_every_writer_writes_what_it_says_it_wrote(self):
+        for i_name in available_writers():
+            with self.subTest(writer=i_name):
+                writer = get_writer(i_name).from_options({})
+                package = getattr(writer, "requires_package", None)
+                if package is not None and not has_package(package):
+                    continue
+                base_path = os.path.join(self.temp_dir.name, "mesh_" + i_name)
+                with contextlib.redirect_stdout(io.StringIO()) as printed:
+                    written = writer.write(self.mesh, base_path + writer.extension)
+                self.assertEqual(printed.getvalue(), "")
+                self.assertIsInstance(written, list)
+                self.assertTrue(written)
+                for j_path in written:
+                    self.assertTrue(os.path.isfile(j_path), j_path)
+                    self.assertGreater(os.path.getsize(j_path), 0, j_path)
+                self.assertTrue(
+                    any(j_path.startswith(base_path) for j_path in written), written
+                )
+        # The requirements listed under "Adding a writer" in the base module: a file
+        # under the name given, every file written reported, nothing printed. The
+        # formats needing a library that is not installed are left out
 
 
 class TestMeshioWriters(unittest.TestCase):

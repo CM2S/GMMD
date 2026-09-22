@@ -5,6 +5,33 @@ A solver writer takes a `.Mesh` and writes it in the format one solver reads. Th
 writers are kept in a registry so that a new one becomes available to the command line
 and to the input file by being registered, without any other part of the package having
 to know about it.
+
+Adding a writer
+---------------
+Subclass `.SolverWriter`, decorate it with `register_writer`, and import its module in
+`geommicgen.translators`; a writer whose library is heavy registers through
+`register_loader` instead, as the meshio formats do, so that the import is paid only
+when a format is looked up. It needs:
+
+- ``name``, the word a deck and ``--to`` ask for it by, and ``extension``, put on the
+  base name a job or the command line hands it.
+- What it needs of a mesh, declared rather than checked: ``needs_grid`` for a format
+  read off the grid of a structured mesh, ``needs_cells`` False for one that never
+  asks for the cells, ``requires_periodic`` when the solver pairs the nodes of
+  opposite faces. `write` refuses a mesh that does not meet them before `_write` is
+  called, so a writer holds no such check of its own.
+- ``options`` and `from_options` when the format is configurable, declared the way a
+  mesher declares them; a writer takes from the options what it understands and
+  ignores the rest, since every writer of a discretisation is handed the same ones.
+- `_write`, which writes the mesh to the path it is given and returns the paths of
+  every file it wrote, the example decks included. It reads the mesh through
+  `Mesh.phase_blocks`, `Mesh.points`, `Mesh.cells` and `Mesh.to_meshio`; the cells
+  come in VTK order, and a solver that numbers nodes otherwise reorders them as
+  `geommicgen.translators.reorder` does for LINKS. It writes over what is there,
+  raises on what it cannot write, and prints nothing.
+
+`geommicgen.tests.test_translators` runs every registered writer on a small mesh
+against these requirements.
 """
 
 import abc
