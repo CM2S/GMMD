@@ -186,28 +186,9 @@ class TestEllipseIntersectionArea(unittest.TestCase):
         with self.subTest("Test intersection area"):
             self.assertEqual( self.ellipse_1.intersection_area(self.ellipse_2,[1,1]), 0 )
 
-    def test_not_intersecting_1_point_in_common(self):
-        self.rve_dims = [1.0, 1.0]
 
-        ellipse_1 = Ellipse(
-            "1", {"major_axis": 0.3, "minor_axis": 0.2, "angle": 0}, self.rve_dims
-        )
-        ellipse_1.position_center = np.array([0.6, 0.2])
-        ellipse_2 = Ellipse(
-            "1",
-            {"major_axis": 0.3, "minor_axis": 0.1, "angle": 0},
-            self.rve_dims,
-        )
-        ellipse_2.position_center = np.array([0.3, 0.2])
-
-        with self.subTest("Test intersection check"):
-            self.assertTrue(not ellipse_1.intersection(ellipse_2, self.rve_dims))
-
-        with self.subTest("Test intersection area"):
-            self.assertEqual( ellipse_1.intersection_area(ellipse_2,[1,1]), 0 )
-
-    @unittest.skip("Exact tangency is numerically unstable in intersection_points_ellipses, and thus the case of there being only one intersection point does not happen. In this example, intersection_points_ellipses returns 0 points.")
-    def test_not_intersecting_1_point_in_common(self):
+    def test_not_intersecting_tangent(self):
+        # The ellipses are tangent.
         self.rve_dims = [1.0, 1.0]
 
         self.ellipse_1 = Ellipse(
@@ -226,6 +207,7 @@ class TestEllipseIntersectionArea(unittest.TestCase):
 
         with self.subTest("Test intersection area"):
             self.assertEqual( self.ellipse_1.intersection_area(self.ellipse_2,[1,1]), 0 )
+            
 
     def test_ellipse_inside_other_ellipse_1(self):
         " Ellipse 1 is bigger than ellipse 2"
@@ -269,7 +251,6 @@ class TestEllipseIntersectionArea(unittest.TestCase):
         with self.subTest("Test intersection area"):
             self.assertEqual( self.ellipse_1.intersection_area(self.ellipse_2,[1,1]), np.pi*0.1*0.05 )
 
-    @unittest.skip("Exact tangency is numerically unstable in intersection_points_ellipses, and thus the case of there being only one intersection point does not happen. In this example, intersection_points_ellipses returns 2 points. Moreover, the area obtained is not as expected.")
     def test_ellipse_inside_other_ellipse_3(self):
         " Ellipse 1 and 2 are tangent"
         self.rve_dims = [1.0, 1.0]
