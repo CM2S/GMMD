@@ -5,9 +5,9 @@ A `.MeshJob` holds the mesher that produces a mesh and the writers the mesh is t
 handed to, and runs them together, so that this is the one place a mesh passes from
 the second stage to the third. The meshers and the writers know nothing of each other,
 and nothing of the input file: an input data file asks for a discretisation by naming
-it, femsh for a finite element mesh and rgmsh for a regular grid, and `build_mesh_jobs`
-turns that request into the jobs; the command line builds the same jobs from its
-arguments.
+the mesher that produces it, gmsh or voxel, and `build_mesh_jobs` turns that request
+into the jobs; the command line builds the same jobs from its arguments. A mesher that
+is registered can be named by either without this module knowing it.
 
 Everything the input file can get wrong is settled while it is being read: the mesher
 and every writer are resolved before the first sample is generated, so a name that does
@@ -23,10 +23,6 @@ import traceback
 from geommicgen.meshing.mesher import get_mesher
 from geommicgen.meshing.writers import standard_mesh_path, write_standard_mesh
 from geommicgen.translators.base import get_writer
-
-DECK_MESHERS = {"femsh": "gmsh", "rgmsh": "voxel"}
-# Correspondence between the discretisations an input data file names and the meshers
-# registered to produce them
 
 MESH_DIRECTORY = "meshes"
 # Directory of a sample the meshes are written into
@@ -327,8 +323,7 @@ def build_mesh_jobs(mesh_options, deck_name=None):
     Parameters
     ----------
     mesh_options: dict
-        Mesh options read from the input data file, keyed by the name of the
-        discretisation.
+        Mesh options read from the input data file, keyed by the name of the mesher.
 
     deck_name: str
         Name of the input data file, used to name the files of a job.
@@ -346,9 +341,7 @@ def build_mesh_jobs(mesh_options, deck_name=None):
     """
     jobs = []
     for i_name, i_options in mesh_options.items():
-        if i_name not in DECK_MESHERS:
-            raise ValueError("Specified mesh {0} is not supported.".format(i_name))
-        mesher_class = get_mesher(DECK_MESHERS[i_name])
+        mesher_class = get_mesher(i_name)
         meshers = mesher_class.from_options(i_options)
         writers = writers_from_options(i_options, mesher_class.default_formats)
         # The mesher takes from the options what it declares, and so does each writer,

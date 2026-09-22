@@ -286,26 +286,29 @@
 
 #                                                                           Mesh options [O]
 # ==========================================================================================
-# Meaning:   Mesh options.
+# Meaning:   The meshes to produce of each sample, each under the name of the mesher
+#            that produces it, with the options of that mesher below it.
 #
 # Syntax:    Mesh_Options
-#            Mesh_Type mesh_type_1
+#            mesher_1
 #            mesh_option_1 y
 #            mesh_option_2 y
-#            Mesh_Type mesh_type_2
+#            mesher_2
 #            mesh_option_1 y
 #            mesh_option_2 y
 #
-# mesh_type_X:  {'rgmsh','femsh'}
-#               'rgmsh' - Regular grid mesh. A given voxel is set to the phase to which its
-#                       center point belongs.
-#               'femsh' - Finite element mesh. Generated using gmsh.
+# mesher_X:     {'voxel', 'gmsh'}
+#               'voxel' - Regular grid. Each voxel is set to the phase its centre point
+#                         belongs to.
+#               'gmsh'  - Finite element mesh conforming to the particles, made with Gmsh.
+#               Each mesher is named once; the grid takes several resolutions at once,
+#               as n_voxels_dims below shows.
 #
 # mesh_option_Y: str
-#                The mandatory and optional mesh options depend on the mesh type specified.
+#                The mandatory and optional mesh options depend on the mesher named.
 #
 #                ========================================================================
-#                'rgmsh' - 1 mandatory parameter
+#                'voxel' - 1 mandatory parameter
 #                ------------------------------------------------------------------------
 #                   Number of voxels in each direction                                   [M]
 #
@@ -317,7 +320,7 @@
 #                ========================================================================
 #
 #                ========================================================================
-#                'femsh' - the element type, and the mesh size or the elements per particle
+#                'gmsh' - the element type, and the mesh size or the elements per particle
 #                ------------------------------------------------------------------------
 #                   Mesh size                                                            [O]
 #

@@ -13,8 +13,7 @@ import numpy as np
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 import geommicgen.microstructure.particleclasses as part_cls
-from geommicgen.meshing.mesher import get_mesher
-from geommicgen.pipeline import DECK_MESHERS
+from geommicgen.meshing.mesher import available_meshers, get_mesher
 from geommicgen.translators import writer_options
 import geommicgen.microstructure.phase as phase
 
@@ -763,13 +762,14 @@ def mesher_keywords(mesher_name):
 top_level_reader.add_top_level_keyword(
     KeywordTypeC(
         "Mesh_Options",
-        header_keys={Keyword(i_name, type_str="none") for i_name in DECK_MESHERS},
+        header_keys={Keyword(i_name, type_str="none") for i_name in available_meshers()},
         sub_keys={
-            i_name: mesher_keywords(i_mesher) | FORMAT_KEYWORDS | JOB_KEYWORDS
-            for i_name, i_mesher in DECK_MESHERS.items()
+            i_name: mesher_keywords(i_name) | FORMAT_KEYWORDS | JOB_KEYWORDS
+            for i_name in available_meshers()
         },
     )
 )
-# One header per discretisation an input data file can name, each reading the options
-# of the mesher that produces it: a mesher that declares an option is asked for it here
-# without this module naming it, as a format is
+# One header per registered mesher, under its own name, each reading the options that
+# mesher declares: a mesher that is registered is asked for here without this module
+# naming it, as a format is. The finite element mesh used to be asked for as femsh and
+# the grid as rgmsh, names this module had to map onto the meshers

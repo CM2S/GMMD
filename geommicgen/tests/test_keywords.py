@@ -17,8 +17,7 @@ from geommicgen.iofuncs.keywords import (
     mesher_keywords,
     top_level_reader,
 )
-from geommicgen.meshing.mesher import get_mesher
-from geommicgen.pipeline import DECK_MESHERS
+from geommicgen.meshing.mesher import available_meshers, get_mesher
 from geommicgen.translators import writer_options
 
 
@@ -41,56 +40,61 @@ class MeshOptionsTest(unittest.TestCase):
 
     def test_each_discretisation_keeps_its_own_options(self):
         options = self.read(
-            "femsh\nmesh_size 0.1\nelement_type tri3\n"
-            "rgmsh\nn_voxels_dims [16, 16]\nfile_name my_grid\n"
+            "gmsh\nmesh_size 0.1\nelement_type tri3\n"
+            "voxel\nn_voxels_dims [16, 16]\nfile_name my_grid\n"
         )
 
-        self.assertEqual(options["femsh"]["element_type"], "tri3")
-        self.assertEqual(options["rgmsh"]["n_voxels_dims"], [[16, 16]])
-        self.assertEqual(options["rgmsh"]["file_name"], "my_grid")
+        self.assertEqual(options["gmsh"]["element_type"], "tri3")
+        self.assertEqual(options["voxel"]["n_voxels_dims"], [[16, 16]])
+        self.assertEqual(options["voxel"]["file_name"], "my_grid")
 
     def test_several_resolutions_are_read_as_one_list_each(self):
-        options = self.read("rgmsh\nn_voxels_dims [16, 16] [32, 32]\n")
+        options = self.read("voxel\nn_voxels_dims [16, 16] [32, 32]\n")
 
-        self.assertEqual(options["rgmsh"]["n_voxels_dims"], [[16, 16], [32, 32]])
+        self.assertEqual(options["voxel"]["n_voxels_dims"], [[16, 16], [32, 32]])
 
     def test_an_option_of_the_other_discretisation_is_refused(self):
         with self.assertRaises(ValueError) as context:
-            self.read("femsh\nmesh_size 0.1\nelement_type tri3\nn_voxels_dims [4, 4]\n")
+            self.read("gmsh\nmesh_size 0.1\nelement_type tri3\nn_voxels_dims [4, 4]\n")
 
         self.assertIn("N_Voxels_Dims", str(context.exception))
-        self.assertIn("femsh", str(context.exception))
+        self.assertIn("gmsh", str(context.exception))
         # It used to be read and then ignored, which is the same as not writing it
 
     def test_an_option_that_no_longer_exists_is_refused(self):
         with self.assertRaises(ValueError) as context:
-            self.read("rgmsh\nn_voxels_dims [4, 4]\nslice_dir 2\n")
+            self.read("voxel\nn_voxels_dims [4, 4]\nslice_dir 2\n")
 
         self.assertIn("slice_dir", str(context.exception))
         # Slice_Dir decided whether the grid of a three dimensional microstructure was
         # written at all; the grid is now always written, and the keyword is gone
 
     def test_the_meshers_options_come_from_the_meshers(self):
-        for i_header, i_mesher in DECK_MESHERS.items():
-            declared = set(get_mesher(i_mesher).options)
-            read_here = {i_keyword.name for i_keyword in mesher_keywords(i_mesher)}
-            sub_keys = top_level_reader.all_keywords["Mesh_Options"].sub_keys[i_header]
+        headers = {
+            i_keyword.name
+            for i_keyword in top_level_reader.all_keywords["Mesh_Options"].header_keys
+        }
+        self.assertEqual(headers, set(available_meshers()))
+        for i_name in available_meshers():
+            declared = set(get_mesher(i_name).options)
+            read_here = {i_keyword.name for i_keyword in mesher_keywords(i_name)}
+            sub_keys = top_level_reader.all_keywords["Mesh_Options"].sub_keys[i_name]
             read_under = {i_keyword.name for i_keyword in sub_keys}
 
             self.assertTrue(declared)
             self.assertEqual(declared, read_here)
             self.assertTrue(declared <= read_under)
-        # Whatever a mesher declares is read under the discretisation it produces,
-        # without this module naming it
+        # A deck names a mesher under the mesher's own name, and whatever the mesher
+        # declares is read under it, without this module naming either
 
     def test_an_option_of_a_format_is_read_under_either(self):
         options = self.read(
-            "femsh\nmesh_size 0.1\nelement_type tri3\ngauss_points 6\n"
-            "rgmsh\nn_voxels_dims [16, 16]\ngauss_points 4\n"
+            "gmsh\nmesh_size 0.1\nelement_type tri3\ngauss_points 6\n"
+            "voxel\nn_voxels_dims [16, 16]\ngauss_points 4\n"
         )
 
-        self.assertEqual(options["femsh"]["gauss_points"], 6)
-        self.assertEqual(options["rgmsh"]["gauss_points"], 4)
+        self.assertEqual(options["gmsh"]["gauss_points"], 6)
+        self.assertEqual(options["voxel"]["gauss_points"], 4)
         # A grid is written to a solver as readily as a mesh is, so what belongs to the
         # format is read under both
 

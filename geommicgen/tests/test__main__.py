@@ -146,7 +146,7 @@ class TestFailedSample(DeckRunTest):
 
     OVERLAPPING_DECK = SEEDED_DECK.replace("vf 0.2", "vf 0.5").replace(
         "Max_Step 3", "Max_Step 2"
-    ) + "Mesh_Options\nrgmsh\nn_voxels_dims [8, 8]\n"
+    ) + "Mesh_Options\nvoxel\nn_voxels_dims [8, 8]\n"
     # Six disks at half the area in two steps stay overlapping, with a mesh asked for
 
     def test_it_is_written_but_not_meshed_and_the_run_fails(self):

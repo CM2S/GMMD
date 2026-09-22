@@ -124,17 +124,6 @@ def print_output(filepath):
     print_to_file("Microstructure output file: {0}\n".format(filepath))
 
 
-def print_femsh_output(filepath):
-    """Print finite element mesh output."""
-    print_to_file("\t Output file: {0}".format(filepath))
-
-
-def print_rgmsh_output(filepath):
-    """Print regular mesh output."""
-    print_to_file("Regular grid mesh:")
-    print_to_file("\t Output file: {0}".format(filepath))
-
-
 def print_final_message_md(time, total_overlap, number_iterations, max_overlap):
     """Print final message for molecular dynamics simulation."""
     print_to_file("")

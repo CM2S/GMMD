@@ -47,5 +47,5 @@ final_config True
 # Mesh generation
 # ------------------------------------------------------------------------------------------
 Mesh_Options
-rgmsh
+voxel
 n_voxels_dims [70, 70, 70]

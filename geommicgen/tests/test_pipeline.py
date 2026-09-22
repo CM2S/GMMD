@@ -8,13 +8,12 @@ from unittest.mock import patch
 from geommicgen._optional import has_gmsh
 from geommicgen.iofuncs.keywords import Keyword
 from geommicgen.pipeline import (
-    DECK_MESHERS,
     MeshJob,
     build_mesh_jobs,
     writers_from_options,
 )
 from geommicgen.meshing.gmsh_mesher import GmshMesher
-from geommicgen.meshing.mesher import get_mesher
+from geommicgen.meshing.mesher import available_meshers, get_mesher
 from geommicgen.meshing.voxel_mesher import VoxelMesher
 from geommicgen.tests.helpers import disk_microstructure
 from geommicgen.translators.crate import CrateWriter
@@ -26,7 +25,7 @@ class TestBuildMeshJobs(unittest.TestCase):
     """Test class for the meshing jobs read out of the options of an input file."""
 
     def test_finite_element_mesh(self):
-        jobs = build_mesh_jobs({"femsh": {"element_type": "tri6", "mesh_size": 0.05}})
+        jobs = build_mesh_jobs({"gmsh": {"element_type": "tri6", "mesh_size": 0.05}})
         self.assertEqual(len(jobs), 1)
         self.assertIsInstance(jobs[0].mesher, GmshMesher)
         self.assertEqual(jobs[0].mesher.element_type, "tri6")
@@ -37,14 +36,14 @@ class TestBuildMeshJobs(unittest.TestCase):
 
     def test_elements_per_particle_is_carried_through(self):
         jobs = build_mesh_jobs(
-            {"femsh": {"element_type": "tri3", "elements_per_particle": 8}}
+            {"gmsh": {"element_type": "tri3", "elements_per_particle": 8}}
         )
         self.assertEqual(jobs[0].mesher.elements_per_particle, 8)
         self.assertIsNone(jobs[0].mesher.mesh_size)
 
     def test_one_job_per_grid_named_after_the_deck(self):
         jobs = build_mesh_jobs(
-            {"rgmsh": {"n_voxels_dims": [[10, 10], [20, 20]]}}, "example.mdsim"
+            {"voxel": {"n_voxels_dims": [[10, 10], [20, 20]]}}, "example.mdsim"
         )
         self.assertEqual(len(jobs), 2)
         self.assertEqual(
@@ -58,7 +57,7 @@ class TestBuildMeshJobs(unittest.TestCase):
     def test_formats_can_be_asked_for(self):
         jobs = build_mesh_jobs(
             {
-                "femsh": {
+                "gmsh": {
                     "element_type": "tri3",
                     "mesh_size": 0.1,
                     "formats": ["links", "vtk"],
@@ -70,7 +69,7 @@ class TestBuildMeshJobs(unittest.TestCase):
 
     def test_write_msh_asks_for_the_gmsh_format(self):
         jobs = build_mesh_jobs(
-            {"femsh": {"element_type": "tri3", "mesh_size": 0.1, "write_msh": True}}
+            {"gmsh": {"element_type": "tri3", "mesh_size": 0.1, "write_msh": True}}
         )
         self.assertEqual([i_writer.name for i_writer in jobs[0].writers],
                          ["links", "gmsh"])
@@ -80,8 +79,8 @@ class TestBuildMeshJobs(unittest.TestCase):
     def test_file_name_names_the_files(self):
         jobs = build_mesh_jobs(
             {
-                "rgmsh": {"n_voxels_dims": [[10, 10]], "file_name": "my_grid"},
-                "femsh": {"mesh_size": 0.1, "file_name": "my_mesh"},
+                "voxel": {"n_voxels_dims": [[10, 10]], "file_name": "my_grid"},
+                "gmsh": {"mesh_size": 0.1, "file_name": "my_mesh"},
             },
             "example.mdsim",
         )
@@ -94,7 +93,7 @@ class TestBuildMeshJobs(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             build_mesh_jobs(
                 {
-                    "rgmsh": {
+                    "voxel": {
                         "n_voxels_dims": [[10, 10], [20, 20]],
                         "file_name": "my_grid",
                     }
@@ -107,7 +106,7 @@ class TestBuildMeshJobs(unittest.TestCase):
     def test_the_options_reach_the_writer(self):
         jobs = build_mesh_jobs(
             {
-                "femsh": {
+                "gmsh": {
                     "element_type": "tri3",
                     "mesh_size": 0.1,
                     "gauss_points": 6,
@@ -125,7 +124,7 @@ class TestBuildMeshJobs(unittest.TestCase):
     def test_an_option_of_another_writer(self):
         jobs = build_mesh_jobs(
             {
-                "femsh": {
+                "gmsh": {
                     "element_type": "tri3",
                     "mesh_size": 0.1,
                     "formats": ["abaqus"],
@@ -138,8 +137,8 @@ class TestBuildMeshJobs(unittest.TestCase):
         # declared, so one format's keyword costs the others nothing
 
     def test_the_jobs_are_built_from_what_the_meshers_declare(self):
-        for i_name, i_mesher in DECK_MESHERS.items():
-            mesher_class = get_mesher(i_mesher)
+        for i_name in available_meshers():
+            mesher_class = get_mesher(i_name)
             self.assertTrue(mesher_class.options)
             self.assertTrue(mesher_class.default_formats)
             for j_option in mesher_class.options:
@@ -152,18 +151,28 @@ class TestBuildMeshJobs(unittest.TestCase):
 
     def test_a_grid_without_a_resolution_is_refused(self):
         with self.assertRaises(ValueError) as context:
-            build_mesh_jobs({"rgmsh": {}})
+            build_mesh_jobs({"voxel": {}})
         self.assertIn("voxels", str(context.exception))
 
     def test_unknown_discretisation(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as context:
             build_mesh_jobs({"nosuchmesh": {}})
+        self.assertIn("gmsh, voxel", str(context.exception))
+
+    def test_the_old_names_are_no_longer_read(self):
+        for i_name in ("femsh", "rgmsh"):
+            with self.subTest(name=i_name):
+                with self.assertRaises(ValueError) as context:
+                    build_mesh_jobs({i_name: {}})
+                self.assertIn(i_name, str(context.exception))
+        # A deck names the mesher; the names a discretisation had of its own, which
+        # this module mapped onto the meshers, are refused with the names there are
 
     def test_unknown_format_is_refused_before_anything_is_meshed(self):
         with self.assertRaises(ValueError) as context:
             build_mesh_jobs(
                 {
-                    "femsh": {
+                    "gmsh": {
                         "element_type": "tri3",
                         "mesh_size": 0.1,
                         "formats": ["linkss"],
@@ -186,7 +195,7 @@ class TestMeshJobRun(unittest.TestCase):
         self.temp_dir.cleanup()
 
     def test_writes_the_standard_output_and_every_format(self):
-        job = build_mesh_jobs({"rgmsh": {"n_voxels_dims": [[16, 16]]}}, "deck.mdsim")[0]
+        job = build_mesh_jobs({"voxel": {"n_voxels_dims": [[16, 16]]}}, "deck.mdsim")[0]
         job.run(self.microstructure, self.temp_dir.name)
         written = sorted(os.path.basename(i_file) for i_file in job.files)
         self.assertEqual(
@@ -212,7 +221,7 @@ class TestMeshJobRun(unittest.TestCase):
 
     def test_the_standard_output_alone_is_a_whole_job(self):
         job = build_mesh_jobs(
-            {"rgmsh": {"n_voxels_dims": [[16, 16]], "formats": []}}, "deck.mdsim"
+            {"voxel": {"n_voxels_dims": [[16, 16]], "formats": []}}, "deck.mdsim"
         )[0]
         self.assertEqual(job.writers, [])
         job.run(self.microstructure, self.temp_dir.name)
@@ -247,7 +256,7 @@ class TestMeshJobRunWithGmsh(unittest.TestCase):
 
     def test_a_writer_may_not_write_over_the_standard_output(self):
         job = build_mesh_jobs(
-            {"femsh": {"element_type": "tri3", "mesh_size": 0.15, "formats": ["vtu"]}}
+            {"gmsh": {"element_type": "tri3", "mesh_size": 0.15, "formats": ["vtu"]}}
         )[0]
         with tempfile.TemporaryDirectory() as temp_dir:
             job.run(disk_microstructure(), temp_dir)
@@ -259,7 +268,7 @@ class TestMeshJobRunWithGmsh(unittest.TestCase):
         # this way, since no writer claims the .vti an image is written as
 
     def test_the_links_deck_and_the_standard_output_are_written(self):
-        job = build_mesh_jobs({"femsh": {"element_type": "tri3", "mesh_size": 0.1}})[0]
+        job = build_mesh_jobs({"gmsh": {"element_type": "tri3", "mesh_size": 0.1}})[0]
         with tempfile.TemporaryDirectory() as temp_dir:
             job.run(disk_microstructure(), temp_dir)
             self.assertIsNone(job.error)
