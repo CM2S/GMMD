@@ -6,7 +6,16 @@ nodes of an element to be listed is derived from the gmsh2links package, by
 A. M. Couto Carneiro (CM2S, FEUP), and converted here from the ordering gmsh uses on
 input to the one used by VTK, which is the ordering a `.Mesh` carries. The tables were
 checked against the node numbering in the shape function routines of LINKS itself.
+
+gmsh2links is licensed under the GPL-3 and this package under the BSD-3; what is taken
+from it is the fact of how LINKS numbers the nodes of each element, verified against
+LINKS, and no code, so the two licences do not meet.
 """
+
+# TODO: decide how to credit A. M. Couto Carneiro beyond this docstring, before the
+# JOSS submission: an Acknowledgements section in the readme naming gmsh2links; the
+# Acknowledgements of paper.md; a CITATION.cff for GMMD; or co-authorship of the paper,
+# which is his and the authors' to decide on the size of the LINKS-side contribution.
 
 LINKS_ELEMENT_NAMES = {
     "triangle": "TRI3",
