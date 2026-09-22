@@ -104,6 +104,19 @@ class Mesher(abc.ABC):
 
         return [cls(**kwargs)]
 
+    # TODO: multi-resolution meshing. A mesher is built for one resolution and one
+    # element, and `mesh` gives one mesh; a deck that wants a microstructure at
+    # several sizes or with several elements has to name the mesher once per one,
+    # and gmsh then rebuilds the CAD model, fragmenting every particle and its images
+    # into the box, for each. Measured on 60 spheres: the model is 4.5 s of a 4.5 s
+    # mesh, re-meshing it at another size 0.5 s, and setOrder(2) on the linear mesh
+    # 0.2 s. So the shape to move to is one mesher holding lists of sizes and
+    # elements whose `mesh` builds the model once and yields one `.Mesh` per
+    # combination, each with its own label; `MeshJob`, `run_mesh_jobs` and the mesh
+    # command then take several meshes from one job. The voxel mesher, which already
+    # takes a list of resolutions and returns one mesher each, would follow the same
+    # contract. The gmsh signature fixtures guard that setOrder gives the same
+    # second order mesh as generating at order two
     @abc.abstractmethod
     def mesh(self, microstructure, report=None):
         """

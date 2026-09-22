@@ -42,6 +42,13 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install -e .[test]
+      - name: Install gmsh
+        if: runner.os == 'Linux'
+        run: |
+          python -m pip install -e .[gmsh]
+        # The tests that mesh with gmsh, and the shipped examples, are skipped without
+        # it; the Linux leg runs them, with the GLU library installed above that the
+        # gmsh wheel loads at import
       - name: Test with pytest
         run: |
           pytest --cov=geommicgen/ --cov-report=xml geommicgen/tests
