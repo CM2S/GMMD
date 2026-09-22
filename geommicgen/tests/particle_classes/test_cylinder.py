@@ -169,7 +169,7 @@ class TestCylinder(unittest.TestCase):
         }
         cyl = Cylinder("1", descriptors, rve_dims)
         cyl.position_center = np.array([0.6, 0.7, 0.3])
-        for _ in range(5):
+        for _ in range(10):
             random_point_inside = cyl.generate_point_inside()
             self.assertTrue( cyl.point_inside(random_point_inside, rve_dims) )
 
