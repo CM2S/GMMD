@@ -183,7 +183,7 @@ class Mesh:
     def points(self):
         """Coordinates of the nodes, as an array of shape *(n_nodes, 3)*."""
         if self._points is None:
-            self._materialize()
+            self._points, self._cells, self._phase = self._materialize()
 
         return self._points
 
@@ -191,7 +191,7 @@ class Mesh:
     def cells(self):
         """List of tuples *(cell_type, connectivity)* describing the cells."""
         if self._cells is None:
-            self._materialize()
+            self._points, self._cells, self._phase = self._materialize()
 
         return self._cells
 
@@ -199,15 +199,19 @@ class Mesh:
     def phase(self):
         """List with one array of phase identifiers per block of cells."""
         if self._phase is None:
-            self._materialize()
+            self._points, self._cells, self._phase = self._materialize()
 
         return self._phase
+
+    # Each property assigns what `_materialize` returns rather than having it set the
+    # attributes itself, so a type checker sees on every path that what is returned
+    # is not None
 
     @property
     def boundary(self):
         """Classification of the boundary nodes, computed on first use."""
         if self._boundary is None:
-            self.classify_boundary()
+            return self.classify_boundary()
 
         return self._boundary
 
@@ -321,6 +325,12 @@ class Mesh:
         max_cells: int
             Largest number of cells that is built. Defaults to the limit of the mesh.
 
+        Returns
+        -------
+        tuple
+            The nodes, the cells and the phase of every cell, as the attributes hold
+            them.
+
         Raises
         ------
         MeshTooLargeError:
@@ -366,8 +376,8 @@ class Mesh:
         # Every cell is its lowest numbered node plus the same offsets, so the whole
         # connectivity is one addition rather than a stack of sliced index grids
 
-        self._points = points
-        self._cells = [("quad" if len(shape) == 2 else "hexahedron", connectivity)]
-        self._phase = [
-            self.structured.phase_grid.ravel(order=CELL_ORDER).astype(int)
-        ]
+        return (
+            points,
+            [("quad" if len(shape) == 2 else "hexahedron", connectivity)],
+            [self.structured.phase_grid.ravel(order=CELL_ORDER).astype(int)],
+        )
