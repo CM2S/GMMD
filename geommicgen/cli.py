@@ -26,6 +26,7 @@ from geommicgen.pipeline import (
 )
 from geommicgen.meshing.mesher import available_meshers, get_mesher, mesher_options
 from geommicgen.meshing.writers import read_mesh
+from geommicgen.postproc.options import ANALYSES, ANALYSIS_OPTIONS, with_defaults
 from geommicgen.translators.base import available_writers, get_writer, writer_options
 
 
@@ -114,106 +115,13 @@ def add_declared_arguments(parser, options):
             help=description["help"],
             **ARGUMENT_KWARGS[description["type"]]
         )
-    # Taken from the meshers and the formats themselves, so one that declares an
-    # option is asked for it here without this module naming it
+    # Taken from the meshers, the formats and the analyses themselves, so one that
+    # declares an option is asked for it here without this module naming it
 
 
 def declared_options(arguments, options):
     """Collect the declared arguments the way the input data file keys them."""
     return {i_name.lower(): getattr(arguments, i_name.lower()) for i_name in options}
-
-
-ANALYSIS_OPTIONS = {
-    "final_config": {
-        "type": "bool",
-        "default": False,
-        "help": "plot the final configuration of the particles",
-    },
-    "motion_analysis": {
-        "type": "bool",
-        "default": False,
-        "help": "plot what the run recorded -- overlap, energies, time step and the "
-        "paths of the particles -- read from md_state.npz beside the microstructure "
-        "file",
-    },
-    "voronoi_analysis": {
-        "type": "bool",
-        "default": False,
-        "help": "compute the Voronoi diagram of the particles and the Minkowski "
-        "tensors of its cells",
-    },
-    "voronoi_type": {
-        "type": "str",
-        "default": "standard",
-        "help": "kind of Voronoi diagram: standard or set (default: standard)",
-    },
-    "n_surf_points": {
-        "type": "int",
-        "default": 10,
-        "help": "surface points per particle of a set Voronoi diagram (default: 10)",
-    },
-    "plot_voronoi": {
-        "type": "bool",
-        "default": False,
-        "help": "plot the Voronoi diagram",
-    },
-    "plot_imts": {
-        "type": "bool",
-        "default": False,
-        "help": "plot the Voronoi cells coloured by their Minkowski tensors",
-    },
-    "stat_nearest_neighbor": {
-        "type": "bool",
-        "default": False,
-        "help": "distribution of the distance to the nearest neighbour",
-    },
-    "stat_ripleys_k": {
-        "type": "bool",
-        "default": False,
-        "help": "Ripley's K function",
-    },
-    "stat_two_pt_corr": {
-        "type": "bool",
-        "default": False,
-        "help": "two point correlation function",
-    },
-}
-# The analyses, keyed as the input data file keys its post processing group and with
-# the same defaults, so that one is asked for the same way from either; a test holds
-# the two together
-
-ANALYSES = (
-    "final_config",
-    "motion_analysis",
-    "voronoi_analysis",
-    "stat_nearest_neighbor",
-    "stat_ripleys_k",
-    "stat_two_pt_corr",
-)
-# The options that ask for work; the others configure the Voronoi analysis
-
-
-def analysis_options(arguments):
-    """
-    Collect the analysis arguments the way the input data file keys them.
-
-    Parameters
-    ----------
-    arguments: argparse.Namespace
-        The parsed arguments.
-
-    Returns
-    -------
-    dict
-        Dictionary of the form *{option: value}*, with the default of every option
-        that was not given, which is what a deck that does not name it produces.
-    """
-    options = declared_options(arguments, ANALYSIS_OPTIONS)
-    for i_name, i_description in ANALYSIS_OPTIONS.items():
-        if options[i_name] is None:
-            options[i_name] = i_description["default"]
-
-    return options
 
 
 def add_output_arguments(parser):
@@ -444,7 +352,7 @@ def analyze_command(argv=None):
     arguments = parser.parse_args(argv)
     # No --name: the analyses name their own directories and files
 
-    options = analysis_options(arguments)
+    options = with_defaults(declared_options(arguments, ANALYSIS_OPTIONS))
     if not any(options[i_name] for i_name in ANALYSES):
         parser.error(
             "no analysis was asked for; give at least one of {0}".format(

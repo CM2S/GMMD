@@ -18,6 +18,7 @@ import geommicgen.iofuncs.printing as print_funcs
 from geommicgen._optional import require_gmsh
 from geommicgen.iofuncs.md_state import STATE_FILE_NAME
 from geommicgen.pipeline import MESH_DIRECTORY
+from geommicgen.postproc.options import ANALYSES, ANALYSIS_OPTIONS
 import geommicgen.postproc.voronoimetrics.motion_analysis as motion_analysis
 import geommicgen.postproc.voronoimetrics.stat_analysis as stat_analysis
 import geommicgen.postproc.voronoimetrics.voronoi_analysis as voronoi_analysis
@@ -33,10 +34,13 @@ VORONOI_TYPES = ("standard", "set")
 # one was accepted and quietly computed the standard diagram, its implementation
 # never having been written
 
-VORONOI_OPTIONS = ("n_surf_points", "plot_voronoi", "plot_imts", "voronoi_type")
-# The options handed on to the Voronoi analysis, when they are given
+VORONOI_OPTIONS = tuple(
+    i_name for i_name in ANALYSIS_OPTIONS if i_name not in ANALYSES
+)
+# The options handed on to the Voronoi analysis, when they are given: the ones that
+# configure an analysis rather than ask for one
 
-STAT_OPTIONS = ("stat_nearest_neighbor", "stat_ripleys_k", "stat_two_pt_corr")
+STAT_OPTIONS = tuple(i_name for i_name in ANALYSES if i_name.startswith("stat_"))
 # The statistical analyses, each asked for by its own option
 
 

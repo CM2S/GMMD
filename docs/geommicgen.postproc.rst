@@ -14,5 +14,6 @@ Submodules
 
 .. toctree::
 
+   geommicgen.postproc.options
    geommicgen.postproc.postproc
 

@@ -9,13 +9,13 @@ import numpy as np
 
 from geommicgen._optional import has_gmsh
 from geommicgen.cli import (
-    ANALYSIS_OPTIONS,
     add_declared_arguments,
-    analysis_options,
     analyze_command,
+    declared_options,
     mesh_command,
     translate_command,
 )
+from geommicgen.postproc.options import ANALYSES, ANALYSIS_OPTIONS, with_defaults
 from geommicgen.iofuncs.keywords import top_level_reader
 from geommicgen.iofuncs.md_state import save_md_state
 from geommicgen.iofuncs.microstructure_yaml import write_microstructure_yaml
@@ -247,45 +247,31 @@ class TestAnalyzeCommand(unittest.TestCase):
 
 
 class TestAnalysisOptions(unittest.TestCase):
-    """
-    Test class holding the command's options to the input data file's.
+    """Test class for the analyses being asked for the same way from a deck and here."""
 
-    An analysis is asked for by the same name with the same default from either, so
-    that the two cannot drift apart.
-    """
-
-    def setUp(self):
-        self.keywords = [
-            i_keyword
+    def test_the_deck_reads_the_analyses_declared(self):
+        keywords = {
+            i_keyword.name.lower(): i_keyword
             for i_keyword in top_level_reader.top_level_keywords
             if getattr(i_keyword, "keyword_group", None) == "post_proc"
-        ]
-        self.assertTrue(self.keywords)
-
-    def deck_defaults(self):
-        """The post processing options of a deck that names none of them."""
-        return {
-            i_keyword.name.lower(): i_keyword.default_value
-            for i_keyword in self.keywords
         }
-
-    def test_the_options_are_the_keywords_of_the_input_file(self):
-        self.assertEqual(
-            set(ANALYSIS_OPTIONS), {i_keyword.name.lower() for i_keyword in self.keywords}
-        )
-
-    def test_the_defaults_are_the_input_files(self):
-        self.assertEqual(
-            {i_name: i_description["default"] for i_name, i_description in ANALYSIS_OPTIONS.items()},
-            self.deck_defaults(),
-        )
+        self.assertEqual(set(keywords), set(ANALYSIS_OPTIONS))
+        for i_name, i_description in ANALYSIS_OPTIONS.items():
+            with self.subTest(option=i_name):
+                self.assertEqual(keywords[i_name].default_value, i_description["default"])
+                self.assertEqual(keywords[i_name].type_str, i_description["type"])
+        # Built from the one declaration, so this is a test of the wiring rather than
+        # of two lists kept alike by hand, which is what it used to be
 
     def test_a_bare_command_asks_for_what_a_bare_deck_asks_for(self):
         parser = argparse.ArgumentParser()
         add_declared_arguments(parser, ANALYSIS_OPTIONS)
-        self.assertEqual(analysis_options(parser.parse_args([])), self.deck_defaults())
-        # The keyword objects carry their defaults; the reader's option dictionary is
-        # left alone, since other tests change it by reading decks
+        options = with_defaults(declared_options(parser.parse_args([]), ANALYSIS_OPTIONS))
+        self.assertEqual(
+            options,
+            {i_name: i_description["default"] for i_name, i_description in ANALYSIS_OPTIONS.items()},
+        )
+        self.assertFalse(any(options[i_name] for i_name in ANALYSES))
 
 
 if __name__ == "__main__":

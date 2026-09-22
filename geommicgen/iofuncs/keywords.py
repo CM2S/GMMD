@@ -14,6 +14,7 @@ import numpy as np
 # pylint: disable=relative-beyond-top-level
 import geommicgen.microstructure.particleclasses as part_cls
 from geommicgen.meshing.mesher import available_meshers, get_mesher
+from geommicgen.postproc.options import ANALYSIS_OPTIONS
 from geommicgen.translators import writer_options
 import geommicgen.microstructure.phase as phase
 
@@ -645,67 +646,18 @@ top_level_reader.add_top_level_keyword(
 # Post Processing
 # ------------------------------------------------------------------------------------------
 top_level_reader.add_top_level_keyword(
-    KeywordTypeA(
-        "Motion_Analysis",
-        "post_proc",
-        default_value=False,
-        type_str="bool",
-    ),
-    KeywordTypeA(
-        "final_config",
-        "post_proc",
-        default_value=False,
-        type_str="bool",
-    ),
-    KeywordTypeA(
-        "stat_nearest_neighbor",
-        "post_proc",
-        default_value=False,
-        type_str="bool",
-    ),
-    KeywordTypeA(
-        "stat_ripleys_k",
-        "post_proc",
-        default_value=False,
-        type_str="bool",
-    ),
-    KeywordTypeA(
-        "stat_two_pt_corr",
-        "post_proc",
-        default_value=False,
-        type_str="bool",
-    ),
-    KeywordTypeA(
-        "voronoi_analysis",
-        "post_proc",
-        default_value=False,
-        type_str="bool",
-    ),
-    KeywordTypeA(
-        "voronoi_type",
-        "post_proc",
-        default_value="standard",
-        type_str="str",
-    ),
-    KeywordTypeA(
-        "n_surf_points",
-        "post_proc",
-        default_value=10,
-        type_str="int",
-    ),
-    KeywordTypeA(
-        "plot_voronoi",
-        "post_proc",
-        default_value=False,
-        type_str="bool",
-    ),
-    KeywordTypeA(
-        "plot_imts",
-        "post_proc",
-        default_value=False,
-        type_str="bool",
-    ),
+    *(
+        KeywordTypeA(
+            i_name,
+            "post_proc",
+            default_value=i_description["default"],
+            type_str=i_description["type"],
+        )
+        for i_name, i_description in ANALYSIS_OPTIONS.items()
+    )
 )
+# One keyword per analysis option, from the declaration the analysis command is built
+# from as well, so that a deck and the command ask for an analysis the same way
 
 # General keywords
 # ------------------------------------------------------------------------------------------
