@@ -15,6 +15,7 @@ from geommicgen.pipeline import (
 from geommicgen.meshing.gmsh_mesher import GmshMesher
 from geommicgen.meshing.mesher import available_meshers, get_mesher
 from geommicgen.meshing.voxel_mesher import VoxelMesher
+from geommicgen.meshing.mesh import Mesh
 from geommicgen.tests.helpers import disk_microstructure
 from geommicgen.translators.crate import CrateWriter
 from geommicgen.errors.error_classes import MeshTooLargeError
@@ -182,6 +183,64 @@ class TestBuildMeshJobs(unittest.TestCase):
         self.assertIn("linkss", str(context.exception))
         # Resolving the writers while the deck is read is what keeps a typo from
         # costing a whole meshing run and then being reported as a meshing failure
+
+
+class TestMesherContract(unittest.TestCase):
+    """Test class holding every registered mesher to what the writers need of a mesh."""
+
+    SMALLEST = {"gmsh": {"mesh_size": 0.15, "element_type": "tri6"}, "voxel": {"n_voxels_dims": [[6, 6]]}}
+    # Options that mesh the disk fixture quickly with each mesher; a mesher added
+    # without an entry here fails the test, which is the point
+
+    def test_every_mesher_declares_itself(self):
+        for i_name in available_meshers():
+            with self.subTest(mesher=i_name):
+                mesher_class = get_mesher(i_name)
+                self.assertEqual(mesher_class.name, i_name)
+                self.assertTrue(mesher_class.description)
+                self.assertTrue(mesher_class.default_formats)
+                self.assertTrue(mesher_class.options)
+                self.assertIn(i_name, self.SMALLEST)
+
+    def test_every_mesher_returns_a_mesh_the_writers_can_take(self):
+        from meshio._common import num_nodes_per_cell
+
+        for i_name in available_meshers():
+            if i_name == "gmsh" and not has_gmsh():
+                continue
+            with self.subTest(mesher=i_name):
+                (mesher,) = get_mesher(i_name).from_options(self.SMALLEST[i_name])
+                self.assertTrue(mesher.label)
+                self.assertIsInstance(mesher.warnings, (list, tuple))
+                mesh = mesher.mesh(disk_microstructure())
+                self.assertIsInstance(mesh, Mesh)
+                self.assertEqual(mesh.points.shape[1], 3)
+                self.assertEqual(len(mesh.cells), len(mesh.phase))
+                for (j_type, j_connectivity), j_phase in zip(mesh.cells, mesh.phase):
+                    self.assertIn(j_type, num_nodes_per_cell)
+                    self.assertEqual(j_connectivity.shape[1], num_nodes_per_cell[j_type])
+                    self.assertEqual(len(j_connectivity), len(j_phase))
+                    self.assertTrue(set(j_phase.tolist()) <= set(mesh.phase_names))
+                    self.assertLess(j_connectivity.max(), len(mesh.points))
+                self.assertEqual(mesh.matrix_phase, "1")
+                self.assertTrue(mesh.periodic)
+                mesh.check_periodic_conformity()
+                self.assertEqual(mesh.source["mesher"], i_name)
+        # The requirements listed under "Adding a mesher" in the mesher module, held to
+        # here so that they cannot drift from what the meshers do
+
+    def test_a_mesher_that_returns_something_else_is_refused(self):
+        class NotAMesher(VoxelMesher):
+            def mesh(self, microstructure, report=None):
+                return {"points": [], "cells": []}
+
+        job = MeshJob(NotAMesher([4, 4]), [], "grid")
+        with tempfile.TemporaryDirectory() as directory:
+            job.run(disk_microstructure(), directory)
+        self.assertIsInstance(job.error, TypeError)
+        self.assertIn("rather than a Mesh", str(job.error))
+        # Found out by the job, with the mesher named, rather than by whichever writer
+        # first asks the dict for its cells
 
 
 class TestMeshJobRun(unittest.TestCase):

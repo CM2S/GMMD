@@ -9,6 +9,35 @@ to know about it.
 A mesher never writes a file. Writing is the concern of `geommicgen.meshing.writers`,
 for the standard formats, and of `geommicgen.translators`, for the formats that solvers
 read.
+
+Adding a mesher
+---------------
+Subclass `.Mesher`, decorate it with `register_mesher`, and add its module to
+`BUILTIN_MESHER_MODULES`. It needs:
+
+- ``name``, the word a deck and ``geommicgen-mesh --mesher`` ask for it by;
+  ``description``, the line it is reported under; ``default_formats``, the formats a
+  mesh is written in when none is named.
+- ``options``, one entry per parameter of its initializer, keyed by the deck keyword
+  and describing its ``type`` and ``help``. The deck reader and the command line are
+  built from it. `from_options` then builds the mesher without more; override it only
+  when one set of options means several meshers.
+- ``label`` set by the initializer: what tells this discretisation apart from another
+  of the same microstructure, since the files are named after it.
+- ``warnings``, a list the initializer binds when the mesher has anything to report;
+  the empty tuple of the base class serves one that never does.
+- `mesh`, returning a `.Mesh`. Whatever the tool underneath produces, the mesh handed
+  back holds: ``points`` of shape *(n_nodes, 3)*, three coordinates even in two
+  dimensions; ``cells`` as *(type, connectivity)* blocks with the type named as meshio
+  names it and the nodes in VTK order, since every writer reorders from that;
+  ``phase`` with one integer array per block whose values are keys of
+  ``phase_names``; ``matrix_phase``; ``periodic`` True when the mesher meant the mesh
+  to be periodic, which `Mesh.check_periodic_conformity` then verifies; and
+  ``source`` naming the mesher and what set its resolution. A structured mesher
+  gives ``structured`` in place of the points and cells, and the mesh builds them on
+  demand. `geommicgen.tests.test_pipeline` runs every registered mesher against these
+  requirements.
+- Nothing printed: progress goes through ``report``, messages through ``warnings``.
 """
 
 import abc

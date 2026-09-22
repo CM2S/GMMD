@@ -20,6 +20,7 @@ import traceback
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
+from geommicgen.meshing.mesh import Mesh
 from geommicgen.meshing.mesher import get_mesher
 from geommicgen.meshing.writers import standard_mesh_path, write_standard_mesh
 from geommicgen.translators.base import get_writer
@@ -114,6 +115,11 @@ class MeshJob:
         base_path = os.path.join(result_dir, self.base_name)
         try:
             mesh = self.mesher.mesh(microstructure, report=report)
+            if not isinstance(mesh, Mesh):
+                raise TypeError(
+                    "The mesher {0} returned {1} rather than a Mesh, which is what "
+                    "the writers take.".format(self.mesher.name, type(mesh).__name__)
+                )
             self.write(mesh, base_path)
         except Exception as error:  # pylint: disable=broad-except
             self.trace = traceback.format_exc()
