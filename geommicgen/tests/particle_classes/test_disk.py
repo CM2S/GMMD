@@ -177,6 +177,16 @@ class TestDisk(unittest.TestCase):
             expected_length = 0.1 + 0.1 - distance
             self.assertAlmostEqual(disk.intersection_length_disk_disk(other_disk3, box), expected_length)
 
+    def test_intersection_length_mink_diff(self):
+        # Tests the intersection between 2 disks using intersection_lenght_mink_diff with dist_aprox
+        box = [1, 1]
+        disk = self._build_disk(descriptors={"n": 1, "r": 0.1}, position_center=np.array([0.5, 0.5]))
+        other_disk3 = self._build_disk(descriptors={"n": 1, "r": 0.1}, position_center=np.array([0.55, 0.5]))
+        intersection_length, intersection_dir = disk.intersection_length_mink_diff(other_disk3, box, dist_met= "dist_approx")
+        self.assertAlmostEqual(intersection_length, 0.15)
+        np.testing.assert_allclose(intersection_dir, np.array([1,0]) )
+
+
     def test_intersection_length_calls(self):
         "Tests if the function intersection_length calls the correct functions to compute the intersection length."
         disk = self._build_disk()

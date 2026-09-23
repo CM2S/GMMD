@@ -712,6 +712,25 @@ class TestEllipseIntersectionLength(unittest.TestCase):
         intersection = ellipse_1.intersection_gjk(ellipse_2, rve_dims)
         self.assertTrue(not intersection)
 
+    def test_intersection_length_mink_diff(self):
+        # Tests the intersection between 2 ellipsoids using intersection_lenght_mink_diff with dist_aprox
+
+        rve_dims = [1, 1]
+        ellipse_1 = Ellipse(
+            "1", {"major_axis": 0.4, "minor_axis": 0.1, "angle": 0}, rve_dims
+        )
+        ellipse_2 = Ellipse(
+            "1",
+            {"major_axis": 0.4, "minor_axis": 0.1, "angle": np.pi / 2},
+            rve_dims,
+        )
+        ellipse_1.position_center = np.array([0.5, 0.5])
+        ellipse_2.position_center = np.array([0.6, 0.5])
+        intersection_length, unit_vector = ellipse_1.intersection_length_mink_diff(ellipse_2, rve_dims, dist_met= "dist_approx")
+        self.assertAlmostEqual(intersection_length, 0.15)
+        np.testing.assert_allclose(unit_vector, np.array([1,0]) )
+
+
 
 class TestSupportFuntionEllipse(unittest.TestCase):
     """Test the support function of the Ellipse."""
