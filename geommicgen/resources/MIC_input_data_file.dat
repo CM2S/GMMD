@@ -132,14 +132,14 @@
 #     	 ratio_12             float        Ratio between the pricipal axis along
 #                                          xx (axis_1) and along yy (axis_2)
 #                                          before rotation and minor axis
-#	       ratio_13	            float        Ratio between the pricipal axis along
+#        ratio_13             float        Ratio between the pricipal axis along
 #                                          xx (axis_1) and along zz (axis_3)
 #                                          before rotation and minor axis
-#	       rot_axis_comp_x      float	       Component x of the vector parallel to
+#        rot_axis_comp_x      float        Component x of the vector parallel to
 #                                          the rotation axis
-#	       rot_axis_comp_y      float	       Component y of the vector parallel to
+#        rot_axis_comp_y      float        Component y of the vector parallel to
 #                                          the rotation axis
-#	       rot_axis_comp_z      float	       Component z of the vector parallel to
+#        rot_axis_comp_z      float        Component z of the vector parallel to
 #                                          the rotation axis
 #        angle                float        Rotation angle around the rotation
 #                                          axis
