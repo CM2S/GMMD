@@ -6,12 +6,11 @@ import unittest
 import numpy as np
 from geommicgen.microstructure.particleclasses import Disk, Ellipse, Point
 
-
 class TestParticlePoint(unittest.TestCase):
     """Testing the gjk intersection alg for the Point particle."""
 
     @unittest.expectedFailure
-    def test_point_disk(self):
+    def test_intersection_point_disk(self):
         """Testing intersection between Point and Disk."""
         rve_dims = [1, 1]
         disk = Disk(
@@ -49,7 +48,7 @@ class TestParticlePoint(unittest.TestCase):
             np.abs(np.abs(overlap_length) - (0.2 * np.sqrt(2) - 0.1)) < 1e-4
         )
 
-    def test_point_ellipse(self):
+    def test_intersection_point_ellipse(self):
         """Testing intersection between Point and Ellipse."""
         rve_dims = [1, 1]
         ellipse = Ellipse(

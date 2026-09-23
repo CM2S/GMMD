@@ -7,7 +7,6 @@ import numpy as np
 from geommicgen.microstructure.particleclasses import Sphere, Ellipsoid, Line
 from geommicgen.postproc.plotfuncs.plotting_functions import plot_particles_3d
 
-
 class TestParticleLine(unittest.TestCase):
     """Testing the gjk intersection alg for the Line particle."""
 
