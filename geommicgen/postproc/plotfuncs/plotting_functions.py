@@ -774,100 +774,138 @@ def plot_ratio_new_old_overlap(
     else:
         return graph_overlap
 
+def finish_statistical_plot(kwargs, labels, default_name, legend=False):
+    """
+    Label a plot of a statistical descriptor, and save it unless it was given axes.
 
-# FIXME: the three plots of the statistical descriptors that follow carry no axis
-# labels, no titles and no legends, so a reader of k_ripleys_func.pdf is not told which
-# of the two lines is the measured function and which is the pi r squared of a Poisson
-# process, and the histogram of the nearest neighbour distances is left at whatever
-# bins matplotlib chooses. plot_two_point_correlation also smooths with a
-# Savitzky-Golay filter of window 41, which raises on a run asking for fewer radii
-# than that. One helper that every figure of an analysis goes through -- size, labels,
-# title, legend, and the saving -- would settle all of it in one place.
-def plot_nearest_neighbor_dist(vals, **kwargs):
+    Parameters
+    ----------
+    kwargs: dict
+        What the plotting function was given: *axes* to draw into, *results_dir* to
+        save in, *fig_name* to save under, and *show* to show it.
+
+    labels: tuple
+        The label of the horizontal axis, the label of the vertical one, and the title.
+
+    default_name: str
+        Name of the file when none was given, without an extension.
+
+    legend: bool
+        Whether the lines drawn are named and a legend is to be drawn.
+
+    Returns
+    -------
+    bool
+        Whether the figure was closed, which is to say that it was this function's to
+        save rather than the caller's to go on drawing into.
+    """
+    horizontal, vertical, title = labels
+    axes = kwargs.get("axes", plt.gca())
+    axes.set_xlabel(horizontal)
+    axes.set_ylabel(vertical)
+    axes.set_title(title)
+    if legend:
+        axes.legend()
     if "axes" in kwargs:
-        ax = kwargs["axes"]
-        plt.sca(ax)
+        return False
+
+    if "results_dir" in kwargs:
+        plt.savefig(
+            os.path.join(
+                kwargs["results_dir"],
+                "{0}.pdf".format(kwargs.get("fig_name", default_name)),
+            ),
+            bbox_inches="tight",
+        )
+    if kwargs.get("show", False):
+        plt.show()
+    plt.close()
+
+    return True
+    # Every plot of a descriptor ends the same way, and the labels are the difference
+    # between a figure that is read and one that has to be explained: the plots used
+    # to carry no axis label, no title and no legend, so the two lines of Ripley's K
+    # function said nothing about which was the measurement
+
+
+def plot_nearest_neighbor_dist(vals, **kwargs):
+    """Plot the distribution of the distance from a particle to its nearest."""
+    if "axes" in kwargs:
+        plt.sca(kwargs["axes"])
     else:
         plt.figure()
 
-    graph = plt.hist(vals, histtype="step")
+    graph = plt.hist(vals, bins="auto", histtype="step")
+    closed = finish_statistical_plot(
+        kwargs,
+        (
+            "Distance to the nearest neighbour",
+            "Number of particles",
+            "Nearest neighbour distances",
+        ),
+        "nearest_neighbor_dist",
+    )
 
-    # Save and/or show if no axes was supplied
-    if "axes" not in kwargs:
-        if "results_dir" in kwargs:
-            results_dir = kwargs["results_dir"]
-            plt.savefig(
-                os.path.join(
-                    results_dir,
-                    "{0}.pdf".format(kwargs.get("fig_name", "nearest_neighbor_dist")),
-                )
-            )
-
-        if kwargs.get("show", False):
-            plt.show()
-        plt.close()
-    else:
-        return graph
+    return None if closed else graph
 
 
 def plot_ripleys_k_func(vals, radii_vec, **kwargs):
+    """Plot Ripley's K function against the one of a Poisson point process."""
     if "axes" in kwargs:
-        ax = kwargs["axes"]
-        plt.sca(ax)
+        plt.sca(kwargs["axes"])
     else:
         plt.figure()
 
     artists = []
-    artists += plt.plot(radii_vec, vals)
-    artists += plt.plot(radii_vec, np.pi * radii_vec**2)
-    # artists += plt.plot(list(range(len(vals))))
+    artists += plt.plot(radii_vec, vals, label="Microstructure")
+    artists += plt.plot(
+        radii_vec, np.pi * radii_vec**2, linestyle="--", label="Poisson point process"
+    )
+    # The second is the K function of a process with no interaction between the
+    # points, which is what the first is read against
 
-    # Save and/or show if no axes was supplied
-    if "axes" not in kwargs:
-        if "results_dir" in kwargs:
-            results_dir = kwargs["results_dir"]
-            plt.savefig(
-                os.path.join(
-                    results_dir,
-                    "{0}.pdf".format(kwargs.get("fig_name", "k_ripleys_func")),
-                )
-            )
+    closed = finish_statistical_plot(
+        kwargs,
+        ("Radius", "K(r)", "Ripley's K function"),
+        "k_ripleys_func",
+        legend=True,
+    )
 
-        if kwargs.get("show", False):
-            plt.show()
-        plt.close()
-    else:
-        return artists
+    return None if closed else artists
+
+
+SMOOTHING_WINDOW = 41
+# Points of the two point correlation a smoothing runs over. A run asking for fewer
+# radii than this is smoothed over all of them instead, where the filter used to raise
 
 
 def plot_two_point_correlation(vals, radii_vec, **kwargs):
+    """Plot the two point correlation function, and a smoothing of it."""
     if "axes" in kwargs:
-        ax = kwargs["axes"]
-        plt.sca(ax)
+        plt.sca(kwargs["axes"])
     else:
         plt.figure()
+
     from scipy.signal import savgol_filter
 
     artists = []
-    artists += plt.plot(radii_vec, vals, lw=0, marker="+")
-    artists += plt.plot(radii_vec, savgol_filter(vals, 41, 2))
+    artists += plt.plot(radii_vec, vals, lw=0, marker="+", label="Estimate")
+    window = min(SMOOTHING_WINDOW, len(vals) - (1 - len(vals) % 2))
+    if window > 2:
+        artists += plt.plot(
+            radii_vec, savgol_filter(vals, window, 2), label="Smoothed"
+        )
+    # The estimate is a Monte Carlo one, so it is drawn as the points it is and the
+    # line through them is said to be a smoothing
 
-    # Save and/or show if no axes was supplied
-    if "axes" not in kwargs:
-        if "results_dir" in kwargs:
-            results_dir = kwargs["results_dir"]
-            plt.savefig(
-                os.path.join(
-                    results_dir,
-                    "{0}.pdf".format(kwargs.get("fig_name", "two_pt_corr")),
-                )
-            )
+    closed = finish_statistical_plot(
+        kwargs,
+        ("Distance", "Two point correlation", "Two point correlation function"),
+        "two_pt_corr",
+        legend=True,
+    )
 
-        if kwargs.get("show", False):
-            plt.show()
-        plt.close()
-    else:
-        return artists
+    return None if closed else artists
 
 
 def plot_pixels(pixel_grid, dir, show=False, save=True):
