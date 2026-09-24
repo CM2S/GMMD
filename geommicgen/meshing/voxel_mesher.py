@@ -210,6 +210,13 @@ class VoxelMesher(Mesher):
         # index is wrapped back in while the coordinate is not
 
         phase = int(particle.phase)
+        # TODO: the voxels of the bounding box are tested one at a time, where
+        # `particle.points_inside` tests a whole array of points in one operation, as
+        # the statistical analyses ask it to since the point lookup of the
+        # microstructure was written that way. The centres would be built as one array
+        # beside the wrapped indices, and the grid assigned at the rows that come back
+        # inside; this is the second place in the package that throws many points at
+        # one particle
         for i_voxel in itertools.product(*axis_voxels):
             center = np.array([i_axis[1] for i_axis in i_voxel])
             if particle.point_inside(center, rve_dims):
