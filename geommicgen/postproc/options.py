@@ -77,6 +77,16 @@ ANALYSES = (
 )
 # The options that ask for work; the others configure the Voronoi analysis
 
+ANALYSIS_GROUPS = (
+    ("the analyses to run", ANALYSES),
+    (
+        "options of the Voronoi analysis",
+        tuple(i_name for i_name in ANALYSIS_OPTIONS if i_name not in ANALYSES),
+    ),
+)
+# The options under the heading each belongs to, so that a help says which of them
+# ask for an analysis and which configure one
+
 
 def with_defaults(options):
     """

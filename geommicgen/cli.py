@@ -27,7 +27,12 @@ from geommicgen.pipeline import (
 )
 from geommicgen.meshing.mesher import available_meshers, get_mesher, mesher_options
 from geommicgen.meshing.writers import read_mesh
-from geommicgen.postproc.options import ANALYSES, ANALYSIS_OPTIONS, with_defaults
+from geommicgen.postproc.options import (
+    ANALYSES,
+    ANALYSIS_GROUPS,
+    ANALYSIS_OPTIONS,
+    with_defaults,
+)
 from geommicgen.translators.base import available_writers, get_writer, writer_options
 
 
@@ -424,7 +429,13 @@ def analyze_command(argv=None):
         help="microstructure file to be analysed; the state of the run that produced "
         "it is read from md_state.npz beside it, when an analysis needs it",
     )
-    add_declared_arguments(parser, ANALYSIS_OPTIONS)
+    add_grouped_arguments(
+        parser,
+        [
+            (i_title, {i_name: ANALYSIS_OPTIONS[i_name] for i_name in i_names})
+            for i_title, i_names in ANALYSIS_GROUPS
+        ],
+    )
     parser.add_argument(
         "-o",
         "--output-dir",
