@@ -22,6 +22,8 @@ from geommicgen.postproc.voronoimetrics.stat_analysis import (
     crosses_boundary,
     do_stat_analysis,
     remove_particles_at_boundary,
+    ripleys_k_edge_correction,
+    ripleys_k_func,
     two_point_correlation,
 )
 from geommicgen.postproc.voronoimetrics.voronoi_analysis import (
@@ -232,6 +234,71 @@ class TestSeededDescriptors(unittest.TestCase):
         self.assertNotEqual(drawn_after(7), drawn_after(8))
         # The nearest neighbour distances draw nothing, so what is drawn afterwards
         # comes from the seed the analysis was given, not from the one set before it
+
+
+class TestRipleysKEdgeCorrection(unittest.TestCase):
+    """Test class for the share of a disk around a particle that is inside the box."""
+
+    BOX = [1.0, 1.7]
+
+    def correction(self, center, radius):
+        """The share of one disk inside the box."""
+        return ripleys_k_edge_correction(
+            np.asarray([center], dtype=float), np.asarray([radius]), self.BOX
+        )[0]
+
+    def test_a_disk_inside_the_box_is_whole(self):
+        self.assertAlmostEqual(self.correction([0.5, 0.85], 0.2), 1.0)
+
+    def test_a_disk_touching_one_side_is_the_circle_less_a_segment(self):
+        radius, distance = 0.3, 0.2
+        angle = 2 * np.arccos(distance / radius)
+        segment = radius**2 * (angle - np.sin(angle)) / 2
+        expected = 1 - segment / (np.pi * radius**2)
+        self.assertAlmostEqual(self.correction([distance, 0.85], radius), expected)
+
+    def test_a_disk_around_a_corner_is_a_quarter_of_it(self):
+        self.assertAlmostEqual(self.correction([0.0, 0.0], 0.2), 0.25)
+        # The centre on the corner leaves one of the four quarters inside
+
+    def test_it_agrees_with_throwing_points_at_the_box(self):
+        generator = np.random.default_rng(0)
+        box = np.asarray(self.BOX)
+        for _ in range(8):
+            center = generator.uniform(0.05, 0.95, 2) * box
+            radius = generator.uniform(0.05, 1.2)
+            with self.subTest(center=center, radius=radius):
+                angles = generator.uniform(0, 2 * np.pi, 200000)
+                radii = radius * np.sqrt(generator.uniform(0, 1, 200000))
+                points = center + np.stack(
+                    [radii * np.cos(angles), radii * np.sin(angles)], axis=1
+                )
+                estimated = np.mean(np.all((points >= 0) & (points <= box), axis=1))
+                self.assertAlmostEqual(
+                    self.correction(center, radius), estimated, places=2
+                )
+        # The correction used to be this estimate, of two hundred points, computed for
+        # every pair of particles; it is the area itself now
+
+
+class TestRipleysKFunction(unittest.TestCase):
+    """Test class for Ripley's K function itself."""
+
+    def test_it_is_not_computed_in_three_dimensions(self):
+        from geommicgen.tests.helpers import sphere_microstructure
+
+        with self.assertRaises(NotImplementedError) as context:
+            ripleys_k_func(sphere_microstructure())
+        self.assertIn("two dimensional", str(context.exception))
+        # It raised on a broadcast, having reached the plotting of a two dimensional
+        # microstructure, and its three dimensional branch called the number pi
+
+    def test_it_grows_with_the_radius_and_starts_at_nothing(self):
+        values, radii = ripleys_k_func(disk_microstructure(), max_radius=4, n_points=5)
+        self.assertEqual(len(values), len(radii))
+        self.assertEqual(values[0], 0.0)
+        np.testing.assert_array_equal(np.sort(values), values)
+        # A pair counted at one radius is counted at every larger one
 
 
 if __name__ == "__main__":
