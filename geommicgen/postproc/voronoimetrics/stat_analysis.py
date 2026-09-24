@@ -543,14 +543,6 @@ def nearest_neighbor_dist(microstructure):
     return nearest_neighbor_dist_vals
 
 
-# FIXME: Ripley's K function and the two point correlation function are Monte Carlo
-# estimates -- the first draws points to correct for the edge of the box, the second
-# draws the pairs of points it correlates -- and neither seeds the generator, so the
-# same microstructure gives different numbers on every run: 0.2 % apart on the
-# hundred ellipses of the two dimensional example. A generation is reproducible
-# through Fixed_Seed, and an analysis of it should be too, either by seeding from an
-# option of its own or by correcting for the edge analytically.
-
 # FIXME: what the statistical descriptors cost, measured on the hundred ellipses of
 # the two dimensional example: the nearest neighbour distances 0.14 s, Ripley's K
 # function 17.7 s, the two point correlation function 79.6 s. The last two check pairs
@@ -558,7 +550,7 @@ def nearest_neighbor_dist(microstructure):
 # ninety times faster once the points were looked up in the cell list the simulation
 # already builds, and Ripley's K does the same kind of work and has not had the same
 # treatment.
-def do_stat_analysis(microstructure, sample_dir, stat_options):
+def do_stat_analysis(microstructure, sample_dir, stat_options, seed=None):
     """Do the statistical analysis of *microstructure*.
 
     The statistical functions available are the two point correlation function, Ripleys's K
@@ -574,6 +566,11 @@ def do_stat_analysis(microstructure, sample_dir, stat_options):
         Options for the statistical analysis.
         Options are {"stat_nearest_neighbor", "stat_ripleys_k", "stat_two_pt_corr"}.
 
+    seed: int
+        Seed of the draws Ripley's K function and the two point correlation function
+        estimate with. None leaves the generator where it is, and the numbers then
+        differ from one run to the next.
+
     Returns
     -------
     dict
@@ -581,6 +578,14 @@ def do_stat_analysis(microstructure, sample_dir, stat_options):
     """
     stat_anal_results_dir = os.path.join(sample_dir, "stat_analysis_results")
     os.makedirs(stat_anal_results_dir, exist_ok=True)
+    if seed is not None:
+        np.random.seed(seed)
+    # Two of the three descriptors are Monte Carlo estimates -- Ripley's K function
+    # draws points to find how much of a disk falls inside the box, and the two point
+    # correlation draws the pairs of points it correlates -- so the same microstructure
+    # gives numbers a fraction of a percent apart on every run unless the draws are
+    # seeded, where a generation is repeatable through Fixed_Seed
+
     stat_results = {}
     # Creating a directory for the results
     # Each descriptor puts its values under its own name, and the radii they are given

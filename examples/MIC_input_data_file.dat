@@ -721,6 +721,21 @@
 # ------------------------------------------------------------------------------------------
 [insert here]
 
+#                                                 Seed of the statistical descriptors [O]
+# ==========================================================================================
+# Meaning:   Seed of the draws Ripley's K function and the two point correlation
+#            function estimate with. Both are Monte Carlo estimates, so without a seed
+#            the same microstructure gives numbers a fraction of a percent apart on
+#            every run; with one an analysis is repeatable, as a generation is through
+#            Fixed_Seed. The nearest neighbour distances draw nothing and are the same
+#            either way.
+#
+# Syntax:    stat_seed x
+#
+# x:         integer
+# ------------------------------------------------------------------------------------------
+[insert here]
+
 #                                                                       Voronoi analysis [O]
 # ==========================================================================================
 # Meaning:   Do a Voronoi analysis.

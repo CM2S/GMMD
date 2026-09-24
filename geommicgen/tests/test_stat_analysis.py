@@ -22,6 +22,7 @@ from geommicgen.postproc.voronoimetrics.stat_analysis import (
     crosses_boundary,
     do_stat_analysis,
     remove_particles_at_boundary,
+    two_point_correlation,
 )
 from geommicgen.postproc.voronoimetrics.voronoi_analysis import (
     VORONOI_FILE_NAME,
@@ -184,6 +185,53 @@ class TestVoronoiResultsFile(unittest.TestCase):
             self.assertEqual(len(read["regions_offsets"]), read["point_region"].max() + 2)
         # Read back with numpy alone, where this was a pickle of a list whose length
         # depended on the dimension and which held a live scipy object
+
+
+class TestSeededDescriptors(unittest.TestCase):
+    """Test class for an analysis giving the same numbers on every run."""
+
+    def estimate(self, seed):
+        """Estimate the two point correlation of a fixture, from a seed."""
+        np.random.seed(seed)
+
+        return two_point_correlation(
+            disk_microstructure(), n_samples=200, n_points=4
+        )[0]
+        # Few samples and few radii: this is about which numbers are drawn, not about
+        # the estimate being any good
+
+    def test_the_same_seed_gives_the_same_estimate(self):
+        np.testing.assert_array_equal(self.estimate(7), self.estimate(7))
+
+    def test_another_seed_gives_another_estimate(self):
+        self.assertFalse(np.array_equal(self.estimate(7), self.estimate(8)))
+
+    def test_left_to_itself_it_draws_afresh(self):
+        np.random.seed(3)
+        first, _ = two_point_correlation(disk_microstructure(), n_samples=200, n_points=4)
+        second, _ = two_point_correlation(disk_microstructure(), n_samples=200, n_points=4)
+        self.assertFalse(np.array_equal(first, second))
+        # Which is why the seed is worth having: the same microstructure used to give
+        # numbers a fraction of a percent apart on every run
+
+    def test_the_analysis_seeds_the_draws_before_running_the_descriptors(self):
+        def drawn_after(seed):
+            """Run an analysis that draws nothing, and give the next number drawn."""
+            np.random.seed(101)
+            with tempfile.TemporaryDirectory() as directory:
+                do_stat_analysis(
+                    disk_microstructure(),
+                    directory,
+                    {"stat_nearest_neighbor"},
+                    seed=seed,
+                )
+
+            return np.random.uniform()
+
+        self.assertEqual(drawn_after(7), drawn_after(7))
+        self.assertNotEqual(drawn_after(7), drawn_after(8))
+        # The nearest neighbour distances draw nothing, so what is drawn afterwards
+        # comes from the seed the analysis was given, not from the one set before it
 
 
 if __name__ == "__main__":

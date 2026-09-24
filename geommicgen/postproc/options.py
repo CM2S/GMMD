@@ -62,6 +62,13 @@ ANALYSIS_OPTIONS = {
         "default": False,
         "help": "two point correlation function",
     },
+    "stat_seed": {
+        "type": "int",
+        "default": None,
+        "help": "seed of the draws Ripley's K function and the two point correlation "
+        "function estimate with, so that an analysis of a microstructure gives the "
+        "same numbers on every run",
+    },
 }
 # Each option by the name the input data file and the command line give it, with the
 # type it is read as, the value it has when it is not given, and the line that
@@ -77,12 +84,21 @@ ANALYSES = (
 )
 # The options that ask for work; the others configure the Voronoi analysis
 
+VORONOI_OPTION_NAMES = (
+    "voronoi_type",
+    "n_surf_points",
+    "plot_voronoi",
+    "plot_imts",
+)
+# The options of the Voronoi analysis alone
+
+STAT_OPTION_NAMES = ("stat_seed",)
+# The options of the statistical descriptors alone
+
 ANALYSIS_GROUPS = (
     ("the analyses to run", ANALYSES),
-    (
-        "options of the Voronoi analysis",
-        tuple(i_name for i_name in ANALYSIS_OPTIONS if i_name not in ANALYSES),
-    ),
+    ("options of the Voronoi analysis", VORONOI_OPTION_NAMES),
+    ("options of the statistical descriptors", STAT_OPTION_NAMES),
 )
 # The options under the heading each belongs to, so that a help says which of them
 # ask for an analysis and which configure one
