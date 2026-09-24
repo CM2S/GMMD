@@ -18,9 +18,17 @@ from geommicgen.postproc.plotfuncs.plotting_functions import (
     plot_two_point_correlation,
 )
 from geommicgen.postproc.voronoimetrics.stat_analysis import (
+    STAT_FILE_NAME,
     crosses_boundary,
+    do_stat_analysis,
     remove_particles_at_boundary,
 )
+from geommicgen.postproc.voronoimetrics.voronoi_analysis import (
+    VORONOI_FILE_NAME,
+    do_voronoi_analysis,
+    flatten_ragged,
+)
+from geommicgen.tests.helpers import disk_microstructure
 
 RVE_DIMS = [1.0, 1.0]
 
@@ -122,6 +130,60 @@ class TestStatisticalPlots(unittest.TestCase):
             fig_name="ripley",
         )
         self.assertEqual(os.listdir(self.temp_dir.name), ["ripley.pdf"])
+
+
+class TestStatResultsFile(unittest.TestCase):
+    """Test class for the file the statistical descriptors are written into."""
+
+    def test_every_descriptor_is_an_array_of_its_own(self):
+        with tempfile.TemporaryDirectory() as directory:
+            written = do_stat_analysis(
+                disk_microstructure(), directory, {"stat_nearest_neighbor"}
+            )
+            path = os.path.join(directory, "stat_analysis_results", STAT_FILE_NAME)
+            self.assertTrue(os.path.exists(path))
+            read = np.load(path)
+            self.assertEqual(set(read), set(written))
+            for i_name, i_values in written.items():
+                np.testing.assert_allclose(read[i_name], i_values)
+        # Read back with numpy alone, where the descriptors used to be a pickle of a
+        # dictionary that only Python could open
+
+
+class TestVoronoiResultsFile(unittest.TestCase):
+    """Test class for the file the Voronoi diagram and its metrics are written into."""
+
+    def test_rows_of_unequal_length_are_laid_end_to_end(self):
+        flat, offsets = flatten_ragged([[1, 2, 3], [], [4], [5, 6]])
+        np.testing.assert_array_equal(flat, [1, 2, 3, 4, 5, 6])
+        np.testing.assert_array_equal(offsets, [0, 3, 3, 4, 6])
+        rows = [flat[offsets[i] : offsets[i + 1]].tolist() for i in range(len(offsets) - 1)]
+        self.assertEqual(rows, [[1, 2, 3], [], [4], [5, 6]])
+
+    def test_the_diagram_and_its_metrics_are_named_arrays(self):
+        with tempfile.TemporaryDirectory() as directory:
+            do_voronoi_analysis(
+                disk_microstructure().particles, [1.0, 1.0], directory
+            )
+            path = os.path.join(directory, "voronoi_analysis_results", VORONOI_FILE_NAME)
+            read = np.load(path)
+            for i_name in (
+                "vertices",
+                "point_region",
+                "regions_flat",
+                "regions_offsets",
+                "ridge_points",
+                "ridge_vertices_flat",
+                "ridge_vertices_offsets",
+                "imts",
+                "angles",
+                "in_box",
+            ):
+                self.assertIn(i_name, read)
+            self.assertEqual(read["vertices"].shape[1], 2)
+            self.assertEqual(len(read["regions_offsets"]), read["point_region"].max() + 2)
+        # Read back with numpy alone, where this was a pickle of a list whose length
+        # depended on the dimension and which held a live scipy object
 
 
 if __name__ == "__main__":

@@ -212,7 +212,7 @@ class TestAnalyzeCommand(unittest.TestCase):
     def test_a_statistical_analysis_without_gmsh(self):
         status, _ = self.run_command("--stat-nearest-neighbor")
         self.assertEqual(status, 0)
-        self.assertTrue(self.written("stat_analysis_results", "stat_results.stat"))
+        self.assertTrue(self.written("stat_analysis_results", "stat_results.npz"))
         self.assertFalse(self.written("mic.screen"))
         self.assertFalse(os.path.exists("mic.screen"))
         # The command reports to the terminal alone, as the other commands do; a

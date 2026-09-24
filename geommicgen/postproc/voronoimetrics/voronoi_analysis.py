@@ -8,7 +8,6 @@ Functions also for the analysis of the Minkowski structure metrics and associate
 # pylint: disable=relative-beyond-top-level
 # pylint: disable=no-name-in-module
 import os
-import pickle
 import numpy as np
 
 from scipy.spatial import Voronoi
@@ -903,6 +902,97 @@ def compute_test_stat_chi_squared(array_samples):
     return [chi, used_bins]
 
 
+VORONOI_FILE_NAME = "voronoi_results.npz"
+# File of a sample the Voronoi diagram and its metrics are written into
+
+
+def flatten_ragged(rows):
+    """
+    Lay rows of unequal length end to end, with the index each one starts at.
+
+    Parameters
+    ----------
+    rows: list
+        Lists of integers, such as the vertices of each Voronoi cell.
+
+    Returns
+    -------
+    tuple
+        The values of every row one after another, and the indices at which the rows
+        start, the last of which is the number of values.
+    """
+    offsets = np.cumsum([0] + [len(i_row) for i_row in rows])
+    flat = np.concatenate([np.asarray(i_row, dtype=int) for i_row in rows]) if rows else np.zeros(0, dtype=int)
+
+    return flat, offsets
+    # A region of a diagram has as many vertices as it has, so the regions cannot be
+    # one array; written flat with the offsets they are read back anywhere, where an
+    # array of lists is an array of Python objects that only a pickle carries
+
+
+def voronoi_arrays(voronoi):
+    """
+    Give the arrays a Voronoi diagram is written as.
+
+    Parameters
+    ----------
+    voronoi: `scipy.spatial.Voronoi` or `.SetVoronoi`
+        The diagram.
+
+    Returns
+    -------
+    dict
+        The vertices, the region of every point, and the regions and the vertices of
+        every ridge flattened with their offsets.
+    """
+    regions_flat, regions_offsets = flatten_ragged(list(voronoi.regions))
+    ridges_flat, ridges_offsets = flatten_ragged(list(voronoi.ridge_vertices))
+
+    return {
+        "vertices": np.asarray(voronoi.vertices, dtype=float),
+        "point_region": np.asarray(voronoi.point_region, dtype=int),
+        "regions_flat": regions_flat,
+        "regions_offsets": regions_offsets,
+        "ridge_points": np.asarray(voronoi.ridge_points, dtype=int),
+        "ridge_vertices_flat": ridges_flat,
+        "ridge_vertices_offsets": ridges_offsets,
+    }
+
+
+def save_voronoi_results(results_dir, voronoi, **metrics):
+    """
+    Write a Voronoi diagram and its metrics into the results file of a sample.
+
+    Parameters
+    ----------
+    results_dir: str
+        Directory of the results of the Voronoi analysis.
+
+    voronoi: `scipy.spatial.Voronoi` or `.SetVoronoi`
+        The diagram.
+
+    metrics: dict
+        What was computed from it, each under its own name: *imts* in either
+        dimension, *in_box* and *angles* in two, *phi* in three.
+
+    Returns
+    -------
+    str
+        Path of the file that was written.
+    """
+    path = os.path.join(results_dir, VORONOI_FILE_NAME)
+    arrays = voronoi_arrays(voronoi)
+    arrays.update(
+        {i_name: np.asarray(i_value) for i_name, i_value in metrics.items()}
+    )
+    np.savez(path, **arrays)
+    # An .npz of named arrays, where this was a pickle of a list whose length and
+    # contents depended on the dimension and whose first item was a live scipy object,
+    # so that the file read back only through a compatible scipy
+
+    return path
+
+
 def do_voronoi_analysis(
     particles,
     rve_dims,
@@ -965,18 +1055,8 @@ def do_voronoi_analysis(
             )
         # Saving the results
         # --------------------------------------------------------------------------------------
-        # FIXME: voronoi_results.vor is a pickle of a list whose contents depend on the
-        # dimension -- the diagram, the tensors, the angles and which cells are inside
-        # the box here, the diagram, the tensors and phi in three dimensions -- and
-        # nothing says so. Its first item is a scipy Voronoi, a live object around the
-        # qhull library, so the file reads back only in a compatible scipy and only
-        # through Python. What is wanted of the diagram is its vertices, regions,
-        # point_region, ridge_points and ridge_vertices, which are arrays and lists of
-        # indices: an .npz of those and of the tensors, keyed the same in both
-        # dimensions and written down in the readme, would be a file anything can read.
-        pickle.dump(
-            [voronoi, imts, angles, in_box],
-            open(os.path.join(voronoi_results_dir, "voronoi_results.vor"), "wb"),
+        save_voronoi_results(
+            voronoi_results_dir, voronoi, imts=imts, angles=angles, in_box=in_box
         )
     elif particles[0].dim == 3:
         # if voronoi_type == 'standard':
@@ -995,7 +1075,4 @@ def do_voronoi_analysis(
             )
         # Saving the results
         # --------------------------------------------------------------------------------------
-        pickle.dump(
-            [voronoi, imts, phi],
-            open(os.path.join(voronoi_results_dir, "voronoi_results.vor"), "wb"),
-        )
+        save_voronoi_results(voronoi_results_dir, voronoi, imts=imts, phi=phi)

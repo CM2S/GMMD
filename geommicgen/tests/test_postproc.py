@@ -164,14 +164,14 @@ class TestCheckAnalyses(PostProcTest):
         self.assertTrue(self.written("final_config.pdf"))
         self.assertTrue(self.written("motion_results", "relative_energy.pdf"))
         self.assertFalse(self.written("motion_results", "paths"))
-        self.assertTrue(self.written("stat_analysis_results", "stat_results.stat"))
+        self.assertTrue(self.written("stat_analysis_results", "stat_results.npz"))
         # A two dimensional final configuration, a motion analysis of a run that kept
         # no positions, and the statistics are matplotlib and numpy alone
 
     def test_running_twice_writes_over_the_first_time(self):
         options = {"final_config": True, "stat_nearest_neighbor": True}
         run_analyses(disk_microstructure(), None, self.sample_dir, options)
-        results = os.path.join(self.sample_dir, "stat_analysis_results", "stat_results.stat")
+        results = os.path.join(self.sample_dir, "stat_analysis_results", "stat_results.npz")
         first = os.stat(results).st_mtime_ns
         os.utime(results, ns=(first - 10**9, first - 10**9))
         run_analyses(disk_microstructure(), None, self.sample_dir, options)

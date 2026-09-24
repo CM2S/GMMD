@@ -3,7 +3,6 @@
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 # pylint: disable=no-name-in-module
-import pickle
 import os
 import sys
 import numpy as np
@@ -83,6 +82,10 @@ class MicrostructureImage:
                 pt_in[i_ind_pt] = pixel == 255
 
         return pt_in
+
+
+STAT_FILE_NAME = "stat_results.npz"
+# File of a sample the statistical descriptors are written into
 
 
 def crosses_boundary(particle, rve_dims):
@@ -559,7 +562,8 @@ def do_stat_analysis(microstructure, sample_dir, stat_options):
     """Do the statistical analysis of *microstructure*.
 
     The statistical functions available are the two point correlation function, Ripleys's K
-    function and the nearest neighbor function.
+    function and the nearest neighbor function. The values are written into an .npz of
+    the sample, one array per descriptor, and plotted beside it.
 
     Parameters
     ----------
@@ -569,11 +573,18 @@ def do_stat_analysis(microstructure, sample_dir, stat_options):
     stat_options: set(str)
         Options for the statistical analysis.
         Options are {"stat_nearest_neighbor", "stat_ripleys_k", "stat_two_pt_corr"}.
+
+    Returns
+    -------
+    dict
+        The values of every descriptor computed, as they are written.
     """
     stat_anal_results_dir = os.path.join(sample_dir, "stat_analysis_results")
     os.makedirs(stat_anal_results_dir, exist_ok=True)
     stat_results = {}
     # Creating a directory for the results
+    # Each descriptor puts its values under its own name, and the radii they are given
+    # at under that name followed by _radii, which is what `STAT_FILE_NAME` holds
 
     # Statistical analysis
     # --------------------------------------------------------------------------------------
@@ -586,7 +597,8 @@ def do_stat_analysis(microstructure, sample_dir, stat_options):
 
     if "stat_ripleys_k" in stat_options:
         k_ripleys_func_vals, radii_vec = ripleys_k_func(microstructure)
-        stat_results["stat_ripleys_k"] = [k_ripleys_func_vals, radii_vec]
+        stat_results["stat_ripleys_k"] = k_ripleys_func_vals
+        stat_results["stat_ripleys_k_radii"] = radii_vec
         plot_ripleys_k_func(
             k_ripleys_func_vals, radii_vec, results_dir=stat_anal_results_dir
         )
@@ -595,22 +607,23 @@ def do_stat_analysis(microstructure, sample_dir, stat_options):
         two_point_correlation_vals, radii_vec = two_point_correlation(
             microstructure, max_radius=2, n_points=100
         )
-        stat_results["stat_two_pt_corr"] = [two_point_correlation_vals, radii_vec]
+        stat_results["stat_two_pt_corr"] = two_point_correlation_vals
+        stat_results["stat_two_pt_corr_radii"] = radii_vec
         plot_two_point_correlation(
             two_point_correlation_vals, radii_vec, results_dir=stat_anal_results_dir
         )
 
     # Saving the results
     # --------------------------------------------------------------------------------------
-    # FIXME: this file and the .vor of the Voronoi analysis are the last pickles the
-    # package writes: a microstructure is a YAML file and the state of a run an .npz,
-    # both of which another tool can read. The descriptors here are arrays and pairs
-    # of arrays, so this should be an .npz keyed by the name of the descriptor, with
-    # the keys written down in the readme as the state file's are.
-    pickle.dump(
-        stat_results,
-        open(os.path.join(stat_anal_results_dir, "stat_results.stat"), "wb"),
+    np.savez(
+        os.path.join(stat_anal_results_dir, STAT_FILE_NAME),
+        **{i_name: np.asarray(i_values) for i_name, i_values in stat_results.items()}
     )
+    # An .npz of one array per descriptor, as the state of a run is written, where it
+    # used to be a pickle of a dictionary: numpy reads it anywhere, and so does
+    # anything that reads a zip of .npy files
+
+    return stat_results
 
 
 if __name__ == "__main__":
