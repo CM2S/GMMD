@@ -509,7 +509,6 @@ def compute_2d_irreducible_minkowski_tensors_polygon(voronoi, degree=6):
                 pass
                 # print(i_side)
         # angles = [np.pi/2 - np.arctan(i_side[1]/i_side[0]) for i_side in sides]
-        print("angles", np.degrees(angles))
         # print('lengths', lengths)
         for j_tensor in range(degree + 1):
             # Computing the 7 first imts

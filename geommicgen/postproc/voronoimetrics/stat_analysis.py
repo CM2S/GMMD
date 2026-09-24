@@ -85,31 +85,59 @@ class MicrostructureImage:
         return pt_in
 
 
-def remove_particles_at_boundary(particles, rve_dims):
-    """Remove from the microstructure the particles intersecting the boundary of the box."""
-    rem_particles = list(particles)
-    # copy of all the particles that we can mutate
-    for i_particle in rem_particles:
-        all_lims = []
-        for i_dim in range(particles[0].dim):
-            direction = np.full(particles[0].dim, 0)
-            direction[i_dim] = 1
-            all_lims.append(
-                [
-                    i_particle.support_function(-1 * direction)[i_dim],
-                    i_particle.support_function(direction)[i_dim],
-                ]
-            )
-        print(all_lims)
-        if any(
-            [
-                i_lim[0] < 0 or i_lim[1] > rve_dims[i_dim]
-                for (i_dim, i_lim) in enumerate(all_lims)
-            ]
-        ):
-            rem_particles.remove(i_particle)
+def crosses_boundary(particle, rve_dims):
+    """
+    Say whether a particle reaches past a face of the box.
 
-    return rem_particles
+    Parameters
+    ----------
+    particle: `.Particle`
+        Particle to be placed.
+
+    rve_dims: list
+        Dimensions of the box in each spatial direction.
+
+    Returns
+    -------
+    bool
+        True when the particle reaches past one of the faces.
+    """
+    for i_dim in range(particle.dim):
+        direction = np.full(particle.dim, 0)
+        direction[i_dim] = 1
+        lower = particle.support_function(-1 * direction)[i_dim]
+        upper = particle.support_function(direction)[i_dim]
+        if lower < 0 or upper > rve_dims[i_dim]:
+            return True
+
+    return False
+
+
+def remove_particles_at_boundary(particles, rve_dims):
+    """
+    Give the particles that do not intersect the boundary of the box.
+
+    Parameters
+    ----------
+    particles: list(`.Particle`)
+        Particles of the microstructure.
+
+    rve_dims: list
+        Dimensions of the box in each spatial direction.
+
+    Returns
+    -------
+    list
+        The particles that lie whole inside the box.
+    """
+    return [
+        i_particle
+        for i_particle in particles
+        if not crosses_boundary(i_particle, rve_dims)
+    ]
+    # Built anew rather than removed from while it is walked, which skipped the
+    # particle after every one that was taken out: of two that cross the boundary one
+    # after the other, the second was left in, and the statistics counted it
 
 
 def adjust_rve_dims(particles):
@@ -436,8 +464,6 @@ def ripleys_k_func(microstructure, max_radius=10, n_points=20):
             dist_part[k_pair] = np.linalg.norm(
                 adj_centers[i_ind_part] - adj_centers[j_ind_part]
             )
-            if dist_part[k_pair] < radius:
-                print(adj_centers[i_ind_part], adj_centers[j_ind_part])
             # print(k_pair)
             # print(dist_part[k_pair])
             correction[k_pair] = ripleys_k_func_edge_corr(
@@ -465,25 +491,13 @@ def ripleys_k_func(microstructure, max_radius=10, n_points=20):
             if j_dist < i_length * radius:
                 current_val += 1 / j_correction / n_part
 
-        # FIXME: these prints, and the ones at the end of this function and at the
-        # top of the module, are debugging leftovers: they put 386 kB of raw numbers
-        # on the terminal of a run of the two dimensional example, where nothing else
-        # in the package prints anything but what a user asked to be told. They should
-        # go; what a user needs to know goes through `geommicgen.iofuncs.printing`.
-        print(current_val)
         k_ripleys_func_vals[i_ind_length] = current_val
-        print(k_ripleys_func_vals[i_ind_length])
 
     k_ripleys_func_vals = k_ripleys_func_vals * np.prod(adj_rve_dims) / n_part
 
-    print(k_ripleys_func_vals)
     # k_ripleys_func_vals = np.sqrt(k_ripleys_func_vals / np.pi) - radius * np.arange(
     #     0, max_radius, 1 / n_points
     # )
-    print(radius * np.arange(0, max_radius, 1 / n_points))
-    print(k_ripleys_func_vals)
-    print(dist_part)
-    print(correction)
     return k_ripleys_func_vals, radius * np.arange(0, max_radius, 1 / n_points)
 
 
@@ -525,6 +539,14 @@ def nearest_neighbor_dist(microstructure):
 
     return nearest_neighbor_dist_vals
 
+
+# FIXME: Ripley's K function and the two point correlation function are Monte Carlo
+# estimates -- the first draws points to correct for the edge of the box, the second
+# draws the pairs of points it correlates -- and neither seeds the generator, so the
+# same microstructure gives different numbers on every run: 0.2 % apart on the
+# hundred ellipses of the two dimensional example. A generation is reproducible
+# through Fixed_Seed, and an analysis of it should be too, either by seeding from an
+# option of its own or by correcting for the edge analytically.
 
 # FIXME: what the statistical descriptors cost, measured on the hundred ellipses of
 # the two dimensional example: the nearest neighbour distances 0.14 s, Ripley's K
