@@ -242,15 +242,13 @@ def two_point_correlation(
         If the vector direction supplied and the RVE dimensions are incompatible.
     """
 
-    def random_unit_vec(dim):
-        """Random unit vector."""
-        if dim == 2:
-            theta = np.random.uniform(0, 2 * np.pi)
-            random_unit_vec = np.array([np.cos(theta), np.sin(theta)])
-        else:
+    def random_unit_vecs(dim, how_many):
+        """Directions drawn at random, one per row."""
+        if dim != 2:
             raise ValueError("Dimensions not supported.")
+        angles = np.random.uniform(0, 2 * np.pi, how_many)
 
-        return random_unit_vec
+        return np.stack([np.cos(angles), np.sin(angles)], axis=1)
 
     rve_dims = microstructure.rve_dims
     two_point_correlation_vals = [None for _ in range(n_points * max_radius)]
@@ -271,28 +269,31 @@ def two_point_correlation(
             )
     else:
         pref_direction = False
+    first_points = np.random.uniform(0, 1, (n_samples, len(rve_dims))) * np.array(
+        rve_dims
+    )
+    first_inside = np.asarray(
+        microstructure.inside_particle_phase(first_points), dtype=bool
+    )
+    # The first point of a pair does not depend on the separation asked about, so it is
+    # drawn and looked up once for every radius instead of afresh for each: the same
+    # estimate of half the work, and a curve whose points are read against each other
+
     for i_ind_length, i_length in enumerate(
         radius * np.arange(0, max_radius, 1 / n_points)
     ):
-
-        all_pts = [None for _ in range(2 * n_samples)]
-        for i_pt in range(n_samples):
-            # Using n_samples random pts to compute each pt of the two point correlation
-            # function
-            pt_1 = np.random.uniform(0, 1, np.shape(rve_dims)) * np.array(rve_dims)
-            all_pts[2 * i_pt] = pt_1
-            if pref_direction:
-                pt_2 = pt_1 + i_length * unit_vec
-            else:
-                pt_2 = pt_1 + i_length * random_unit_vec(len(rve_dims))
-            all_pts[2 * i_pt + 1] = pt_2
-
-        all_pts_inside = microstructure.inside_particle_phase(all_pts)
-        line_seg_inside = [
-            (all_pts_inside[2 * i_ind] + all_pts_inside[2 * i_ind + 1]) // 2
-            for i_ind in range(n_samples)
-        ]
-        two_point_correlation_vals[i_ind_length] = np.sum(line_seg_inside) / n_samples
+        if pref_direction:
+            directions = np.broadcast_to(unit_vec, first_points.shape)
+        else:
+            directions = random_unit_vecs(len(rve_dims), n_samples)
+        second_points = first_points + i_length * directions
+        second_inside = np.asarray(
+            microstructure.inside_particle_phase(second_points), dtype=bool
+        )
+        two_point_correlation_vals[i_ind_length] = (
+            np.count_nonzero(first_inside & second_inside) / n_samples
+        )
+        # Both ends of the segment on the particle phase, which is what the function is
 
         # import matplotlib.pyplot as plt
         #
@@ -516,12 +517,14 @@ def nearest_neighbor_dist(microstructure):
 
 
 # FIXME: the two point correlation function is what the statistical descriptors cost
-# now, at 80 s on the hundred ellipses of the two dimensional example against 0.14 s
-# for the nearest neighbour distances and 0.01 s for Ripley's K function. It draws
-# five thousand pairs of points for each of a hundred radii and asks the microstructure
-# about every one; the question is already answered in bulk by
-# `Microstructure.inside_particle_phase`, which looks the points up in a cell list, so
-# the draws for all the radii at once would be one call rather than a hundred thousand.
+# now, at 35 s on the hundred ellipses of the two dimensional example against 0.14 s
+# for the nearest neighbour distances and 0.01 s for Ripley's K function. What it
+# spends them on is asking whether a point is on the particle phase, two million times:
+# the cell list leaves about six particles to test per point, and each test is a call
+# into the particle, where testing the points of a cell against one particle at a time
+# would be one array operation. That is a `points_inside` on the particle classes,
+# which `Microstructure.inside_particle_phase` would then call once per particle
+# rather than once per point and particle.
 def do_stat_analysis(microstructure, sample_dir, stat_options, seed=None):
     """Do the statistical analysis of *microstructure*.
 
