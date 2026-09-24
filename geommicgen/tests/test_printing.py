@@ -10,6 +10,7 @@ from geommicgen.iofuncs.file_handling import delete_screen
 from geommicgen.iofuncs.printing import (
     print_failed_jobs,
     print_final_message,
+    step_times,
     print_to_file,
     screen_to,
 )
@@ -54,7 +55,9 @@ class TestPrintFinalMessage(unittest.TestCase):
 
     def test_job_that_did_not_finish_is_left_out(self):
         self.assertIsNone(unfinished_job().time)
-        print_final_message(Mock(time=1.0), [finished_job(2.0), unfinished_job()], {})
+        print_final_message(
+            step_times(Mock(time=1.0), [finished_job(2.0), unfinished_job()], {})
+        )
         self.assertIn("Regular mesh generation", self.summary())
         self.assertNotIn("Finite element mesh generation", self.summary())
         self.assertIn("3.00e+00", self.summary())
@@ -65,7 +68,7 @@ class TestPrintFinalMessage(unittest.TestCase):
         nameless = Mock(spec=["time"])
         nameless.time = 3.0
         self.assertIsNone(getattr(nameless, "description", None))
-        print_final_message(Mock(time=1.0), [nameless], {})
+        print_final_message(step_times(Mock(time=1.0), [nameless], {}))
         self.assertIn("Mock", self.summary())
         # The name used to be left over from the previous iteration of the loop, and
         # unbound altogether for the first step of an unexpected class. The mock is
@@ -73,15 +76,23 @@ class TestPrintFinalMessage(unittest.TestCase):
         # answering every attribute, would not
 
     def test_nothing_finished_at_all(self):
-        print_final_message(Mock(time=None), [], {})
+        print_final_message(step_times(Mock(time=None), [], {}))
         self.assertIn("Program Completed", self.summary())
         # No division by a total of zero
 
     def test_post_processing_times_are_reported(self):
-        print_final_message(Mock(time=1.0), [], {"Voronoi analysis": 3.0})
+        print_final_message(step_times(Mock(time=1.0), [], {"Voronoi analysis": 3.0}))
         self.assertIn("Voronoi analysis", self.summary())
         self.assertIn("75", self.summary())
         # Three quarters of a total of four seconds
+
+    def test_a_command_reports_the_steps_it_names(self):
+        print_final_message({"Meshing": 3.0, "Writing": 1.0})
+        self.assertIn("Meshing", self.summary())
+        self.assertIn("Writing", self.summary())
+        self.assertIn("75", self.summary())
+        # The summary is a dictionary of times, so a command closes with the table a
+        # run closes with, naming the steps it ran
 
 
 class ScreenLogTest(unittest.TestCase):

@@ -15,6 +15,7 @@ asks for it.
 
 import argparse
 import os
+import time
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
@@ -69,14 +70,6 @@ ARGUMENT_KWARGS = {
 # line. Every type the input data file accepts is here: one that is missing would read
 # from a deck and then fail when the parser is built, which is the wrong end to find out
 
-# FIXME: the commands report nothing like a run of a deck does. A deck prints an
-# opening message saying what it is working on, a section per step with the time it
-# took, and a table of the times at the end; a command prints the paths of the files
-# and, for the analyses, the sections the analyses print themselves. The frame is in
-# `geommicgen.iofuncs.printing` and should be shared. What stands in the way is
-# `print_final_message`, which asks for the generation method and the mesh jobs when
-# all it needs of them is their times: give it the dictionary of times and it can
-# close a command as it closes a run.
 
 
 def resolve_writers(parser, names, options=None):
@@ -203,6 +196,66 @@ def output_name(name, source_path):
     return name or os.path.splitext(os.path.basename(source_path))[0]
 
 
+def analysis_files(output_dir, options):
+    """
+    Give the files the analyses asked for left in the output directory.
+
+    Parameters
+    ----------
+    output_dir: str
+        Directory the analyses were run into.
+
+    options: dict
+        The analyses that were asked for.
+
+    Returns
+    -------
+    list
+        Paths of the files, sorted, over the final configuration and the directory
+        each analysis names for itself.
+    """
+    from geommicgen.postproc.postproc import ANALYSIS_DIRECTORIES
+
+    found = []
+    for i_name in sorted(os.listdir(output_dir)) if os.path.isdir(output_dir) else []:
+        path = os.path.join(output_dir, i_name)
+        if i_name.startswith("final_config") and os.path.isfile(path):
+            found.append(path)
+        elif i_name in ANALYSIS_DIRECTORIES.values() and os.path.isdir(path):
+            found += [
+                os.path.join(path, j_name) for j_name in sorted(os.listdir(path))
+            ]
+
+    return found
+    # The analyses do not say what they wrote, each naming a directory of its own
+    # instead, so what is in those is what the command reports
+
+
+def opened(source_path, label):
+    """
+    Open a command with what it is working on, and give the moment it started.
+
+    Parameters
+    ----------
+    source_path: str
+        File the command was given.
+
+    label: str
+        What that file is.
+
+    Returns
+    -------
+    float
+        The moment the work started, for the step that follows to be timed from.
+    """
+    print_funcs.log_to_terminal()
+    print_funcs.print_initial_message(source_path, label=label)
+
+    return time.time()
+    # A command opens and closes as a run of an input data file does, with the same
+    # heading, the same sections in between and the same table of times
+
+
 def print_files(files):
     """Print the paths of the files that were written."""
     for i_file in files:
@@ -299,7 +352,9 @@ def mesh_command(argv=None):
     # particle classes and the parts of scipy they use, which is most of the cost of
     # starting up, and the other command never reads one
 
+    started = opened(arguments.microstructure, "Microstructure")
     microstructure = read_microstructure_yaml(arguments.microstructure)
+    read_seconds = time.time() - started
     job = MeshJob(
         mesher,
         writers,
@@ -313,11 +368,19 @@ def mesh_command(argv=None):
     # discretisation of a microstructure from another, so meshing the same
     # microstructure with two elements, or at two resolutions, into one directory no
     # longer writes the second over the first. --name still says it outright
+    print_funcs.print_to_file("Generating meshes")
+    print_funcs.print_to_file("-" * 80 + "\n")
+    print_funcs.print_to_file("\t> {0}".format(job.description))
     job.run(microstructure, arguments.output_dir, report=report_progress)
     for i_warning in mesher.warnings:
-        print(i_warning)
+        print_funcs.print_to_file("\t\t- {0}".format(i_warning))
 
-    return report_outcome(job.error, job.files)
+    status = report_outcome(job.error, job.files)
+    print_funcs.print_final_message(
+        {"Reading the microstructure": read_seconds, job.description: job.time}
+    )
+
+    return status
 
 
 def translate_command(argv=None):
@@ -373,6 +436,7 @@ def translate_command(argv=None):
     if arguments.mesh is None or not arguments.to:
         parser.error("a mesh and --to are needed, unless --list-formats is given")
 
+    started = opened(arguments.mesh, "Mesh")
     writers = resolve_writers(
         parser, arguments.to, declared_options(arguments, writer_options())
     )
@@ -381,6 +445,10 @@ def translate_command(argv=None):
         rve_dims=arguments.rve_dims,
         matrix_phase=arguments.matrix_phase,
     )
+    read_seconds = time.time() - started
+    print_funcs.print_to_file("Writing the formats asked for")
+    print_funcs.print_to_file("-" * 80 + "\n")
+    writing = time.time()
     os.makedirs(arguments.output_dir, exist_ok=True)
     base_path = os.path.join(
         arguments.output_dir, output_name(arguments.name, arguments.mesh)
@@ -391,12 +459,18 @@ def translate_command(argv=None):
             mesh, base_path, writers, protected=[arguments.mesh], written=written
         )
     except Exception as error:  # pylint: disable=broad-except
-        return report_outcome(error, written)
+        status = report_outcome(error, written)
+    else:
+        status = report_outcome(None, written)
     # The mesh that was read is protected, so asking for the format it is already in
     # cannot overwrite the file this was given. A format failing part of the way
     # through still reports what reached the disk, as it does when a deck drives it
 
-    return report_outcome(None, written)
+    print_funcs.print_final_message(
+        {"Reading the mesh": read_seconds, "Writing the formats": time.time() - writing}
+    )
+
+    return status
 
 
 def analyze_command(argv=None):
@@ -413,13 +487,6 @@ def analyze_command(argv=None):
     int
         Status to exit with.
     """
-    # FIXME: the analyses do not say what they wrote, so this command reports no file
-    # at all, where the meshing command lists every one. The analyses each name their
-    # own directory and files; having them return the paths, as a writer does, is what
-    # would let this close with the list. The state of the analyses themselves -- what
-    # they print, what they cost, and the format they write their results in -- is
-    # noted where each of them is.
-
     parser = argparse.ArgumentParser(
         prog="geommicgen-analyze",
         description="Analyse a generated microstructure, and the run that produced it.",
@@ -461,6 +528,10 @@ def analyze_command(argv=None):
     # pull in matplotlib and the particle classes, and the other commands never need
     # them
 
+    started = opened(arguments.microstructure, "Microstructure")
+    # The analyses report through the logger; the terminal is where a command's
+    # report goes, and no screen file is written -- as the other commands do not
+
     microstructure = read_microstructure_yaml(arguments.microstructure)
     state = None
     if options["motion_analysis"]:
@@ -470,18 +541,20 @@ def analyze_command(argv=None):
                 STATE_FILE_NAME,
             )
         )
+    read_seconds = time.time() - started
     # Read only when an analysis wants it: the positions are the bulk of the file. The
     # absolute path is taken first, since the directory of a bare file name is empty
 
-    print_funcs.log_to_terminal()
-    # The analyses report through the logger; the terminal is where a command's
-    # report goes, and no screen file is written -- as the other commands do not
-
     try:
-        run_analyses(microstructure, state, arguments.output_dir, options)
+        times = run_analyses(microstructure, state, arguments.output_dir, options)
     except Exception as error:  # pylint: disable=broad-except
         return report_outcome(error, [])
-    # The analyses do not say what they wrote, so nothing is listed; what was refused
-    # before anything was written, and why, is what the report carries
+    # What was refused before anything was written, and why, is what the report
+    # carries; nothing is listed, since nothing was written
 
-    return report_outcome(None, [])
+    status = report_outcome(None, analysis_files(arguments.output_dir, options))
+    print_funcs.print_final_message(
+        dict({"Reading the microstructure": read_seconds}, **times)
+    )
+
+    return status

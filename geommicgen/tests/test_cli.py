@@ -267,6 +267,69 @@ class TestAnalyzeCommand(unittest.TestCase):
         self.assertTrue(os.listdir(os.path.join(self.output_dir, "motion_results", "paths")))
 
 
+class TestCommandReports(unittest.TestCase):
+    """Test class for a command opening and closing as a run of a deck does."""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_dir.cleanup)
+        self.microstructure_path = os.path.join(self.temp_dir.name, "mic.yaml")
+        write_microstructure_yaml(disk_microstructure(), self.microstructure_path)
+        self.output_dir = os.path.join(self.temp_dir.name, "out")
+
+    def run_command(self, command, argv):
+        """Run a command and give what it printed."""
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            status = command(argv)
+        self.assertEqual(status, 0, printed.getvalue())
+
+        return printed.getvalue()
+
+    def assert_framed(self, printed, label):
+        """Check the heading, the file worked on and the table of times are there."""
+        self.assertIn("Geometrical microstructure generation", printed)
+        self.assertIn("{0}: ".format(label), printed)
+        self.assertIn("Starting program execution at", printed)
+        self.assertIn("Execution times:", printed)
+        self.assertIn("Program Completed", printed)
+
+    def test_the_meshing_command_is_framed(self):
+        printed = self.run_command(
+            mesh_command,
+            [self.microstructure_path, "--mesher", "voxel", "--n-voxels-dims", "8", "8",
+             "-o", self.output_dir],
+        )
+        self.assert_framed(printed, "Microstructure")
+        self.assertIn("Regular mesh generation", printed)
+
+    def test_the_analysis_command_is_framed_and_lists_what_it_wrote(self):
+        printed = self.run_command(
+            analyze_command,
+            [self.microstructure_path, "--stat-nearest-neighbor", "-o", self.output_dir],
+        )
+        self.assert_framed(printed, "Microstructure")
+        self.assertIn("Statistical analysis", printed)
+        self.assertIn(os.path.join("stat_analysis_results", "stat_results.npz"), printed)
+        self.assertIn(
+            os.path.join("stat_analysis_results", "nearest_neighbor_dist.pdf"), printed
+        )
+        # It reported no file at all, the analyses not saying what they write
+
+    def test_the_translating_command_is_framed(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            mesh_command(
+                [self.microstructure_path, "--mesher", "voxel", "--n-voxels-dims",
+                 "8", "8", "-o", self.output_dir]
+            )
+        printed = self.run_command(
+            translate_command,
+            [os.path.join(self.output_dir, "mic_8_8.vti"), "--to", "crate",
+             "-o", os.path.join(self.temp_dir.name, "translated")],
+        )
+        self.assert_framed(printed, "Mesh")
+
+
 class TestAnalysisOptions(unittest.TestCase):
     """Test class for the analyses being asked for the same way from a deck and here."""
 

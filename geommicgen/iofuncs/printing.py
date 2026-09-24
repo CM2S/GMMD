@@ -101,15 +101,26 @@ def screen_to(directory):
     return path
 
 
-def print_initial_message(input_file_path):
-    """Print initial message."""
+def print_initial_message(input_file_path, label="Input file"):
+    """
+    Open a run or a command with what it is working on and when it started.
+
+    Parameters
+    ----------
+    input_file_path: str
+        Path of the file the work starts from.
+
+    label: str
+        What that file is: the input data file of a run, or the microstructure or the
+        mesh a command was given.
+    """
     print_to_file("\n")
     print_to_file("Geometrical microstructure generation")
     print_to_file("=" * 80)
     print_to_file("Computational Multi-Scale Modelling of".rjust(80))
     print_to_file("Solids and Structures Research Group".rjust(80))
     print_to_file("\n\n")
-    print_to_file("Input file: {0}".format(input_file_path))
+    print_to_file("{0}: {1}".format(label, input_file_path))
     print_to_file("\n")
     print_to_file(
         "Starting program execution at : {0}\n".format(datetime.datetime.now())
@@ -242,24 +253,23 @@ def print_particle_progress(index, total):
     # being driven, not a report, so it does not go through the logger
 
 
-def print_final_message(mic_generator, mesh_generators, times_dict):
-    """Print final message."""
+def print_final_message(times):
+    """
+    Close a run or a command with the time each step took, and the total.
+
+    Parameters
+    ----------
+    times: dict
+        Dictionary of the form *{step: seconds}*, in the order the steps are to be
+        reported. A step that did not finish is left out by the caller rather than
+        given a time of nothing: this runs in a finally block, and an error raised
+        here would replace the error that stopped the run.
+    """
     print_to_file(80 * "-")
 
     print_to_file("Ending program execution at : {0}\n".format(datetime.datetime.now()))
 
-    total_time = 0
-    if mic_generator.time is not None:
-        total_time += mic_generator.time
-    for generator in mesh_generators:
-        if generator.time is not None:
-            total_time += generator.time
-
-    for post_proc_time in times_dict.values():
-        total_time += post_proc_time
-    # A step that did not finish has no time to report. This runs in a finally block, so
-    # an error raised over a missing one would replace the error that stopped the run,
-    # and the run would end reporting the wrong thing entirely.
+    total_time = sum(times.values())
 
     hours = int(total_time // 3600)
     minutes_rem = int(total_time // 60 - hours * 60)
@@ -275,39 +285,51 @@ def print_final_message(mic_generator, mesh_generators, times_dict):
         """Give the percentage of the total a duration is."""
         return round(duration / total_time * 100, ndigits=2) if total_time else 0.0
 
-    data_to_print = []
-    if mic_generator.time is not None:
-        data_to_print.append(
-            [
-                "Molecular Dynamics Simulation",
-                "{0:.2e}".format(mic_generator.time),
-                share(mic_generator.time),
-            ]
-        )
-    for generator in mesh_generators:
-        if generator.time is None:
-            continue
-        name = getattr(generator, "description", None) or type(generator).__name__
-        data_to_print.append(
-            [name, "{0:.2e}".format(generator.time), share(generator.time)]
-        )
-        # A step that does not say what it is called is reported under its class name,
-        # rather than under whichever name the loop happened to leave behind
-
-    for post_proc_op_name, post_proc_op_time in times_dict.items():
-        data_to_print.append(
-            [
-                post_proc_op_name,
-                "{0:.2e}".format(post_proc_op_time),
-                share(post_proc_op_time),
-            ]
-        )
+    data_to_print = [
+        [i_step, "{0:.2e}".format(i_time), share(i_time)]
+        for i_step, i_time in times.items()
+    ]
     formated_data = tabulate(data_to_print, headers=["Phase", "Duration(s)", "%"])
     for row in formated_data.split("\n"):
         print_to_file("\t" + row)
 
     print_to_file("\n")
     print_to_file("{0: ^80}\n".format("Program Completed"))
+
+
+def step_times(mic_generator, mesh_generators, times_dict):
+    """
+    Collect the time every step of a run took, in the order they were run.
+
+    Parameters
+    ----------
+    mic_generator: `.MolecularDynamicsSimulation`
+        The generation method, or None when nothing was generated.
+
+    mesh_generators: list
+        The `.MeshJob` objects that were run.
+
+    times_dict: dict
+        Times the analyses reported.
+
+    Returns
+    -------
+    dict
+        Dictionary of the form *{step: seconds}* over the steps that finished.
+    """
+    times = {}
+    if mic_generator is not None and mic_generator.time is not None:
+        times["Molecular Dynamics Simulation"] = mic_generator.time
+    for i_generator in mesh_generators:
+        if i_generator.time is None:
+            continue
+        name = getattr(i_generator, "description", None) or type(i_generator).__name__
+        times[name] = i_generator.time
+        # A step that does not say what it is called is reported under its class name,
+        # rather than under whichever name the loop happened to leave behind
+    times.update(times_dict)
+
+    return times
 
 
 def print_failed_sample(total_overlap, max_residue):

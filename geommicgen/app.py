@@ -150,7 +150,7 @@ def run_program(argv=None):
             # of it is a wrong input to a solver, and the run says so instead
         finally:
             print_funcs.print_final_message(
-                current_mic_generator, mesh_jobs, times_dict
+                print_funcs.step_times(current_mic_generator, mesh_jobs, times_dict)
             )
             fileio.save_status(
                 sample_dir, current_sample, current_mic_generator, mesh_jobs

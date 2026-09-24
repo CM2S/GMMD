@@ -8,6 +8,7 @@ microstructure file and the state of the run written beside it. `post_proc` is t
 composition the deck runs.
 """
 
+import contextlib
 import os
 import time
 
@@ -26,7 +27,34 @@ import geommicgen.postproc.voronoimetrics.voronoi_analysis as voronoi_analysis
 from geommicgen.postproc.plotfuncs.plotting_functions import plot_particles
 
 FINAL_CONFIG_STEP = "Generating final configuration for visualization"
-# Name under which the time the final configuration took is reported
+MOTION_STEP = "Generating simulation plots"
+VORONOI_STEP = "Voronoi analysis"
+STAT_STEP = "Statistical analysis"
+# Names the analyses are announced under, and the time each of them took reported
+# under in the summary that closes a run
+
+
+@contextlib.contextmanager
+def announced(step, times):
+    """
+    Announce an analysis, and report how long it took under its own name.
+
+    Parameters
+    ----------
+    step: str
+        Name of the analysis.
+
+    times: dict
+        Dictionary the seconds it took are put in, under that name.
+    """
+    print_funcs.print_to_file(step)
+    print_funcs.print_to_file("-" * 80 + "\n")
+    start = time.time()
+    yield
+    times[step] = time.time() - start
+    print_funcs.print_to_file("Time ellapsed: {0:.3f}s\n".format(times[step]))
+    # Every analysis opens with its name and closes with its time, where only the
+    # final configuration did and the others went unreported
 
 VORONOI_TYPES = ("standard", "set")
 # The Voronoi diagrams the analysis knows how to compute. A name outside this tuple
@@ -39,6 +67,14 @@ VORONOI_OPTIONS = VORONOI_OPTION_NAMES
 
 STAT_OPTIONS = tuple(i_name for i_name in ANALYSES if i_name.startswith("stat_"))
 # The statistical analyses, each asked for by its own option
+
+ANALYSIS_DIRECTORIES = {
+    "motion_analysis": "motion_results",
+    "voronoi_analysis": "voronoi_analysis_results",
+    "statistical_analysis": "stat_analysis_results",
+}
+# The directory each analysis names for itself inside the sample, which is where what
+# it wrote is to be found
 
 
 def run_mesh_jobs(mesh_jobs, microstructure, sample_dir):
@@ -203,19 +239,15 @@ def run_analyses(microstructure, state, sample_dir, options):
     # --------------------------------------------------------------------------------------
     if options.get("final_config", False):
         # Plot and save the final configuration
-        print_funcs.print_to_file(FINAL_CONFIG_STEP)
-        print_funcs.print_to_file("-" * 80 + "\n")
-        start = time.time()
-        plot_particles(microstructure.particles, microstructure.rve_dims, sample_dir)
-        times[FINAL_CONFIG_STEP] = time.time() - start
-        print_funcs.print_to_file(
-            "Time ellapsed: {0:.3f}s\n".format(times[FINAL_CONFIG_STEP])
-        )
+        with announced(FINAL_CONFIG_STEP, times):
+            plot_particles(
+                microstructure.particles, microstructure.rve_dims, sample_dir
+            )
 
     # Motion analysis
     # --------------------------------------------------------------------------------------
     if options.get("motion_analysis", False):
-        print_funcs.print_to_file("Generating simulation plots")
+        print_funcs.print_to_file(MOTION_STEP)
         print_funcs.print_to_file("-" * 80 + "\n")
         histories = {
             "total_overlap_history": state.total_overlap_history,
@@ -236,23 +268,32 @@ def run_analyses(microstructure, state, sample_dir, options):
             )
         # The analysis plots the paths when it is given them, so a run that kept no
         # positions is simply not given any
+        start = time.time()
         motion_analysis.do_motion_analysis(
             microstructure.particles, microstructure.rve_dims, sample_dir, **histories
         )
+        times[MOTION_STEP] = time.time() - start
+        print_funcs.print_to_file(
+            "Time ellapsed: {0:.3f}s\n".format(times[MOTION_STEP])
+        )
+        # Announced before the histories are gathered, since a run that kept no
+        # positions is told so there, so this one is timed around the analysis itself
 
     # Voronoi analysis
     # --------------------------------------------------------------------------
     if options.get("voronoi_analysis", False):
-        print_funcs.print_to_file("Voronoi analysis")
-        print_funcs.print_to_file("-" * 80 + "\n")
         voronoi_kwargs = {
             i_option: options[i_option]
             for i_option in VORONOI_OPTIONS
             if i_option in options
         }
-        voronoi_analysis.do_voronoi_analysis(
-            microstructure.particles, microstructure.rve_dims, sample_dir, **voronoi_kwargs
-        )
+        with announced(VORONOI_STEP, times):
+            voronoi_analysis.do_voronoi_analysis(
+                microstructure.particles,
+                microstructure.rve_dims,
+                sample_dir,
+                **voronoi_kwargs
+            )
 
     # Statistical analysis
     # --------------------------------------------------------------------------
@@ -260,11 +301,10 @@ def run_analyses(microstructure, state, sample_dir, options):
         i_option for i_option in STAT_OPTIONS if options.get(i_option, False)
     }
     if stat_options:
-        print_funcs.print_to_file("Statistical analysis")
-        print_funcs.print_to_file("-" * 80 + "\n")
-        stat_analysis.do_stat_analysis(
-            microstructure, sample_dir, stat_options, seed=options.get("stat_seed")
-        )
+        with announced(STAT_STEP, times):
+            stat_analysis.do_stat_analysis(
+                microstructure, sample_dir, stat_options, seed=options.get("stat_seed")
+            )
 
     return times
 
