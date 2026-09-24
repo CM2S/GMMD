@@ -465,6 +465,11 @@ def ripleys_k_func(microstructure, max_radius=10, n_points=20):
             if j_dist < i_length * radius:
                 current_val += 1 / j_correction / n_part
 
+        # FIXME: these prints, and the ones at the end of this function and at the
+        # top of the module, are debugging leftovers: they put 386 kB of raw numbers
+        # on the terminal of a run of the two dimensional example, where nothing else
+        # in the package prints anything but what a user asked to be told. They should
+        # go; what a user needs to know goes through `geommicgen.iofuncs.printing`.
         print(current_val)
         k_ripleys_func_vals[i_ind_length] = current_val
         print(k_ripleys_func_vals[i_ind_length])
@@ -521,6 +526,13 @@ def nearest_neighbor_dist(microstructure):
     return nearest_neighbor_dist_vals
 
 
+# FIXME: what the statistical descriptors cost, measured on the hundred ellipses of
+# the two dimensional example: the nearest neighbour distances 0.14 s, Ripley's K
+# function 17.7 s, the two point correlation function 79.6 s. The last two check pairs
+# of particles, or points against particles, one by one; the two point correlation was
+# ninety times faster once the points were looked up in the cell list the simulation
+# already builds, and Ripley's K does the same kind of work and has not had the same
+# treatment.
 def do_stat_analysis(microstructure, sample_dir, stat_options):
     """Do the statistical analysis of *microstructure*.
 
@@ -568,6 +580,11 @@ def do_stat_analysis(microstructure, sample_dir, stat_options):
 
     # Saving the results
     # --------------------------------------------------------------------------------------
+    # FIXME: this file and the .vor of the Voronoi analysis are the last pickles the
+    # package writes: a microstructure is a YAML file and the state of a run an .npz,
+    # both of which another tool can read. The descriptors here are arrays and pairs
+    # of arrays, so this should be an .npz keyed by the name of the descriptor, with
+    # the keys written down in the readme as the state file's are.
     pickle.dump(
         stat_results,
         open(os.path.join(stat_anal_results_dir, "stat_results.stat"), "wb"),

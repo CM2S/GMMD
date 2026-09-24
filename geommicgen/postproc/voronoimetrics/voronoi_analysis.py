@@ -966,6 +966,15 @@ def do_voronoi_analysis(
             )
         # Saving the results
         # --------------------------------------------------------------------------------------
+        # FIXME: voronoi_results.vor is a pickle of a list whose contents depend on the
+        # dimension -- the diagram, the tensors, the angles and which cells are inside
+        # the box here, the diagram, the tensors and phi in three dimensions -- and
+        # nothing says so. Its first item is a scipy Voronoi, a live object around the
+        # qhull library, so the file reads back only in a compatible scipy and only
+        # through Python. What is wanted of the diagram is its vertices, regions,
+        # point_region, ridge_points and ridge_vertices, which are arrays and lists of
+        # indices: an .npz of those and of the tensors, keyed the same in both
+        # dimensions and written down in the readme, would be a file anything can read.
         pickle.dump(
             [voronoi, imts, angles, in_box],
             open(os.path.join(voronoi_results_dir, "voronoi_results.vor"), "wb"),

@@ -775,6 +775,14 @@ def plot_ratio_new_old_overlap(
         return graph_overlap
 
 
+# FIXME: the three plots of the statistical descriptors that follow carry no axis
+# labels, no titles and no legends, so a reader of k_ripleys_func.pdf is not told which
+# of the two lines is the measured function and which is the pi r squared of a Poisson
+# process, and the histogram of the nearest neighbour distances is left at whatever
+# bins matplotlib chooses. plot_two_point_correlation also smooths with a
+# Savitzky-Golay filter of window 41, which raises on a run asking for fewer radii
+# than that. One helper that every figure of an analysis goes through -- size, labels,
+# title, legend, and the saving -- would settle all of it in one place.
 def plot_nearest_neighbor_dist(vals, **kwargs):
     if "axes" in kwargs:
         ax = kwargs["axes"]

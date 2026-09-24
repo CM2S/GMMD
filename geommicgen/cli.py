@@ -63,6 +63,15 @@ ARGUMENT_KWARGS = {
 # line. Every type the input data file accepts is here: one that is missing would read
 # from a deck and then fail when the parser is built, which is the wrong end to find out
 
+# FIXME: the commands report nothing like a run of a deck does. A deck prints an
+# opening message saying what it is working on, a section per step with the time it
+# took, and a table of the times at the end; a command prints the paths of the files
+# and, for the analyses, the sections the analyses print themselves. The frame is in
+# `geommicgen.iofuncs.printing` and should be shared. What stands in the way is
+# `print_final_message`, which asks for the generation method and the mesh jobs when
+# all it needs of them is their times: give it the dictionary of times and it can
+# close a command as it closes a run.
+
 
 def resolve_writers(parser, names, options=None):
     """
@@ -113,7 +122,7 @@ def add_declared_arguments(parser, options):
         parser.add_argument(
             "--{0}".format(i_name.lower().replace("_", "-")),
             help=description["help"],
-            **ARGUMENT_KWARGS[description["type"]]
+            **ARGUMENT_KWARGS[description["type"]],
         )
     # Taken from the meshers, the formats and the analyses themselves, so one that
     # declares an option is asked for it here without this module naming it
@@ -190,6 +199,19 @@ def mesh_command(argv=None):
     int
         Status to exit with.
     """
+    # FIXME: --help lists the options of every mesher in one block, so nothing says
+    # that --element-type and --mesh-size are the gmsh ones and --n-voxels-dims the
+    # voxel one. `add_declared_arguments` should take a title and put them in a
+    # `parser.add_argument_group`, called once per mesher with that mesher's own
+    # options rather than once with the merged dictionary.
+
+    # FIXME: the files are named after the microstructure file alone, so meshing the
+    # same microstructure with tri3 and then with tri6 into one output directory
+    # writes the second over the first without a word. A deck names them after the
+    # deck and the label of the mesher, which is what tells two discretisations of
+    # one microstructure apart; this should do the same, with `job_base_name` and
+    # `mesher.label`, or refuse to write over what the previous one wrote.
+
     parser = argparse.ArgumentParser(
         prog="geommicgen-mesh",
         description="Discretise a microstructure and write the mesh.",
@@ -228,6 +250,7 @@ def mesh_command(argv=None):
     # Built the way a deck builds it, from the options the mesher declares
 
     from geommicgen.iofuncs.microstructure_yaml import read_microstructure_yaml
+
     # Imported here rather than at the top: reading a microstructure pulls in the
     # particle classes and the parts of scipy they use, which is most of the cost of
     # starting up, and the other command never reads one
@@ -257,6 +280,11 @@ def translate_command(argv=None):
     int
         Status to exit with.
     """
+
+    # FIXME: as in the meshing command, --help lists the options of every format in
+    # one block, so nothing says which format reads which of them; one argument group
+    # per writer would say so.
+
     parser = argparse.ArgumentParser(
         prog="geommicgen-translate",
         description="Write a mesh in the formats solvers read.",
@@ -265,7 +293,9 @@ def translate_command(argv=None):
         "mesh", nargs="?", help="mesh file to be translated, in any format meshio reads"
     )
     parser.add_argument(
-        "--to", type=format_names, metavar="FORMATS",
+        "--to",
+        type=format_names,
+        metavar="FORMATS",
         help="formats to write, separated by commas",
     )
     parser.add_argument(
@@ -333,6 +363,13 @@ def analyze_command(argv=None):
     int
         Status to exit with.
     """
+    # FIXME: the analyses do not say what they wrote, so this command reports no file
+    # at all, where the meshing command lists every one. The analyses each name their
+    # own directory and files; having them return the paths, as a writer does, is what
+    # would let this close with the list. The state of the analyses themselves -- what
+    # they print, what they cost, and the format they write their results in -- is
+    # noted where each of them is.
+
     parser = argparse.ArgumentParser(
         prog="geommicgen-analyze",
         description="Analyse a generated microstructure, and the run that produced it.",
@@ -363,6 +400,7 @@ def analyze_command(argv=None):
     from geommicgen.iofuncs.md_state import STATE_FILE_NAME, load_md_state
     from geommicgen.iofuncs.microstructure_yaml import read_microstructure_yaml
     from geommicgen.postproc.postproc import run_analyses
+
     # Imported here rather than at the top, as the meshing command does: the analyses
     # pull in matplotlib and the particle classes, and the other commands never need
     # them
