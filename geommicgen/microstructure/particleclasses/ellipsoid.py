@@ -548,6 +548,28 @@ class Ellipsoid(Particle):
             # ellipse
         return point_in
 
+    def points_inside(self, points, box, tol=1e-6):
+        """
+        Say which of *points* are inside the Ellipsoid; see `.Particle.points_inside`.
+
+        Parameters
+        ----------
+        tol: float
+            Tolerance
+        """
+        points_nearest_pbc = self.nearest_periodic_images(points, box)
+        points_loc = (points_nearest_pbc - self.position_center).dot(self.rotation_mat)
+        # The points in local coordinates, a row to a point: the rotation from local to
+        # global transposed onto each of them at once
+
+        return (
+            points_loc[:, 0] ** 2 / self.semi_axis_1**2
+            + points_loc[:, 1] ** 2 / self.semi_axis_2**2
+            + points_loc[:, 2] ** 2 / self.semi_axis_3**2
+            - 1
+            <= tol
+        )
+
     def intersection_volume_ellipsoid_other(
         self, other_particle, box, alg_type="random", tol=1, max_it=1000, seq_size=50
     ):

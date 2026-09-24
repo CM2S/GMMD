@@ -2139,3 +2139,92 @@ class ParticleRescaleTest(unittest.TestCase):
         self.assertAlmostEqual(particle.axis_2, axis_2_after)
         self.assertAlmostEqual(particle.axis_3, axis_3_after)
         self.assert_position(particle, position_after)
+
+
+class TestPointsInside(unittest.TestCase):
+    """Test the points a particle is asked about at once against one at a time."""
+
+    def check(self, particle, rve_dims):
+        """Check `points_inside` against `point_inside`, point by point."""
+        np.random.seed(0)
+        points = np.concatenate(
+            [
+                np.random.uniform(-0.5, 1.5, size=(400, len(rve_dims)))
+                * np.array(rve_dims),
+                [particle.generate_point_inside() for _ in range(100)],
+            ]
+        )
+        # Points all over and beyond the RVE, so that the nearest periodic image of a
+        # point is asked for, and points inside the particle, so that both answers
+        # occur whatever share of the RVE the particle takes up
+
+        one_at_a_time = [
+            bool(particle.point_inside(i_point, rve_dims)) for i_point in points
+        ]
+        at_once = list(particle.points_inside(points, rve_dims))
+        self.assertEqual(at_once, one_at_a_time)
+        self.assertGreater(sum(one_at_a_time), 0)
+        self.assertLess(sum(one_at_a_time), len(points))
+
+    def test_disk(self):
+        rve_dims = [1.0, 1.0]
+        particle = Disk("2", {"r": 0.2}, rve_dims)
+        particle.position_center = np.array([0.25, 0.75])
+        self.check(particle, rve_dims)
+
+    def test_ellipse(self):
+        rve_dims = [1.0, 1.0]
+        particle = Ellipse(
+            "2", {"major_axis": 0.4, "minor_axis": 0.2, "angle": 0.4}, rve_dims
+        )
+        particle.position_center = np.array([0.1, 0.2])
+        self.check(particle, rve_dims)
+        # Its centre is near a corner of the RVE, so that it reaches over two faces
+
+    def test_sphere(self):
+        rve_dims = [1.0, 1.0, 1.0]
+        particle = Sphere("2", {"r": 0.2}, rve_dims)
+        particle.position_center = np.array([0.3, 0.4, 0.5])
+        self.check(particle, rve_dims)
+
+    def test_ellipsoid(self):
+        rve_dims = [1.0, 1.0, 1.0]
+        particle = Ellipsoid(
+            "2",
+            {
+                "axis_1": 0.4,
+                "axis_2": 0.3,
+                "axis_3": 0.2,
+                "angle": 0.7,
+                "rot_axis_comp_x": 0.0,
+                "rot_axis_comp_y": 1.0,
+                "rot_axis_comp_z": 1.0,
+            },
+            rve_dims,
+        )
+        particle.position_center = np.array([0.5, 0.5, 0.5])
+        self.check(particle, rve_dims)
+
+    def test_cylinder(self):
+        rve_dims = [1.0, 1.0, 1.0]
+        particle = Cylinder(
+            "2",
+            {
+                "r_cyl": 0.1,
+                "length": 0.4,
+                "azimuth_angle": 0.2,
+                "polar_angle": 0.5,
+            },
+            rve_dims,
+        )
+        particle.position_center = np.array([0.2, 0.3, 0.4])
+        self.check(particle, rve_dims)
+
+    def test_particle_answers_one_point_at_a_time(self):
+        particle = Point(2, "1")
+        points = np.array([[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]])
+        self.assertEqual(
+            list(particle.points_inside(points, [1.0, 1.0])), [False, False, False]
+        )
+        # The point particle is never inside, and answers through the loop over
+        # `point_inside` a class that does not write the test over an array inherits

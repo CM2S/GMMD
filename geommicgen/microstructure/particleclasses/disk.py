@@ -216,6 +216,15 @@ class Disk(Ellipse):
 
         return point_in
 
+    def points_inside(self, points: np.array, box: list) -> np.array:
+        """Say which of *points* are inside the Disk; see `.Particle.points_inside`."""
+        points_nearest_pbc = self.nearest_periodic_images(points, box)
+
+        return (
+            np.linalg.norm(points_nearest_pbc - self.position_center, axis=1)
+            <= self.radius
+        )
+
     def intersection_disk_disk(self, other_disk: Disk, box: list, inside=True) -> bool:
         """Check if two Disks intersect."""
         diff_center = self.position_center - other_disk.position_center

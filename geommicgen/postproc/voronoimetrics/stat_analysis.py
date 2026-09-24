@@ -516,15 +516,6 @@ def nearest_neighbor_dist(microstructure):
     return nearest_neighbor_dist_vals
 
 
-# FIXME: the two point correlation function is what the statistical descriptors cost
-# now, at 35 s on the hundred ellipses of the two dimensional example against 0.14 s
-# for the nearest neighbour distances and 0.01 s for Ripley's K function. What it
-# spends them on is asking whether a point is on the particle phase, two million times:
-# the cell list leaves about six particles to test per point, and each test is a call
-# into the particle, where testing the points of a cell against one particle at a time
-# would be one array operation. That is a `points_inside` on the particle classes,
-# which `Microstructure.inside_particle_phase` would then call once per particle
-# rather than once per point and particle.
 def do_stat_analysis(microstructure, sample_dir, stat_options, seed=None):
     """Do the statistical analysis of *microstructure*.
 

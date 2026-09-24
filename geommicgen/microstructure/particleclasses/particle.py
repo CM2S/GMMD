@@ -2,6 +2,15 @@
 Module containing all the Particle abstract class and some particular subclasses.
 
 The subclasses include are the the Matrix, Point and Line subclasses.
+
+Adding a particle class
+-----------------------
+A subclass implements the abstract methods of `Particle`, `point_inside` among
+them: whether one point is inside the particle. `points_inside`, the same test
+over an array of points, it inherits, and the inherited one loops over
+`point_inside`; writing the test over the coordinates of an array of points
+instead makes the statistical descriptors of the post processing, which throw
+millions of points at the particles, orders of magnitude faster.
 """
 from __future__ import annotations
 from typing import Union
@@ -578,6 +587,60 @@ class Particle(abc.ABC):
     @abc.abstractmethod
     def generate_point_inside(self):
         """Generate a random point inside the particle."""
+
+    def points_inside(self, points: np.array, box: list) -> np.array:
+        """
+        Say, for each of a set of points, whether it is inside the particle.
+
+        A particle answers for one point at a time, which is what this does. A particle
+        whose test is an expression over the coordinates overrides this with the
+        expression written over an array of them, and the analyses that throw many
+        points at each particle -- the two point correlation function above all -- then
+        cost one array operation per particle instead of one call per point.
+
+        Parameters
+        ----------
+        points: array
+            Positions of the points, one to a row.
+
+        box: list(float)
+            Dimensions of the simulation box.
+
+        Returns
+        -------
+        array(bool)
+            True in the row of each point that is inside the particle.
+        """
+        return np.array(
+            [self.point_inside(i_point, box) for i_point in points], dtype=bool
+        )
+        # `point_inside` is the one kept for a single point: it is the inner call of
+        # `intersection_area_monte_carlo` below and of the intersection tests of the
+        # ellipse and the ellipsoid, which a generation run makes millions of, and
+        # wrapping each of them in an array costs more than the test itself
+
+    def nearest_periodic_images(self, points: np.array, box: list) -> np.array:
+        """
+        Give the nearest periodic image of each of a set of points to the particle.
+
+        Parameters
+        ----------
+        points: array
+            Positions of the points, one to a row.
+
+        box: list(float)
+            Dimensions of the simulation box.
+
+        Returns
+        -------
+        array
+            The image of each of them nearest the centre of the particle.
+        """
+        return Particle.nearest_periodic_image(
+            np.asarray(points, dtype=float), self.position_center, box
+        )
+        # What every `points_inside` opens with, so that the points come into the test
+        # as a float array whatever they were given as
 
     def intersection_area_monte_carlo(
         self, other_particle: Particle, box: list, **kwargs

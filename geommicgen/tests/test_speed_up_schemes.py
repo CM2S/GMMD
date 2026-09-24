@@ -570,3 +570,27 @@ class TestVerlet(unittest.TestCase):
             )
         )
 
+
+class TestCellsOf(unittest.TestCase):
+    """Test the cell of a set of positions against the cell of one position."""
+
+    def check(self, box):
+        """Check `cells_of` against `cell_of`, position by position."""
+        cell_list = CellList()
+        cell_list.box = np.array(box, dtype=float)
+        cell_list.max_radius = 0.1
+        rng = np.random.RandomState(0)
+        positions = rng.uniform(0, 1, size=(500, len(box))) * np.array(box)
+        positions = np.concatenate([positions, [box]])
+        # A position on the far face of the box among them, which a wrapped coordinate
+        # can be rounded onto and which the cell of one position counts in the last cell
+
+        one_at_a_time = [cell_list.cell_of(i_position) for i_position in positions]
+        self.assertEqual(list(cell_list.cells_of(positions)), one_at_a_time)
+        self.assertGreater(len(set(one_at_a_time)), 1)
+
+    def test_two_dimensional(self):
+        self.check([1.0, 1.0])
+
+    def test_three_dimensional(self):
+        self.check([1.0, 2.0, 1.0])

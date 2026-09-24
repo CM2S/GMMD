@@ -150,34 +150,36 @@ class Microstructure:
         # points themselves are only looked up in the list; putting them in it, as used
         # to be done, tested every point against every other point in its cell
 
-        candidates = {}
-        for i_cell in range(len(cell_list.cell_list)):
-            candidates[i_cell] = sorted(
-                set().union(
-                    *(
-                        cell_list.cell_list[
-                            cell_list.neighbor_cell(
-                                i_cell, j_neighbor, dim, cell_list.n_cell_dim
-                            )
-                        ]
-                        for j_neighbor in range(3**dim)
-                    )
-                )
-            )
-        # The particles a point in each cell has to be tested against, gathered once
-        # per cell rather than once per point: there are a few cells and many points
-
         positions = np.asarray(pts, dtype=float)
         positions = positions - box * np.floor(positions / box)
-        inside = [0 for _ in pts]
-        for i_ind, i_position in enumerate(positions):
-            if any(
-                particles[j_particle].point_inside(i_position, self.rve_dims)
-                for j_particle in candidates[cell_list.cell_of(i_position)]
-            ):
-                inside[i_ind] = 1
+        cells = cell_list.cells_of(positions)
+        order = np.argsort(cells, kind="stable")
+        starts = np.concatenate(
+            [[0], np.cumsum(np.bincount(cells, minlength=len(cell_list.cell_list)))]
+        )
+        # The points in the order of the cell they fall in, and where the points of
+        # each cell begin, since the cell of a particle is what says which points can
+        # be inside it
 
-        return inside
+        inside = np.zeros(len(positions), dtype=bool)
+        for i_particle, i_cell in zip(particles, cell_list.pos_cell_list):
+            neighborhood = np.concatenate(
+                [
+                    order[starts[j_cell]:starts[j_cell + 1]]
+                    for j_cell in cell_list.cells_around[i_cell]
+                ]
+            )
+            if neighborhood.size > 0:
+                inside[neighborhood] |= i_particle.points_inside(
+                    positions[neighborhood], self.rve_dims
+                )
+        # Every point that can be inside a particle is tested against it in one array
+        # operation, where the test used to be a call into a particle for each point
+        # and each particle around it -- which is the whole of what the two point
+        # correlation function costs. The size is asked for so that a particle with no
+        # point near it is not called at all
+
+        return inside.astype(int).tolist()
 
     @property
     def particles(self):

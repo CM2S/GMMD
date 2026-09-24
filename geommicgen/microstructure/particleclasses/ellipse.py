@@ -249,7 +249,7 @@ class Ellipse(Particle):
         """
         # Collecting keyword arguments
         position = kwargs.get("position", "inside")
-        tol = kwargs.get("position", 1e-8)
+        tol = kwargs.get("tol", 1e-8)
         # Defininig the radius vector relative to the coordinate system of the ellipse
         point_nearest_pbc = Particle.nearest_periodic_image(
             point, self.position_center, box
@@ -271,6 +271,23 @@ class Ellipse(Particle):
                 < tol
             )
         return point_in
+
+    def points_inside(self, points: np.array, box: list, tol: float = 1e-8) -> np.array:
+        """
+        Say which of *points* are inside the Ellipse; see `.Particle.points_inside`.
+
+        Parameters
+        ----------
+        tol: float
+            Tolerance
+        """
+        points_nearest_pbc = self.nearest_periodic_images(points, box)
+        r_vectors = (points_nearest_pbc - self.position_center).dot(self.rot_mat.T)
+        # The radius vectors in the coordinate system of the ellipse, a row to a point
+
+        return (r_vectors[:, 0] / self.semi_major_axis) ** 2 + (
+            r_vectors[:, 1] / self.semi_minor_axis
+        ) ** 2 <= 1 + tol
 
     def intersection_area_ellipse_ellipse(
         self, other_ellipse: Ellipse, box: list

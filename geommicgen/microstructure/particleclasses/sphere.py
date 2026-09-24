@@ -457,6 +457,23 @@ class Sphere(Ellipsoid):
 
         return point_in
 
+    def points_inside(self, points: np.array, box: list, tol: float = 1e-3) -> np.array:
+        """
+        Say which of *points* are inside the Sphere; see `.Particle.points_inside`.
+
+        Parameters
+        ----------
+        tol: float
+            Tolerance
+        """
+        points_nearest_pbc = self.nearest_periodic_images(points, box)
+
+        return (
+            np.linalg.norm(points_nearest_pbc - self.position_center, axis=1)
+            - self.radius
+            <= tol
+        )
+
     def generate_points_on_surface(
         self, n_points: int, erosion_thick: float = 0
     ) -> np.array:

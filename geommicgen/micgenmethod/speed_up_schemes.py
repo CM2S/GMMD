@@ -142,6 +142,33 @@ class CellList(SpeedUpScheme):
 
         return index
 
+    def cells_of(self, positions):
+        """
+        Give the indices of the cells a set of positions fall in.
+
+        Parameters
+        ----------
+        positions: array
+            Positions inside the box, one to a row.
+
+        Returns
+        -------
+        array(int)
+            Index of the cell each of them falls in, in the order given.
+        """
+        n_cell_dim = np.asarray(self.n_cell_dim)
+        cells = np.minimum(
+            (np.asarray(positions) // self.cell_side_length).astype(int),
+            n_cell_dim - 1,
+        )
+        strides = np.cumprod(np.concatenate([[1], n_cell_dim[:-1]]))
+        # `cell_of` for a set of positions at once, which is what a caller with many
+        # more positions than particles -- the analyses that throw points at the
+        # microstructure -- asks for; a position on the far face of the box is held
+        # in the last cell, as it is there
+
+        return cells.dot(strides)
+
     def move(self, index, position):
         """
         Put one particle in the cell its position falls in, taking it out of its old one.

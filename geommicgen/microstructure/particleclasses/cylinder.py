@@ -699,6 +699,19 @@ class Cylinder(Particle):
 
         return point_inside
 
+    def points_inside(self, points: np.array, box: list) -> np.array:
+        """Say which of *points* are in the Cylinder; see `.Particle.points_inside`."""
+        points_nearest_pbc = self.nearest_periodic_images(points, box)
+        to_center = self.position_center - points_nearest_pbc
+        dist_on_axis = to_center.dot(self.sym_axis_unit_vec)
+        dist_to_axis = np.sqrt(
+            np.maximum(np.sum(to_center ** 2, axis=1) - dist_on_axis ** 2, 0.0)
+        )
+        # The distance along the axis of symmetry and the one away from it, the second
+        # of them by Pythagoras, held at zero where the subtraction falls below it
+
+        return (np.abs(dist_on_axis) <= self.length / 2) & (dist_to_axis < self.r_cyl)
+
     def generate_point_inside(self):
         """Generate a random point inside the cylinder."""
         w = np.random.normal(size=2)
