@@ -53,7 +53,7 @@ class TestMeshCommand(unittest.TestCase):
         )
         self.assertEqual(status, 0)
         self.assertEqual(
-            self.written(), ["mic.mesh.json", "mic.rgmsh.npy", "mic.vti"]
+            self.written(), ["mic_16_16.mesh.json", "mic_16_16.rgmsh.npy", "mic_16_16.vti"]
         )
         # The whole path from a microstructure to what a spectral solver reads, with no
         # geometry kernel installed
@@ -64,7 +64,7 @@ class TestMeshCommand(unittest.TestCase):
              "-o", self.output_dir]
         )
         self.assertEqual(status, 0)
-        self.assertEqual(self.written(), ["mic.mesh.json", "mic.vti"])
+        self.assertEqual(self.written(), ["mic_8_8.mesh.json", "mic_8_8.vti"])
 
     def test_the_files_can_be_named(self):
         self.run_command(
@@ -97,6 +97,20 @@ class TestMeshCommand(unittest.TestCase):
         # A grid of three directions cannot discretise a microstructure of two
 
     @unittest.skipUnless(has_gmsh(), "gmsh is not installed")
+    def test_two_elements_into_one_directory_do_not_collide(self):
+        for i_element in ("tri3", "tri6"):
+            status, _ = self.run_command(
+                [self.microstructure_path, "--mesh-size", "0.2",
+                 "--element-type", i_element, "-o", self.output_dir]
+            )
+            self.assertEqual(status, 0)
+        self.assertEqual(
+            self.written(),
+            ["mic_tri3.mesh.json", "mic_tri3.vtu", "mic_tri6.mesh.json", "mic_tri6.vtu"],
+        )
+        # Both were called mic.vtu, so the second was written over the first without
+        # a word; a deck has always named them after the label of the mesher
+
     def test_a_finite_element_mesh(self):
         status, _ = self.run_command(
             [self.microstructure_path, "--mesher", "gmsh", "--mesh-size", "0.15",
@@ -105,8 +119,15 @@ class TestMeshCommand(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertEqual(
             self.written(),
-            ["mic.mesh", "mic.mesh.json", "mic.vtu", "mic_example.rve"],
+            [
+                "mic_tri3.mesh",
+                "mic_tri3.mesh.json",
+                "mic_tri3.vtu",
+                "mic_tri3_example.rve",
+            ],
         )
+        # Named after the microstructure and the element, so that meshing it again
+        # with another element does not write over this
 
 
 class TestTranslateCommand(unittest.TestCase):
@@ -131,12 +152,12 @@ class TestTranslateCommand(unittest.TestCase):
     def test_the_third_stage_runs_off_the_second_stage_file(self):
         with contextlib.redirect_stdout(io.StringIO()):
             status = translate_command(
-                [os.path.join(self.staged, "mic.vti"), "--to", "crate",
+                [os.path.join(self.staged, "mic_16_16.vti"), "--to", "crate",
                  "-o", self.output_dir]
             )
         self.assertEqual(status, 0)
-        self.assertEqual(os.listdir(self.output_dir), ["mic.rgmsh.npy"])
-        grid = np.load(os.path.join(self.output_dir, "mic.rgmsh.npy"))
+        self.assertEqual(os.listdir(self.output_dir), ["mic_16_16.rgmsh.npy"])
+        grid = np.load(os.path.join(self.output_dir, "mic_16_16.rgmsh.npy"))
         self.assertEqual(grid.shape, (16, 16))
         # An image is read back as the grid it is, so the writer that needs a grid
         # accepts it
@@ -152,7 +173,7 @@ class TestTranslateCommand(unittest.TestCase):
     def test_a_mesh_and_a_format_are_both_needed(self):
         with self.assertRaises(SystemExit):
             with contextlib.redirect_stderr(io.StringIO()):
-                translate_command([os.path.join(self.staged, "mic.vti")])
+                translate_command([os.path.join(self.staged, "mic_16_16.vti")])
 
 
 class TestAnalyzeCommand(unittest.TestCase):

@@ -21,6 +21,7 @@ import os
 import geommicgen.iofuncs.printing as print_funcs
 from geommicgen.pipeline import (
     MeshJob,
+    job_base_name,
     write_formats,
     writers_from_options,
 )
@@ -105,28 +106,79 @@ def resolve_writers(parser, names, options=None):
     return []
 
 
-def add_declared_arguments(parser, options):
+def add_declared_arguments(parser, options, added=None):
     """
-    Add the arguments for the options the meshers or the formats declare.
+    Add the arguments for the options the meshers, the formats or the analyses declare.
 
     Parameters
     ----------
-    parser: argparse.ArgumentParser
-        Parser to add them to.
+    parser: argparse.ArgumentParser or argparse._ArgumentGroup
+        Parser, or a group of one, to add them to.
 
     options: dict
         The declared options, of the form *{option_name: description}*.
+
+    added: set
+        Names added already, for a caller adding one group after another; a name in it
+        is skipped, and every name added is put in it.
     """
+    added = set() if added is None else added
     for i_name in sorted(options):
+        if i_name in added:
+            continue
         description = options[i_name]
         parser.add_argument(
             "--{0}".format(i_name.lower().replace("_", "-")),
             help=description["help"],
             **ARGUMENT_KWARGS[description["type"]],
         )
+        added.add(i_name)
     # Taken from the meshers, the formats and the analyses themselves, so one that
     # declares an option is asked for it here without this module naming it
 
+
+def add_grouped_arguments(parser, titled_options):
+    """
+    Add the options of each mesher or of each format under a heading of its own.
+
+    Parameters
+    ----------
+    parser: argparse.ArgumentParser
+        Parser to add them to.
+
+    titled_options: list
+        Tuples *(title, options)*, one per mesher or format.
+    """
+    added = set()
+    for i_title, i_options in titled_options:
+        if not set(i_options) - added:
+            continue
+        add_declared_arguments(parser.add_argument_group(i_title), i_options, added)
+    # The help then says which mesher, or which format, reads each of the options,
+    # where one block of them said only that the command takes them all. An option two
+    # of them declare alike is added once, under the first
+
+
+def mesher_arguments(parser):
+    """Add the options of every mesher, each under the name of the mesher."""
+    add_grouped_arguments(
+        parser,
+        [
+            ("options of the {0} mesher".format(i_name), get_mesher(i_name).options)
+            for i_name in available_meshers()
+        ],
+    )
+
+
+def writer_arguments(parser):
+    """Add the options of every format, each under the name of the format."""
+    add_grouped_arguments(
+        parser,
+        [
+            ("options of the {0} format".format(i_name), get_writer(i_name).options)
+            for i_name in available_writers()
+        ],
+    )
 
 def declared_options(arguments, options):
     """Collect the declared arguments the way the input data file keys them."""
@@ -199,19 +251,6 @@ def mesh_command(argv=None):
     int
         Status to exit with.
     """
-    # FIXME: --help lists the options of every mesher in one block, so nothing says
-    # that --element-type and --mesh-size are the gmsh ones and --n-voxels-dims the
-    # voxel one. `add_declared_arguments` should take a title and put them in a
-    # `parser.add_argument_group`, called once per mesher with that mesher's own
-    # options rather than once with the merged dictionary.
-
-    # FIXME: the files are named after the microstructure file alone, so meshing the
-    # same microstructure with tri3 and then with tri6 into one output directory
-    # writes the second over the first without a word. A deck names them after the
-    # deck and the label of the mesher, which is what tells two discretisations of
-    # one microstructure apart; this should do the same, with `job_base_name` and
-    # `mesher.label`, or refuse to write over what the previous one wrote.
-
     parser = argparse.ArgumentParser(
         prog="geommicgen-mesh",
         description="Discretise a microstructure and write the mesh.",
@@ -223,7 +262,7 @@ def mesh_command(argv=None):
         choices=available_meshers(),
         help="mesher to discretise with (default: gmsh)",
     )
-    add_declared_arguments(parser, mesher_options())
+    mesher_arguments(parser)
     parser.add_argument(
         "--to",
         type=format_names,
@@ -231,7 +270,7 @@ def mesh_command(argv=None):
         metavar="FORMATS",
         help="formats to write besides the mesh itself, separated by commas",
     )
-    add_declared_arguments(parser, writer_options())
+    writer_arguments(parser)
     add_output_arguments(parser)
     arguments = parser.parse_args(argv)
 
@@ -257,8 +296,18 @@ def mesh_command(argv=None):
 
     microstructure = read_microstructure_yaml(arguments.microstructure)
     job = MeshJob(
-        mesher, writers, output_name(arguments.name, arguments.microstructure)
+        mesher,
+        writers,
+        arguments.name
+        or job_base_name(
+            os.path.basename(arguments.microstructure), mesher.label
+        ),
     )
+    # Named after the microstructure file and the label of the mesher, as a deck names
+    # a discretisation after the deck and the label: the label is what tells one
+    # discretisation of a microstructure from another, so meshing the same
+    # microstructure with two elements, or at two resolutions, into one directory no
+    # longer writes the second over the first. --name still says it outright
     job.run(microstructure, arguments.output_dir, report=report_progress)
     for i_warning in mesher.warnings:
         print(i_warning)
@@ -280,10 +329,6 @@ def translate_command(argv=None):
     int
         Status to exit with.
     """
-
-    # FIXME: as in the meshing command, --help lists the options of every format in
-    # one block, so nothing says which format reads which of them; one argument group
-    # per writer would say so.
 
     parser = argparse.ArgumentParser(
         prog="geommicgen-translate",
@@ -308,7 +353,7 @@ def translate_command(argv=None):
     parser.add_argument(
         "--matrix-phase", help="name of the matrix phase, when the mesh does not say"
     )
-    add_declared_arguments(parser, writer_options())
+    writer_arguments(parser)
     add_output_arguments(parser)
     parser.add_argument(
         "--list-formats", action="store_true", help="list the formats and stop"

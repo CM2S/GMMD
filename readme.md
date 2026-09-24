@@ -187,7 +187,7 @@ geommicgen-translate mic.vtu --to links,xdmf
 geommicgen-translate --list-formats
 ```
 
-A mesh is written as a VTK file whichever mesher produced it, `.vtu` for an unstructured mesh and `.vti` for a grid, with a small `.mesh.json` beside it holding what those formats cannot carry. Giving no `--to` stops after that file, which is a complete stage: `geommicgen-translate` picks up from it later, or somewhere else.
+A mesh is written as a VTK file whichever mesher produced it, `.vtu` for an unstructured mesh and `.vti` for a grid, with a small `.mesh.json` beside it holding what those formats cannot carry. The files are named after the microstructure file and what discretised it -- `mic_tri6.vtu`, `mic_100_100.vti` -- so that meshing one microstructure several ways into one directory keeps them apart; `--name` names them outright. Giving no `--to` stops after that file, which is a complete stage: `geommicgen-translate` picks up from it later, or somewhere else.
 
 The gmsh mesher offers `tri3`, `tri6`, `quad4` and `quad8` in two dimensions and `tetra4` and `tetra10` in three. A quadrilateral mesh is made by recombining triangles, and Gmsh keeps a triangle where it finds no pair for it, so a `quad4` or `quad8` mesh may hold a few triangles; when it does, the mesher says so with the counts, and the mesh is written with both, each type in a group of its own.
 
