@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-from geommicgen._optional import has_package
+from geommicgen._optional import has_gmsh, has_package
 from geommicgen.errors.error_classes import (
     MissingOptionalDependency,
     PeriodicityError,
@@ -650,6 +650,77 @@ class TestWriterContract(unittest.TestCase):
         # The requirements listed under "Adding a writer" in the base module: a file
         # under the name given, every file written reported, nothing printed. The
         # formats needing a library that is not installed are left out
+
+
+class TestReadBackByMeshio(unittest.TestCase):
+    """Test class holding the files written to what a reader of the format finds."""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_dir.cleanup)
+
+    def read_back(self, mesh, format_name):
+        """Write a mesh in a format and read it with meshio."""
+        import meshio
+
+        path = os.path.join(self.temp_dir.name, "m" + get_writer(format_name).extension)
+        get_writer(format_name)().write(mesh, path)
+
+        return meshio.read(path)
+
+    def assert_same_mesh(self, mesh, back):
+        """Hold the nodes and the connectivity read back to the mesh written."""
+        n_points = len(mesh.points)
+        np.testing.assert_allclose(
+            back.points[:n_points, : mesh.dim], mesh.points[:, : mesh.dim]
+        )
+        ours = np.concatenate([i_block[1] for i_block in mesh.cells])
+        theirs = np.concatenate([i_block.data for i_block in back.cells])
+        np.testing.assert_array_equal(
+            ours[np.lexsort(ours.T)], theirs[np.lexsort(theirs.T)]
+        )
+        # The elements come back grouped by phase, so they are compared as a set of
+        # rows: what has to survive is which nodes each element joins, in the order the
+        # element type numbers them
+
+    def test_abaqus_in_three_dimensions(self):
+        mesh = structured_mesh(
+            (2, 2, 2), [1.0, 1.0, 1.0], phase_grid=np.array([[[1, 2], [2, 1]]] * 2)
+        )
+        back = self.read_back(mesh, "abaqus")
+
+        self.assert_same_mesh(mesh, back)
+        self.assertEqual(len(back.points), len(mesh.points) + 3)
+        self.assertEqual(sorted(back.cell_sets), ["PHASE_1", "PHASE_2"])
+        # The three nodes beyond the mesh are the reference nodes, and the phases are
+        # the element sets. A two dimensional deck is not read back here: meshio knows
+        # no plane strain element but the six node triangle
+
+    @unittest.skipUnless(has_gmsh(), "gmsh is not installed")
+    def test_abaqus_second_order_tetrahedra(self):
+        from geommicgen.meshing.gmsh_mesher import GmshMesher
+        from geommicgen.tests.helpers import sphere_microstructure
+
+        mesh = GmshMesher(mesh_size=0.3, element_type="tetra10").mesh(
+            sphere_microstructure()
+        )
+        self.assert_same_mesh(mesh, self.read_back(mesh, "abaqus"))
+        # The order of the nodes of a second order element is where two formats most
+        # often disagree, and meshio reads it with the Abaqus convention
+
+    @unittest.skipUnless(has_package("h5py"), "h5py is not installed")
+    def test_xdmf(self):
+        mesh = structured_mesh(
+            (2, 2), [1.0, 1.0], phase_grid=np.array([[1, 2], [2, 1]])
+        )
+        back = self.read_back(mesh, "xdmf")
+
+        self.assert_same_mesh(mesh, back)
+        np.testing.assert_array_equal(
+            np.concatenate(back.cell_data["phase"]), np.concatenate(mesh.phase)
+        )
+        # The phase travels as data on the cells, which is what FEniCS reads its cell
+        # tags from
 
 
 class TestMeshioWriters(unittest.TestCase):
