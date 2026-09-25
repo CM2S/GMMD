@@ -148,7 +148,11 @@ class Mesher(abc.ABC):
     # second order mesh as generating at order two. `build_mesh_jobs` would then have
     # to ask how many meshes a job will write rather than how many meshers the options
     # came to, since File_Name is refused for more than one of them and a single mesher
-    # would be producing several
+    # would be producing several. The other shape to weigh there is a directory per
+    # discretisation inside the meshes one, as each analysis names a directory for
+    # itself: names could not collide at all then, and both the refusal of File_Name
+    # and `refuse_repeated_files` would go: against it, the layout moves, and the deck
+    # that asks for one discretisation pays a level of nesting for nothing
     @abc.abstractmethod
     def mesh(self, microstructure, report=None):
         """
