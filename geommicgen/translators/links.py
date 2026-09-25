@@ -24,6 +24,7 @@ import numpy as np
 # pylint: disable=relative-beyond-top-level
 from geommicgen.translators.base import (
     PLACEHOLDER_ELASTIC,
+    PLACEHOLDER_STRAIN,
     WRITE_CHUNK,
     SolverWriter,
     register_writer,
@@ -319,7 +320,7 @@ class LinksWriter(SolverWriter):
     def _write_example(self, example_path, mesh_path, mesh, materials):
         """Write an example input file pointing at the mesh file."""
         deformation = np.eye(mesh.dim)
-        deformation[0, 0] = 1.1
+        deformation[0, 0] = 1.0 + PLACEHOLDER_STRAIN
         rows = "\n".join(
             " ".join("{0:.3f}".format(i_value) for i_value in i_row)
             for i_row in deformation

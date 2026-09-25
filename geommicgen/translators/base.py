@@ -50,6 +50,13 @@ PLACEHOLDER_ELASTIC = (1.0e3, 0.3)
 # pair, with a TODO beside it, so that the deck says plainly that its materials are made
 # up rather than looking like a choice made for each phase, and one search finds them all
 
+PLACEHOLDER_STRAIN = 0.1
+# Stretch along the first axis prescribed by the example decks, as a strain. LINKS is
+# given it as a deformation gradient whose first entry is one plus this, Abaqus as the
+# displacement of the reference node of that axis. It is there so that a deck runs as
+# written, which is how a deck is checked against its solver, and not as a choice of
+# loading: that is the analysis, and the analysis is not the microstructure's to make
+
 WRITERS = {}
 # Correspondence between the name of a format and the class that writes it
 

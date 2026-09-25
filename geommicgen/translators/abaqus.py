@@ -4,7 +4,11 @@ Module containing the writer of the input files of the Abaqus solver.
 Abaqus reads a mesh from the same file as everything else, so this writes the nodes, the
 elements grouped by phase, the node sets of the boundary, and the multi point
 constraints that make the cell periodic. The constitutive behaviour and the loading are
-placeholders, marked as such: a microstructure says nothing about either.
+placeholders, marked as such: a microstructure says nothing about either. They are
+written all the same, so that the deck runs as it is: one linear static step, a
+macroscopic stretch along the first axis prescribed through the reference nodes, and the
+reaction forces on them printed, which divided by the volume of the cell are the
+homogenised stress.
 
 meshio writes an Abaqus file of its own, and it is not this one. It names two
 dimensional triangles after a rigid surface element and second order tetrahedra after a
@@ -30,8 +34,10 @@ import numpy as np
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
+from geommicgen.meshing.periodic import AXIS_NAMES
 from geommicgen.translators.base import (
     PLACEHOLDER_ELASTIC,
+    PLACEHOLDER_STRAIN,
     WRITE_CHUNK,
     SolverWriter,
     register_writer,
@@ -160,12 +166,22 @@ class AbaqusWriter(SolverWriter):
         blocks = mesh.phase_blocks()
         boundary = mesh.boundary
 
-        with open(file_path, "w") as deck:
-            deck.write(
-                "** Abaqus input file written by geommicgen.\n"
+        if self.periodic_constraints:
+            placeholders = (
                 "** The mesh is complete; the materials and the step are placeholders,\n"
                 "** and are to be replaced before the file is used for anything real.\n"
-                "*Heading\n geommicgen microstructure\n"
+            )
+        else:
+            placeholders = (
+                "** The mesh is complete; the materials are placeholders, and\n"
+                "** there is no step, the constraints that carry the macroscopic\n"
+                "** deformation not having been asked for.\n"
+            )
+
+        with open(file_path, "w") as deck:
+            deck.write(
+                "** Abaqus input file written by geommicgen.\n{0}"
+                "*Heading\n geommicgen microstructure\n".format(placeholders)
             )
             self._write_nodes(deck, mesh)
             self._write_elements(deck, mesh, blocks)
@@ -174,8 +190,11 @@ class AbaqusWriter(SolverWriter):
             if self.periodic_constraints:
                 self._write_reference_sets(deck, mesh)
                 self._write_equations(deck, mesh, boundary)
-            # The sets come before the constraints that refer to them, which is the
-            # order Abaqus needs them in
+                self._write_step(deck, mesh)
+            # The sets come before the constraints that refer to them, and the model
+            # before the step that loads it, which is the order Abaqus needs them in.
+            # Without the constraints there is nothing to prescribe the macroscopic
+            # deformation through, and so no step to write
 
         return [file_path]
 
@@ -288,6 +307,46 @@ class AbaqusWriter(SolverWriter):
         # coefficients. The pairs arrive grouped -- a face at a time, then the slave
         # edges of an axis, then the corners -- so consecutive runs of one pattern are
         # what the writing is cut into, and the order is the order of the pairs
+
+    def _write_step(self, deck, mesh):
+        """Write a placeholder step, loading the cell through the reference nodes."""
+        corner = _set_name(
+            "CORNER", "".join(i_axis + "-" for i_axis in AXIS_NAMES[: mesh.dim])
+        )
+        gradient = np.zeros((mesh.dim, mesh.dim))
+        gradient[0, 0] = PLACEHOLDER_STRAIN
+        rve_dims = np.asarray(mesh.rve_dims, dtype=float)[: mesh.dim]
+        # The displacement of the reference node of an axis is the column of the
+        # displacement gradient of that axis times the length of the cell along it
+
+        deck.write(
+            "** TODO the step: a placeholder, a stretch of {0} along x\n"
+            "*Step, name=PLACEHOLDER, nlgeom=NO\n*Static\n*Boundary\n"
+            "{1}, 1, {2}, 0.0\n".format(PLACEHOLDER_STRAIN, corner, mesh.dim)
+        )
+        for i_axis in range(mesh.dim):
+            for j_dof in range(mesh.dim):
+                deck.write(
+                    "{0}, {1}, {1}, {2:.12e}\n".format(
+                        REFERENCE_NODE_NAMES[i_axis],
+                        j_dof + 1,
+                        gradient[j_dof, i_axis] * rve_dims[i_axis],
+                    )
+                )
+        # Every degree of freedom of every reference node is prescribed, which fixes the
+        # whole macroscopic deformation and with it the rotation of the cell. What the
+        # constraints leave free is a translation of every node at once, and holding the
+        # corner every other corner is paired to removes it: that corner is never the
+        # node an equation eliminates, so prescribing it does not constrain it twice
+
+        deck.write("*Output, field, variable=PRESELECT\n")
+        deck.write("*Output, history, variable=PRESELECT\n")
+        for i_name in REFERENCE_NODE_NAMES[: mesh.dim]:
+            deck.write("*Node Print, nset={0}\nRF\n".format(i_name))
+        deck.write("*End Step\n")
+        # The reaction forces on the reference nodes are printed to the text output,
+        # where a check that the deck ran can read the homogenised stress without the
+        # output database
 
     def _write_equation_group(self, deck, mesh, pairs, coefficients, axes):
         """

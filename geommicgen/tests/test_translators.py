@@ -21,7 +21,11 @@ from geommicgen.translators import (
     get_writer,
     writer_options,
 )
-from geommicgen.translators.base import WRITERS, register_writer
+from geommicgen.translators.base import (
+    PLACEHOLDER_STRAIN,
+    WRITERS,
+    register_writer,
+)
 from geommicgen.translators.abaqus import (
     REFERENCE_NODE_NAMES,
     abaqus_element_name,
@@ -259,6 +263,37 @@ def parse_abaqus_equations(file_path):
     return equations
 
 
+def abaqus_block(file_path, keyword):
+    """Read back the data lines of the first block a keyword opens, split at commas."""
+    with open(file_path, "r") as deck:
+        lines = [i_line.strip() for i_line in deck]
+
+    heads = [i_line.split(",")[0].strip().lower() for i_line in lines]
+    start = heads.index(keyword.lower()) + 1
+    rows = []
+    for i_line in lines[start:]:
+        if i_line.startswith("*"):
+            break
+        rows.append([i_entry.strip() for i_entry in i_line.split(",")])
+
+    return rows
+
+
+def abaqus_node_set(file_path, name):
+    """Read back the node identifiers of one node set."""
+    with open(file_path, "r") as deck:
+        lines = [i_line.strip() for i_line in deck]
+
+    start = lines.index("*Nset, nset={0}".format(name)) + 1
+    identifiers = []
+    for i_line in lines[start:]:
+        if i_line.startswith("*"):
+            break
+        identifiers += [int(i_entry) for i_entry in i_line.split(",")]
+
+    return identifiers
+
+
 def abaqus_keyword_arguments(file_path, keyword):
     """Read back the arguments of every occurrence of one Abaqus keyword."""
     with open(file_path, "r") as deck:
@@ -410,6 +445,67 @@ class TestAbaqusWriter(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             abaqus_element_name("wedge")
         self.assertIn("hexahedron20", str(context.exception))
+
+    def test_the_step_prescribes_the_placeholder_stretch(self):
+        for i_shape, i_dims in (((2, 2), [2.0, 1.0]), ((2, 2, 2), [2.0, 1.0, 3.0])):
+            with self.subTest(shape=i_shape):
+                path = self.write(structured_mesh(i_shape, i_dims))
+                prescribed = {
+                    (i_row[0], int(i_row[1])): float(i_row[3])
+                    for i_row in abaqus_block(path, "*Boundary")
+                    if i_row[0].startswith("RP_")
+                }
+                dim = len(i_shape)
+                expected = {
+                    (REFERENCE_NODE_NAMES[i_axis], j_dof + 1): (
+                        PLACEHOLDER_STRAIN * i_dims[0] if (i_axis, j_dof) == (0, 0)
+                        else 0.0
+                    )
+                    for i_axis in range(dim)
+                    for j_dof in range(dim)
+                }
+                self.assertEqual(prescribed, expected)
+        # Every degree of freedom of every reference node is prescribed, which is the
+        # whole macroscopic displacement gradient: a stretch along x, times the length
+        # of the cell along the axis of the node
+
+    def test_the_held_corner_is_never_eliminated(self):
+        for i_shape, i_corner in (
+            ((3, 3), "CORNER_XNEG_YNEG"),
+            ((3, 3, 3), "CORNER_XNEG_YNEG_ZNEG"),
+        ):
+            with self.subTest(shape=i_shape):
+                path = self.write(structured_mesh(i_shape, [1.0] * len(i_shape)))
+                held = [
+                    i_row[0] for i_row in abaqus_block(path, "*Boundary")
+                    if not i_row[0].startswith("RP_")
+                ]
+                self.assertEqual(held, [i_corner])
+                eliminated = {
+                    i_terms[0][0] for i_terms in parse_abaqus_equations(path)
+                }
+                self.assertFalse(set(abaqus_node_set(path, i_corner)) & eliminated)
+        # The translation the constraints leave free is removed by holding one node,
+        # and Abaqus refuses a degree of freedom that is both prescribed and the one an
+        # equation eliminates
+
+    def test_the_reaction_forces_of_the_reference_nodes_are_printed(self):
+        path = self.write(structured_mesh((2, 2, 2), [1.0, 1.0, 1.0]))
+        self.assertEqual(
+            self.keyword_values(path, "*Node Print", "nset"),
+            list(REFERENCE_NODE_NAMES),
+        )
+
+    def test_without_the_constraints_there_is_no_step(self):
+        path = self.write(
+            structured_mesh((3, 3), [1.0, 1.0]), periodic_constraints=False
+        )
+        with open(path) as deck:
+            text = deck.read()
+        self.assertNotIn("*Step", text)
+        self.assertIn("there is no step", text)
+        # There is nothing to load the cell through, and the header says so rather
+        # than promising a placeholder step the deck does not have
 
 
 class TestWriterOptions(unittest.TestCase):
