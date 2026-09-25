@@ -2,14 +2,16 @@
 Module containing the writers of the mesh formats meshio supports.
 
 This is what the separation between the mesh and the solver formats buys: a format
-meshio can write becomes available without a writer of its own. XDMF serves FEniCS,
-Exodus serves MOOSE, MED serves Code_Aster, and the VTK formats serve the viewers.
+meshio can write becomes available without a writer of its own. XDMF serves FEniCS, and
+the VTK formats and gmsh's serve the viewers and the other meshers.
 
 Only the formats that carry the phase of every cell are offered. meshio can write about
 thirty, but many of them are surface formats, or drop the cell data without saying so,
 and a mesh of a microstructure written in one of those has quietly lost the only thing
 that distinguishes its phases. Offering a format is therefore a deliberate act, and the
-ones a reader might expect to find carry a reason instead.
+ones a reader might expect to find carry a reason instead. A format a solver reads is
+offered once that solver has been run on what is written of it, which is what the
+solver tests do; carrying the phases is not enough on its own.
 """
 
 # pylint: disable=import-error
@@ -27,8 +29,6 @@ SUPPORTED_FORMATS = {
     "vtk": (".vtk", None, False),
     "gmsh": (".msh", None, False),
     "xdmf": (".xdmf", "h5py", True),
-    "med": (".med", "h5py", True),
-    "exodus": (".e", "netCDF4", True),
 }
 # Formats that carry the phase of every cell, with the extension each one uses, the
 # package meshio needs in order to write it when it needs one beyond its own, and
@@ -46,6 +46,10 @@ UNSUPPORTED_FORMATS = {
     "ply": "the format holds surfaces only and cannot describe a volume mesh",
     "stl": "the format holds surfaces only and cannot describe a volume mesh",
     "dolfin-xml": "the format is legacy, and meshio itself recommends xdmf instead",
+    "med": "no Code_Aster run has been made on what meshio writes of it, and the "
+    "periodicity of the cell would be left to the solver's own setup",
+    "exodus": "no MOOSE run has been made on what meshio writes of it, and the "
+    "periodicity of the cell would be left to the solver's own setup",
 }
 # Formats a reader might expect, with the reason each one is not offered
 

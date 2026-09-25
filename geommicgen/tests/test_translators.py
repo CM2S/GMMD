@@ -854,13 +854,24 @@ class TestMeshioWriters(unittest.TestCase):
             self.assertNotIn(i_format, writers)
         # meshio would write these without the phase, or with unusable element types
 
+    def test_solver_formats_nobody_has_run_are_not_offered(self):
+        writers = available_writers()
+        for i_format, i_solver in (("med", "Code_Aster"), ("exodus", "MOOSE")):
+            self.assertNotIn(i_format, writers)
+            with self.assertRaises(ValueError) as context:
+                get_writer(i_format)
+            self.assertIn(i_solver, str(context.exception))
+        # meshio writes both with the phases, but a format a solver reads is offered
+        # once the solver has run what is written of it, and asking for one of these
+        # says which solver that would be rather than that the format is unknown
+
     def test_abaqus_is_not_the_meshio_writer(self):
         self.assertNotIsInstance(get_writer("abaqus")(), MeshioWriter)
         # The format is offered, but by the writer of this package: meshio names two
         # dimensional triangles after a rigid element and cannot write a constraint
 
     def test_formats_needing_an_extra_package_say_so(self):
-        for i_format in ("xdmf", "med", "exodus"):
+        for i_format in ("xdmf",):
             writer = get_writer(i_format)
             self.assertIsNotNone(writer.requires_package)
             path = os.path.join(self.temp_dir.name, "m" + writer.extension)
@@ -904,8 +915,7 @@ class TestMeshioWriters(unittest.TestCase):
     def test_the_vtk_family_keeps_three_coordinates(self):
         for i_format in ("vtu", "vtk", "gmsh"):
             self.assertFalse(get_writer(i_format).flat_points)
-        for i_format in ("xdmf", "med", "exodus"):
-            self.assertTrue(get_writer(i_format).flat_points)
+        self.assertTrue(get_writer("xdmf").flat_points)
 
 
 if __name__ == "__main__":

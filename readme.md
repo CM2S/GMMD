@@ -57,7 +57,7 @@ This program initial version was documented and fully coded by José Luís P. Vi
 
 - Regular mesh with the desired number of voxels in each spatial direction.
 - Finite element mesh conforming to the particle boundaries, using Gmsh: first and second order triangles, quadrilaterals and tetrahedra.
-- Meshes written as VTK files, and translated into the formats solvers read (LINKS, Abaqus, CRATE, XDMF for FEniCS, MED, Exodus, ...).
+- Meshes written as VTK files, and translated into the input files of LINKS, CRATE and Abaqus and into XDMF for FEniCS, each checked by running the solver on what is written; the Gmsh format and legacy VTK are written as well, for other meshers and viewers.
 
 ### Analysis
 
@@ -119,10 +119,10 @@ After installation, the `geommicgen`, `geommicgen-mesh`, `geommicgen-translate`,
   export PYTHONPATH=$PYTHONPATH:/path/to/gmsh/lib
   ```
 
-- **h5py and netCDF4** are required only by the mesh formats that store their arrays in HDF5 or NetCDF: `xdmf` (read by FEniCS), `med` (Code_Aster) and `exodus` (MOOSE). Each is an extra named after the format, and `formats` installs all of them:
+- **h5py** is required only by the `xdmf` format, read by FEniCS, which stores its arrays in HDF5. The extra is named after the format:
 
   ```bash
-  pip install 'geommicgen[xdmf]'      # or [med], [exodus], [formats]
+  pip install 'geommicgen[xdmf]'
   ```
 
   Asking for one of these formats without its library fails that format alone, with the command that installs it; the mesh itself and the other formats are still written.
