@@ -145,7 +145,10 @@ class Mesher(abc.ABC):
     # command then take several meshes from one job. The voxel mesher, which already
     # takes a list of resolutions and returns one mesher each, would follow the same
     # contract. The gmsh signature fixtures guard that setOrder gives the same
-    # second order mesh as generating at order two
+    # second order mesh as generating at order two. `build_mesh_jobs` would then have
+    # to ask how many meshes a job will write rather than how many meshers the options
+    # came to, since File_Name is refused for more than one of them and a single mesher
+    # would be producing several
     @abc.abstractmethod
     def mesh(self, microstructure, report=None):
         """

@@ -10,6 +10,7 @@ from geommicgen.iofuncs.keywords import Keyword
 from geommicgen.pipeline import (
     MeshJob,
     build_mesh_jobs,
+    refuse_repeated_files,
     writers_from_options,
 )
 from geommicgen.meshing.gmsh_mesher import GmshMesher
@@ -80,6 +81,38 @@ class TestBuildMeshJobs(unittest.TestCase):
             [i_job.base_name for i_job in jobs], ["my_grid", "my_mesh"]
         )
         # The name belongs to the files rather than to the mesher, so either takes it
+
+    def test_one_name_under_two_meshers_writes_the_files_of_each(self):
+        jobs = build_mesh_jobs(
+            {
+                "gmsh": {"mesh_size": 0.1},
+                "voxel": {"n_voxels_dims": [[10, 10]]},
+            }
+        )
+        for i_job in jobs:
+            i_job.base_name = "my_mesh"
+        refuse_repeated_files(jobs)
+        self.assertEqual(
+            [i_writer.extension for i_job in jobs for i_writer in i_job.writers],
+            [".mesh", ".rgmsh.npy"],
+        )
+        # A mesh and a grid of one name are written in formats of their own, and the
+        # standard output of the one is a .vtu where the other is a .vti, so the two
+        # discretisations come to no harm under one name
+
+    def test_one_name_and_one_format_under_two_meshers_is_refused(self):
+        with self.assertRaises(ValueError) as context:
+            build_mesh_jobs(
+                {
+                    "gmsh": {"mesh_size": 0.1, "file_name": "my_mesh",
+                             "formats": ["vtk"]},
+                    "voxel": {"n_voxels_dims": [[10, 10]], "file_name": "my_mesh",
+                              "formats": ["vtk"]},
+                }
+            )
+        self.assertIn("my_mesh.vtk", str(context.exception))
+        # The name was refused within one mesher already; two of them asking for a
+        # format in common is the same file written twice
 
     def test_file_name_for_more_than_one_grid_is_refused(self):
         with self.assertRaises(ValueError) as context:

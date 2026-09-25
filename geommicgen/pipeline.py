@@ -318,6 +318,43 @@ def writers_from_options(options, defaults):
     # one format costs the others nothing
 
 
+def refuse_repeated_files(jobs):
+    """
+    Refuse discretisations that would be written over each other.
+
+    Two discretisations can share a name and come to no harm: a mesh and a grid of the
+    same microstructure are each written in formats of their own, so File_Name my_mesh
+    under both gives my_mesh.vtu beside my_mesh.vti. What cannot be honoured is one
+    name given to two discretisations that write a format in common.
+
+    Parameters
+    ----------
+    jobs: list
+        The `.MeshJob` objects built.
+
+    Raises
+    ------
+    ValueError:
+        If two of them would write the same file.
+    """
+    written = {}
+    for i_job in jobs:
+        for j_writer in i_job.writers:
+            path = i_job.base_name + j_writer.extension
+            if path in written:
+                raise ValueError(
+                    "{0} and {1} would both be written as {2}, so one would be written "
+                    "over the other. Give each of them a File_Name of its own, or "
+                    "neither of them one.".format(
+                        written[path], i_job.description.lower(), path
+                    )
+                )
+            written[path] = i_job.description
+    # The standard output of a job is not among these: whether it is written as a mesh
+    # or as an image is known only once the mesh exists, and `MeshJob.write` guards it
+    # there, where the two kinds of the same name do not collide anyway
+
+
 def build_mesh_jobs(mesh_options, deck_name=None):
     """
     Build the meshing jobs an input data file asks for.
@@ -375,5 +412,9 @@ def build_mesh_jobs(mesh_options, deck_name=None):
                     file_name or job_base_name(deck_name, j_mesher.label),
                 )
             )
+
+    refuse_repeated_files(jobs)
+    # The name of one discretisation is only known to collide with the name of another
+    # once all of them are built, so this is asked of the whole set
 
     return jobs
