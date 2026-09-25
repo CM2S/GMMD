@@ -714,10 +714,15 @@ class MolecularDynamicsSimulation(GenerationMethod):
         if size == "unitary":
             if self._original_box is None:
                 self._original_box = list(self.box)
-                self.box = [1 for _ in self._original_box]
                 rescale_parameter = 1 / min(self._original_box)
+                self.box = [i_dim * rescale_parameter for i_dim in self._original_box]
                 for i_particle in particles:
                     i_particle.rescale(rescale_parameter)
+            # The shortest side becomes one and the others keep their proportion to it.
+            # The box used to become all ones, which folded a cell longer in one
+            # direction into a square: the particles, placed across the whole cell, were
+            # wrapped into a part of it, simulated at a higher packing than asked for,
+            # and scaled back into that part, leaving the rest of the cell empty
         elif size == "original":
             if self._original_box is not None:
                 rescale_parameter = min(self._original_box)

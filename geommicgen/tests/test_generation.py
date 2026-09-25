@@ -27,6 +27,7 @@ from geommicgen.micgenmethod.thermostats import (
 from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.microstructure.particleclasses import (
     CylindricalFiber,
+    Disk,
 )
 from geommicgen.microstructure.phase import Phase
 
@@ -563,6 +564,62 @@ class TestFixedSeed(unittest.TestCase):
             [i_angle for _, i_angle in first], [i_angle for _, i_angle in other]
         )
         # The control: the equality above is not the orientations being constant
+
+
+class TestNonSquareRVE(unittest.TestCase):
+    """Test class for a generation in an RVE longer in one direction than in another."""
+
+    def generate(self, rve_dims):
+        """Generate ten disks in an RVE of the given dimensions, with a fixed seed."""
+        microstructure = Microstructure(list(rve_dims))
+        microstructure.add_phase(Phase("0", {"phase_type": 1}))
+        microstructure.add_phase(Phase("1", {"phase_type": 2, "r": 0.1, "n": 10}))
+        generator = MolecularDynamicsSimulation(
+            0.0, 400, 1, 1e-3, 0.0, "random", False, fixed_seed=3
+        )
+        generator.set_thermostat(
+            MultiTemperatureIsokineticThermostat(
+                None, criterion="ratio_in_out", max_ratio_osc=2, temp_low_ratio=1 / 4
+            )
+        )
+        generator.set_speed_up_scheme(Naive())
+        generator.generate_microstructure(microstructure)
+
+        return microstructure, generator
+
+    def test_the_particles_spread_over_the_whole_cell(self):
+        for i_dims in ([2.0, 1.0], [1.0, 2.0]):
+            with self.subTest(rve_dims=i_dims):
+                microstructure, generator = self.generate(i_dims)
+                self.assertTrue(generator.status)
+                long_axis = int(np.argmax(i_dims))
+                along = np.sort(
+                    [i_particle.position_center[long_axis]
+                     for i_particle in microstructure.particles]
+                )
+                gaps = np.diff(np.concatenate([along, [along[0] + i_dims[long_axis]]]))
+                self.assertLess(gaps.max(), 1.0)
+        # The cell is two long along one side, and the particles used to be folded into
+        # a part of it one long: however they then fell, the gap between two neighbours
+        # along that side, around the period, was at least one
+
+    def test_the_box_keeps_its_proportions_while_it_is_normalised(self):
+        generator = MolecularDynamicsSimulation(0.0, 1, 1, 1e-3, 0.0, "random", False)
+        generator.box = [4.0, 2.0]
+        disk = Disk("1", {"r": 0.2}, [4.0, 2.0])
+        disk.position_center = np.array([3.0, 1.0])
+
+        generator.resize_sim_box_and_all_particles_inside([disk], "unitary")
+        self.assertEqual(generator.box, [2.0, 1.0])
+        np.testing.assert_allclose(disk.position_center, [1.5, 0.5])
+        self.assertAlmostEqual(disk.radius, 0.1)
+
+        generator.resize_sim_box_and_all_particles_inside([disk], "original")
+        self.assertEqual(generator.box, [4.0, 2.0])
+        np.testing.assert_allclose(disk.position_center, [3.0, 1.0])
+        self.assertAlmostEqual(disk.radius, 0.2)
+        # The shortest side is brought to one and the particles with it, and the rest of
+        # the box keeps its proportion to that side rather than becoming one as well
 
 
 class TestMolecularDynamicSimulationForce(unittest.TestCase):
