@@ -22,6 +22,7 @@ from geommicgen.translators import (
     writer_options,
 )
 from geommicgen.translators.base import (
+    PLACEHOLDER_ELASTIC,
     PLACEHOLDER_STRAIN,
     WRITERS,
     register_writer,
@@ -234,6 +235,24 @@ class TestLinksWriter(unittest.TestCase):
             )
         # These four and no others are what LINKS runs its own periodicity verification
         # for, in ioctrl/rve/getbcnnodes2d.f90 and the three files beside it
+
+
+def crate_block(file_path, keyword):
+    """Read back the lines of a block of a CRATE input data file, up to a blank one."""
+    with open(file_path, "r") as deck:
+        lines = [i_line.rstrip("\n") for i_line in deck]
+
+    start = [
+        i_ind for i_ind, i_line in enumerate(lines)
+        if not i_line.startswith("#") and i_line.split()[:1] == [keyword]
+    ][0]
+    block = []
+    for i_line in lines[start + 1:]:
+        if not i_line.strip():
+            break
+        block.append(i_line.split())
+
+    return lines[start].split(), block
 
 
 def parse_abaqus_equations(file_path):
@@ -576,15 +595,16 @@ class TestCrateWriter(unittest.TestCase):
         self.temp_dir.cleanup()
 
     def test_grid_is_written_unchanged(self):
-        phase_grid = np.ones((5, 5), dtype=int)
-        phase_grid[1:4, 1:4] = 2
-        mesh = structured_mesh((5, 5), [1.0, 1.0], phase_grid)
+        phase_grid = np.ones((5, 4), dtype=int)
+        phase_grid[1:4, :2] = 2
+        mesh = structured_mesh((5, 4), [1.0, 1.0], phase_grid)
         path = os.path.join(self.temp_dir.name, "grid.rgmsh")
         written = get_writer("crate")().write(mesh, path)
         restored = np.load(written[0])
         np.testing.assert_array_equal(restored, phase_grid)
         self.assertEqual(restored.dtype, phase_grid.dtype)
-        # The array is the whole contract with the solver and must not change
+        # The array is the whole of what the solver reads of the microstructure and must
+        # not change; it is not square, so that one written transposed would show
 
     def test_does_not_need_the_cells(self):
         self.assertFalse(get_writer("crate").needs_cells)
@@ -593,6 +613,96 @@ class TestCrateWriter(unittest.TestCase):
         self.assertIsNone(mesh._cells)
         # Writing the grid must not build the cells, which is what makes it usable for
         # resolutions that could never be expressed as elements
+
+    def write_example(self, shape, rve_dims, phase_grid=None):
+        """Write a grid and its example input file, and give back both paths."""
+        mesh = structured_mesh(shape, rve_dims, phase_grid)
+        written = get_writer("crate")().write(
+            mesh, os.path.join(self.temp_dir.name, "m.rgmsh.npy")
+        )
+        self.assertEqual(len(written), 2)
+
+        return written
+
+    def test_the_example_runs_off_the_grid(self):
+        grid_path, example_path = self.write_example((4, 4), [2.0, 1.0])
+        self.assertEqual(os.path.basename(example_path), "m_example.dat")
+        self.assertEqual(crate_block(example_path, "Discretization_File")[1],
+                         [["m.rgmsh.npy"]])
+        self.assertEqual(crate_block(example_path, "RVE_Dimensions")[1],
+                         [["2.0", "1.0"]])
+        self.assertEqual(
+            crate_block(example_path, "Problem_Type")[0], ["Problem_Type", "1"]
+        )
+        # The grid is named as it is written, beside the file, and the dimensions it
+        # carries none of are declared here, where they would be copied by hand
+
+    def test_a_three_dimensional_grid_is_a_three_dimensional_problem(self):
+        _, example_path = self.write_example((2, 2, 2), [1.0, 2.0, 3.0])
+        self.assertEqual(
+            crate_block(example_path, "Problem_Type")[0], ["Problem_Type", "4"]
+        )
+        self.assertEqual(crate_block(example_path, "RVE_Dimensions")[1],
+                         [["1.0", "2.0", "3.0"]])
+
+    def test_every_phase_of_the_grid_has_a_material_and_a_cluster(self):
+        phase_grid = np.ones((4, 4), dtype=int)
+        phase_grid[:2] = 3
+        _, example_path = self.write_example((4, 4), [1.0, 1.0], phase_grid)
+
+        head, materials = crate_block(example_path, "Material_Phases")
+        self.assertEqual(head, ["Material_Phases", "2"])
+        self.assertEqual([i_row[0] for i_row in materials if i_row[1:2] == ["elastic"]],
+                         ["1", "3"])
+        self.assertEqual(
+            [i_row[1] for i_row in materials if i_row[0] == "E"],
+            [str(PLACEHOLDER_ELASTIC[0])] * 2,
+        )
+        self.assertEqual(crate_block(example_path, "Number_of_Clusters")[1],
+                         [["1", "1"], ["3", "1"]])
+        # The phases are the ones the grid holds, by the identifiers it holds them by,
+        # which is what CRATE checks the grid against; one cluster each, because a cell
+        # whose phases are all the placeholder material offers k-means no more
+
+    def test_the_strain_is_listed_a_column_at_a_time(self):
+        _, example_path = self.write_example((2, 2, 2), [1.0, 1.0, 1.0])
+        _, strain = crate_block(example_path, "Macroscale_Strain")
+        self.assertEqual(
+            [i_row[0] for i_row in strain],
+            ["eps_11", "eps_21", "eps_31", "eps_12", "eps_22", "eps_32",
+             "eps_13", "eps_23", "eps_33"],
+        )
+        self.assertEqual(
+            [float(i_row[1]) for i_row in strain],
+            [PLACEHOLDER_STRAIN] + [0.0] * 8,
+        )
+
+    def test_no_comment_sits_inside_a_block(self):
+        _, example_path = self.write_example((4, 4), [1.0, 1.0])
+        with open(example_path) as deck:
+            lines = deck.read().splitlines()
+        keywords = (
+            "Material_Phases", "Macroscale_Loading", "Number_of_Clusters",
+            "Strain_Formulation",
+        )
+        for i_ind, i_line in enumerate(lines[:-1]):
+            if i_line.startswith("#"):
+                following = lines[i_ind + 1]
+                self.assertTrue(
+                    following.startswith("#") or not following.strip()
+                    or following.split()[0] in keywords,
+                    following,
+                )
+        # CRATE reads the lines of a block by their position after the keyword, so a
+        # comment inside one would be read as data
+
+    def test_the_example_can_be_left_out(self):
+        mesh = structured_mesh((4, 4), [1.0, 1.0])
+        written = get_writer("crate")(write_example=False).write(
+            mesh, os.path.join(self.temp_dir.name, "m.rgmsh.npy")
+        )
+        self.assertEqual([os.path.basename(i_path) for i_path in written],
+                         ["m.rgmsh.npy"])
 
     def test_refuses_an_unstructured_mesh(self):
         mesh = structured_mesh((3, 3), [1.0, 1.0])

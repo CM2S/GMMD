@@ -126,7 +126,7 @@ class TestVoxelMesherEquivalence(unittest.TestCase):
         mesh = VoxelMesher(n_voxels_dims).mesh(microstructure)
         with tempfile.TemporaryDirectory() as temp_dir:
             written = CrateWriter().write(mesh, os.path.join(temp_dir, "grid.rgmsh"))
-            self.assertEqual(len(written), 1)
+            self.assertTrue(written[0].endswith(".rgmsh.npy"))
             np.testing.assert_array_equal(np.load(written[0]), frozen_grid("one_disk"))
         # The whole path a spectral solver takes, from the microstructure to the array
         # it reads, without gmsh being involved anywhere

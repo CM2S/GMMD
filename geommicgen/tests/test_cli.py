@@ -53,7 +53,13 @@ class TestMeshCommand(unittest.TestCase):
         )
         self.assertEqual(status, 0)
         self.assertEqual(
-            self.written(), ["mic_16_16.mesh.json", "mic_16_16.rgmsh.npy", "mic_16_16.vti"]
+            self.written(),
+            [
+                "mic_16_16.mesh.json",
+                "mic_16_16.rgmsh.npy",
+                "mic_16_16.vti",
+                "mic_16_16_example.dat",
+            ],
         )
         # The whole path from a microstructure to what a spectral solver reads, with no
         # geometry kernel installed
@@ -156,7 +162,10 @@ class TestTranslateCommand(unittest.TestCase):
                  "-o", self.output_dir]
             )
         self.assertEqual(status, 0)
-        self.assertEqual(os.listdir(self.output_dir), ["mic_16_16.rgmsh.npy"])
+        self.assertEqual(
+            sorted(os.listdir(self.output_dir)),
+            ["mic_16_16.rgmsh.npy", "mic_16_16_example.dat"],
+        )
         grid = np.load(os.path.join(self.output_dir, "mic_16_16.rgmsh.npy"))
         self.assertEqual(grid.shape, (16, 16))
         # An image is read back as the grid it is, so the writer that needs a grid

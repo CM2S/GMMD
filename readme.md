@@ -141,7 +141,7 @@ pip install -e '.[test]'
 pytest geommicgen/tests
 ```
 
-`geommicgen/tests/test_solvers.py` runs the files GMMD writes through the solvers themselves, and each of its tests is skipped unless its solver is found: LINKS through `GEOMMICGEN_LINKS` or `LINKS` on the `PATH`, Abaqus through `GEOMMICGEN_ABAQUS` or `abaqus` on the `PATH`, and FEniCS through `GEOMMICGEN_DOLFINX_PYTHON`, the path of a Python that has dolfinx. Their meshes stay under the thousand nodes the learning edition of Abaqus runs.
+`geommicgen/tests/test_solvers.py` runs the files GMMD writes through the solvers themselves, and each of its tests is skipped unless its solver is found: LINKS through `GEOMMICGEN_LINKS` or `LINKS` on the `PATH`, Abaqus through `GEOMMICGEN_ABAQUS` or `abaqus` on the `PATH`, FEniCS through `GEOMMICGEN_DOLFINX_PYTHON`, the path of a Python that has dolfinx, and CRATE through `GEOMMICGEN_CRATE_PYTHON`, the path of a Python that has `cratepy` -- an environment of its own, since `cratepy` pins versions of SciPy older than GMMD runs with. Their meshes stay under the thousand nodes the learning edition of Abaqus runs.
 
 ```bash
 GEOMMICGEN_DOLFINX_PYTHON=/path/to/envs/dolfinx/bin/python pytest geommicgen/tests/test_solvers.py
@@ -195,7 +195,7 @@ geommicgen-translate --list-formats
 
 A mesh is written as a VTK file whichever mesher produced it, `.vtu` for an unstructured mesh and `.vti` for a grid, with a small `.mesh.json` beside it holding what those formats cannot carry. The files are named after the microstructure file and what discretised it -- `mic_tri6.vtu`, `mic_100_100.vti` -- so that meshing one microstructure several ways into one directory keeps them apart; `--name` names them outright. Giving no `--to` stops after that file, which is a complete stage: `geommicgen-translate` picks up from it later, or somewhere else.
 
-The LINKS and Abaqus decks carry placeholder materials and a placeholder loading, a stretch along x, marked as such: a microstructure says nothing about either, but with them the decks run as written, which is how they are checked. FEniCS reads the `.xdmf` file, with the phase of every cell as a cell tag; [`examples/fenics_elasticity.py`](examples/fenics_elasticity.py) reads one, gives each phase a material and solves.
+The LINKS and Abaqus decks, and the example CRATE input file written beside a grid, carry placeholder materials and a placeholder loading, a stretch along x, marked as such: a microstructure says nothing about either, but with them the decks run as written, which is how they are checked. The CRATE file also declares the dimensions of the RVE, which the grid does not carry. FEniCS reads the `.xdmf` file, with the phase of every cell as a cell tag; [`examples/fenics_elasticity.py`](examples/fenics_elasticity.py) reads one, gives each phase a material and solves.
 
 The gmsh mesher offers `tri3`, `tri6`, `quad4` and `quad8` in two dimensions and `tetra4` and `tetra10` in three. A quadrilateral mesh is made by recombining triangles, and Gmsh keeps a triangle where it finds no pair for it, so a `quad4` or `quad8` mesh may hold a few triangles; when it does, the mesher says so with the counts, and the mesh is written with both, each type in a group of its own.
 

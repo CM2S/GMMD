@@ -10,7 +10,9 @@ LINKS is found through the environment variable GEOMMICGEN_LINKS, holding the pa
 the executable, or as LINKS on the PATH; Abaqus through GEOMMICGEN_ABAQUS, or as abaqus
 on the PATH. FEniCS is a library rather than a program, so what is run is the example
 script shipped beside the decks, with the Python that has dolfinx, whose path is given
-in GEOMMICGEN_DOLFINX_PYTHON.
+in GEOMMICGEN_DOLFINX_PYTHON. CRATE is a Python package whose pinned requirements this
+one cannot share an environment with, so it is run with the Python that has it, given
+in GEOMMICGEN_CRATE_PYTHON.
 """
 
 import json
@@ -27,9 +29,18 @@ from geommicgen._optional import has_gmsh, has_package
 from geommicgen.pipeline import MeshJob
 from geommicgen.meshing.gmsh_mesher import GmshMesher
 from geommicgen.meshing.voxel_mesher import VoxelMesher
-from geommicgen.tests.helpers import disk_microstructure, sphere_microstructure
+from geommicgen.tests.helpers import (
+    disk_microstructure,
+    sphere_microstructure,
+    structured_mesh,
+)
 from geommicgen.translators.abaqus import AbaqusWriter
-from geommicgen.translators.base import get_writer
+from geommicgen.translators.base import (
+    PLACEHOLDER_ELASTIC,
+    PLACEHOLDER_STRAIN,
+    get_writer,
+)
+from geommicgen.translators.crate import CrateWriter
 from geommicgen.translators.links import LinksWriter
 
 FENICS_EXAMPLE = os.path.join(
@@ -263,6 +274,138 @@ class TestFenicsSolvesOnTheMesh(unittest.TestCase):
         self.assertLess(stress, self.homogeneous_stress(2, stiffer))
         # Stiffer particles stiffen the cell, and it stays softer than the particles:
         # the tags reached the materials, and the right ones
+
+
+
+def crate_python():
+    """Path of a Python that has CRATE, or None when none was given."""
+    return os.environ.get("GEOMMICGEN_CRATE_PYTHON")
+
+
+def uniaxial_strain(young):
+    """
+    Stresses of one material stretched along x and held along the other axes.
+
+    Parameters
+    ----------
+    young: float
+        Young modulus; the Poisson ratio is the placeholder one.
+
+    Returns
+    -------
+    tuple
+        The stress along x, the modulus of the stretch it is, and Lame's first
+        parameter, which the stress across x is the strain times.
+    """
+    poisson = PLACEHOLDER_ELASTIC[1]
+    lame = young * poisson / ((1 + poisson) * (1 - 2 * poisson))
+    modulus = lame + young / (1 + poisson)
+
+    return modulus * PLACEHOLDER_STRAIN, modulus, lame
+
+
+@unittest.skipUnless(crate_python(), "no Python with CRATE was given")
+class TestCrateRunsTheDeck(unittest.TestCase):
+    """Test class for running the example CRATE input files through CRATE itself."""
+
+    def setUp(self):
+        """Create a directory for the run, which CRATE fills with its outputs."""
+        self.run_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.run_dir.cleanup)
+
+    def run_crate(self, mesh, young=None):
+        """Write a grid and its example input file, run CRATE, and read its stress."""
+        run_dir = tempfile.mkdtemp(dir=self.run_dir.name)
+        written = CrateWriter().write(mesh, os.path.join(run_dir, "m.rgmsh.npy"))
+        # A directory for each run: CRATE finding the output of an earlier one asks
+        # whether to reuse its clustering, which for another grid would be wrong
+        if young:
+            with open(written[1]) as deck:
+                text = deck.read()
+            for i_phase, i_value in young.items():
+                block = "{0} elastic 1\nelastic_symmetry isotropic 2\n  E {1}\n".format(
+                    i_phase, PLACEHOLDER_ELASTIC[0]
+                )
+                self.assertIn(block, text)
+                text = text.replace(
+                    block, block.replace(str(PLACEHOLDER_ELASTIC[0]), str(i_value))
+                )
+            with open(written[1], "w") as deck:
+                deck.write(text)
+        # A material is changed where a user would change it, in the file as written
+
+        environment = dict(os.environ)
+        environment.pop("PYTHONPATH", None)
+        completed = subprocess.run(
+            [crate_python(), "-u", "-m", "cratepy.main", "m_example.dat",
+             run_dir + os.sep],
+            cwd=run_dir,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=600,
+            check=False,
+            env=environment,
+        )
+        log = completed.stdout + completed.stderr
+        self.assertEqual(completed.returncode, 0, log[-3000:])
+        # Should CRATE ask anything, nothing answers, and the question fails the run
+        # where it would otherwise wait for good
+
+        results_path = os.path.join(run_dir, "m_example", "m_example.hres")
+        with open(results_path) as results:
+            header, *rows = [i_line.split() for i_line in results if i_line.strip()]
+
+        return {i_name: float(i_value) for i_name, i_value in zip(header, rows[-1])}
+
+    def check_placeholder(self, mesh):
+        """Run the example as written, every phase being the placeholder material."""
+        stress = self.run_crate(mesh)
+        along, _, lame = uniaxial_strain(PLACEHOLDER_ELASTIC[0])
+        self.assertAlmostEqual(stress["stress_11"] / along, 1.0, places=7)
+        self.assertAlmostEqual(
+            stress["stress_22"] / (lame * PLACEHOLDER_STRAIN), 1.0, places=7
+        )
+        # One material stretched along x and held across it, whose stresses are known in
+        # closed form; CRATE prints nine significant digits of them
+
+    def test_two_dimensional_grid(self):
+        self.check_placeholder(VoxelMesher([16, 16]).mesh(disk_microstructure()))
+
+    def test_three_dimensional_grid(self):
+        self.check_placeholder(VoxelMesher([8, 8, 8]).mesh(sphere_microstructure()))
+
+    def test_the_grid_is_read_along_the_axes_it_was_written_along(self):
+        young = {1: PLACEHOLDER_ELASTIC[0], 2: 10 * PLACEHOLDER_ELASTIC[0]}
+        moduli = {
+            i_phase: uniaxial_strain(i_value)[1:] for i_phase, i_value in young.items()
+        }
+        compliance = sum(0.5 / i_modulus for i_modulus, _ in moduli.values())
+        across = PLACEHOLDER_STRAIN / compliance
+        normal = PLACEHOLDER_STRAIN * sum(
+            0.5 * i_lame / i_modulus for i_modulus, i_lame in moduli.values()
+        ) / compliance
+        along = sum(
+            0.5 * (i_modulus * PLACEHOLDER_STRAIN
+                   + i_lame * (normal - i_lame * PLACEHOLDER_STRAIN) / i_modulus)
+            for i_modulus, i_lame in moduli.values()
+        )
+        # A laminate of two layers of equal thickness. Layered along x, the stress along
+        # x is the same in both and the modulus is their harmonic mean; layered along y,
+        # the strain along x is, and the layers differ in the stress across them
+
+        phase_grid = np.ones((16, 16), dtype=int)
+        phase_grid[:8] = 2
+        for i_grid, i_expected in ((phase_grid, across), (phase_grid.T.copy(), along)):
+            with self.subTest(layered_along="x" if i_expected is across else "y"):
+                stress = self.run_crate(
+                    structured_mesh((16, 16), [1.0, 1.0], i_grid), young
+                )
+                self.assertAlmostEqual(stress["stress_11"] / i_expected, 1.0, places=7)
+        # The first axis of the grid is x, and CRATE reads it so: had the grid been
+        # transposed on its way, the two laminates would have swapped answers, which
+        # differ by more than half. One cluster a phase is exact for a laminate, whose
+        # strain is uniform in each
 
 
 if __name__ == "__main__":

@@ -283,7 +283,12 @@ class TestMeshJobRun(unittest.TestCase):
         written = sorted(os.path.basename(i_file) for i_file in job.files)
         self.assertEqual(
             written,
-            ["deck_16_16.mesh.json", "deck_16_16.rgmsh.npy", "deck_16_16.vti"],
+            [
+                "deck_16_16.mesh.json",
+                "deck_16_16.rgmsh.npy",
+                "deck_16_16.vti",
+                "deck_16_16_example.dat",
+            ],
         )
         for i_file in job.files:
             self.assertTrue(os.path.exists(i_file))
