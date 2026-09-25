@@ -387,15 +387,6 @@
 #
 #                x: str. geommicgen-translate --list-formats prints the ones there are.
 #                ........................................................................
-#                   Write msh                                                            [O]
-#
-#                Meaning: Whether to write the mesh in the gmsh format as well. The same as
-#                         naming 'gmsh' among the formats.
-#
-#                Syntax: write_msh x
-#
-#                x: bool
-#                ........................................................................
 #                   Gauss points                                                         [O]
 #
 #                Meaning: Number of Gauss points written for every element of the LINKS mesh

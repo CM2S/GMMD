@@ -68,15 +68,6 @@ class TestBuildMeshJobs(unittest.TestCase):
         self.assertEqual([i_writer.name for i_writer in jobs[0].writers],
                          ["links", "vtk"])
 
-    def test_write_msh_asks_for_the_gmsh_format(self):
-        jobs = build_mesh_jobs(
-            {"gmsh": {"element_type": "tri3", "mesh_size": 0.1, "write_msh": True}}
-        )
-        self.assertEqual([i_writer.name for i_writer in jobs[0].writers],
-                         ["links", "gmsh"])
-        # The gmsh file is no longer written on the way to the solver deck, so it is
-        # asked for like any other format
-
     def test_file_name_names_the_files(self):
         jobs = build_mesh_jobs(
             {

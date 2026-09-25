@@ -312,10 +312,6 @@ def writers_from_options(options, defaults):
     """
     names = options.get("formats", None)
     names = list(defaults) if names is None else list(names)
-    if options.get("write_msh", False) and "gmsh" not in names:
-        names.append("gmsh")
-        # The gmsh file is no longer written on the way to anything else, so it is
-        # produced by asking for the format meshio writes it in
 
     return [get_writer(i_name).from_options(options) for i_name in names]
     # Each writer takes from the options what it understands, so a keyword meant for

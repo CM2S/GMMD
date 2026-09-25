@@ -692,7 +692,6 @@ JOB_KEYWORDS = {Keyword("File_Name", type_str="str")}
 
 FORMAT_KEYWORDS = {
     Keyword("Formats", type_str="str_list"),
-    Keyword("Write_Msh", type_str="bool"),
 } | {
     Keyword(i_name, type_str=i_description["type"])
     for i_name, i_description in writer_options().items()
