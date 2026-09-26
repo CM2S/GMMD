@@ -16,11 +16,10 @@ import argparse
 import os
 
 import numpy as np
-import yaml
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-from geommicgen.config.base import read_model
+from geommicgen.config.base import read_model, write_config
 from geommicgen.config.generation import (
     CRITERIA,
     MolecularDynamics,
@@ -377,103 +376,6 @@ def convert_deck(path):
     return config, run, notes
 
 
-class FlowMapping(dict):
-    """Class for a mapping written on one line."""
-
-
-class FlowSequence(list):
-    """Class for a list written on one line."""
-
-
-class ConfigDumper(yaml.SafeDumper):
-    """Class for the writer of input files, which writes some collections on a line."""
-
-
-ConfigDumper.add_representer(
-    FlowMapping,
-    lambda dumper, value: dumper.represent_mapping(
-        "tag:yaml.org,2002:map", value.items(), flow_style=True
-    ),
-)
-ConfigDumper.add_representer(
-    FlowSequence,
-    lambda dumper, value: dumper.represent_sequence(
-        "tag:yaml.org,2002:seq", value, flow_style=True
-    ),
-)
-
-
-def styled(value):
-    """
-    Mark the collections of an input file that are written on one line.
-
-    Parameters
-    ----------
-    value: object
-        What is written.
-
-    Returns
-    -------
-    object
-        The same, with a list of numbers, a distribution, a section chosen by its name
-        and a mapping of one key on a line of their own, and every other mapping laid
-        out a key to a line.
-    """
-    if isinstance(value, dict):
-        items = {i_key: styled(i_value) for i_key, i_value in value.items()}
-        leaf = all(
-            not isinstance(i_value, (dict, list)) or isinstance(i_value, FlowSequence)
-            for i_value in items.values()
-        )
-        if leaf and ("distribution" in items or "name" in items or len(items) == 1):
-            return FlowMapping(items)
-        return items
-    if isinstance(value, list):
-        items = [styled(i_value) for i_value in value]
-        if not any(isinstance(i_value, dict) for i_value in items):
-            return FlowSequence(items)
-        return items
-
-    return value
-
-
-def write_config(config, path, source=None):
-    """
-    Write an input file.
-
-    Parameters
-    ----------
-    config: dict
-        The input file, as a dictionary.
-
-    path: str
-        Path of the file to be written.
-
-    source: str
-        Name of the deck it was converted from, said at its top. Optional.
-    """
-    config = dict(config)
-    if "phases" in config:
-        config["phases"] = {
-            int(i_name) if str(i_name).isdigit() else i_name: i_phase
-            for i_name, i_phase in config["phases"].items()
-        }
-    # A phase named by a number is written as the number, without the quotes a string
-    # key is given
-    with open(path, "w") as config_file:
-        if source is not None:
-            config_file.write(
-                "# Converted from {0} by geommicgen-convert-deck.\n\n".format(source)
-            )
-        yaml.dump(
-            styled(config),
-            config_file,
-            Dumper=ConfigDumper,
-            sort_keys=False,
-            default_flow_style=False,
-        )
-
-
 def convert_deck_command(argv=None):
     """
     Convert a deck into an input file.
@@ -510,7 +412,13 @@ def convert_deck_command(argv=None):
         parser.error(str(error))
     # A deck that cannot be read, or does not validate, is said so as a command line
     # that cannot be carried out is, with nothing written
-    write_config(config, file_path, source=os.path.basename(arguments.deck))
+    write_config(
+        config,
+        file_path,
+        header="Converted from {0} by geommicgen-convert-deck.".format(
+            os.path.basename(arguments.deck)
+        ),
+    )
     for i_note in notes:
         print("Note: {0}.".format(i_note))
     print(file_path)

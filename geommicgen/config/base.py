@@ -268,3 +268,98 @@ def read_model(model, data, source="The input file"):
             )
         ) from None
     # Every problem at once, so that a file is not fixed one run at a time
+
+
+class FlowMapping(dict):
+    """Class for a mapping written on one line."""
+
+
+class FlowSequence(list):
+    """Class for a list written on one line."""
+
+
+class ConfigDumper(yaml.SafeDumper):
+    """Class for the writer of input files, which writes some collections on a line."""
+
+
+ConfigDumper.add_representer(
+    FlowMapping,
+    lambda dumper, value: dumper.represent_mapping(
+        "tag:yaml.org,2002:map", value.items(), flow_style=True
+    ),
+)
+ConfigDumper.add_representer(
+    FlowSequence,
+    lambda dumper, value: dumper.represent_sequence(
+        "tag:yaml.org,2002:seq", value, flow_style=True
+    ),
+)
+
+
+def styled(value):
+    """
+    Mark the collections of an input file that are written on one line.
+
+    Parameters
+    ----------
+    value: object
+        What is written.
+
+    Returns
+    -------
+    object
+        The same, with a list of numbers, a distribution, a section chosen by its name
+        and a mapping of one key on a line of their own, and every other mapping laid
+        out a key to a line.
+    """
+    if isinstance(value, dict):
+        items = {i_key: styled(i_value) for i_key, i_value in value.items()}
+        leaf = all(
+            not isinstance(i_value, (dict, list)) or isinstance(i_value, FlowSequence)
+            for i_value in items.values()
+        )
+        if leaf and ("distribution" in items or "name" in items or len(items) == 1):
+            return FlowMapping(items)
+        return items
+    if isinstance(value, list):
+        items = [styled(i_value) for i_value in value]
+        if not any(isinstance(i_value, dict) for i_value in items):
+            return FlowSequence(items)
+        return items
+
+    return value
+
+
+def write_config(config, path, header=None):
+    """
+    Write an input file.
+
+    Parameters
+    ----------
+    config: dict
+        The input file, as a dictionary.
+
+    path: str
+        Path of the file to be written.
+
+    header: str
+        Line said at the top of the file, as a comment. Optional.
+    """
+    config = dict(config)
+    if "phases" in config:
+        config["phases"] = {
+            int(i_name) if str(i_name).isdigit() else i_name: i_phase
+            for i_name, i_phase in config["phases"].items()
+        }
+    # A phase named by a number is written as the number, without the quotes a string
+    # key is given
+    with open(path, "w") as config_file:
+        if header is not None:
+            config_file.write("# {0}\n\n".format(header))
+        yaml.dump(
+            styled(config),
+            config_file,
+            Dumper=ConfigDumper,
+            sort_keys=False,
+            default_flow_style=False,
+        )

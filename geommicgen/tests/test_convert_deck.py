@@ -9,14 +9,10 @@ import tempfile
 import textwrap
 import unittest
 
-from geommicgen.config.base import ConfigError
+from geommicgen.config.base import ConfigError, write_config
 from geommicgen.config.generation import thermostat_defaults
 from geommicgen.config.run import read_config
-from geommicgen.iofuncs.convert_deck import (
-    convert_deck,
-    convert_deck_command,
-    write_config,
-)
+from geommicgen.iofuncs.convert_deck import convert_deck, convert_deck_command
 from geommicgen.iofuncs.legacy_deck import build_reader, read_legacy_deck
 from geommicgen.tests.test__main__ import SEEDED_DECK
 from geommicgen.tests.test_config import EXAMPLES, assert_same_options
@@ -344,7 +340,7 @@ class TestConversion(DeckTest):
     def test_the_file_written_names_the_phases_by_number_and_lays_out_the_rest(self):
         config, _, _ = convert_deck(self.write(KITCHEN_SINK_3D))
         path = os.path.join(self.temp_dir.name, "deck.yaml")
-        write_config(config, path, source="deck.mdsim")
+        write_config(config, path, header="Converted from deck.mdsim")
         with open(path) as yaml_file:
             text = yaml_file.read()
         self.assertTrue(text.startswith("# Converted from deck.mdsim"))
