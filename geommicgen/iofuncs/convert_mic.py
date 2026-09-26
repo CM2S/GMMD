@@ -68,6 +68,9 @@ def convert_mic_command(argv=None):
                 os.path.dirname(file_path) or ".", archive["generation_method"]
             )
         )
+        # TODO: a run archived before the records were brought back to the user's
+        # units kept its overlaps and paths in the normalised box's, and the state
+        # written from it cannot be told apart from one written now
     # The histories the motion analysis plots were part of the archive, and are written
     # beside the microstructure rather than inside it
 

@@ -286,6 +286,9 @@ class Phase:
                     current_sample[i_descriptor_name] = i_descriptor.generate_sample()
                 particles.append(self.type(self.name, current_sample, rve_dims))
                 vf_real += particles[-1].volume / np.prod(rve_dims)
+                # TODO: nothing bounds the loop, so a description whose particles come
+                # out far smaller than asked for builds particles until the memory runs
+                # out
         else:
             # The desired number of disks was specified
             samples = {}

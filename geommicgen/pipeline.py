@@ -115,6 +115,9 @@ class MeshJob:
         base_path = os.path.join(result_dir, self.base_name)
         try:
             mesh = self.mesher.mesh(microstructure, report=report)
+            # TODO: gmsh can abort the process rather than raise, which no except
+            # catches, and takes the other discretisations of the run with it; meshing
+            # in a process of its own would keep them
             if not isinstance(mesh, Mesh):
                 raise TypeError(
                     "The mesher {0} returned {1} rather than a Mesh, which is what "

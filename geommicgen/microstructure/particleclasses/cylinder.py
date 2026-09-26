@@ -674,6 +674,10 @@ class Cylinder(Particle):
         )
         if intersection is True:
             return intersection, overlap_length
+        # TODO: the half length of the other cylinder is taken as this one's in the two
+        # calls above, so two cylinders of different lengths are found apart depending
+        # on which is asked; and a disk whose normal is across the other's axis divides
+        # by the rounding residue of their dot product, placing a point 1e15 away
 
         intersection = False
         overlap_length = 0
@@ -696,6 +700,10 @@ class Cylinder(Particle):
                 - dist_on_axis ** 2
             )
             point_inside = L < self.r_cyl
+            # TODO: the subtraction under the root is not held at zero, as it is in
+            # `points_inside`, so a point on the axis can round it below zero and be
+            # left out: the voxel mesher, which asks point by point, leaves holes along
+            # the axis of a cylinder that lies along the grid
 
         return point_inside
 
@@ -727,4 +735,8 @@ class Cylinder(Particle):
         )
         x_loc = np.append(x_loc, np.random.uniform(-self.length / 2, self.length / 2))
         x_glob = self.rot_mat.dot(x_loc) + self.position_center
+        # TODO: the first row of the rotation is the axis of symmetry, so the point is
+        # taken to the global frame by its transpose, with the coordinate along the axis
+        # first; as it is, most points fall outside the cylinder, and the Monte Carlo
+        # overlaps and the placement of inner particles drawn from them are wrong
         return x_glob

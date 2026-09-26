@@ -455,6 +455,10 @@ class Sphere(Ellipsoid):
             np.linalg.norm(self.position_center - point_nearest_pbc) - self.radius
             <= tol
         )
+        # TODO: the tolerance is a length, 1e-3, which the stages that ask apply at unit
+        # scale; even there it grows a sphere of radius 0.1 by a hundredth, and its
+        # stamped volume by three per cent. The ellipsoid's is a ratio. Changing it
+        # changes the grids and the statistics of every microstructure of spheres
 
         return point_in
 

@@ -305,6 +305,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.step = 0
         self.damping_coeff = kwargs.get("damping_coeff", 0)
         self.particle_mass_opt = kwargs.get("particle_mass_opt", "volume")
+        # TODO: the input data file defaults to "radius", so a simulation built here
+        # without the option weighs its particles otherwise than one built from a file
         self.force_option = kwargs.get("force_option", "intersection_length")
         self.force_rescale = kwargs.get("force_rescale", False)
         self.dt_adapt = kwargs.get("dt_adapt", True)
@@ -1009,6 +1011,11 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     intersection_area, unit_vector_i_j = getattr(
                         i_particle, self.force_option
                     )(j_particle, self.box, dist_met=dist_met)
+                    # TODO: only the intersection length takes the method of the
+                    # distance and gives a direction with the overlap; the intersection
+                    # area and the spring take no method, and the area gives no
+                    # direction, so the other force options stop the run at its first
+                    # pair
                     self.particle_overlap_areas_dict.setdefault(
                         (i_particle_index, j_particle_index),
                         [0 for _ in range(self.step - 1)],
@@ -1263,3 +1270,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
 
                 i_outer_particle.dilate(j_inner_particle.radius * 1.05)
                 j_inner_particle.contract(0.01 * j_inner_particle.radius)
+                # TODO: the contraction is by a hundredth of the radius the dilation has
+                # already grown, so every inner particle ends a ten thousandth of its
+                # radius smaller than generated, and the file, which does not keep the
+                # dilation, disagrees with the microstructure in memory. A cylinder
+                # answers `intersection` with a tuple, which is always true, so no inner
+                # cylinder after the first is ever placed

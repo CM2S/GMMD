@@ -250,6 +250,8 @@ def two_point_correlation(
         angles = np.random.uniform(0, 2 * np.pi, how_many)
 
         return np.stack([np.cos(angles), np.sin(angles)], axis=1)
+        # TODO: no directions are drawn in space, so the correlation of a three
+        # dimensional microstructure is computed only along a direction given to it
 
     if isinstance(microstructure, Microstructure):
         microstructure = microstructure.scaled(unit_scale(microstructure.rve_dims))
@@ -520,6 +522,11 @@ def nearest_neighbor_dist(microstructure):
             nearest_neighbor_dist_vals_i[ind_min] / radius
         )
         already_computed.append(ind_min)
+    # TODO: the skip list holds positions in the list of distances, from which the
+    # particle itself was left out, so from the particle's own index on it names the
+    # next particle, which is then skipped: fewer values come out than there are
+    # particles. The distances are also taken across the cell rather than to the
+    # nearest periodic image, so a particle near a face finds its neighbours inside only
 
     return nearest_neighbor_dist_vals
 
@@ -594,6 +601,10 @@ def do_stat_analysis(microstructure, sample_dir, stat_options, seed=None):
 
     # Saving the results
     # --------------------------------------------------------------------------------------
+    # TODO: the nearest neighbour distances and the radii of the two point correlation
+    # are ratios to the mean radius, the radii of Ripley's K function lengths and its
+    # values areas, in the units of the RVE, and neither the file nor the plots say
+    # which
     np.savez(
         os.path.join(stat_anal_results_dir, STAT_FILE_NAME),
         **{i_name: np.asarray(i_values) for i_name, i_values in stat_results.items()}

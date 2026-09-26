@@ -302,6 +302,9 @@ class Disk(Ellipse):
             unit_vector = self.intersection_vector(other_particle, box)
         else:
             intersection = self.intersection_gjk(other_particle, box, tol=tol)
+            # TODO: `intersection_gjk` takes no tolerance, so a disk asked about any
+            # other shape raises, and a microstructure of disks and ellipses cannot be
+            # generated whenever a disk comes first in a pair
             overlap_length, unit_vector = self.intersection_length_mink_diff(
                 other_particle, box, dist_met=dist_met
             )

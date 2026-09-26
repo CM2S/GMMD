@@ -301,6 +301,10 @@ class Set3DVoronoi:
         self.regions = [sorted(i_region) for i_region in self.regions]
         # The vertices of a region in space are a list, as scipy gives them; left as the
         # sets they were collected in, the results could not be written
+        # TODO: the seeds lie on the surfaces of the particles, so on common spheres,
+        # and Qhull can find a flat simplex and put its centre at the placeholder
+        # (-10.101, -10.101, -10.101); the regions that touch it name it by an ordinary
+        # index rather than -1, and it is written as a vertex of their cells
         self.points = np.array(self.points)
         self.point_region = list(range(len(self.points)))
 
@@ -473,6 +477,8 @@ def compute_2d_irreducible_minkowski_tensors(voronoi, degree=6):
                 )
             )
 
+    # TODO: the angles are those of the sides of the last cell only, so what is written
+    # under that name depends on which cell came last
     return [imt_region, in_box, angles]
 
 

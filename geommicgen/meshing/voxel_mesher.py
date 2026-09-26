@@ -218,6 +218,10 @@ class VoxelMesher(Mesher):
         # index is wrapped back in while the coordinate is not
 
         phase = int(particle.phase)
+        # TODO: a cylindrical fibre is a disk in the plane across it, and is asked for
+        # its extent, and whether a point is inside, with the coordinates of space,
+        # which it reads as those of its plane, so a microstructure of fibres cannot be
+        # stamped
         # TODO: the voxels of the bounding box are tested one at a time, where
         # `particle.points_inside` tests a whole array of points in one operation, as
         # the statistical analyses ask it to since the point lookup of the

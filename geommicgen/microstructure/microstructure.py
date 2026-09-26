@@ -120,6 +120,10 @@ class Microstructure:
         for i_particle in scaled.particles:
             i_particle.rescale(factor)
 
+        # TODO: the overlap is left as it is: a length, or an area or a volume,
+        # depending on how the simulation measured it, which the microstructure does
+        # not know
+
         return scaled
 
     @classmethod
@@ -212,6 +216,11 @@ class Microstructure:
         # on for two particles overlapping, with a point in place of the second. The
         # points themselves are only looked up in the list; putting them in it, as used
         # to be done, tested every point against every other point in its cell
+
+        # TODO: the particles are put in the cells of their centres as they are, and a
+        # centre outside the RVE, which a microstructure read from a file may have, is
+        # counted in the last cell along a direction, or wraps to a wrong one, so the
+        # points around it are not tested against it
 
         # TODO: the cell list is built anew on every call, and the `cells_around` of
         # every cell with it, although the particles have not moved between the calls:

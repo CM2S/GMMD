@@ -151,6 +151,10 @@ FILL_TOLERANCE = 1.0e-6
 PBC_TOLERANCE = 1.0e-3
 # Tolerance of the bounding boxes used to pair opposite faces of the RVE, in the units
 # of the model, which is built with the shortest side of the RVE one
+# TODO: a particle that crosses a face by less than this leaves a cap beside the
+# opposite face that fits the box the face is matched in, and is paired with it: second
+# order meshes then fail, and first order ones collapse the cap, whose area goes to the
+# matrix
 
 
 @contextlib.contextmanager
@@ -1059,6 +1063,9 @@ class GmshMesher(Mesher):
         # the booleans that cut the particles against the box can lose a piece without
         # a word; the pairing of the faces sees neither. Such a mesh was taken as it
         # was, and at a large scale one was written with no matrix at all
+        # TODO: a piece of a particle the booleans lose becomes matrix, so the cells
+        # still fill the RVE and the check passes; the area or volume of each phase,
+        # against the particles', would see it
         if len(cells) > 1:
             self.warnings.append(
                 "WARNING: {0} was asked for and gmsh produced {1}; the mesh is written "

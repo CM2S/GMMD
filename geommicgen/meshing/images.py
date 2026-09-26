@@ -43,6 +43,11 @@ def periodic_images(particle, rve_dims, add_images=True):
     # turned across a face lost the image on the opposite one and the mesh was not
     # periodic. A cylindrical fibre spans the RVE along its own direction, so its
     # centre has two coordinates and it is enumerated in the plane, like a disk
+    # TODO: a fibre along x or y has its centre in the plane across it, whose sides are
+    # the dimensions other than the fibre's, but the images are laid by the first two
+    # dimensions whatever the direction, and `GmshMesher.add_primitive` turns the disk
+    # of a fibre along x so that its two coordinates swap: in an RVE that is not a
+    # cube such a fibre is meshed in the wrong place
 
     for i_image in itertools.product(offsets, repeat=particle.dim):
         center = [
