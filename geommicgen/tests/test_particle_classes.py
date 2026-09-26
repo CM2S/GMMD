@@ -2357,3 +2357,30 @@ class TestPointsInside(unittest.TestCase):
         )
         # The point particle is never inside, and answers through the loop over
         # `point_inside` a class that does not write the test over an array inherits
+
+
+class TestPointInsideSphere(unittest.TestCase):
+    """Test class for the band around a sphere that counts as inside it."""
+
+    def test_the_band_is_a_share_of_the_radius(self):
+        directions = np.random.RandomState(0).normal(size=(50, 3))
+        directions /= np.linalg.norm(directions, axis=1)[:, np.newaxis]
+        for i_radius in (1e-6, 0.1, 1e3):
+            rve_dims = [10 * i_radius] * 3
+            sphere = Sphere("2", {"r": i_radius}, rve_dims)
+            sphere.position_center = np.array(rve_dims) / 2
+            for j_share, j_inside in ((1 - 1e-4, True), (1 + 1e-4, False)):
+                with self.subTest(radius=i_radius, share=j_share):
+                    points = sphere.position_center + j_share * i_radius * directions
+                    one_at_a_time = [
+                        bool(sphere.point_inside(k_point, rve_dims))
+                        for k_point in points
+                    ]
+                    self.assertEqual(one_at_a_time, [j_inside] * len(points))
+                    self.assertEqual(
+                        list(sphere.points_inside(points, rve_dims)),
+                        [j_inside] * len(points),
+                    )
+        # A point a ten thousandth of the radius beyond the surface is outside a sphere
+        # of any size. The band used to be a length of 1e-3, so a sphere of radius 0.1
+        # let such a point in, and one of a millionth of the unit its whole RVE

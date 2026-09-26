@@ -257,7 +257,7 @@ def two_point_correlation(
         microstructure = microstructure.scaled(unit_scale(microstructure.rve_dims))
     # The points are thrown at a copy of the microstructure brought to a shortest side
     # of one, so that they are the same points of it in any units: the test of a
-    # sphere lets in a point a length of 1e-3 outside it, which in a micrometre RVE
+    # sphere let in a point a length of 1e-3 outside it, which in a micrometre RVE
     # made most of the box particle. What is computed is a probability against a
     # ratio of lengths, so nothing is brought back
     rve_dims = microstructure.rve_dims

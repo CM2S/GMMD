@@ -330,7 +330,7 @@ class TestTwoPointCorrelationInAnyUnits(unittest.TestCase):
         self.assertEqual(values[1], values[0])
         self.assertEqual(values[2], values[0])
         # The points are the same points of the microstructure at every scale, and the
-        # test of a sphere lets in a point a length of 1e-3 outside it: at a millionth
+        # test of a sphere let in a point a length of 1e-3 outside it: at a millionth
         # of the unit most of the box was particle
 
 

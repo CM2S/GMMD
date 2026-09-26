@@ -447,22 +447,24 @@ class Sphere(Ellipsoid):
 
     def point_inside(self, point: np.array, box: list, **kwargs) -> bool:
         """Check if point is inside the particle."""
-        tol = kwargs.get("tol", 1e-3)
+        tol = kwargs.get("tol", 1e-6)
         point_nearest_pbc = Particle.nearest_periodic_image(
             point, self.position_center, box
         )
         point_in = (
-            np.linalg.norm(self.position_center - point_nearest_pbc) - self.radius
+            np.linalg.norm(self.position_center - point_nearest_pbc) ** 2
+            / self.radius**2
+            - 1
             <= tol
         )
-        # TODO: the tolerance is a length, 1e-3, which the stages that ask apply at unit
-        # scale; even there it grows a sphere of radius 0.1 by a hundredth, and its
-        # stamped volume by three per cent. The ellipsoid's is a ratio. Changing it
-        # changes the grids and the statistics of every microstructure of spheres
+        # The tolerance is on the square of the distance over the radius, as the
+        # ellipsoid's is, so it lets in the same share of any sphere. It was a length
+        # of 1e-3, which grew a sphere of radius 0.1 by a hundredth, and its stamped
+        # volume by three per cent, even at the unit scale the stages work at
 
         return point_in
 
-    def points_inside(self, points: np.array, box: list, tol: float = 1e-3) -> np.array:
+    def points_inside(self, points: np.array, box: list, tol: float = 1e-6) -> np.array:
         """
         Say which of *points* are inside the Sphere; see `.Particle.points_inside`.
 
@@ -474,8 +476,9 @@ class Sphere(Ellipsoid):
         points_nearest_pbc = self.nearest_periodic_images(points, box)
 
         return (
-            np.linalg.norm(points_nearest_pbc - self.position_center, axis=1)
-            - self.radius
+            np.linalg.norm(points_nearest_pbc - self.position_center, axis=1) ** 2
+            / self.radius**2
+            - 1
             <= tol
         )
 

@@ -160,7 +160,7 @@ class VoxelMesher(Mesher):
                 report(i_particle_ind, len(particles))
         # Stamped on the microstructure brought to a shortest side of one, so that the
         # centres of the voxels are the same points of it in any units. The test of a
-        # sphere lets a point a length of 1e-3 outside in, which in a micrometre RVE
+        # sphere let a point a length of 1e-3 outside in, which in a micrometre RVE
         # turned every sphere into its bounding box
 
         return Mesh(

@@ -138,9 +138,10 @@ class TestVoxelMesherEquivalence(unittest.TestCase):
                         * i_scale
                         / n_voxels_dims,
                     )
-        # The test of a sphere lets in a point a length of 1e-3 outside it, which at a
+        # The test of a sphere let in a point a length of 1e-3 outside it, which at a
         # millionth of the unit made every sphere its bounding box; the grid is stamped
-        # at unit scale and given the user's spacing
+        # at unit scale and given the user's spacing, so that no length the particles
+        # are tested with is taken in the user's units
 
     def test_grid_reaches_the_crate_file_unchanged(self):
         microstructure, n_voxels_dims = EQUIVALENCE_CASES["one_disk"]()
@@ -202,6 +203,17 @@ class TestVoxelMesherMesh(unittest.TestCase):
         self.assertAlmostEqual(fraction, np.pi * 0.2 ** 2, delta=1.0e-3)
         # The voxels only approximate the disk, so the agreement is limited by the
         # resolution of the grid rather than by the mesher
+
+    def test_phase_fraction_follows_the_volume_fraction_of_a_sphere(self):
+        rve_dims = [1.0, 1.0, 1.0]
+        particle = Sphere("2", {"r": 0.1}, rve_dims)
+        particle.position_center = np.array([0.37, 0.52, 0.61])
+        microstructure = build_microstructure(rve_dims, Sphere, [particle])
+        mesh = VoxelMesher([160, 160, 160]).mesh(microstructure)
+        fraction = np.count_nonzero(mesh.structured.phase_grid == 2) / 160**3
+        self.assertAlmostEqual(fraction / (4 / 3 * np.pi * 0.1**3), 1.0, delta=0.01)
+        # The test of a sphere let in a length of 1e-3 beyond its surface, which grew
+        # this one by a hundredth and its phase by three per cent
 
     def test_report_is_called_once_per_particle(self):
         reported = []
