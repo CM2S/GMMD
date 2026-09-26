@@ -156,12 +156,15 @@ PHASE_VOLUME_TOLERANCE = 1.0e-2
 # once a face has cut it
 
 PBC_TOLERANCE = 1.0e-3
-# Tolerance of the bounding boxes used to pair opposite faces of the RVE, in the units
-# of the model, which is built with the shortest side of the RVE one
-# TODO: a particle that crosses a face by less than this leaves a cap beside the
-# opposite face that fits the box the face is matched in, and is paired with it: second
-# order meshes then fail, and first order ones collapse the cap, whose area goes to the
-# matrix
+# Tolerance of the bounding boxes used to pair opposite faces of the RVE, along the
+# faces, in the units of the model, which is built with the shortest side of the RVE one
+
+PBC_PLANE_TOLERANCE = 1.0e-6
+# Tolerance of the same boxes across the faces. An entity on a face has no extent across
+# it, but for what OpenCASCADE merges within its own tolerance, 1e-7 of the model. The
+# tolerance along the faces let in the cap a particle crossing a face by less than 1e-3
+# leaves beside the opposite one, whose curved side was paired with the flat face of
+# the cut and collapsed onto it, into cells of no area
 
 
 @contextlib.contextmanager
@@ -976,7 +979,9 @@ class GmshMesher(Mesher):
                 self.enforce_pbc_one_way(gmsh, rve_dims, i_direction, j_dim)
 
     @staticmethod
-    def enforce_pbc_one_way(gmsh, rve_dims, direction, dim, eps=PBC_TOLERANCE):
+    def enforce_pbc_one_way(
+        gmsh, rve_dims, direction, dim, eps=PBC_TOLERANCE, plane_eps=PBC_PLANE_TOLERANCE
+    ):
         """
         Declare the two faces of the RVE normal to one direction periodic.
 
@@ -995,7 +1000,10 @@ class GmshMesher(Mesher):
             Dimension of the bounding entity, 1 for edges and 2 for faces.
 
         eps: float
-            Tolerance of the bounding boxes used to find the pairs.
+            Tolerance of the bounding boxes used to find the pairs, along the faces.
+
+        plane_eps: float
+            Tolerance of the same boxes across the faces.
         """
         gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
         translation = [0, 0, 0]
@@ -1008,24 +1016,26 @@ class GmshMesher(Mesher):
             0, 0, 1, translation[2],
             0, 0, 0, 1,
         ]
+        tolerance = [eps, eps, eps]
+        tolerance[direction] = plane_eps
         main_face = gmsh.model.getEntitiesInBoundingBox(
-            -eps,
-            -eps,
-            -eps,
-            normal_plane[0] + eps,
-            normal_plane[1] + eps,
-            normal_plane[2] + eps,
+            -tolerance[0],
+            -tolerance[1],
+            -tolerance[2],
+            normal_plane[0] + tolerance[0],
+            normal_plane[1] + tolerance[1],
+            normal_plane[2] + tolerance[2],
             dim,
         )
         for i_entity in main_face:
             limits = gmsh.model.getBoundingBox(i_entity[0], i_entity[1])
             opposite = gmsh.model.getEntitiesInBoundingBox(
-                limits[0] - eps + translation[0],
-                limits[1] - eps + translation[1],
-                limits[2] - eps + translation[2],
-                limits[3] + eps + translation[0],
-                limits[4] + eps + translation[1],
-                limits[5] + eps + translation[2],
+                limits[0] - tolerance[0] + translation[0],
+                limits[1] - tolerance[1] + translation[1],
+                limits[2] - tolerance[2] + translation[2],
+                limits[3] + tolerance[0] + translation[0],
+                limits[4] + tolerance[1] + translation[1],
+                limits[5] + tolerance[2] + translation[2],
                 dim,
             )
             # The bounding box of the entity is translated to the opposite face and
@@ -1038,7 +1048,8 @@ class GmshMesher(Mesher):
                 ]
                 if all(
                     [
-                        abs(shifted[i_corner] - limits[i_corner]) < eps
+                        abs(shifted[i_corner] - limits[i_corner])
+                        < tolerance[i_corner % 3]
                         for i_corner in range(6)
                     ]
                 ):

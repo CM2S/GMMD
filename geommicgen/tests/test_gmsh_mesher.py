@@ -22,6 +22,7 @@ from geommicgen.tests.helpers import (
 from geommicgen.meshing.gmsh_mesher import (
     GmshMesher,
     check_fills_rve,
+    corner_measures,
     failing_surfaces,
     gmsh_session,
 )
@@ -463,6 +464,36 @@ class TestFibresInEachDirection(unittest.TestCase):
         # within its radius of its axis, and together they take up what it does. A
         # fibre along x was turned about the origin, which swapped its coordinates, and
         # the images of one along x or y were laid by the sides of x and y
+
+
+@unittest.skipUnless(has_gmsh(), "gmsh is not installed")
+class TestThinCaps(unittest.TestCase):
+    """Test class for a particle that crosses a face of the RVE by very little."""
+
+    def test_the_cap_beside_the_opposite_face_is_meshed(self):
+        for i_class, i_rve_dims, i_element_type, i_mesh_size in (
+            (Disk, [1.0, 1.0], "tri3", 0.02),
+            (Disk, [1.0, 1.0], "tri6", 0.02),
+            (Sphere, [1.0, 1.0, 1.0], "tetra4", 0.1),
+        ):
+            with self.subTest(element_type=i_element_type):
+                dim = len(i_rve_dims)
+                particle = i_class("2", {"r": 0.1}, i_rve_dims)
+                particle.position_center = np.array([0.0995] + [0.5] * (dim - 1))
+                mesh = GmshMesher(
+                    mesh_size=i_mesh_size, element_type=i_element_type
+                ).mesh(build_microstructure(i_rve_dims, i_class, [particle]))
+                cap = 0.0
+                for (j_type, j_connectivity), j_phase in zip(mesh.cells, mesh.phase):
+                    measures = corner_measures(mesh.points, j_type, j_connectivity)
+                    self.assertGreater(measures.min(), 0.0)
+                    corners = mesh.points[j_connectivity[:, : dim + 1], 0]
+                    cap += measures[(j_phase == 2) & (corners.min(axis=1) > 0.99)].sum()
+                self.assertGreater(cap, 0.0)
+        # The particle crosses the face at zero by 5e-4, so its image leaves a cap that
+        # thin beside the face at one. The side of the cap was paired with the flat face
+        # of the cut, so the disk lost the cap, the second order mesh of it failed, and
+        # the sphere's cap was meshed into cells of no volume
 
 
 @unittest.skipUnless(has_gmsh(), "gmsh is not installed")
