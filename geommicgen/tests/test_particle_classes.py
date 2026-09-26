@@ -1679,6 +1679,34 @@ class TestPointInsideCylinder(unittest.TestCase):
         )
         self.assertTrue(not point_inside)
 
+    def test_every_point_on_the_axis_is_inside(self):
+        rng = np.random.RandomState(0)
+        for i_azimuth, i_polar in rng.uniform(0, np.pi, size=(20, 2)):
+            cylinder = Cylinder(
+                "1",
+                {
+                    "r_cyl": 0.1,
+                    "length": 0.4,
+                    "azimuth_angle": i_azimuth,
+                    "polar_angle": i_polar,
+                },
+                self.rve_dims,
+            )
+            cylinder.position_center = rng.uniform(0.3, 0.7, size=3)
+            points = cylinder.position_center + np.outer(
+                np.linspace(-0.19, 0.19, 20), cylinder.sym_axis_unit_vec
+            )
+            with self.subTest(azimuth=i_azimuth, polar=i_polar):
+                self.assertTrue(
+                    all(
+                        cylinder.point_inside(j_point, self.rve_dims)
+                        for j_point in points
+                    )
+                )
+        # A point on the axis could round the square of its distance to the axis below
+        # zero, and the root of that was less than no radius: about a third of these
+        # were left out
+
 
 class TestIntegrationCylinder(unittest.TestCase):
     """Test the Monte Carlo integration for cylinders."""

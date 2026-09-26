@@ -10,7 +10,13 @@ from geommicgen.meshing.mesher import available_meshers, get_mesher, mesher_opti
 from geommicgen.meshing.voxel_mesher import VoxelMesher
 from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.microstructure.phase import Phase
-from geommicgen.microstructure.particleclasses import Disk, Ellipse, Ellipsoid, Sphere
+from geommicgen.microstructure.particleclasses import (
+    Cylinder,
+    Disk,
+    Ellipse,
+    Ellipsoid,
+    Sphere,
+)
 from geommicgen.tests.helpers import build_microstructure
 from geommicgen.translators.crate import CrateWriter
 
@@ -214,6 +220,29 @@ class TestVoxelMesherMesh(unittest.TestCase):
         self.assertAlmostEqual(fraction / (4 / 3 * np.pi * 0.1**3), 1.0, delta=0.01)
         # The test of a sphere let in a length of 1e-3 beyond its surface, which grew
         # this one by a hundredth and its phase by three per cent
+
+    def test_a_cylinder_is_stamped_on_its_axis(self):
+        rve_dims = [1.0, 1.0, 1.0]
+        particle = Cylinder(
+            "2",
+            {
+                "r_cyl": 0.1,
+                "length": 0.4,
+                "azimuth_angle": np.pi / 4,
+                "polar_angle": np.pi / 2,
+            },
+            rve_dims,
+        )
+        particle.position_center = np.array([15.5, 15.5, 15.5]) / 32
+        microstructure = build_microstructure(rve_dims, Cylinder, [particle])
+        mesh = VoxelMesher([32, 32, 32]).mesh(microstructure)
+        centers = (np.indices((32, 32, 32)).reshape(3, -1).T + 0.5) / 32
+        np.testing.assert_array_equal(
+            mesh.structured.phase_grid == 2,
+            particle.points_inside(centers, rve_dims).reshape(32, 32, 32),
+        )
+        # The axis runs along a diagonal through the centres of voxels, two of which
+        # the test of one point at a time used to leave out
 
     def test_report_is_called_once_per_particle(self):
         reported = []

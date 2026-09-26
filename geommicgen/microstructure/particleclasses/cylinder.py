@@ -696,14 +696,18 @@ class Cylinder(Particle):
 
         elif np.abs(dist_on_axis) <= self.length / 2:
             L = np.sqrt(
-                np.sum((self.position_center - point_nearest_pbc) ** 2)
-                - dist_on_axis ** 2
+                np.maximum(
+                    np.sum((self.position_center - point_nearest_pbc) ** 2)
+                    - dist_on_axis ** 2,
+                    0.0,
+                )
             )
             point_inside = L < self.r_cyl
-            # TODO: the subtraction under the root is not held at zero, as it is in
-            # `points_inside`, so a point on the axis can round it below zero and be
-            # left out: the voxel mesher, which asks point by point, leaves holes along
-            # the axis of a cylinder that lies along the grid
+            # The subtraction under the root is held at zero, as it is in
+            # `points_inside`. A point on the axis could round it below zero, and the
+            # root of that is less than no radius, so the point was left out: a third
+            # of the points on the axis of a cylinder turned at random, and the voxels
+            # on the axis of one that runs through their centres
 
         return point_inside
 
