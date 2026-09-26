@@ -161,6 +161,7 @@ class TestGmshMesherConfiguration(unittest.TestCase):
     def test_element_of_the_wrong_dimension(self):
         with self.assertRaises(ValueError):
             GmshMesher(mesh_size=0.1, element_type="tetra4").mesh(disk_microstructure())
+        # Refused whether gmsh is installed or not, before a process is started for it
 
     def test_elements_per_particle_sets_the_size(self):
         mesher = GmshMesher(elements_per_particle=6, element_type="tri3")
@@ -519,8 +520,8 @@ class TestMeshingInAProcessOfItsOwn(unittest.TestCase):
         # the mesh down with it, and every discretisation after it
 
     def test_an_error_comes_back_as_it_was_raised(self):
-        with self.assertRaisesRegex(ValueError, "has dimension 3") as context:
-            GmshMesher(mesh_size=0.1, element_type="tetra4").mesh(
+        with self.assertRaisesRegex(ValueError, "failed after a warning") as context:
+            FailingMesher(mesh_size=0.1, element_type="tri3").mesh(
                 disk_microstructure()
             )
         self.assertIsInstance(context.exception.__cause__, RaisedInAnotherProcess)

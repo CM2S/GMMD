@@ -499,8 +499,11 @@ class GmshMesher(Mesher):
         ProcessDied:
             If the process the mesh was being made in ended without giving it.
         """
+        self.refuse_the_microstructure(microstructure)
         require_gmsh()
-        # Refused here rather than in the process that would mesh, before one is started
+        # Refused here rather than in the process that would mesh, before one is
+        # started: a microstructure this mesher cannot mesh, whether gmsh is there or
+        # not, and then a gmsh that is not there
         try:
             mesh, state = mesh_keeping_state(self, microstructure, report=report)
         except Exception as error:
@@ -512,11 +515,20 @@ class GmshMesher(Mesher):
 
         return mesh
 
-    def mesh_in_this_process(self, microstructure, report=None):
+    def refuse_the_microstructure(self, microstructure):
         """
-        Build an unstructured mesh of a microstructure with gmsh, in this process.
+        Refuse a microstructure this mesher cannot mesh.
 
-        See `mesh`, which calls this in a process of its own.
+        Parameters
+        ----------
+        microstructure: `.Microstructure`
+            Microstructure to be meshed.
+
+        Raises
+        ------
+        ValueError:
+            If the element does not have the dimension of the microstructure, or the
+            microstructure has no matrix phase.
         """
         if self.descriptors["dim"] != len(microstructure.rve_dims):
             raise ValueError(
@@ -534,6 +546,13 @@ class GmshMesher(Mesher):
         # Checked before the model is built rather than being met as a missing key once
         # the whole geometry has been fragmented
 
+    def mesh_in_this_process(self, microstructure, report=None):
+        """
+        Build an unstructured mesh of a microstructure with gmsh, in this process.
+
+        See `mesh`, which calls this in a process of its own.
+        """
+        self.refuse_the_microstructure(microstructure)
         self.resolve_mesh_size(microstructure)
         scale = unit_scale(microstructure.rve_dims)
         unit_microstructure = microstructure.scaled(scale)

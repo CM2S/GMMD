@@ -118,6 +118,7 @@ class TestMeshCommand(unittest.TestCase):
         # Both were called mic.vtu, so the second was written over the first without
         # a word; a deck has always named them after the label of the mesher
 
+    @unittest.skipUnless(has_gmsh(), "gmsh is not installed")
     def test_a_finite_element_mesh(self):
         status, _ = self.run_command(
             [self.microstructure_path, "--mesher", "gmsh", "--mesh-size", "0.15",
