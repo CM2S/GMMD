@@ -733,14 +733,14 @@ class Cylinder(Particle):
         R = np.linalg.norm(w)
         x_loc = np.array(
             [
+                np.random.uniform(-self.length / 2, self.length / 2),
                 r * self.r_cyl * w[0] / R,
                 r * self.r_cyl * w[1] / R,
             ]
         )
-        x_loc = np.append(x_loc, np.random.uniform(-self.length / 2, self.length / 2))
-        x_glob = self.rot_mat.dot(x_loc) + self.position_center
-        # TODO: the first row of the rotation is the axis of symmetry, so the point is
-        # taken to the global frame by its transpose, with the coordinate along the axis
-        # first; as it is, most points fall outside the cylinder, and the Monte Carlo
-        # overlaps and the placement of inner particles drawn from them are wrong
+        x_glob = self.rot_mat.T.dot(x_loc) + self.position_center
+        # The first row of the rotation is the axis of symmetry, so the point is taken
+        # to the global frame by its transpose, with its coordinate along the axis
+        # first. It was taken by the rotation itself, with that coordinate last, and
+        # most points fell outside the cylinder
         return x_glob

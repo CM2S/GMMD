@@ -1708,6 +1708,41 @@ class TestPointInsideCylinder(unittest.TestCase):
         # were left out
 
 
+class TestGeneratePointInsideCylinder(unittest.TestCase):
+    """Test class for the points drawn inside a cylinder."""
+
+    def test_the_points_fill_the_cylinder(self):
+        rve_dims = [1.0, 1.0, 1.0]
+        rng = np.random.RandomState(0)
+        for i_azimuth, i_polar in rng.uniform(0, np.pi, size=(5, 2)):
+            cylinder = Cylinder(
+                "2",
+                {
+                    "r_cyl": 0.1,
+                    "length": 0.4,
+                    "azimuth_angle": i_azimuth,
+                    "polar_angle": i_polar,
+                },
+                rve_dims,
+            )
+            cylinder.position_center = np.array([0.5, 0.5, 0.5])
+            np.random.seed(1)
+            points = np.array([cylinder.generate_point_inside() for _ in range(2000)])
+            to_center = points - cylinder.position_center
+            along = to_center.dot(cylinder.sym_axis_unit_vec)
+            across = np.sqrt(np.maximum(np.sum(to_center**2, axis=1) - along**2, 0.0))
+            with self.subTest(azimuth=i_azimuth, polar=i_polar):
+                self.assertTrue(all(cylinder.points_inside(points, rve_dims)))
+                self.assertAlmostEqual(np.mean(np.abs(along) < 0.1), 0.5, delta=0.05)
+                self.assertAlmostEqual(
+                    np.mean(across < 0.1 / np.sqrt(2)), 0.5, delta=0.05
+                )
+        # Every point is inside, as many in the middle half of the length as outside
+        # it, and as many within the radius over the root of two of the axis as beyond
+        # it, so the points fill the cylinder evenly. They were taken to the global
+        # frame by the rotation rather than by its transpose, and most fell outside
+
+
 class TestIntegrationCylinder(unittest.TestCase):
     """Test the Monte Carlo integration for cylinders."""
 
