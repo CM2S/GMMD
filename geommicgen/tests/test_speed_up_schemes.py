@@ -40,6 +40,16 @@ class TestSpeedUpSchemeFromOptions(unittest.TestCase):
                 )
                 self.assertIsInstance(scheme, i_class)
 
+    def test_each_is_a_speed_up_scheme(self):
+        for i_name in SPEED_UP_SCHEMES:
+            with self.subTest(scheme=i_name):
+                scheme = speed_up_scheme_from_options(
+                    {"speed_up_scheme": i_name, "verlet_factor": 1.1}
+                )
+                self.assertIsInstance(scheme, SpeedUpScheme)
+        # The Verlet list was a class of its own, so what builds a scheme did not
+        # always give one
+
     def test_the_cell_list_is_the_default(self):
         self.assertIsInstance(speed_up_scheme_from_options({}), CellList)
 

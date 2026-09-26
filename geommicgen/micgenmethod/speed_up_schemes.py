@@ -384,7 +384,7 @@ class CellList(SpeedUpScheme):
         return pos_neighbor_cell
 
 
-class VerletList:
+class VerletList(SpeedUpScheme):
     """
     Class for the verlet list used to speed up force computation.
 
