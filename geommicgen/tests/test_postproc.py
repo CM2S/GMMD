@@ -13,6 +13,7 @@ from geommicgen.errors.error_classes import MissingOptionalDependency, ProcessDi
 from geommicgen.iofuncs.md_state import load_md_state, save_md_state
 from geommicgen.iofuncs.printing import log_to_terminal, screen_to
 from geommicgen.meshing.voxel_mesher import VoxelMesher
+from geommicgen.microstructure.particleclasses import Disk
 from geommicgen.pipeline import MESH_DIRECTORY, MeshJob
 from geommicgen.postproc.plotfuncs.plotting_functions import (
     keep_what_the_cut_left,
@@ -29,6 +30,7 @@ from geommicgen.postproc.postproc import (
 )
 from geommicgen.tests.helpers import (
     a_generation_run,
+    build_microstructure,
     disk_microstructure,
     sphere_microstructure,
 )
@@ -107,6 +109,49 @@ class TestPostProc(PostProcTest):
         self.assertIsNone(job.time)
         self.assertFalse(self.written(MESH_DIRECTORY))
         # A request that cannot be honoured is found out at once, not after the meshing
+
+
+class TestPlotsWithoutTeX(PostProcTest):
+    """Test class for the plots, drawn without a TeX installation."""
+
+    def test_the_plots_are_drawn_without_tex(self):
+        disks = []
+        for i_center, i_radius in (
+            ([0.15, 0.2], 0.06),
+            ([0.5, 0.15], 0.05),
+            ([0.85, 0.3], 0.07),
+            ([0.3, 0.55], 0.08),
+            ([0.7, 0.65], 0.05),
+            ([0.15, 0.85], 0.06),
+            ([0.55, 0.9], 0.07),
+        ):
+            disks.append(Disk("2", {"r": i_radius}, [1.0, 1.0]))
+            disks[-1].position_center = np.array(i_center)
+        # Seven disks, so that their Voronoi cells differ enough for a histogram
+        with patch(
+            "matplotlib.texmanager.TexManager.make_dvi",
+            side_effect=AssertionError("TeX was asked for"),
+        ):
+            _, failures = run_analyses(
+                build_microstructure([1.0, 1.0], Disk, disks),
+                None,
+                self.sample_dir,
+                {
+                    "final_config": True,
+                    "voronoi_analysis": True,
+                    "plot_voronoi": True,
+                    "plot_imts": True,
+                    "stat_nearest_neighbor": True,
+                    "stat_ripleys_k": True,
+                },
+            )
+        self.assertEqual(failures, [])
+        self.assertTrue(
+            self.written("voronoi_analysis_results", "voronoi_hist_0.pdf")
+        )
+        self.assertTrue(self.written("stat_analysis_results", "k_ripleys_func.pdf"))
+        # The Voronoi plots set the text by TeX, for every plot after them as well,
+        # so a plot needed a TeX installation, which nothing declared
 
 
 class TestFailingAnalysis(PostProcTest):

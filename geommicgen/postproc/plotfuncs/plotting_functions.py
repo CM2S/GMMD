@@ -65,21 +65,12 @@ def create_figure(
         Number of rows in the a4 page.
 
     """
-    # Set LaTeX option
-    LaTeX_option = 1
-    # Set LaTeX font
-    if LaTeX_option == 1:
-        # Default LaTeX Computer Modern Roman
-        plt.rc("text", usetex=True)
-        plt.rc("font", **{"family": "serif", "serif": ["Computer Modern Roman"]})
-    else:
-        # LaTeX Fourier
-        plt.rc("text", usetex=True)
-        plt.rc(
-            "text.latex",
-            preamble=r"\usepackage[widespace]{fourier} \usepackage{amsmath} \usepackage{amssymb}",
-        )
-    #
+    plt.rc("font", family="serif")
+    plt.rc("mathtext", fontset="cm")
+    # A serif face, and the Computer Modern of TeX for the mathematics, which matplotlib
+    # draws itself. The text was set by TeX, so a plot needed a TeX installation, which
+    # nothing declared, and failed without one -- and every plot after it too, the
+    # setting being matplotlib's for the whole process
     if "w" not in kwargs:
         w = (latex_textwidth - 0.2 * (ncols - 1)) / ncols
     else:
@@ -1179,12 +1170,6 @@ def plot_voronoi_2d_with_imts(
     import matplotlib.patches as mpatches
     import matplotlib
     from scipy.spatial import voronoi_plot_2d
-
-    plt.rc("text", usetex=True)
-    plt.rc(
-        "text.latex",
-        preamble=r"\usepackage[widespace]{fourier} \usepackage{amsmath} \usepackage{amssymb}",
-    )
 
     N = len(particles)
 
