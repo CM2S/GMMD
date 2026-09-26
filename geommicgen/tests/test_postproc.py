@@ -4,8 +4,10 @@ import os
 import sys
 import tempfile
 import unittest
+import warnings
 from unittest.mock import Mock, patch
 
+import matplotlib
 import numpy as np
 
 from geommicgen._optional import has_gmsh
@@ -152,6 +154,22 @@ class TestPlotsWithoutTeX(PostProcTest):
         self.assertTrue(self.written("stat_analysis_results", "k_ripleys_func.pdf"))
         # The Voronoi plots set the text by TeX, for every plot after them as well,
         # so a plot needed a TeX installation, which nothing declared
+
+
+class TestColourMap(PostProcTest):
+    """Test class for the colour map the Voronoi cells are drawn in."""
+
+    def test_it_is_looked_up_as_matplotlib_goes_on_offering(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", matplotlib.MatplotlibDeprecationWarning)
+            _, failures = run_analyses(
+                disk_microstructure(),
+                None,
+                self.sample_dir,
+                {"voronoi_analysis": True, "plot_imts": True},
+            )
+        self.assertEqual(failures, [])
+        # matplotlib.cm.get_cmap is deprecated since matplotlib 3.7, and goes in 3.11
 
 
 class TestFailingAnalysis(PostProcTest):

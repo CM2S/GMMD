@@ -1221,8 +1221,8 @@ def plot_voronoi_2d_with_imts(
 
         plt.axis([0, rve_dims[0], 0, rve_dims[1]])
 
-        # cmap = matplotlib.cm.get_cmap("jet")
-        cmap = matplotlib.cm.get_cmap("Blues")
+        # cmap = matplotlib.colormaps["jet"]
+        cmap = matplotlib.colormaps["Blues"]
         perimeters = np.abs(np.array(imts)[in_box, 0])
         perimeter_scale = matplotlib.colors.Normalize(
             vmin=perimeters.min(), vmax=perimeters.max()
