@@ -902,6 +902,27 @@ class TestInnerPhase(unittest.TestCase):
         # test of the caps answered with a pair, true whatever it held, so every
         # cylinder after the first stayed where it was first tried: two of these met
 
+    def test_inner_disks_keep_their_size_inside_their_parents(self):
+        particles = self.generate(
+            [1.0, 1.0],
+            {"phase_type": 2, "r": 0.15, "n": 4},
+            {"phase_type": 2, "r": 0.02, "n": 16},
+        )
+        self.assertEqual(len(particles), 16)
+        for i_particle in particles:
+            self.assertEqual(i_particle.delta, 0)
+            self.assertEqual(i_particle.radius, 0.02)
+            center = i_particle.parent.nearest_periodic_images(
+                [i_particle.position_center], [1.0, 1.0]
+            )[0]
+            self.assertLessEqual(
+                np.linalg.norm(center - i_particle.parent.position_center) + 0.02,
+                i_particle.parent.radius,
+            )
+        # Each is dilated while it is placed, so as to keep clear of the others, and
+        # was contracted by a hundredth of the radius that had grown: it ended a ten
+        # thousandth of its radius smaller than generated
+
 
 class TestMolecularDynamicSimulationForce(unittest.TestCase):
     def setUp(self):

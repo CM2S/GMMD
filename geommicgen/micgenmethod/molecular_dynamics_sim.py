@@ -1244,7 +1244,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
         ):
             placed_particles = []
             for j_inner_particle in i_list_inner_particles:
-                j_inner_particle.dilate(0.01 * j_inner_particle.radius)
+                clearance = 0.01 * j_inner_particle.radius
+                j_inner_particle.dilate(clearance)
                 i_outer_particle.contract(j_inner_particle.radius * 1.05)
                 p_iter = 0
                 while p_iter < 200:
@@ -1269,10 +1270,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
                         break
 
                 i_outer_particle.dilate(j_inner_particle.radius * 1.05)
-                j_inner_particle.contract(0.01 * j_inner_particle.radius)
-                # TODO: the contraction is by a hundredth of the radius the dilation has
-                # already grown, so every inner particle ends a ten thousandth of its
-                # radius smaller than generated, and the file, which does not keep the
-                # dilation, disagrees with the microstructure in memory. A cylinder
-                # answers `intersection` with a tuple, which is always true, so no inner
-                # cylinder after the first is ever placed
+                j_inner_particle.contract(clearance)
+                # The particle is contracted by what it was dilated by. It was contracted
+                # by a hundredth of the radius the dilation had grown, so every inner
+                # particle ended a ten thousandth of its radius smaller than generated,
+                # and the file, which does not keep the dilation, disagreed with the
+                # microstructure in memory
