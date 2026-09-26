@@ -303,7 +303,9 @@ meshes:
 # Analyses
 # ------------------------------------------------------------------------------------------
 # The analyses to carry out on each sample, the same geommicgen-analyze takes as flags.
-# None by default.
+# None by default. The paths, the Voronoi diagram and the statistics describe the
+# particles the simulation packed: the particles of a phase inside another, placed
+# once the packing is done, are left out of them, and drawn in the final configuration.
 analyses:
   # Draw the final configuration of the particles.
   final_config: true
