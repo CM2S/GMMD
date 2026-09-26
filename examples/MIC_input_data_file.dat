@@ -477,7 +477,7 @@
 #
 # Syntax:    Type_Initial_Configuration x (default to 'random')
 #
-# x:         {'random', 'grid'}
+# x:         {'random', 'grid', 'bcc', 'fcc'}
 #            'random' - the initial configuration is obtained through a Poisson point
 #                       process, i.e. each component of the position of the centre of
 #                       mass is uniformly distributed along the corresponding side of
@@ -485,6 +485,10 @@
 #            'grid'   - the centres of mass of the particles are placed on a regular
 #                       grid, the smallest cube (or square) with a cell per particle,
 #                       the empty cells spread over it at random.
+#            'bcc'    - the centres of mass of exactly 128 particles, in three
+#                       dimensions, are placed on a body centred cubic lattice.
+#            'fcc'    - the centres of mass of exactly 256 particles, in three
+#                       dimensions, are placed on a face centred cubic lattice.
 # ------------------------------------------------------------------------------------------
 [insert here]
 

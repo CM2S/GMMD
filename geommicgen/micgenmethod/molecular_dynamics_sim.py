@@ -17,7 +17,6 @@ from scipy.stats import hmean
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-import geommicgen.errors.error_classes as errors
 import geommicgen.iofuncs.printing as print_funcs
 from geommicgen.microstructure.microstructure import unit_scale
 from geommicgen.microstructure.particleclasses import Matrix
@@ -50,6 +49,13 @@ OPTIONAL_OPTIONS = (
     "final_overlap_check",
 )
 # The generation parameters the initializer takes by keyword, and has a default for
+
+INITIAL_CONFIGURATIONS = ("random", "grid", "bcc", "fcc")
+# The initial configurations there are, under the names the input data file asks with
+
+LATTICE_PARTICLES = {"bcc": 128, "fcc": 256}
+# Number of particles each lattice places, eight layers of a four by four grid, in
+# three dimensions: it has no place for another, and leaves no place empty
 
 
 def grid_side(n_particles, dim):
@@ -133,7 +139,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
     min_distance: float
         Minimum distance between particles.
 
-    type_init_conf: {'random', 'grid'}
+    type_init_conf: {'random', 'grid', 'bcc', 'fcc'}
         Type of initial configuration used.
 
     max_residue_per_particle: float
@@ -242,7 +248,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         min_distance: float
             Minimum distance between particles.
 
-        type_init_conf: {'random', 'grid'}
+        type_init_conf: {'random', 'grid', 'bcc', 'fcc'}
             Type of initial configuration used.
 
         save_history: bool
@@ -494,6 +500,24 @@ class MolecularDynamicsSimulation(GenerationMethod):
         particles: list(particles)
             Particles in the simulation box.
         """
+        if self.type_init_conf not in INITIAL_CONFIGURATIONS:
+            raise ValueError(
+                "{0} is not an initial configuration. The available ones are "
+                "{1}.".format(self.type_init_conf, ", ".join(INITIAL_CONFIGURATIONS))
+            )
+        # It was only printed, and the run went on with no particle placed until it
+        # stopped on a position that was not there
+        n_lattice = LATTICE_PARTICLES.get(self.type_init_conf)
+        if n_lattice is not None and (
+            len(particles) != n_lattice or particles[0].dim != 3
+        ):
+            raise ValueError(
+                "The {0} configuration places {1} particles in three dimensions, and "
+                "there are {2} in {3}.".format(
+                    self.type_init_conf, n_lattice, len(particles), particles[0].dim
+                )
+            )
+        # Fewer stopped it on an index out of range, and more were left with no place
         self.particle_velocities = [None for _ in particles]
         if self.type_init_conf == "random":
             # Random configuration for the particle centers and the zero velocity
@@ -562,7 +586,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
                         )
                         self.particle_velocities[ind_part] = np.zeros(particles[0].dim)
                         ind_part += 1
-            print(ind_part, "\n\n\n")
 
         elif self.type_init_conf == "fcc":
             step = self.box[0] / 4
@@ -626,11 +649,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
                         )
                         self.particle_velocities[ind_part] = np.zeros(particles[0].dim)
                         ind_part += 1
-        else:
-            try:
-                raise errors.UnsupportedInitialConfigurationType(self.type_init_conf)
-            except errors.UnsupportedInitialConfigurationType as error:
-                error.message()
 
     @contextmanager
     def virtual_particle_sizes(self, particles):

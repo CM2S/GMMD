@@ -583,6 +583,39 @@ class TestFromOptions(unittest.TestCase):
         # generated and the results folder written
 
 
+class TestInitialConfigurations(unittest.TestCase):
+    """Test class for the initial configurations there are and what they place."""
+
+    def place(self, name, n_particles, dim):
+        """Place mock particles in a unit box with the configuration named."""
+        generator = MolecularDynamicsSimulation(0.0, 10, 5, 1e-3, 0.0, name, True)
+        particles = [Mock(dim=dim, position_center=None) for _ in range(n_particles)]
+        generator.box = [1.0] * dim
+        generator.generate_initial_configuration(particles)
+
+        return particles
+
+    def test_one_that_is_not_there_is_refused(self):
+        with self.assertRaisesRegex(
+            ValueError, "hexagonal is not an initial configuration"
+        ):
+            self.place("hexagonal", 4, 2)
+        # It was printed, and the run went on with no particle placed
+
+    def test_a_lattice_places_its_own_number_of_particles(self):
+        for i_name, i_count in (("bcc", 128), ("fcc", 256)):
+            with self.subTest(configuration=i_name):
+                particles = self.place(i_name, i_count, 3)
+                self.assertTrue(
+                    all(i_particle.position_center is not None for i_particle in particles)
+                )
+                for j_count, j_dim in ((i_count - 1, 3), (i_count + 1, 3), (i_count, 2)):
+                    with self.assertRaisesRegex(ValueError, str(i_count)):
+                        self.place(i_name, j_count, j_dim)
+        # Fewer stopped the run on an index out of range, and more were left with no
+        # position
+
+
 class TestGridInitialConfiguration(unittest.TestCase):
     """Test class for the initial configuration that places the particles on a grid."""
 

@@ -557,21 +557,19 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
                 )
             )
 
-    @patch("builtins.print")
-    def test_generate_initial_configuration_unsupported_type_prints_message(
-        self, mock_print
-    ):
-        """Check that an unsupported initial configuration type does not raise, and instead prints an explanatory message."""
+    def test_generate_initial_configuration_unsupported_type_is_refused(self):
+        """Check that an unsupported initial configuration type is refused."""
         current_generation_method = MolecularDynamicsSimulation(
             *self.md_init_mock_kwargs.values()
         )
         particles = [Mock(dim=2) for _ in range(3)]
         current_generation_method.box = np.array([1.0, 1.0])
         current_generation_method.type_init_conf = "unsupported_type"
-        current_generation_method.generate_initial_configuration(particles)
-        mock_print.assert_called_once_with(
-            "The initial configuration type unsupported_type is not supported."
-        )
+        with self.assertRaisesRegex(
+            ValueError, "unsupported_type is not an initial configuration"
+        ):
+            current_generation_method.generate_initial_configuration(particles)
+        # A message was printed, and the run went on with the particles unplaced
 
     @unittest.skip(PINNED_TO_MASTER)
     def test_generate_initial_configuration_bcc(self):
