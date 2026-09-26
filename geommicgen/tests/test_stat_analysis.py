@@ -312,6 +312,28 @@ class TestVoronoiInAnyRVE(unittest.TestCase):
         # neither plot was made and the results were not written
 
 
+class TestTwoPointCorrelationInAnyUnits(unittest.TestCase):
+    """Test class for the two point correlation of a microstructure in any units."""
+
+    def test_spheres(self):
+        values = []
+        for i_scale in (1.0, 2.0**-10, 2.0**10):
+            np.random.seed(3)
+            values.append(
+                two_point_correlation(
+                    sphere_microstructure().scaled(i_scale),
+                    n_samples=500,
+                    n_points=4,
+                    vec_direction=np.array([1.0, 0.0, 0.0]),
+                )[0]
+            )
+        self.assertEqual(values[1], values[0])
+        self.assertEqual(values[2], values[0])
+        # The points are the same points of the microstructure at every scale, and the
+        # test of a sphere lets in a point a length of 1e-3 outside it: at a millionth
+        # of the unit most of the box was particle
+
+
 class TestSeededDescriptors(unittest.TestCase):
     """Test class for an analysis giving the same numbers on every run."""
 

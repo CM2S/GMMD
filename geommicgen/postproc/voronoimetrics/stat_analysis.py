@@ -10,6 +10,7 @@ import numpy as np
 from PIL import Image
 
 from geommicgen.iofuncs.file_handling import create_design_point_results_directory
+from geommicgen.microstructure.microstructure import Microstructure, unit_scale
 
 from geommicgen.postproc.plotfuncs.plotting_functions import (
     plot_nearest_neighbor_dist,
@@ -250,6 +251,13 @@ def two_point_correlation(
 
         return np.stack([np.cos(angles), np.sin(angles)], axis=1)
 
+    if isinstance(microstructure, Microstructure):
+        microstructure = microstructure.scaled(unit_scale(microstructure.rve_dims))
+    # The points are thrown at a copy of the microstructure brought to a shortest side
+    # of one, so that they are the same points of it in any units: the test of a
+    # sphere lets in a point a length of 1e-3 outside it, which in a micrometre RVE
+    # made most of the box particle. What is computed is a probability against a
+    # ratio of lengths, so nothing is brought back
     rve_dims = microstructure.rve_dims
     two_point_correlation_vals = [None for _ in range(n_points * max_radius)]
     if isinstance(microstructure, MicrostructureImage):
