@@ -32,7 +32,7 @@ latex_textheigth = 9.63  # in = 674pt
 
 
 def _adjust_bounds(ax, points):
-    ptp_bound = points.ptp(axis=0)
+    ptp_bound = np.ptp(points, axis=0)
     ax.set_xlim(
         points[:, 0].min() - 0.1 * ptp_bound[0], points[:, 0].max() + 0.1 * ptp_bound[0]
     )
@@ -1090,7 +1090,7 @@ def set_voronoi_plot_2d(vor, ax=None, **kw):
     )
     lc.set_alpha(line_alpha)
     ax.add_collection(lc)
-    ptp_bound = vor.points.ptp(axis=0)
+    ptp_bound = np.ptp(vor.points, axis=0)
     #
     # line_segments = []
     # center = vor.points.mean(axis=0)
@@ -1122,9 +1122,17 @@ def set_voronoi_plot_2d(vor, ax=None, **kw):
 
 
 def plot_voronoi_2d_with_imts(
-    particles, rve_dims, voronoi, imts, dir, voronoi_type, save=True, show=False
+    particles, rve_dims, voronoi, imts, in_box, dir, voronoi_type, save=True, show=False
 ):
-    """Plot the Voronoi for circular particles."""
+    """
+    Plot the Voronoi for circular particles.
+
+    Parameters
+    ----------
+    in_box: list(int)
+        Indices, among the cells the tensors were computed for, of the cells of the
+        particles themselves rather than of their periodic images.
+    """
     import matplotlib.pyplot as plt
     import matplotlib.patches as mpatches
     import matplotlib
@@ -1188,6 +1196,15 @@ def plot_voronoi_2d_with_imts(
 
         # cmap = matplotlib.cm.get_cmap("jet")
         cmap = matplotlib.cm.get_cmap("Blues")
+        perimeters = np.abs(np.array(imts)[in_box, 0])
+        perimeter_scale = matplotlib.colors.Normalize(
+            vmin=perimeters.min(), vmax=perimeters.max()
+        )
+        # The perimeters are lengths, so they are coloured over the range the cells of
+        # the particles span; the cells of the images, far larger at the edges of the
+        # diagram, would take the range up. They were handed to the colour map as they
+        # were, which takes a number between zero and one: every cell of an RVE of unit
+        # side came out one saturated colour
         # Initializing the list containing the list of imts for each Voronoi cell
         k_cell = 0
         for ind, i_region in enumerate(voronoi.regions):
@@ -1205,7 +1222,7 @@ def plot_voronoi_2d_with_imts(
                     / 10
                 )
             else:
-                color = cmap(np.abs(imts[k_cell][0]))
+                color = cmap(perimeter_scale(np.abs(imts[k_cell][0])))
             x = [voronoi.vertices[i_vertex][0] for i_vertex in i_region]
             y = [voronoi.vertices[i_vertex][1] for i_vertex in i_region]
             current_cell = plt.fill(x, y, edgecolor=None, linewidth=0)
@@ -1224,13 +1241,20 @@ def plot_voronoi_2d_with_imts(
         plt.yticks([])
 
         if i_order == 0:
-            plt.colorbar(matplotlib.cm.ScalarMappable(cmap=cmap), label=r"Perimeter")
+            plt.colorbar(
+                matplotlib.cm.ScalarMappable(norm=perimeter_scale, cmap=cmap),
+                ax=ax,
+                label=r"Perimeter",
+            )
         else:
             plt.colorbar(
                 matplotlib.cm.ScalarMappable(cmap=cmap),
+                ax=ax,
                 label=r"$q_{0}$".format(str(i_order)),
                 boundaries=np.linspace(0, 1, 11),
             )
+        # The axes are named: a colour bar for a mappable drawn on none is refused by
+        # the matplotlib installed, so the plot of the tensors never got written
         if save:
             plt.savefig(
                 os.path.join(dir, "voronoi_{0}.pdf".format(i_order)),
@@ -1239,23 +1263,6 @@ def plot_voronoi_2d_with_imts(
 
         if show:
             plt.show()
-
-    region_point = np.zeros((len(voronoi.regions)), dtype=int)
-    in_box = []
-    for point_ind, region_ind in enumerate(voronoi.point_region):
-        if point_ind == -1:
-            continue
-        region_point[region_ind] = int(point_ind)
-    k_used_region = 0
-    for ind, i_region in enumerate(voronoi.regions):
-        if len(i_region) == 0:
-            continue
-        if any([vertex == -1 for vertex in i_region]):
-            continue
-        pos_center = voronoi.points[region_point[ind]]
-        if 0 < pos_center[0] < 1 and 0 < pos_center[1] < 1:
-            in_box.append(k_used_region)
-        k_used_region += 1
 
     for i_order in range(7):
 

@@ -190,16 +190,20 @@ class Set2DVoronoi:
                 )
 
         self.vertices = construction_voronoi.vertices
+        box = np.asarray(rve_dims, dtype=float)
         for i_ind_region, i_region in enumerate(self.regions):
-            for j_ind_pt in i_region:
-                if all(
-                    (0 < coord < 1 for coord in construction_voronoi.vertices[j_ind_pt])
-                ):
-                    self.regions[i_ind_region] = vert_sort(
-                        i_region, self.ridge_vertices
-                    )
-                    break
-                self.regions[i_ind_region] = []
+            reaches_box = -1 not in i_region and any(
+                np.all((0 < self.vertices[j_ind_pt]) & (self.vertices[j_ind_pt] < box))
+                for j_ind_pt in i_region
+            )
+            self.regions[i_ind_region] = (
+                vert_sort(i_region, self.ridge_vertices) if reaches_box else []
+            )
+        # A region is kept when a vertex of it lies in the RVE, and a region that is
+        # not closed is not. The vertices were tested against the unit box whatever the
+        # RVE, and the index -1 of the vertex at infinity was looked up as the last
+        # vertex: an open region passed whenever that one lay in the box, and was left
+        # a set that the results could not be written with
         self.points = np.array(self.points)
         self.point_region = list(range(len(self.points)))
 
@@ -294,6 +298,9 @@ class Set3DVoronoi:
                 )
 
         self.vertices = construction_voronoi.vertices
+        self.regions = [sorted(i_region) for i_region in self.regions]
+        # The vertices of a region in space are a list, as scipy gives them; left as the
+        # sets they were collected in, the results could not be written
         self.points = np.array(self.points)
         self.point_region = list(range(len(self.points)))
 
@@ -406,13 +413,15 @@ def compute_2d_irreducible_minkowski_tensors(voronoi, degree=6):
             continue
         if any([vertex == -1 for vertex in i_region]):
             continue
-        # print(region_point[i_ind])
-        pos_center = voronoi.points[region_point[i_ind]]
-        if 0 < pos_center[0] < 1 and 0 < pos_center[1] < 1:
+        if region_point[i_ind] % 9 == 4:
             in_box.append(k_used_region)
         k_used_region += 1
         # Obtaining the indices of the regions associated with particles inside the box,
-        # i.e. excluding periodic images
+        # i.e. excluding periodic images. The seeds are laid down particle by particle,
+        # each with its nine images, and the one not moved is the fifth. It was picked
+        # by its centre lying in the unit box, which in any other RVE picked images, or
+        # nothing
+    angles = []
     for i_ind, i_region in enumerate(voronoi.regions):
         if len(i_region) == 0:
             continue
@@ -1051,7 +1060,13 @@ def do_voronoi_analysis(
         # Computing the irreducible Minkowski tensors for the current microsturcture
         if plot_imts:
             plot_voronoi_2d_with_imts(
-                particles, rve_dims, voronoi, imts, voronoi_results_dir, voronoi_type
+                particles,
+                rve_dims,
+                voronoi,
+                imts,
+                in_box,
+                voronoi_results_dir,
+                voronoi_type,
             )
         # Saving the results
         # --------------------------------------------------------------------------------------

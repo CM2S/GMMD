@@ -28,10 +28,17 @@ from geommicgen.postproc.voronoimetrics.stat_analysis import (
 )
 from geommicgen.postproc.voronoimetrics.voronoi_analysis import (
     VORONOI_FILE_NAME,
+    compute_2d_irreducible_minkowski_tensors,
+    compute_2d_set_voronoi,
+    compute_2d_standard_voronoi,
     do_voronoi_analysis,
     flatten_ragged,
 )
-from geommicgen.tests.helpers import disk_microstructure
+from geommicgen.tests.helpers import (
+    build_microstructure,
+    disk_microstructure,
+    sphere_microstructure,
+)
 
 RVE_DIMS = [1.0, 1.0]
 
@@ -187,6 +194,122 @@ class TestVoronoiResultsFile(unittest.TestCase):
             self.assertEqual(len(read["regions_offsets"]), read["point_region"].max() + 2)
         # Read back with numpy alone, where this was a pickle of a list whose length
         # depended on the dimension and which held a live scipy object
+
+
+def long_disk_microstructure(scale):
+    """Build five disks in an RVE twice as long as it is wide, every length scaled."""
+    rve_dims = [2.0 * scale, 1.0 * scale]
+    particles = []
+    for i_center in ([0.3, 0.3], [0.8, 0.7], [1.3, 0.4], [1.7, 0.8], [1.1, 0.1]):
+        particle = Disk("2", {"r": 0.08 * scale}, rve_dims)
+        particle.position_center = np.array(i_center) * scale
+        particles.append(particle)
+
+    return build_microstructure(rve_dims, Disk, particles)
+
+
+class TestVoronoiInAnyRVE(unittest.TestCase):
+    """Test class for the Voronoi analysis of an RVE of any shape and in any units."""
+
+    def cells_in_box(self, voronoi, scale):
+        """Give the cells kept as the particles' own, and their perimeters, divided."""
+        imts, in_box, _ = compute_2d_irreducible_minkowski_tensors(voronoi)
+
+        return in_box, [np.abs(imts[i_cell][0]) / scale for i_cell in in_box]
+
+    def test_the_cells_of_the_particles_are_picked_out_of_their_images(self):
+        reference = None
+        for i_scale in (1.0, 2.0**-10, 2.0**10):
+            with self.subTest(scale=i_scale):
+                microstructure = long_disk_microstructure(i_scale)
+                in_box, perimeters = self.cells_in_box(
+                    compute_2d_standard_voronoi(
+                        microstructure.particles, np.array(microstructure.rve_dims)
+                    ),
+                    i_scale,
+                )
+                self.assertEqual(len(in_box), 5)
+                if reference is None:
+                    reference = (in_box, perimeters)
+                self.assertEqual((in_box, perimeters), reference)
+        # One cell per particle, the same at every scale. They were picked by their
+        # centre lying in the unit box, which left out the particles of the half of
+        # this RVE beyond it, and at other scales picked images, or nothing
+
+    def test_the_set_voronoi_keeps_closed_regions_that_reach_the_rve(self):
+        for i_scale in (1.0, 2.0**-3):
+            with self.subTest(scale=i_scale):
+                microstructure = long_disk_microstructure(i_scale)
+                voronoi = compute_2d_set_voronoi(
+                    microstructure.particles, np.array(microstructure.rve_dims)
+                )
+                kept = [i_region for i_region in voronoi.regions if i_region]
+                self.assertTrue(all(isinstance(i_region, list) for i_region in kept))
+                self.assertFalse(any(-1 in i_region for i_region in kept))
+                in_box, _ = self.cells_in_box(voronoi, i_scale)
+                self.assertEqual(len(in_box), 5)
+        # A region was kept when a vertex of it lay in the unit box, and the vertex at
+        # infinity, -1, was looked up as the last vertex, so an open region could pass
+        # and was left a set the results could not be written with
+
+    def test_an_open_region_is_not_kept(self):
+        rve_dims = [1.0, 1.0]
+        particles = []
+        for i_center in (
+            [0.4488, 0.1207],
+            [0.5397, 0.4483],
+            [0.4363, 0.3643],
+            [0.2637, 0.5954],
+        ):
+            particle = Disk("2", {"r": 0.05}, rve_dims)
+            particle.position_center = np.array(i_center)
+            particles.append(particle)
+        voronoi = compute_2d_set_voronoi(particles, np.array(rve_dims))
+        self.assertTrue(np.all((0 < voronoi.vertices[-1]) & (voronoi.vertices[-1] < 1)))
+        self.assertFalse(any(-1 in i_region for i_region in voronoi.regions))
+        # The last vertex of this diagram lies in the RVE, so every open region, whose
+        # vertex at infinity is numbered -1, passed the test of reaching it
+
+    def test_the_set_voronoi_is_written(self):
+        for i_microstructure in (
+            long_disk_microstructure(1.0),
+            sphere_microstructure(),
+        ):
+            with self.subTest(dim=i_microstructure.dim):
+                with tempfile.TemporaryDirectory() as directory:
+                    do_voronoi_analysis(
+                        i_microstructure.particles,
+                        np.array(i_microstructure.rve_dims),
+                        directory,
+                        voronoi_type="set",
+                    )
+                    self.assertTrue(
+                        os.path.exists(
+                            os.path.join(
+                                directory, "voronoi_analysis_results", VORONOI_FILE_NAME
+                            )
+                        )
+                    )
+        # In space the regions were left the sets they were collected in, and could
+        # not be written at all
+
+    def test_the_tensors_are_plotted(self):
+        microstructure = long_disk_microstructure(1.0)
+        with tempfile.TemporaryDirectory() as directory:
+            do_voronoi_analysis(
+                microstructure.particles,
+                np.array(microstructure.rve_dims),
+                directory,
+                voronoi_type="set",
+                plot_voronoi=True,
+                plot_imts=True,
+            )
+            written = os.listdir(os.path.join(directory, "voronoi_analysis_results"))
+        self.assertIn("voronoi_0.pdf", written)
+        self.assertIn(VORONOI_FILE_NAME, written)
+        # The colour bar was drawn for no axes, which matplotlib refuses, and the plot
+        # of the set Voronoi measured its extent with a method NumPy no longer has, so
+        # neither plot was made and the results were not written
 
 
 class TestSeededDescriptors(unittest.TestCase):
