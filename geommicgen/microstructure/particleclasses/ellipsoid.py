@@ -277,7 +277,10 @@ class Ellipsoid(Particle):
             # axis_2 = visible_vars[:, 1][ind]
             # axis_3 = visible_vars[:, 0][ind]
 
-            axis_2 = min(descriptors["axis_2"], 0.2)
+            axis_2 = min(descriptors["axis_2"], 0.2 * min(rve_dims))
+            # Held to a fifth of the shortest side, which it was only for a unit RVE:
+            # the bound was the length 0.2, so the same particles written in other
+            # units were clamped to other shapes
             axis_1 = axis_2 / max(min(descriptors["ratio_21"], 1), 0.4)
             axis_3 = max(min(descriptors["ratio_32"], 1), 0.4) * axis_2
         if "angle" in descriptors:
@@ -1044,4 +1047,4 @@ class Ellipsoid(Particle):
         self.axis_1 *= rescale_parameter
         self.axis_2 *= rescale_parameter
         self.axis_3 *= rescale_parameter
-        self.position_center *= rescale_parameter
+        super().rescale(rescale_parameter)

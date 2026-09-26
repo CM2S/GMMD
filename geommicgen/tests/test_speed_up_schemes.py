@@ -87,6 +87,20 @@ class TestSpeedUpScheme(unittest.TestCase):
         current_cell_list.molecular_dynamics_sim = mock_molecular_dynamics_sim
         self.assertTrue(all(current_cell_list.n_cell_dim == np.array([1, 3])))
 
+    def test_a_particle_wider_than_the_box_leaves_one_cell(self):
+        """A particle wider than the box leaves one cell, holding every particle."""
+        particles = [
+            Mock(radius=0.8, position_center=i_position, dim=2)
+            for i_position in (np.array([0.1, 0.2]), np.array([0.9, 1.8]))
+        ]
+        current_cell_list = CellList()
+        current_cell_list.molecular_dynamics_sim = Mock(box=[1.0, 2.0])
+        current_cell_list.new_list(particles)
+        self.assertEqual(current_cell_list.n_cell_dim, [1, 1])
+        self.assertEqual(current_cell_list.particle_list, [{0, 1}, {0, 1}])
+        # There was room for no cell of the particle's width across the first side, and
+        # that side was divided by the zero cells across it
+
     def test_cell_list_max_radius(self):
         """Test the attribute max_radius of cell lists"""
         radii = [0.1, 0.2, 0.25, 0.1, 0.3, 0.2, 0.05]

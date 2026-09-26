@@ -302,7 +302,7 @@ class SaveStatusTest(unittest.TestCase):
         save_status(self.sample_dir, self.microstructure, self.mic_generator)
 
         self.assertEqual(
-            self.status_lines(), ["Time: 12.500s", "Overlap: 0.000", "Status: True"]
+            self.status_lines(), ["Time: 12.500s", "Overlap: 0.000e+00", "Status: True"]
         )
 
     def test_one_line_per_discretisation(self):

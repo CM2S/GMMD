@@ -94,3 +94,11 @@ class CylindricalFiber(Disk):
         volume = np.pi * (self.radius + self.delta) ** 2 * self.length_dir_fibers
 
         return volume
+
+    def rescale(self, rescale_parameter):
+        """Rescale all size parameters and the position by *rescale_parameter*."""
+        super().rescale(rescale_parameter)
+        self.length_dir_fibers *= rescale_parameter
+        # The length along the fibres is a length of the particle too: left out, the
+        # volume of a fibre, and its mass in a simulation that normalises its box,
+        # mixed a scaled radius with a length in the user's units

@@ -261,11 +261,13 @@
 [insert here]
 
 
-#                                     Maximum allowable overlap area/volume per particle [M]
+#                                                Maximum allowable overlap per particle [M]
 # ==========================================================================================
-# Meaning:   It is the maximum allowable overlap area/volume per particle, i.e. the total
-#                  overlap area/volume divided by the number of particles, such that a given
-#            configuration is considered legal.
+# Meaning:   It is the maximum allowable overlap per particle, i.e. the total overlap
+#            divided by the number of particles, such that a given configuration is
+#            considered legal. The overlap of two particles is the depth they overlap
+#            by, a length in the units of the RVE dimensions; with Force_Option
+#            intersection_area it is their overlap area/volume, in those units.
 #
 # Syntax:    Max_Residue_Per_Particle x
 #
@@ -531,7 +533,8 @@
 
 #                                                     Minimum distance between particles [O]
 # ==========================================================================================
-# Meaning:   Minimum distance between particles.
+# Meaning:   Minimum distance between particles, a length in the units of the RVE
+#            dimensions.
 #
 # Syntax:    Min_Distance x (default to 0)
 #

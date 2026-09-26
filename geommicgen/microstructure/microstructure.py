@@ -5,12 +5,43 @@ Each instance of the Microstructure class is a microstructure sample, composed o
 of the Phase class, in turn described by the adequate phase descriptors.
 """
 
+import copy
+
 import numpy as np
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 from geommicgen.micgenmethod.speed_up_schemes import CellList
 from geommicgen.microstructure.phase import Phase
+
+
+def unit_scale(lengths):
+    """
+    Give the factor that brings the shortest of some lengths to one.
+
+    The stages that work with tolerances, gmsh's and the particles' own among them,
+    work on the microstructure multiplied by it, so that a tolerance means the same
+    thing whatever the units of the RVE are, and the same microstructure written in
+    other units is treated alike. When the shortest length is a power of two the
+    factor is one as well, and it is multiplied out exactly, so a microstructure in
+    units a power of two apart is treated alike to the last bit; otherwise what comes
+    back is rounded in its last digit.
+
+    Parameters
+    ----------
+    lengths: list(float)
+        Positive lengths, the dimensions of an RVE.
+
+    Returns
+    -------
+    float
+        The factor, 1 for a unit RVE.
+    """
+    return 1 / min(lengths)
+    # The shortest side itself, and not the power of two nearest it, which kept the
+    # mantissa of the side: the simulation, whose time step and constants are not
+    # scaled with the box, then ran a deck in millimetres and the same deck in
+    # micrometres in boxes of sides 1.95 and 1.05, and gave two microstructures
 
 
 class Microstructure:
@@ -55,9 +86,41 @@ class Microstructure:
             raise ValueError(
                 "The dimensions of the microstructure must be positive values."
             )
-        self.volume = np.prod(rve_dims)
         self.phases = {}
         self.total_overlap = None
+
+    @property
+    def volume(self):
+        """Volume/area of the microstructure."""
+        return np.prod(self.rve_dims)
+        # Worked out from the dimensions rather than kept beside them, so that a copy
+        # given other dimensions cannot carry the volume of the one it was copied from
+
+    def scaled(self, factor):
+        """
+        Give a copy of the microstructure with every length multiplied by a factor.
+
+        The copy is the same microstructure in other units: its dimensions, the
+        positions and the sizes of its particles are multiplied, and nothing else is.
+        The descriptors of its phases are not, so particles are not to be generated
+        for it.
+
+        Parameters
+        ----------
+        factor: float
+            Factor every length is multiplied by.
+
+        Returns
+        -------
+        `.Microstructure`
+            The copy.
+        """
+        scaled = copy.deepcopy(self)
+        scaled.rve_dims = [i_dim * factor for i_dim in self.rve_dims]
+        for i_particle in scaled.particles:
+            i_particle.rescale(factor)
+
+        return scaled
 
     @classmethod
     def from_descriptors(cls, rve_dims, descriptors):

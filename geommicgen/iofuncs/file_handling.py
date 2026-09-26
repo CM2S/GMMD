@@ -227,7 +227,7 @@ def save_status(sample_dir, current_sample, current_mic_generator, mesh_jobs=())
             _status_value(current_mic_generator.time, "{0:.3f}s")
         )
         overlap_line = "Overlap: {0}\n".format(
-            _status_value(current_sample.total_overlap, "{0:.3f}")
+            _status_value(current_sample.total_overlap, "{0:.3e}")
         )
         status_line = "Status: {0}\n".format(current_mic_generator.status)
         status.writelines(time_line)

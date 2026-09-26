@@ -14,6 +14,7 @@ from geommicgen.microstructure.particleclasses import (
     Ellipsoid,
     Ellipse,
     Cylinder,
+    CylindricalFiber,
     Particle,
     Disk,
     Sphere,
@@ -43,6 +44,116 @@ class TestParticleClass(unittest.TestCase):
         descriptors = {"major_axis": 0.1, "vf": -0.2, "angle": 0.3, "n": -1}
         with self.assertRaises(ValueError):
             _ = Ellipse("1", descriptors, [1, 1])
+
+
+class TestRescale(unittest.TestCase):
+    """Test class for a particle given in other units by rescaling it."""
+
+    def particles(self):
+        """One particle of every class, each with the lengths of its own shape."""
+        rve_2d, rve_3d = [1.0, 1.0], [1.0, 1.0, 1.0]
+        return [
+            (Disk("1", {"r": 0.1}, rve_2d), ("major_axis", "minor_axis"), 2),
+            (
+                Ellipse(
+                    "1", {"major_axis": 0.2, "minor_axis": 0.1, "angle": 0.3}, rve_2d
+                ),
+                ("major_axis", "minor_axis"),
+                2,
+            ),
+            (Sphere("1", {"r": 0.1}, rve_3d), ("axis_1", "axis_2", "axis_3"), 3),
+            (
+                Ellipsoid(
+                    "1",
+                    {
+                        "axis_1": 0.3,
+                        "axis_2": 0.2,
+                        "axis_3": 0.1,
+                        "angle": 0.3,
+                        "rot_axis_comp_x": 0.0,
+                        "rot_axis_comp_y": 0.0,
+                        "rot_axis_comp_z": 1.0,
+                    },
+                    rve_3d,
+                ),
+                ("axis_1", "axis_2", "axis_3"),
+                3,
+            ),
+            (
+                Cylinder(
+                    "1",
+                    {
+                        "r_cyl": 0.05,
+                        "length": 0.2,
+                        "azimuth_angle": 0.3,
+                        "polar_angle": 0.7,
+                    },
+                    rve_3d,
+                ),
+                ("r_cyl", "length"),
+                3,
+            ),
+            (
+                CylindricalFiber("1", {"r": 0.1, "direction": 2}, rve_3d),
+                ("major_axis", "minor_axis", "length_dir_fibers"),
+                3,
+            ),
+        ]
+
+    def test_every_length_is_scaled_and_nothing_else(self):
+        for i_particle, i_lengths, i_dim in self.particles():
+            with self.subTest(particle=type(i_particle).__name__):
+                i_particle.position_center = np.array([0.3, 0.4, 0.5][:i_dim])
+                if isinstance(i_particle, CylindricalFiber):
+                    i_particle.position_center = np.array([0.3, 0.4])
+                i_particle.dilate(0.01)
+                lengths = set(i_lengths) | {"position_center", "delta"}
+                before = {
+                    i_name: np.array(i_value, dtype=float)
+                    for i_name, i_value in vars(i_particle).items()
+                    if isinstance(i_value, (float, int, np.ndarray))
+                    and not isinstance(i_value, bool)
+                }
+                radius, volume = i_particle.radius, i_particle.volume
+                i_particle.rescale(8.0)
+                for i_name, i_value in before.items():
+                    np.testing.assert_array_equal(
+                        getattr(i_particle, i_name),
+                        i_value * 8.0 if i_name in lengths else i_value,
+                        err_msg=i_name,
+                    )
+                self.assertEqual(i_particle.radius, radius * 8.0)
+                self.assertEqual(i_particle.volume, volume * 8.0**i_dim)
+        # The dilation that keeps the minimum distance was left out by every class, and
+        # the length along the fibres by the fibre, so a simulation normalising its box
+        # kept the gap in the user's units, and weighed a fibre with a length in them
+
+    def test_an_ellipsoid_from_its_second_axis_has_one_shape_in_any_units(self):
+        for i_scale in (2.0**-10, 1.0, 8.0):
+            with self.subTest(scale=i_scale):
+                ellipsoid = Ellipsoid(
+                    "1",
+                    {
+                        "vf": 0.1,
+                        "axis_2": 0.3 * i_scale,
+                        "ratio_32": 0.5,
+                        "ratio_21": 0.5,
+                        "p_3": 0.3,
+                        "phi_z": 0.2,
+                    },
+                    [i_scale] * 3,
+                )
+                self.assertEqual(
+                    [
+                        ellipsoid.axis_1 / i_scale,
+                        ellipsoid.axis_2 / i_scale,
+                        ellipsoid.axis_3 / i_scale,
+                    ],
+                    [0.4, 0.2, 0.1],
+                )
+        # The second axis is held to a fifth of the shortest side of the RVE. It was held
+        # to the length 0.2, which left it alone in a smaller unit and clamped it in a
+        # larger one
 
 
 class TestEllipsoid(unittest.TestCase):

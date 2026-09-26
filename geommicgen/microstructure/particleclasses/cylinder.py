@@ -296,7 +296,7 @@ class Cylinder(Particle):
         """Rescale all size parameters and the position according to *rescale_parameter*."""
         self.r_cyl *= rescale_parameter
         self.length *= rescale_parameter
-        self.position_center *= rescale_parameter
+        super().rescale(rescale_parameter)
 
     def intersection_cylinder_cylinder(
         self: Cylinder, other_cylinder: Cylinder, box: list

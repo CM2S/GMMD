@@ -265,63 +265,6 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
         )
         self.assertTrue(np.any(current_generation_method.particle_velocities != 0))
 
-    def test_generate_initial_configuration_save_history_random(self):
-        """Check if particle's position is saved for a random initial configuration"""
-        current_generation_method = MolecularDynamicsSimulation(
-            *self.md_init_mock_kwargs.values()
-        )
-        particles = [Mock(dim=2, position_center=None) for _ in range(10)]
-        current_generation_method.box = np.array([1.0, 2.0])
-        current_generation_method.type_init_conf = "random"
-        current_generation_method.generate_initial_configuration(
-            particles,
-        )
-        for part_ind, particle in enumerate(particles):
-            self.assertTrue(
-                all(
-                    current_generation_method.position_center_history[part_ind][0]
-                    == particle.position_center
-                )
-            )
-
-    def test_generate_initial_configuration_save_history_grid_2d(self):
-        """Check if particle's position is saved for a grid configuration in 2D"""
-        current_generation_method = MolecularDynamicsSimulation(
-            *self.md_init_mock_kwargs.values()
-        )
-        particles = [Mock(dim=2, position_center=None) for _ in range(10)]
-        current_generation_method.box = np.array([0.5, 2.0])
-        current_generation_method.type_init_conf = "grid"
-        current_generation_method.generate_initial_configuration(
-            particles,
-        )
-        for part_ind, particle in enumerate(particles):
-            self.assertTrue(
-                all(
-                    current_generation_method.position_center_history[part_ind][0]
-                    == particle.position_center
-                )
-            )
-
-    def test_generate_initial_configuration_save_history_grid_3d(self):
-        """Check if particle's position is saved for a grid configuration in 3D"""
-        current_generation_method = MolecularDynamicsSimulation(
-            *self.md_init_mock_kwargs.values()
-        )
-        particles = [Mock(dim=3, position_center=None) for _ in range(10)]
-        current_generation_method.box = np.array([1.0, 0.3, 5.0])
-        current_generation_method.type_init_conf = "grid"
-        current_generation_method.generate_initial_configuration(
-            particles,
-        )
-        for part_ind, particle in enumerate(particles):
-            self.assertTrue(
-                all(
-                    current_generation_method.position_center_history[part_ind][0]
-                    == particle.position_center
-                )
-            )
-
 
 def deck_defaults():
     """Give the generation parameters of a deck that sets only what has no default."""
@@ -620,6 +563,243 @@ class TestNonSquareRVE(unittest.TestCase):
         self.assertAlmostEqual(disk.radius, 0.2)
         # The shortest side is brought to one and the particles with it, and the rest of
         # the box keeps its proportion to that side rather than becoming one as well
+
+
+SCALE_FREE_PHASES = {
+    "disks": ([2.0, 1.0], lambda s: {"phase_type": 2, "r": 0.1 * s, "n": 14}),
+    "ellipses": (
+        [1.0, 1.0],
+        lambda s: {
+            "phase_type": 3,
+            "vf": 0.35,
+            "n": 10,
+            "ratio": 1.5,
+            "angle_distribution": "normal",
+            "angle_mean": 0.3,
+            "angle_sigma": 0.5,
+        },
+    ),
+    "spheres": ([1.0, 1.0, 1.0], lambda s: {"phase_type": 4, "r": 0.15 * s, "n": 8}),
+    "cylinders": (
+        [1.0, 1.0, 1.0],
+        lambda s: {
+            "phase_type": 7,
+            "r_cyl": 0.06 * s,
+            "length": 0.3 * s,
+            "n": 6,
+            "azimuth_angle": 0.3,
+            "polar_angle": 0.7,
+        },
+    ),
+    "fibres": (
+        [1.0, 1.0, 1.0],
+        lambda s: {"phase_type": 6, "r": 0.1 * s, "n": 10, "direction": 2},
+    ),
+}
+# A microstructure of each particle type in an RVE multiplied by s, with its sizes
+# multiplied by s too. The sizes of the ellipses come from their volume fraction, and
+# so from the RVE
+
+
+class TestScaleInvariance(unittest.TestCase):
+    """Test class for a generation that is the same in any units of length."""
+
+    def generate(self, rve_dims, phase, scale, max_step=300):
+        """Generate a microstructure in which every length is multiplied by *scale*."""
+        microstructure = Microstructure([i_dim * scale for i_dim in rve_dims])
+        microstructure.add_phase(Phase("0", {"phase_type": 1}))
+        microstructure.add_phase(Phase("1", phase(scale)))
+        generator = MolecularDynamicsSimulation(
+            1e-4 * scale,
+            max_step,
+            1,
+            1e-3,
+            0.01 * scale,
+            "random",
+            False,
+            fixed_seed=11,
+            final_overlap_check=True,
+        )
+        generator.set_thermostat(
+            MultiTemperatureIsokineticThermostat(
+                None, criterion="ratio_in_out", max_ratio_osc=2, temp_low_ratio=1 / 4
+            )
+        )
+        generator.set_speed_up_scheme(CellList())
+        generator.generate_microstructure(microstructure)
+
+        return microstructure, generator
+
+    def record(self, microstructure, generator, scale):
+        """Give what a generation produced and reported, with its lengths divided."""
+        return (
+            [
+                (
+                    tuple(np.asarray(i_particle.position_center) / scale),
+                    i_particle.radius / scale,
+                    i_particle.delta / scale,
+                )
+                for i_particle in microstructure.particles
+            ],
+            [
+                [tuple(np.asarray(j_position) / scale) for j_position in i_history]
+                for i_history in generator.position_center_history
+            ],
+            generator.total_overlap / scale,
+            generator.max_residue / scale,
+            generator.status,
+            generator.step,
+        )
+
+    def assert_scale_free(self, rve_dims, phase, max_step=300):
+        """Check that a generation gives the same at scales a power of two apart."""
+        reference = self.record(*self.generate(rve_dims, phase, 1.0, max_step), 1.0)
+        for i_scale in (2.0**-20, 2.0**20):
+            with self.subTest(scale=i_scale):
+                self.assertEqual(
+                    self.record(
+                        *self.generate(rve_dims, phase, i_scale, max_step), i_scale
+                    ),
+                    reference,
+                )
+        # Powers of two are multiplied out exactly, so a generation that depends on
+        # nothing but the ratios of its lengths gives the same to the last bit
+
+        return reference
+
+    def test_every_particle_type(self):
+        for i_name, (i_rve_dims, i_phase) in SCALE_FREE_PHASES.items():
+            with self.subTest(particles=i_name):
+                reference = self.assert_scale_free(i_rve_dims, i_phase)
+                self.assertTrue(reference[4])
+        # With a minimum distance, which was kept in the user's units inside a box
+        # normalised to one: at a millionth of the unit it vanished, and at a million
+        # the particles, dilated past the box, could not be placed or crashed the cell
+        # list. The fibres are weighed by their volume, whose length along the fibres
+        # was left in the user's units. Every run converges, so the equality is not
+        # that of runs that all failed the same way
+
+    def test_an_overlap_left_is_given_in_the_users_units(self):
+        _, phase = SCALE_FREE_PHASES["disks"]
+        reference = self.assert_scale_free([1.0, 1.0], phase, max_step=3)
+        self.assertGreater(reference[2], reference[3])
+        self.assertFalse(reference[4])
+        # Three steps leave the disks overlapping, so the overlap reported is not zero
+        # at every scale. It was reported in the units of the normalised box, and the
+        # naive check that measured it again measured it in the user's, against a
+        # tolerance in the box's
+
+    def test_the_minimum_distance_is_kept_in_the_users_units(self):
+        rve_dims, phase = SCALE_FREE_PHASES["disks"]
+        scale = 2.0**-10
+        microstructure, generator = self.generate(rve_dims, phase, scale)
+        self.assertTrue(generator.status)
+        box = np.asarray(microstructure.rve_dims)
+        particles = microstructure.particles
+        gaps = [
+            np.linalg.norm(
+                i_particle.position_center
+                - i_particle.nearest_periodic_image(
+                    j_particle.position_center, i_particle.position_center, box
+                )
+            )
+            - i_particle.radius
+            - j_particle.radius
+            for i_index, i_particle in enumerate(particles)
+            for j_particle in particles[i_index + 1:]
+        ]
+        self.assertGreaterEqual(min(gaps), 0.01 * scale * (1 - 1e-9))
+
+    def test_no_dilation_is_left_on_the_particles(self):
+        microstructure = Microstructure([3.0, 3.0])
+        microstructure.add_phase(Phase("0", {"phase_type": 1}))
+        microstructure.add_phase(Phase("1", {"phase_type": 2, "r": 0.3, "n": 10}))
+        generator = MolecularDynamicsSimulation(
+            0.0, 300, 1, 1e-3, 0.03, "random", False, fixed_seed=11
+        )
+        generator.set_thermostat(
+            MultiTemperatureIsokineticThermostat(
+                None, criterion="ratio_in_out", max_ratio_osc=2, temp_low_ratio=1 / 4
+            )
+        )
+        generator.set_speed_up_scheme(CellList())
+        generator.generate_microstructure(microstructure)
+        self.assertEqual(
+            [i_particle.delta for i_particle in microstructure.particles], [0] * 10
+        )
+        for i_particle in microstructure.particles:
+            self.assertAlmostEqual(i_particle.radius, 0.3, places=15)
+        # The shortest side, three, is not a power of two, so the box does not scale
+        # the particles exactly; the dilation is taken off in the box, as the box scaled
+        # it, and none is left
+
+    def test_a_deck_in_other_units_gives_the_same_microstructure(self):
+        rve_dims, phase = SCALE_FREE_PHASES["disks"]
+        reference = self.record(*self.generate(rve_dims, phase, 1.0), 1.0)
+        for i_scale in (1e-3, 1e-6, 3.0):
+            with self.subTest(scale=i_scale):
+                record = self.record(*self.generate(rve_dims, phase, i_scale), i_scale)
+                np.testing.assert_allclose(
+                    [i_center for i_center, _, _ in record[0]],
+                    [i_center for i_center, _, _ in reference[0]],
+                    rtol=0,
+                    atol=1e-12,
+                )
+                self.assertEqual(record[4:], reference[4:])
+        # Scales that are not powers of two change the lengths in their last digit, and
+        # nothing more: the box is brought to a shortest side of one in every case. It
+        # was brought to the power of two nearest, which ran a deck in millimetres and
+        # the same deck in micrometres in boxes of sides 1.95 and 1.05, whose dynamics
+        # differ, and gave two microstructures
+
+    def test_an_error_that_stops_the_run_is_the_one_raised(self):
+        rve_dims, phase = SCALE_FREE_PHASES["disks"]
+        with patch.object(
+            MolecularDynamicsSimulation,
+            "compute_forces",
+            side_effect=RuntimeError("stopped"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "stopped"):
+                self.generate(rve_dims, phase, 1.0)
+        # The run stopped before it measured an overlap, and the overlap it had not
+        # measured was divided on the way out, raising a TypeError in place of this
+
+    def test_the_path_ends_where_the_particle_is(self):
+        rve_dims, phase = SCALE_FREE_PHASES["disks"]
+        scale = 2.0**-10
+        microstructure, generator = self.generate(rve_dims, phase, scale)
+        for i_particle, i_history in zip(
+            microstructure.particles, generator.position_center_history
+        ):
+            np.testing.assert_array_equal(i_history[-1], i_particle.position_center)
+            self.assertTrue(
+                all(
+                    np.all((0 <= j_position) & (j_position < microstructure.rve_dims))
+                    for j_position in i_history
+                )
+            )
+        # The path is recorded in the normalised box, and was left there, before the
+        # offset: the motion analysis drew it in a cell of the user's units, against
+        # particles of the user's sizes
+
+
+class TestFinalOverlapCheck(unittest.TestCase):
+    """Test class for the naive check of the overlap a run ends with."""
+
+    def test_it_measures_the_way_the_run_measured_last(self):
+        generator = MolecularDynamicsSimulation(0.0, 1, 1, 1e-3, 0.0, "random", False)
+        generator.thermostat = Mock(kin_energy_div=False)
+        generator.last_distance_method = "dist_exact"
+        generator.box = [1.0, 1.0]
+        particles = [Mock(), Mock()]
+        particles[0].intersection_length.return_value = (0.25, None)
+        generator.check_overlap_naive(particles)
+        self.assertEqual(generator.total_overlap, 0.25)
+        particles[0].intersection_length.assert_called_once_with(
+            particles[1], generator.box, dist_met="dist_exact"
+        )
+        # The thermostat has changed its mind since the last step, which measured the
+        # overlap exactly; the check measured it the way the thermostat said next
 
 
 class TestMolecularDynamicSimulationForce(unittest.TestCase):

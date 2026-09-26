@@ -6,7 +6,7 @@ from unittest.mock import sentinel, Mock, patch
 
 import numpy as np
 
-from geommicgen.microstructure.microstructure import Microstructure
+from geommicgen.microstructure.microstructure import Microstructure, unit_scale
 from geommicgen.tests.helpers import disk_microstructure, sphere_microstructure
 
 
@@ -137,6 +137,58 @@ class TestFromDescriptors(unittest.TestCase):
         second = Microstructure.from_descriptors([1.0, 1.0], self.DESCRIPTORS)
         self.assertIsNot(first.phases["1"], second.phases["1"])
         # Each sample of a run is generated into a microstructure of its own
+
+
+class TestUnitScale(unittest.TestCase):
+    """Test class for the factor a stage scales a microstructure by."""
+
+    def test_the_shortest_side_is_brought_to_one(self):
+        for i_dims in (
+            [1.0, 1.0],
+            [2.0, 1.0, 3.0],
+            [3.0, 3.0],
+            [0.75, 4.0],
+            [1e-6, 2e-6],
+        ):
+            with self.subTest(rve_dims=i_dims):
+                self.assertAlmostEqual(min(i_dims) * unit_scale(i_dims), 1.0, places=15)
+        self.assertEqual(unit_scale([1.0, 1.0]), 1.0)
+        self.assertEqual(unit_scale([2.0**-20, 1.0]), 2.0**20)
+        # A unit RVE is left as it is, and a side that is a power of two gives a factor
+        # that is one too, which is multiplied out exactly
+
+
+class TestScaled(unittest.TestCase):
+    """Test class for a microstructure given in other units."""
+
+    def test_every_length_is_multiplied(self):
+        microstructure = sphere_microstructure()
+        microstructure.particles[0].dilate(0.01)
+        scaled = microstructure.scaled(2.0**-3)
+        self.assertEqual(
+            scaled.rve_dims, [i_dim * 2.0**-3 for i_dim in microstructure.rve_dims]
+        )
+        self.assertEqual(scaled.volume, microstructure.volume * 2.0**-9)
+        for i_original, i_scaled in zip(microstructure.particles, scaled.particles):
+            np.testing.assert_array_equal(
+                i_scaled.position_center, i_original.position_center * 2.0**-3
+            )
+            self.assertEqual(i_scaled.radius, i_original.radius * 2.0**-3)
+            self.assertEqual(i_scaled.delta, i_original.delta * 2.0**-3)
+        self.assertEqual(scaled.volume_fraction, microstructure.volume_fraction)
+        # The volume follows the dimensions, where it used to be kept from the
+        # construction and would have been that of the microstructure copied
+
+    def test_the_original_is_left_alone(self):
+        microstructure = disk_microstructure()
+        centers = [
+            i_particle.position_center for i_particle in microstructure.particles
+        ]
+        rve_dims = list(microstructure.rve_dims)
+        microstructure.scaled(8.0)
+        self.assertEqual(microstructure.rve_dims, rve_dims)
+        for i_particle, i_center in zip(microstructure.particles, centers):
+            np.testing.assert_array_equal(i_particle.position_center, i_center)
 
 
 class TestInsideParticlePhase(unittest.TestCase):

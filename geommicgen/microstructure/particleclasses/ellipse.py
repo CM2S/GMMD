@@ -839,7 +839,7 @@ class Ellipse(Particle):
         """Rescale all size parameters and the position according to *rescale_parameter*."""
         self.major_axis *= rescale_parameter
         self.minor_axis *= rescale_parameter
-        self.position_center *= rescale_parameter
+        super().rescale(rescale_parameter)
 
 
 def intersection_points_ellipses(

@@ -122,6 +122,28 @@ class Particle(abc.ABC):
 
         return volume
 
+    def rescale(self, rescale_parameter):
+        """
+        Multiply the position of the particle and its dilation by *rescale_parameter*.
+
+        A subclass multiplies the lengths of its own shape and calls this for the ones
+        every particle has.
+
+        Parameters
+        ----------
+        rescale_parameter: float
+            Factor every length of the particle is multiplied by.
+        """
+        self.position_center = (
+            np.asarray(self.position_center, dtype=float) * rescale_parameter
+        )
+        self.delta *= rescale_parameter
+        # The particle is the same one in other units only if every length it has is
+        # scaled. The dilation that keeps the minimum distance used to be left out, so
+        # a simulation normalising its box kept the gap in the user's units inside a
+        # box of side one. A new array rather than an in place product, so that no
+        # record kept of the position is scaled behind its owner's back
+
     @staticmethod
     def nearest_periodic_image(
         point_1: np.array, point_2: np.array, box: list

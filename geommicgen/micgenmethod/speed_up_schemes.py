@@ -61,9 +61,12 @@ class CellList(SpeedUpScheme):
         if self.box is None:
             raise ValueError("The simulation box has not been defined")
         n_cell_dim = [
-            int(np.floor(self.box[i_dim] / (2 * self.max_radius)))
+            max(1, int(np.floor(self.box[i_dim] / (2 * self.max_radius))))
             for i_dim in range(len(self.box))
         ]
+        # A particle wider than the box leaves room for no cell of its width, and the
+        # cells were divided by that zero; one cell across holds every particle as a
+        # candidate of every other, which is what the list has to give then
         return n_cell_dim
 
     @cached_property
