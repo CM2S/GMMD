@@ -19,6 +19,7 @@ from geommicgen.tests.helpers import (
 
 from geommicgen.meshing.gmsh_mesher import (
     GmshMesher,
+    check_fills_rve,
     failing_surfaces,
     gmsh_session,
 )
@@ -298,6 +299,16 @@ class TestGmshExtraction(unittest.TestCase):
             cell_signature(through_file.points, from_file),
         )
 
+    def test_a_mesh_that_does_not_fill_the_rve_is_not_taken(self):
+        microstructure = disk_microstructure()
+        mesher = GmshMesher(mesh_size=0.1, element_type="tri3")
+        with gmsh_session() as gmsh:
+            phase_groups = mesher.build_model(gmsh, microstructure)
+            with self.assertRaisesRegex(ValueError, "part of the geometry was lost"):
+                mesher.extract_mesh(gmsh, microstructure.scaled(2.0), phase_groups)
+        # Read against an RVE twice as long in each direction, which it covers a
+        # quarter of, as a mesh gmsh lost a particle of covers less than its RVE
+
     def test_first_order_triangles(self):
         self.assert_matches_meshio(disk_microstructure(), "tri3", 0.1)
 
@@ -307,6 +318,51 @@ class TestGmshExtraction(unittest.TestCase):
     def test_second_order_tetrahedra(self):
         self.assert_matches_meshio(sphere_microstructure(), "tetra10", 0.3)
         # The only element among these whose nodes gmsh lists in an order of its own
+
+
+class TestFillsTheRVE(unittest.TestCase):
+    """Test class for the refusal of a mesh that does not fill its RVE."""
+
+    def setUp(self):
+        self.points = np.array(
+            [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0]]
+        )
+        self.cells = [("triangle", np.array([[0, 1, 2], [0, 2, 3]]))]
+
+    def test_a_mesh_that_fills_the_rve_is_taken(self):
+        check_fills_rve(self.points, self.cells, [1.0, 1.0])
+        check_fills_rve(self.points, [("quad", np.array([[0, 1, 2, 3]]))], [1.0, 1.0])
+
+    def test_a_mesh_missing_a_cell_is_refused(self):
+        with self.assertRaisesRegex(
+            ValueError, "cover 0.5 of an RVE of 1, off by a part in 2"
+        ):
+            check_fills_rve(
+                self.points, [("triangle", np.array([[0, 1, 2]]))], [1.0, 1.0]
+            )
+
+    def test_what_opencascade_merges_is_not_a_loss(self):
+        points = self.points.copy()
+        points[1, 0] += 1e-8
+        points[3, 0] -= 1e-8
+        check_fills_rve(points, self.cells, [1.0, 1.0])
+        # Two corners moved out of the RVE by 1e-8, which changes the area covered by
+        # as much: what OpenCASCADE, whose tolerance is 1e-7 of the model, does to a
+        # particle within that of a face. A tolerance of 1e-9 refused such meshes
+
+    def test_a_mesh_reaching_outside_the_rve_is_refused(self):
+        points = self.points.copy()
+        points[:, 0] -= 0.5
+        with self.assertRaisesRegex(ValueError, "reach outside it"):
+            check_fills_rve(points, self.cells, [1.0, 1.0])
+        # It covers as much as the RVE does, shifted half a cell out of it
+
+    def test_the_volume_of_tetrahedra_is_taken(self):
+        points = np.array(
+            [[0.0, 0.0, 0.0], [2.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 3.0]]
+        )
+        with self.assertRaisesRegex(ValueError, "cover 1 of an RVE of 6"):
+            check_fills_rve(points, [("tetra10", np.array([[0, 1, 2, 3]]))], [2, 1, 3])
 
 
 @unittest.skipUnless(has_gmsh(), "gmsh is not installed")

@@ -142,6 +142,12 @@ GMSH_TO_VTK_ORDER = {"tetra10": [0, 1, 2, 3, 4, 5, 6, 7, 9, 8]}
 # Permutations taking the nodes of an element from the order gmsh lists them in to the
 # order VTK expects. The elements that are not named here are listed alike by both
 
+FILL_TOLERANCE = 1.0e-6
+# Relative tolerance on the area or volume the cells of a mesh cover, and on how far a
+# node may lie outside the RVE. A mesh that fills the RVE covers it to the last few
+# digits, unless OpenCASCADE has merged a particle within its own tolerance, 1e-7 of
+# the model, onto a face; a piece of a particle lost is far larger than either
+
 PBC_TOLERANCE = 1.0e-3
 # Tolerance of the bounding boxes used to pair opposite faces of the RVE, in the units
 # of the model, which is built with the shortest side of the RVE one
@@ -190,6 +196,91 @@ def failing_surfaces(error):
         for i_previous, i_tag in zip(words, words[1:])
         if i_previous == "surface" and i_tag.isdigit()
     ]
+
+
+def corner_measures(points, cell_type, connectivity):
+    """
+    Give the area or the volume of cells, with straight sides through their corners.
+
+    The cells of a mesh tile its domain this way whatever their order, because two cells
+    that share a side share the corners of it, and the faces of the RVE are flat.
+
+    Parameters
+    ----------
+    points: array
+        Coordinates of the nodes, one to a row.
+
+    cell_type: str
+        Name of the cells, as `GMSH_CELL_TYPES` gives it.
+
+    connectivity: array
+        Nodes of each cell, one cell to a row, the corners first.
+
+    Returns
+    -------
+    array
+        Area or volume of each cell.
+    """
+    corners = points[connectivity]
+    if cell_type.startswith("tetra"):
+        measures = np.abs(np.linalg.det(corners[:, 1:4] - corners[:, :1])) / 6
+    else:
+        n_corners = 4 if cell_type.startswith("quad") else 3
+        x_corners = corners[:, :n_corners, 0]
+        y_corners = corners[:, :n_corners, 1]
+        measures = 0.5 * np.abs(
+            np.sum(
+                x_corners * np.roll(y_corners, -1, axis=1)
+                - np.roll(x_corners, -1, axis=1) * y_corners,
+                axis=1,
+            )
+        )
+        # The shoelace formula, over the corners in the order they go around the cell
+
+    return measures
+
+
+def check_fills_rve(points, cells, rve_dims):
+    """
+    Refuse a mesh that does not fill its RVE, or that reaches outside of it.
+
+    Parameters
+    ----------
+    points: array
+        Coordinates of the nodes, one to a row.
+
+    cells: list(tuple)
+        Blocks of cells, each a name and a connectivity.
+
+    rve_dims: list(float)
+        Dimensions of the microstructure in each spatial direction.
+
+    Raises
+    ------
+    ValueError:
+        If the cells cover more or less than the RVE, or if a node lies outside it.
+    """
+    rve_dims = np.asarray(rve_dims, dtype=float)
+    volume = np.prod(rve_dims)
+    covered = sum(
+        corner_measures(points, i_type, i_connectivity).sum()
+        for i_type, i_connectivity in cells
+    )
+    coordinates = points[:, : len(rve_dims)]
+    outside = np.any(coordinates < -FILL_TOLERANCE * rve_dims) or np.any(
+        coordinates > (1 + FILL_TOLERANCE) * rve_dims
+    )
+    if abs(covered - volume) > FILL_TOLERANCE * volume or outside:
+        raise ValueError(
+            "The cells gmsh produced cover {0:.9g} of an RVE of {1:.9g}, off by a part "
+            "in {2:.3g}{3}: part of the geometry was lost, and the mesh is not "
+            "taken.".format(
+                covered,
+                volume,
+                volume / max(abs(covered - volume), np.finfo(float).tiny),
+                ", and reach outside it" if outside else "",
+            )
+        )
 
 
 @register_mesher
@@ -963,6 +1054,11 @@ class GmshMesher(Mesher):
             (i_type, np.vstack(i_blocks)) for i_type, i_blocks in blocks.items()
         ]
         phase = [np.concatenate(phases[i_type]) for i_type, _ in cells]
+        check_fills_rve(points, cells, microstructure.rve_dims)
+        # Gmsh only warns when it leaves a surface or a volume without elements, and
+        # the booleans that cut the particles against the box can lose a piece without
+        # a word; the pairing of the faces sees neither. Such a mesh was taken as it
+        # was, and at a large scale one was written with no matrix at all
         if len(cells) > 1:
             self.warnings.append(
                 "WARNING: {0} was asked for and gmsh produced {1}; the mesh is written "
