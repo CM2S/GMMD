@@ -20,6 +20,26 @@ class ConfigError(ValueError):
     """Raised for an input file that cannot be read, or does not validate."""
 
 
+class Problems(ValueError):
+    """
+    Raised by a validator for problems it finds below the section it validates.
+
+    A validator of a section is told its location, and raises a plain error at it; one
+    that checks what the section holds against itself names the key each problem is
+    at, so that the error says where in the file it is.
+
+    Attributes
+    ----------
+    problems: list
+        Tuples *(location, message)*, the location a tuple of keys below the section.
+    """
+
+    def __init__(self, problems):
+        """Initizalizer for the Problems Class."""
+        self.problems = list(problems)
+        super().__init__("; ".join(i_message for _, i_message in self.problems))
+
+
 class ConfigModel(pydantic.BaseModel):
     """
     Class for a section of the input file.
@@ -106,7 +126,7 @@ def named(value):
     # other key has a default is most often written
 
 
-def file_path(loc, data):
+def file_path(loc, data, missing=False):
     """
     Give the path in the file of what a validation error is about.
 
@@ -117,6 +137,10 @@ def file_path(loc, data):
 
     data: object
         What the file holds.
+
+    missing: bool
+        Whether the error is about a key the file does not give, which is then the
+        last part of the location.
 
     Returns
     -------
@@ -141,18 +165,18 @@ def file_path(loc, data):
             node = node[key]
         elif i_part == "[key]":
             path.append("(the key)")
-        elif last:
+        elif last and missing:
             path.append(str(i_part))
     # A part that leads nowhere in the file is the tag of a union, or a member of one,
-    # which pydantic puts in its location and the file does not show; the last part
-    # of a missing key is the one part that is not in the file and still belongs
+    # which pydantic puts in its location and the file does not show; a missing key is
+    # the one part that is not in the file and still belongs
 
     return ".".join(path) if path else "(the file)"
 
 
-def problem(error, data):
+def problem_lines(error, data):
     """
-    Put one validation error in a line naming where in the file it is.
+    Put one validation error in lines naming where in the file each problem is.
 
     Parameters
     ----------
@@ -164,19 +188,40 @@ def problem(error, data):
 
     Returns
     -------
-    str
-        The line.
+    list(str)
+        The lines, one for each problem: a validator that raised `.Problems` found
+        several.
     """
-    message = {"missing": MISSING_MESSAGE, "extra_forbidden": EXTRA_MESSAGE}.get(
-        error["type"], error["msg"]
-    )
-    line = "{0}: {1}".format(file_path(error["loc"], data), message)
-    if error["type"] not in ("missing", "extra_forbidden") and "input" in error:
-        line += " (given {0!r})".format(error["input"])
-    # The value is left out of a missing key, which has none, and of a section, which
-    # pydantic would give whole
+    raised = error.get("ctx", {}).get("error")
+    if isinstance(raised, Problems):
+        return [
+            "{0}: {1}".format(file_path(tuple(error["loc"]) + i_loc, data), i_message)
+            for i_loc, i_message in raised.problems
+        ]
+    if isinstance(raised, ValueError):
+        return ["{0}: {1}".format(file_path(error["loc"], data), raised)]
+    # Raised by a validator of the package, whose message is written for the file, and
+    # not prefixed with pydantic's "Value error"
 
-    return line
+    messages = {
+        "missing": MISSING_MESSAGE,
+        "extra_forbidden": EXTRA_MESSAGE,
+        "union_tag_not_found": "gives no {0}, which says what it is".format(
+            error.get("ctx", {}).get("discriminator", "")
+        ),
+    }
+    message = messages.get(error["type"], error["msg"])
+    line = "{0}: {1}".format(
+        file_path(error["loc"], data, missing=error["type"] == "missing"), message
+    )
+    if error["type"] in messages or error["type"] == "union_tag_invalid":
+        return [line]
+    # The value is left out of a missing key, which has none, and of a section, which
+    # pydantic would give whole, when the message names what is wrong with it
+    if "input" in error:
+        line += " (given {0!r})".format(error["input"])
+
+    return [line]
 
 
 def read_model(model, data, source="The input file"):
@@ -207,7 +252,13 @@ def read_model(model, data, source="The input file"):
     try:
         return model.model_validate(data)
     except pydantic.ValidationError as error:
-        problems = sorted({problem(i_error, data) for i_error in error.errors()})
+        problems = sorted(
+            {
+                j_line
+                for i_error in error.errors()
+                for j_line in problem_lines(i_error, data)
+            }
+        )
         raise ConfigError(
             "{0} has {1} problem{2}:\n{3}".format(
                 source,
