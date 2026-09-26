@@ -8,6 +8,7 @@ import warnings
 from unittest.mock import Mock, patch
 
 import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 
 from geommicgen._optional import has_gmsh
@@ -235,6 +236,30 @@ class TestColourMap(PostProcTest):
             )
         self.assertEqual(failures, [])
         # matplotlib.cm.get_cmap is deprecated since matplotlib 3.7, and goes in 3.11
+
+
+class TestFiguresAreClosed(PostProcTest):
+    """Test class for the figures the analyses draw, once they are written."""
+
+    def test_no_figure_is_left_open(self):
+        plt.close("all")
+        _, failures = run_analyses(
+            disk_microstructure(),
+            None,
+            self.sample_dir,
+            {
+                "final_config": True,
+                "voronoi_analysis": True,
+                "plot_voronoi": True,
+                "plot_imts": True,
+                "stat_nearest_neighbor": True,
+            },
+        )
+        self.assertEqual(failures, [])
+        self.assertEqual(plt.get_fignums(), [])
+        # pyplot keeps a figure until it is closed, so a figure left open is kept for
+        # the rest of the run: the final configuration and the Voronoi plots left
+        # nine for every sample
 
 
 class TestFailingAnalysis(PostProcTest):

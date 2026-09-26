@@ -238,10 +238,11 @@ def plot_particles(particles, rve_dims, sample_dir, **kwargs):
 def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
     """Plot 2D particles."""
     if "ax" in kwargs:
+        figure = None
         ax = kwargs["ax"]
         plt.sca(ax)
     else:
-        _ = plt.figure()
+        figure = plt.figure()
         ax = plt.gca()
     # Axes where the plot will be drawn
 
@@ -282,6 +283,10 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
 
     if kwargs.get("show", False):
         plt.show()
+    if figure is not None:
+        plt.close(figure)
+    # A figure drawn here is closed once it is written, where it was kept to the end of
+    # the run; one the caller handed axes of is the caller's
 
 
 VIEW_ELEMENTS = {2: "tri3", 3: "tetra4"}
@@ -1082,6 +1087,9 @@ def plot_voronoi_2d(
 
     if show:
         plt.show()
+    plt.close(fig)
+    # Closed once it is written, as every other plot is: pyplot keeps a figure until it
+    # is, so each sample left this one open to the end of the run
 
 
 def set_voronoi_plot_2d(vor, ax=None, **kw):
@@ -1323,6 +1331,9 @@ def plot_voronoi_2d_with_imts(
 
         if show:
             plt.show()
+        plt.close(fig)
+        # Closed as the histograms below are, where each sample left seven figures
+        # open to the end of the run
 
     for i_order in range(7):
 
