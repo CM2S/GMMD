@@ -191,12 +191,15 @@
 #        length             float     Length
 #        azimuth_angle      float     Azimuthal angle of the axis
 #        polar_angle        float     Polar angle of the axis
+#        ratio              float     Ratio between the length and the radius
 #        n                  integer   Number of particles
 #        vf                 float     Volume fraction (decimal)
 #        -------------------------------------------------------------------------
 #        Choose one of the sets below; both angles are always among them.
 #          - r_cyl, length, azimuth_angle, polar_angle, n
 #          - r_cyl, length, azimuth_angle, polar_angle, vf
+#          - r_cyl, ratio, azimuth_angle, polar_angle, n
+#          - length, ratio, azimuth_angle, polar_angle, vf
 #          - length, azimuth_angle, polar_angle, n, vf
 #        ================== ========= ============================================
 #

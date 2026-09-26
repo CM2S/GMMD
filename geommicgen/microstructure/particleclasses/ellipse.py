@@ -71,11 +71,6 @@ class Ellipse(Particle):
                 "float",
             ),
             "angle": ("Angle", lambda angle, rve_dims: True, "float"),
-            "eccentricity": (
-                "Eccentricity",
-                lambda eccentricity, rve_dims: eccentricity >= 0,
-                "float",
-            ),
             "ratio": ("Ratio a/b", lambda ratio, rve_dims: ratio >= 1, "float"),
         },
         **Particle.possible_parameters,

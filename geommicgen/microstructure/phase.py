@@ -29,6 +29,41 @@ MAX_PARTICLES = 100000
 # the loop, so a description whose particles came out far smaller than the fraction
 # asked for built particles until the memory ran out
 
+PHASE_KEYS = ("phase_type", "inner_phase", "outer_phase")
+# Keys of a phase in the input data file that say what it is rather than describe its
+# particles
+
+
+def gives_parameter(key, parameter):
+    """
+    Say whether a key of the input data file gives a parameter or its distribution.
+
+    Parameters
+    ----------
+    key: str
+        Key of a phase in the input data file.
+
+    parameter: str
+        Name of a parameter of the particles of the phase.
+
+    Returns
+    -------
+    bool
+        True for the parameter itself, and for the parameter followed by the name of
+        a distribution's field, such as r_mean for r.
+    """
+    if key == parameter:
+        return True
+    fields = {"distribution"}.union(
+        *(i_class.parameters for i_class in PhaseDescriptor.__subclasses__())
+    )
+
+    return key.startswith(parameter + "_") and key[len(parameter) + 1:] in fields
+    # A key was taken to give every parameter it began with, so ratio_321 gave the
+    # ratio_32 of an ellipsoid as well, and a description by it was refused as one of
+    # both; and a key that gave no parameter was ignored, so a misspelt one went
+    # unnoticed
+
 
 class Phase:
     """
@@ -104,14 +139,21 @@ class Phase:
         if self.inner_phase:
             self.outer_phase = phase_descriptors["outer_phase"]
         # Type of the phase
+        for i_key in phase_descriptors:
+            if i_key not in PHASE_KEYS and not any(
+                gives_parameter(i_key, j_parameter)
+                for j_parameter in self.type.possible_parameters
+            ):
+                raise ValueError(
+                    "Phase {0} gives {1}, which describes no parameter of a "
+                    "{2}.".format(name, i_key, self.type.__name__)
+                )
         self.descriptors = {
             possible_descriptor: None
             for possible_descriptor in self.type.possible_parameters
             if any(
-                [
-                    descriptor.startswith(possible_descriptor)
-                    for descriptor in phase_descriptors.keys()
-                ]
+                gives_parameter(descriptor, possible_descriptor)
+                for descriptor in phase_descriptors
             )
         }
         self.type.check_acceptable_description(set(self.descriptors.keys()))
