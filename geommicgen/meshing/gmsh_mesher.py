@@ -182,6 +182,9 @@ PBC_PLANE_TOLERANCE = 1.0e-6
 # tolerance along the faces let in the cap a particle crossing a face by less than 1e-3
 # leaves beside the opposite one, whose curved side was paired with the flat face of
 # the cut and collapsed onto it, into cells of no area
+# TODO: a cap thinner than this and thicker than what OpenCASCADE merges, from 1e-7 to
+# 1e-6 of the model, is still paired so; a particle crosses a face by that little
+# about once in a million times
 
 
 @contextlib.contextmanager
@@ -828,6 +831,12 @@ class GmshMesher(Mesher):
         # the matrix. Reading it off the map rather than off the position of the
         # entities in the result is what makes this independent of the order gmsh
         # happens to return them in, which is not the order the tools were given in
+        # TODO: with particles that overlap, the map has been seen to name among the
+        # fragments of a particle one of a neighbour it does not touch: in a random set
+        # of ellipsoids, one of which overlapped three others, and never in a set with
+        # no overlaps. Across two phases such a fragment takes the wrong one, which the
+        # check of the volumes sees only past a per cent of the phase. Telling the
+        # phase of each fragment by a point inside it would not rely on the map
 
         materials = {i_name: [] for i_name in microstructure.phases}
         for i_fragment, i_name in phase_of_fragment.items():

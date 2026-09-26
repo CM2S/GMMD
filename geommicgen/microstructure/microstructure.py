@@ -228,12 +228,14 @@ class Microstructure:
         # TODO: the cell list is built anew on every call, and the `cells_around` of
         # every cell with it, although the particles have not moved between the calls:
         # the two point correlation function asks 401 times over one microstructure and
-        # spends a third of its time on the rebuilds. The index belongs to the
-        # microstructure, held until the particles move, or to a grid of its own that
-        # `CellList` and this both read -- which would also give the analyses a point
-        # index that does not carry the force computation machinery of a speed up
-        # scheme, and let `cells_around` be worked out once per grid rather than once
-        # per instance
+        # spends from a third to four fifths of its time on the rebuilds, the more the
+        # smaller the particles and so the cells, of which there are more to work the
+        # neighbours of: four fifths with 625 cells, for 200 disks of radius 0.02. The
+        # index belongs to the microstructure, held until the particles move, or to a
+        # grid of its own that `CellList` and this both read -- which would also give
+        # the analyses a point index that does not carry the force computation
+        # machinery of a speed up scheme, and let `cells_around` be worked out once per
+        # grid rather than once per instance
         positions = np.asarray(pts, dtype=float)
         positions = positions - box * np.floor(positions / box)
         cells = cell_list.cells_of(positions)
