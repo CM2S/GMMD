@@ -30,6 +30,27 @@ class TestParticlesForAVolumeFraction(unittest.TestCase):
         # description asking for far more built particles until the memory ran out
 
 
+class TestSpecifiedValues(unittest.TestCase):
+    """Test class for a descriptor given particle by particle."""
+
+    def test_a_phase_that_runs_out_of_them_is_refused(self):
+        phase = Phase(
+            "1",
+            {
+                "phase_type": 2,
+                "r_distribution": "specified",
+                "r": np.array([0.1, 0.1]),
+                "vf": 0.5,
+            },
+        )
+        with self.assertRaisesRegex(
+            ValueError, "r is specified for 2 particles, one value each, and 3 are"
+        ):
+            phase.generate_particles([1.0, 1.0])
+        # Two disks fill less than the fraction; the third went past the values, as
+        # an array index out of bounds
+
+
 class PhaseInit(unittest.TestCase):
     from geommicgen.microstructure.particleclasses import Matrix, Disk
     from geommicgen.microstructure.phase import (

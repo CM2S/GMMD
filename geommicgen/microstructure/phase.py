@@ -443,7 +443,34 @@ class SpecifiedValue(PhaseDescriptor):
         super().__init__(name)
 
     def generate_sample(self, n_samples=1):
-        """Return the specified value of the descriptor."""
+        """
+        Return the specified values of the next particles.
+
+        Parameters
+        ----------
+        n_samples: int
+            Number of particles.
+
+        Returns
+        -------
+        object
+            The value of the next particle, or an array of the values of the next
+            *n_samples* of them.
+
+        Raises
+        ------
+        ValueError:
+            If fewer values are left than particles asked for.
+        """
+        if self.current_val + n_samples > len(self.array_vals):
+            raise ValueError(
+                "{0} is specified for {1} particles, one value each, and {2} are "
+                "drawn.".format(
+                    self.name, len(self.array_vals), self.current_val + n_samples
+                )
+            )
+        # Beyond the values given, an array index was out of bounds, which said nothing
+        # of the description
         val = self.array_vals[self.current_val : self.current_val + n_samples]
         self.current_val += n_samples
         return val if len(val) > 1 else val[0]
