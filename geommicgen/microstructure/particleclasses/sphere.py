@@ -193,7 +193,8 @@ class Sphere(Ellipsoid):
     @property
     def volume(self):
         """Volume of the sphere."""
-        volume = 4 * np.pi / 3 * (self.radius + self.delta) ** 3
+        volume = 4 * np.pi / 3 * self.radius**3
+        # The radius holds the dilation already, and it was added a second time
 
         return volume
 

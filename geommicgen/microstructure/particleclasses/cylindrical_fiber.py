@@ -91,7 +91,8 @@ class CylindricalFiber(Disk):
     @property
     def volume(self):
         """Volume of the cylindrical fiber."""
-        volume = np.pi * (self.radius + self.delta) ** 2 * self.length_dir_fibers
+        volume = np.pi * self.radius**2 * self.length_dir_fibers
+        # The radius holds the dilation already, and it was added a second time
 
         return volume
 

@@ -247,7 +247,10 @@ class Disk(Ellipse):
     @property
     def volume(self):
         """Volume/area of the disk."""
-        volume = np.pi * (self.radius + self.delta) ** 2
+        volume = np.pi * self.radius**2
+        # The radius holds the dilation already; it was added a second time, so a
+        # dilated disk weighed, and filled the virtual volume fraction, as one dilated
+        # by twice as much
 
         return volume
 

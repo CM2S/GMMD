@@ -752,6 +752,20 @@ class TestScaleInvariance(unittest.TestCase):
         # the same deck in micrometres in boxes of sides 1.95 and 1.05, whose dynamics
         # differ, and gave two microstructures
 
+    def test_the_virtual_volume_fraction_is_given_in_the_users_units(self):
+        rve_dims, phase = SCALE_FREE_PHASES["disks"]
+        scale = 2.0**-10
+        with patch(
+            "geommicgen.iofuncs.printing.print_virtual_total_volume_fraction"
+        ) as printed:
+            self.generate(rve_dims, phase, scale)
+        real_vf, virtual_vf, min_distance = printed.call_args[0]
+        self.assertAlmostEqual(real_vf, 14 * np.pi * 0.1**2 / 2, places=12)
+        self.assertAlmostEqual(virtual_vf, 14 * np.pi * 0.105**2 / 2, places=12)
+        self.assertEqual(min_distance, 0.01 * scale)
+        # Taken once the particles had been normalised, it divided their volumes in the
+        # box by the volume of the RVE in the user's units
+
     def test_an_error_that_stops_the_run_is_the_one_raised(self):
         rve_dims, phase = SCALE_FREE_PHASES["disks"]
         with patch.object(

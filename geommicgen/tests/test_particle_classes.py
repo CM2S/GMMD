@@ -128,6 +128,24 @@ class TestRescale(unittest.TestCase):
         # the length along the fibres by the fibre, so a simulation normalising its box
         # kept the gap in the user's units, and weighed a fibre with a length in them
 
+    def test_a_dilated_particle_has_the_volume_of_its_dilated_shape(self):
+        rve_2d, rve_3d = [1.0, 1.0], [1.0, 1.0, 1.0]
+        for i_particle, i_volume in (
+            (Disk("1", {"r": 0.1}, rve_2d), np.pi * 0.11**2),
+            (Sphere("1", {"r": 0.1}, rve_3d), 4 / 3 * np.pi * 0.11**3),
+            (
+                CylindricalFiber("1", {"r": 0.1, "direction": 2}, rve_3d),
+                np.pi * 0.11**2,
+            ),
+        ):
+            with self.subTest(particle=type(i_particle).__name__):
+                i_particle.dilate(0.01)
+                self.assertAlmostEqual(i_particle.volume, i_volume, places=15)
+        # The radius holds the dilation, and the volume added it a second time: the
+        # virtual volume fraction a minimum distance gives was overstated, and so was
+        # the mass of a particle weighed by its volume while it was dilated. The fibre
+        # is as long as the RVE
+
     def test_an_ellipsoid_from_its_second_axis_has_one_shape_in_any_units(self):
         for i_scale in (2.0**-10, 1.0, 8.0):
             with self.subTest(scale=i_scale):
