@@ -289,8 +289,17 @@ def run_analyses(microstructure, state, sample_dir, options):
                 )
             # The analysis plots the paths when it is given them, so a run that kept
             # no positions is simply not given any
+            moved = [
+                j_particle
+                for i_phase in microstructure.phases.values()
+                if not i_phase.inner_phase
+                for j_particle in i_phase.particles
+            ]
+            # The paths are those of the particles the simulation moved, in the order
+            # it recorded them. The particles of a phase inside another are placed
+            # once the simulation is over, and have none
             motion_analysis.do_motion_analysis(
-                microstructure.particles,
+                moved,
                 microstructure.rve_dims,
                 sample_dir,
                 **histories

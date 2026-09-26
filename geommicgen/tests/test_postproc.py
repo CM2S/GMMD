@@ -23,6 +23,7 @@ from geommicgen.micgenmethod.thermostats import (
     MultiTemperatureIsokineticThermostat,
 )
 from geommicgen.microstructure.particleclasses import Disk
+from geommicgen.microstructure.phase import Phase
 from geommicgen.pipeline import MESH_DIRECTORY, MeshJob
 from geommicgen.postproc.plotfuncs.plotting_functions import (
     colors_of_phases,
@@ -448,6 +449,30 @@ class TestMotionAnalysisWithPaths(PostProcTest):
         self.assertTrue(os.listdir(paths))
         # The history ends where the particles are, as a run's does; the fixture's own
         # positions would put two overlapping disks at the origin
+
+    def test_a_phase_inside_another_has_no_paths(self):
+        microstructure = disk_microstructure()
+        inner = Disk("3", {"r": 0.05}, microstructure.rve_dims)
+        inner.position_center = microstructure.particles[0].position_center.copy()
+        microstructure.add_phase(
+            Phase.from_type("3", Disk, inner_phase=True, outer_phase="2")
+        )
+        microstructure.phases["3"].particles.append(inner)
+        run = a_generation_run()
+        run.position_center_history = [
+            [i_particle.position_center.copy()]
+            for i_particle in microstructure.phases["2"].particles
+        ]
+        state = load_md_state(save_md_state(self.sample_dir, run))
+        _, failures = run_analyses(
+            microstructure, state, self.sample_dir, {"motion_analysis": True}
+        )
+        self.assertEqual(failures, [])
+        self.assertTrue(
+            os.listdir(os.path.join(self.sample_dir, "motion_results", "paths"))
+        )
+        # The simulation recorded the paths of the particles it moved; those inside
+        # them are placed afterwards, and have none to be walked along
 
 
 @unittest.skipUnless(has_gmsh(), "gmsh is not installed")
