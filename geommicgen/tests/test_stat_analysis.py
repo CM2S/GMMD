@@ -21,6 +21,7 @@ from geommicgen.postproc.voronoimetrics.stat_analysis import (
     STAT_FILE_NAME,
     crosses_boundary,
     do_stat_analysis,
+    nearest_neighbor_dist,
     remove_particles_at_boundary,
     ripleys_k_edge_correction,
     ripleys_k_func,
@@ -332,6 +333,28 @@ class TestTwoPointCorrelationInAnyUnits(unittest.TestCase):
         # The points are the same points of the microstructure at every scale, and the
         # test of a sphere let in a point a length of 1e-3 outside it: at a millionth
         # of the unit most of the box was particle
+
+
+class TestNearestNeighborDist(unittest.TestCase):
+    """Test class for the distance from each particle to its nearest neighbour."""
+
+    def test_one_distance_per_particle_to_the_nearest_image(self):
+        particles = []
+        for i_center in ([0.05, 0.5], [0.95, 0.5], [0.5, 0.5], [0.5, 0.8]):
+            particle = Disk("2", {"r": 0.02}, RVE_DIMS)
+            particle.position_center = np.array(i_center)
+            particles.append(particle)
+        microstructure = build_microstructure(RVE_DIMS, Disk, particles)
+        for i_scale in (1.0, 2.0**-20):
+            with self.subTest(scale=i_scale):
+                np.testing.assert_allclose(
+                    nearest_neighbor_dist(microstructure.scaled(i_scale)),
+                    [5.0, 5.0, 15.0, 15.0],
+                )
+        # The first two are a tenth apart across a face, the last two three tenths
+        # apart inside, and a distance is given over the radius. The first particle
+        # used to find the third, the second was skipped, and the others were given
+        # their neighbours inside the cell: three values, the first of them 22.5
 
 
 class TestSeededDescriptors(unittest.TestCase):

@@ -505,28 +505,21 @@ def nearest_neighbor_dist(microstructure):
     # cell_list.new_list(microstructure.particles)
 
     radius = np.mean([i_particle.radius for i_particle in microstructure.particles])
+    centers = [i_particle.position_center for i_particle in microstructure.particles]
     nearest_neighbor_dist_vals = []
-    already_computed = []
     for i_particle_ind, i_particle in enumerate(microstructure.particles):
-        if i_particle_ind in already_computed:
-            continue
-        nearest_neighbor_dist_vals_i = []
-        for j_particle_ind, j_particle in enumerate(microstructure.particles):
-            if j_particle_ind == i_particle_ind:
-                continue
-            nearest_neighbor_dist_vals_i.append(
-                np.linalg.norm(i_particle.position_center - j_particle.position_center)
-            )
-        ind_min = np.argmin(nearest_neighbor_dist_vals_i)
-        nearest_neighbor_dist_vals.append(
-            nearest_neighbor_dist_vals_i[ind_min] / radius
+        distances = np.linalg.norm(
+            i_particle.nearest_periodic_images(centers, microstructure.rve_dims)
+            - i_particle.position_center,
+            axis=1,
         )
-        already_computed.append(ind_min)
-    # TODO: the skip list holds positions in the list of distances, from which the
-    # particle itself was left out, so from the particle's own index on it names the
-    # next particle, which is then skipped: fewer values come out than there are
-    # particles. The distances are also taken across the cell rather than to the
-    # nearest periodic image, so a particle near a face finds its neighbours inside only
+        distances[i_particle_ind] = np.inf
+        nearest_neighbor_dist_vals.append(np.min(distances) / radius)
+    # One distance for each particle, to the nearest periodic image of any other. The
+    # particle a neighbour was found for used to be skipped, by its place in a list the
+    # particle itself had been left out of, so another one was skipped and fewer values
+    # came out than there are particles; and the distances were taken across the cell,
+    # so a particle near a face found its neighbours inside only
 
     return nearest_neighbor_dist_vals
 
