@@ -210,17 +210,20 @@ class Microstructure:
         particles = self.particles
         cell_list = CellList()
         cell_list.box = box
-        cell_list.new_list(particles)
+        cell_list.max_radius = np.max([i_particle.radius for i_particle in particles])
+        centers = np.array(
+            [i_particle.position_center[:dim] for i_particle in particles], dtype=float
+        )
+        particle_cells = cell_list.cells_of(centers - box * np.floor(centers / box))
         # The cells are sized by the largest particle, so a point inside one lies in the
         # cell of its centre or in a neighbour of it: the guarantee the simulation relies
         # on for two particles overlapping, with a point in place of the second. The
         # points themselves are only looked up in the list; putting them in it, as used
-        # to be done, tested every point against every other point in its cell
-
-        # TODO: the particles are put in the cells of their centres as they are, and a
-        # centre outside the RVE, which a microstructure read from a file may have, is
-        # counted in the last cell along a direction, or wraps to a wrong one, so the
-        # points around it are not tested against it
+        # to be done, tested every point against every other point in its cell. The
+        # centres are wrapped into the RVE, as the points are. They were put in the
+        # cells as they were, so a centre outside the RVE, which a microstructure read
+        # from a file may have, was counted in the last cell along a direction, or in a
+        # wrong one, and the points around it were not tested against it
 
         # TODO: the cell list is built anew on every call, and the `cells_around` of
         # every cell with it, although the particles have not moved between the calls:
@@ -235,15 +238,14 @@ class Microstructure:
         positions = positions - box * np.floor(positions / box)
         cells = cell_list.cells_of(positions)
         order = np.argsort(cells, kind="stable")
-        starts = np.concatenate(
-            [[0], np.cumsum(np.bincount(cells, minlength=len(cell_list.cell_list)))]
-        )
+        n_cells = int(np.prod(cell_list.n_cell_dim))
+        starts = np.concatenate([[0], np.cumsum(np.bincount(cells, minlength=n_cells))])
         # The points in the order of the cell they fall in, and where the points of
         # each cell begin, since the cell of a particle is what says which points can
         # be inside it
 
         inside = np.zeros(len(positions), dtype=bool)
-        for i_particle, i_cell in zip(particles, cell_list.pos_cell_list):
+        for i_particle, i_cell in zip(particles, particle_cells):
             neighborhood = np.concatenate(
                 [
                     order[starts[j_cell]:starts[j_cell + 1]]

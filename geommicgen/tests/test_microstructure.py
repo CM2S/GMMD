@@ -7,7 +7,12 @@ from unittest.mock import sentinel, Mock, patch
 import numpy as np
 
 from geommicgen.microstructure.microstructure import Microstructure, unit_scale
-from geommicgen.tests.helpers import disk_microstructure, sphere_microstructure
+from geommicgen.microstructure.particleclasses import Disk
+from geommicgen.tests.helpers import (
+    build_microstructure,
+    disk_microstructure,
+    sphere_microstructure,
+)
 
 
 class TestMicrostructure(unittest.TestCase):
@@ -225,6 +230,18 @@ class TestInsideParticlePhase(unittest.TestCase):
     def test_three_dimensional(self):
         self.check(sphere_microstructure())
         # One of the spheres crosses two faces
+
+    def test_centres_outside_the_rve(self):
+        rve_dims = [1.0, 1.0]
+        particles = []
+        for i_center in ([1.3, 0.3], [-0.4, 0.6], [0.2, 0.8]):
+            particle = Disk("2", {"r": 0.05}, rve_dims)
+            particle.position_center = np.array(i_center)
+            particles.append(particle)
+        self.check(build_microstructure(rve_dims, Disk, particles))
+        # The first two lie a period away from the RVE, which is ten cells across. They
+        # were put in the last cell along the first direction and in the cell a row
+        # below theirs, so the points around them were not tested against them
 
 
 if __name__ == "__main__":
