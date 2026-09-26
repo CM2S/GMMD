@@ -29,6 +29,12 @@ class Thermostat(abc.ABC):
         Whether the kinetic energy has diverged from the thermic energy, which makes
         the simulation compute the intersections exactly. Only the multi temperature
         thermostat ever sets it.
+
+    temp_change_steps: list(int)
+        Steps at which the thermostat changed the temperature.
+
+    ratio: list(float)
+        History of the overlap ratio the thermostat lowers the temperature by.
     """
 
     k_b = 1e-15
@@ -36,6 +42,15 @@ class Thermostat(abc.ABC):
     kin_energy_div = False
     # What the simulation reads off any thermostat, so that one that does not set an
     # attribute has its default rather than none at all
+
+    def __init__(self):
+        """Initizalizer for the Thermostat Class."""
+        self.temp_change_steps = []
+        self.ratio = []
+        # What the motion analysis draws of any thermostat, empty for one that never
+        # changes the temperature. It read them off every thermostat, and a run whose
+        # thermostat had none failed its analysis, where the analysis of its saved
+        # state, which records them empty, did not
 
     def apply_thermostat(self, particle_velocities, kin_energy):
         """Apply the thermostat."""
@@ -46,6 +61,7 @@ class MicroCanonicalEnsemble(Thermostat):
 
     def __init__(self):
         """Initialize MicroCanonicalEnsemble class object. Do nothing."""
+        super().__init__()
         self.reference_temp = None
 
     def apply_thermostat(self, particle_velocities, kin_energy):
@@ -180,6 +196,7 @@ class BerendsenForceThermostat(Thermostat):
                     reference_temp
                 )
             )
+        super().__init__()
         self.reference_temp = reference_temp
         # Intial temperature
         self.k_b = 1e-15

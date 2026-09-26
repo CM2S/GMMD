@@ -15,6 +15,12 @@ from geommicgen.errors.error_classes import MissingOptionalDependency, ProcessDi
 from geommicgen.iofuncs.md_state import load_md_state, save_md_state
 from geommicgen.iofuncs.printing import log_to_terminal, screen_to
 from geommicgen.meshing.voxel_mesher import VoxelMesher
+from geommicgen.micgenmethod.thermostats import (
+    BerendsenForceThermostat,
+    IsokineticThermostat,
+    MicroCanonicalEnsemble,
+    MultiTemperatureIsokineticThermostat,
+)
 from geommicgen.microstructure.particleclasses import Disk
 from geommicgen.pipeline import MESH_DIRECTORY, MeshJob
 from geommicgen.postproc.plotfuncs.plotting_functions import (
@@ -112,6 +118,29 @@ class TestPostProc(PostProcTest):
         self.assertIsNone(job.time)
         self.assertFalse(self.written(MESH_DIRECTORY))
         # A request that cannot be honoured is found out at once, not after the meshing
+
+    def test_a_run_is_analysed_whatever_its_thermostat(self):
+        for i_thermostat in (
+            MicroCanonicalEnsemble(),
+            BerendsenForceThermostat(1.0, 0.01),
+            IsokineticThermostat(1.0),
+            MultiTemperatureIsokineticThermostat(
+                1.0, "original", min_eq_steps_at_temp=5
+            ),
+        ):
+            with self.subTest(type(i_thermostat).__name__):
+                run = a_generation_run()
+                run.position_center_history = None
+                run.set_thermostat(i_thermostat)
+                _, failures = run_analyses(
+                    disk_microstructure(),
+                    run,
+                    self.sample_dir,
+                    {"motion_analysis": True},
+                )
+                self.assertEqual(failures, [])
+        # A run hands the analyses the simulation itself, and the motion analysis read
+        # the changes of temperature off the thermostat of any of them
 
 
 class TestPlotsWithoutTeX(PostProcTest):
