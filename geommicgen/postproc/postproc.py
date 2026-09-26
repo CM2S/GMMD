@@ -252,6 +252,10 @@ def run_analyses(microstructure, state, sample_dir, options):
         If an analysis is asked for that cannot be carried out; see `check_analyses`.
     """
     check_analyses(microstructure, state, options)
+    packing = microstructure.packing()
+    # What the analyses of the arrangement of the particles describe: the particles the
+    # simulation packed, without those it placed inside them afterwards. The final
+    # configuration is a picture of the whole microstructure, and draws every particle
     os.makedirs(sample_dir, exist_ok=True)
     times = {}
     failures = []
@@ -289,21 +293,15 @@ def run_analyses(microstructure, state, sample_dir, options):
                 )
             # The analysis plots the paths when it is given them, so a run that kept
             # no positions is simply not given any
-            moved = [
-                j_particle
-                for i_phase in microstructure.phases.values()
-                if not i_phase.inner_phase
-                for j_particle in i_phase.particles
-            ]
-            # The paths are those of the particles the simulation moved, in the order
-            # it recorded them. The particles of a phase inside another are placed
-            # once the simulation is over, and have none
             motion_analysis.do_motion_analysis(
-                moved,
+                packing.particles,
                 microstructure.rve_dims,
                 sample_dir,
                 **histories
             )
+            # The paths are those of the particles the simulation moved, in the order
+            # it recorded them; the particles of an inner phase are placed once it is
+            # over, and have none
 
     # Voronoi analysis
     # --------------------------------------------------------------------------
@@ -315,8 +313,8 @@ def run_analyses(microstructure, state, sample_dir, options):
         }
         with announced(VORONOI_STEP, times, failures):
             voronoi_analysis.do_voronoi_analysis(
-                microstructure.particles,
-                microstructure.rve_dims,
+                packing.particles,
+                packing.rve_dims,
                 sample_dir,
                 **voronoi_kwargs
             )
@@ -329,7 +327,7 @@ def run_analyses(microstructure, state, sample_dir, options):
     if stat_options:
         with announced(STAT_STEP, times, failures):
             stat_analysis.do_stat_analysis(
-                microstructure, sample_dir, stat_options, seed=options.get("stat_seed")
+                packing, sample_dir, stat_options, seed=options.get("stat_seed")
             )
 
     return times, failures

@@ -202,6 +202,32 @@ class TestFromDescriptors(unittest.TestCase):
         # Each sample of a run is generated into a microstructure of its own
 
 
+class TestPacking(unittest.TestCase):
+    """Test class for the microstructure as the simulation packed it."""
+
+    def test_the_inner_phases_are_left_out_of_a_copy(self):
+        microstructure = Microstructure.from_descriptors(
+            [1.0, 1.0],
+            {
+                "0": {"phase_type": 1},
+                "1": {"phase_type": 2, "r": 0.2, "n": 2},
+                "2": {
+                    "phase_type": 2,
+                    "r": 0.05,
+                    "n": 2,
+                    "inner_phase": True,
+                    "outer_phase": "1",
+                },
+            },
+        )
+        packing = microstructure.packing()
+        self.assertEqual(list(packing.phases), ["0", "1"])
+        self.assertEqual(list(microstructure.phases), ["0", "1", "2"])
+        self.assertIs(packing.phases["1"], microstructure.phases["1"])
+        # The phases are shared, so the packing is the microstructure, less what was
+        # placed inside its particles
+
+
 class TestUnitScale(unittest.TestCase):
     """Test class for the factor a stage scales a microstructure by."""
 

@@ -74,6 +74,30 @@ def a_state(directory, positions=True):
     return load_md_state(save_md_state(directory, run))
 
 
+def with_a_disk_inside(microstructure):
+    """
+    Add a phase of one disk inside the first particle of a microstructure of disks.
+
+    Parameters
+    ----------
+    microstructure: `.Microstructure`
+        Microstructure whose phase of particles is named *2*.
+
+    Returns
+    -------
+    `.Microstructure`
+        The microstructure, with the inner phase named *3*.
+    """
+    inner = Disk("3", {"r": 0.05}, microstructure.rve_dims)
+    inner.position_center = microstructure.particles[0].position_center.copy()
+    microstructure.add_phase(
+        Phase.from_type("3", Disk, inner_phase=True, outer_phase="2")
+    )
+    microstructure.phases["3"].particles.append(inner)
+
+    return microstructure
+
+
 class PostProcTest(unittest.TestCase):
     """Base class for tests that post process into a directory of their own."""
 
@@ -122,6 +146,27 @@ class TestPostProc(PostProcTest):
         self.assertIsNone(job.time)
         self.assertFalse(self.written(MESH_DIRECTORY))
         # A request that cannot be honoured is found out at once, not after the meshing
+
+    def test_the_analyses_of_the_packing_leave_out_the_inner_phases(self):
+        _, failures = run_analyses(
+            with_a_disk_inside(disk_microstructure()),
+            None,
+            self.sample_dir,
+            {
+                "voronoi_analysis": True,
+                "voronoi_type": "set",
+                "n_surf_points": 5,
+                "stat_nearest_neighbor": True,
+            },
+        )
+        self.assertEqual(failures, [])
+        with np.load(
+            os.path.join(self.sample_dir, "stat_analysis_results", "stat_results.npz")
+        ) as results:
+            self.assertEqual(len(results["stat_nearest_neighbor"]), 2)
+        # The disk inside the first is left out: its centre was the nearest neighbour
+        # of that one, at no distance, and the set Voronoi diagram, which has no place
+        # for a cell inside another, failed to order the vertices of their cells
 
     def test_a_run_is_analysed_whatever_its_thermostat(self):
         for i_thermostat in (
@@ -451,13 +496,7 @@ class TestMotionAnalysisWithPaths(PostProcTest):
         # positions would put two overlapping disks at the origin
 
     def test_a_phase_inside_another_has_no_paths(self):
-        microstructure = disk_microstructure()
-        inner = Disk("3", {"r": 0.05}, microstructure.rve_dims)
-        inner.position_center = microstructure.particles[0].position_center.copy()
-        microstructure.add_phase(
-            Phase.from_type("3", Disk, inner_phase=True, outer_phase="2")
-        )
-        microstructure.phases["3"].particles.append(inner)
+        microstructure = with_a_disk_inside(disk_microstructure())
         run = a_generation_run()
         run.position_center_history = [
             [i_particle.position_center.copy()]

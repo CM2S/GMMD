@@ -266,6 +266,31 @@ class Microstructure:
 
         return inside.astype(int).tolist()
 
+    def packing(self) -> "Microstructure":
+        """
+        Give the microstructure as the simulation packed it, without the inner phases.
+
+        The particles of a phase inside another are placed within the particles of
+        that one once the packing is done, and are not part of the arrangement the
+        analyses of a packing describe: a centre inside another particle is a nearest
+        neighbour at next to no distance, and the cell of a Voronoi diagram of a
+        particle inside another has no place between them.
+
+        Returns
+        -------
+        `.Microstructure`
+            A copy holding the phases of this one, less those inside another; the
+            phases themselves are not copied.
+        """
+        packing = copy.copy(self)
+        packing.phases = {
+            i_name: i_phase
+            for i_name, i_phase in self.phases.items()
+            if not i_phase.inner_phase
+        }
+
+        return packing
+
     @property
     def particles(self):
         """Particles in the microstructure."""
