@@ -12,9 +12,6 @@ import numpy as np
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 import geommicgen.microstructure.particleclasses as part_cls
-from geommicgen.meshing.mesher import available_meshers, get_mesher
-from geommicgen.postproc.options import ANALYSIS_OPTIONS
-from geommicgen.translators import writer_options
 import geommicgen.microstructure.phase as phase
 
 
@@ -531,29 +528,46 @@ LEGACY_MESHERS = {"femsh": "gmsh", "rgmsh": "voxel"}
 # The names the meshers were asked for by before they were asked for by their own, which
 # a deck written then still gives
 
-JOB_KEYWORDS = {Keyword("File_Name", type_str="str")}
-# The options of a discretisation that belong to neither what discretises it nor the
-# formats it is written in, but to the files as such
+MESHER_KEYWORDS = {
+    "gmsh": {
+        "Mesh_Size": "float",
+        "Elements_Per_Particle": "float",
+        "Element_Type": "str",
+    },
+    "voxel": {"N_Voxels_Dims": "int_list"},
+}
+# The options of each mesher a deck gives, by keyword and the type it is read as
 
+DISCRETISATION_KEYWORDS = {
+    "Formats": "str_list",
+    "File_Name": "str",
+    "Periodic_Constraints": "bool",
+    "Gauss_Points": "int",
+    "Boundary_Type": "str",
+}
+# The options of a discretisation that belong to the formats it is written in and to its
+# files, which a deck gives under either mesher
 
-def format_keywords():
-    """Keywords for the options the formats declare, and for the formats themselves."""
-    return {Keyword("Formats", type_str="str_list")} | {
-        Keyword(i_name, type_str=i_description["type"])
-        for i_name, i_description in writer_options().items()
-    }
-    # The options of a discretisation that belong to the formats it is written in,
-    # rather than to what discretises it. The ones a format declares are read here
-    # without this module knowing which format declared them, so writing a new one
-    # that takes an option is a change to that writer alone
+ANALYSIS_KEYWORDS = {
+    "final_config": ("bool", False),
+    "motion_analysis": ("bool", False),
+    "voronoi_analysis": ("bool", False),
+    "voronoi_type": ("str", "standard"),
+    "n_surf_points": ("int", 10),
+    "plot_voronoi": ("bool", False),
+    "plot_imts": ("bool", False),
+    "stat_nearest_neighbor": ("bool", False),
+    "stat_ripleys_k": ("bool", False),
+    "stat_two_pt_corr": ("bool", False),
+    "stat_seed": ("int", None),
+}
+# The analyses a deck asks for, by keyword, with the type each is read as and the value
+# it has when the deck does not give it
 
-
-def mesher_keywords(mesher_name):
-    """Keywords for the options a mesher declares, as the formats declare theirs."""
-    return {
-        Keyword(i_name, type_str=i_description["type"])
-        for i_name, i_description in get_mesher(mesher_name).options.items()
-    }
+# The keywords of the meshes and the analyses as they were when the input file replaced
+# the format, which is all a deck can give. They were built from what the meshers, the
+# formats and the analyses declare; an option one of them declares later is given in an
+# input file, and the reader of decks does not follow it
 
 
 def build_reader():
@@ -729,17 +743,11 @@ def build_reader():
     top_level_reader.add_top_level_keyword(
         *(
             KeywordTypeA(
-                i_name,
-                "post_proc",
-                default_value=i_description["default"],
-                type_str=i_description["type"],
+                i_name, "post_proc", default_value=i_default, type_str=i_type
             )
-            for i_name, i_description in ANALYSIS_OPTIONS.items()
+            for i_name, (i_type, i_default) in ANALYSIS_KEYWORDS.items()
         )
     )
-    # One keyword per analysis option, from the declaration the analysis command is
-    # built from as well, so that a deck and the command ask for an analysis the same
-    # way
 
     # General keywords
     # ----------------------------------------------------------------------------------
@@ -768,24 +776,26 @@ def build_reader():
 
     # Mesh generation parameters
     # ----------------------------------------------------------------------------------
-    formats = format_keywords()
+    discretisation = {
+        Keyword(i_name, type_str=i_type)
+        for i_name, i_type in DISCRETISATION_KEYWORDS.items()
+    }
+    sub_keys = {
+        i_mesher: discretisation
+        | {Keyword(j_name, type_str=j_type) for j_name, j_type in i_options.items()}
+        for i_mesher, i_options in MESHER_KEYWORDS.items()
+    }
     top_level_reader.add_top_level_keyword(
         KeywordTypeC(
             "Mesh_Options",
-            header_keys={
-                Keyword(i_name, type_str="none") for i_name in available_meshers()
-            },
-            sub_keys={
-                i_name: mesher_keywords(i_name) | formats | JOB_KEYWORDS
-                for i_name in available_meshers()
-            },
+            header_keys={Keyword(i_name, type_str="none") for i_name in sub_keys},
+            sub_keys=sub_keys,
             renamed_headers=LEGACY_MESHERS,
         )
     )
-    # One header per registered mesher, under its own name, each reading the options
-    # that mesher declares: a mesher that is registered is asked for here without this
-    # module naming it, as a format is. A mesher given under its old name is read under
-    # its own
+    # One header per mesher, under its own name, each reading the options of that
+    # mesher. The finite element mesh used to be asked for as femsh and the grid as
+    # rgmsh, which a deck written then is still read with
 
     return top_level_reader
 

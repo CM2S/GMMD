@@ -12,13 +12,10 @@ import unittest
 
 from geommicgen.iofuncs.legacy_deck import (
     LEGACY_MESHERS,
+    MESHER_KEYWORDS,
     build_reader,
-    format_keywords,
-    mesher_keywords,
     read_legacy_deck,
 )
-from geommicgen.meshing.mesher import available_meshers, get_mesher
-from geommicgen.translators import writer_options
 
 
 class MeshOptionsTest(unittest.TestCase):
@@ -68,21 +65,10 @@ class MeshOptionsTest(unittest.TestCase):
         # Slice_Dir decided whether the grid of a three dimensional microstructure was
         # written at all; the grid is now always written, and the keyword is gone
 
-    def test_the_meshers_options_come_from_the_meshers(self):
+    def test_a_mesher_is_read_under_its_name(self):
         mesh_options = build_reader().all_keywords["Mesh_Options"]
         headers = {i_keyword.name for i_keyword in mesh_options.header_keys}
-        self.assertEqual(headers, set(available_meshers()) | set(LEGACY_MESHERS))
-        for i_name in available_meshers():
-            declared = set(get_mesher(i_name).options)
-            read_here = {i_keyword.name for i_keyword in mesher_keywords(i_name)}
-            sub_keys = mesh_options.sub_keys[i_name]
-            read_under = {i_keyword.name for i_keyword in sub_keys}
-
-            self.assertTrue(declared)
-            self.assertEqual(declared, read_here)
-            self.assertTrue(declared <= read_under)
-        # A deck names a mesher under the mesher's own name, and whatever the mesher
-        # declares is read under it, without this module naming either
+        self.assertEqual(headers, set(MESHER_KEYWORDS) | set(LEGACY_MESHERS))
 
     def test_an_option_of_a_format_is_read_under_either(self):
         options = self.read(
@@ -94,15 +80,6 @@ class MeshOptionsTest(unittest.TestCase):
         self.assertEqual(options["voxel"]["gauss_points"], 4)
         # A grid is written to a solver as readily as a mesh is, so what belongs to the
         # format is read under both
-
-    def test_the_formats_options_come_from_the_formats(self):
-        declared = set(writer_options())
-        read_here = {i_keyword.name for i_keyword in format_keywords()}
-
-        self.assertTrue(declared)
-        self.assertTrue(declared <= read_here)
-        # Whatever a writer declares is read from the input data file without this
-        # module naming it
 
     def test_a_mesher_is_read_under_the_name_it_had(self):
         options = self.read(
@@ -125,7 +102,7 @@ class MeshOptionsTest(unittest.TestCase):
 
         self.assertIn("Line 3", str(context.exception))
         self.assertIn("nosuchmesher", str(context.exception))
-        self.assertIn(", ".join(available_meshers()), str(context.exception))
+        self.assertIn(", ".join(sorted(MESHER_KEYWORDS)), str(context.exception))
         # It used to end the block, and be reported as a line with no keyword
 
     def test_an_option_that_does_not_exist_is_named_with_the_line(self):

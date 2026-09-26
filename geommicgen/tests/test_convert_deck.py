@@ -7,13 +7,22 @@ import os
 import re
 import tempfile
 import textwrap
+import typing
 import unittest
 
+from geommicgen.config.analyses import AnalysesConfig
 from geommicgen.config.base import ConfigError, write_config
 from geommicgen.config.generation import thermostat_defaults
+from geommicgen.config.meshes import MeshesConfig
 from geommicgen.config.run import read_config
 from geommicgen.iofuncs.convert_deck import convert_deck, convert_deck_command
-from geommicgen.iofuncs.legacy_deck import build_reader, read_legacy_deck
+from geommicgen.iofuncs.legacy_deck import (
+    ANALYSIS_KEYWORDS,
+    DISCRETISATION_KEYWORDS,
+    MESHER_KEYWORDS,
+    build_reader,
+    read_legacy_deck,
+)
 from geommicgen.tests.test__main__ import SEEDED_DECK
 from geommicgen.tests.test_config import DECK_FIXTURES, assert_same_options
 
@@ -318,6 +327,26 @@ class TestEquivalence(DeckTest):
 
 class TestConversion(DeckTest):
     """Test class for what the conversion leaves out and refuses."""
+
+    def test_the_meshes_and_the_analyses_of_a_deck_are_keys_of_the_input_file(self):
+        for i_mesher, i_keywords in MESHER_KEYWORDS.items():
+            with self.subTest(i_mesher):
+                field = MeshesConfig.model_fields[i_mesher]
+                model = typing.get_args(field.annotation)[0]
+                keywords = {**i_keywords, **DISCRETISATION_KEYWORDS}
+                self.assertLessEqual(
+                    {i_name.lower() for i_name in keywords}, set(model.model_fields)
+                )
+        self.assertEqual(
+            {i_name: i_default for i_name, (_, i_default) in ANALYSIS_KEYWORDS.items()},
+            {
+                i_name: i_field.default
+                for i_name, i_field in AnalysesConfig.model_fields.items()
+            },
+        )
+        # The keywords a deck gives are frozen as they were when the input file replaced
+        # the format; each is converted into the key of its name, which the input file
+        # has to go on taking, at the same default
 
     def test_what_nothing_read_is_left_out_and_said(self):
         _, _, notes = convert_deck(self.write(KITCHEN_SINK_2D))
