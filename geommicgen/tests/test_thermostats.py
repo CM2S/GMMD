@@ -45,6 +45,14 @@ class TestThermostatFromOptions(unittest.TestCase):
                 thermostat = thermostat_from_options(dict(options, thermostat=i_name))
                 self.assertIsInstance(thermostat, i_class)
 
+    def test_the_berendsen_thermostat_needs_a_temperature(self):
+        with self.assertRaisesRegex(ValueError, "Initial_Temp"):
+            thermostat_from_options(
+                {"thermostat": "berendsen", "initial_temp": None, "berendsen_coeff": 1e-2}
+            )
+        # A deck that leaves the temperature out gives it as None, which stopped on a
+        # TypeError
+
     def test_the_multi_temperature_thermostat_is_the_default(self):
         thermostat = thermostat_from_options(
             {"initial_temp": 1e5, "max_ratio_osc": 2, "temp_low_ratio": 1 / 4}

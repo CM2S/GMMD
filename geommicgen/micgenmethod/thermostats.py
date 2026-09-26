@@ -168,6 +168,12 @@ class BerendsenForceThermostat(Thermostat):
         berendsen_coeff: float
             Coefficient regulating the force coefficient
         """
+        if reference_temp is None:
+            raise ValueError(
+                "The Berendsen thermostat needs the temperature it keeps, Initial_Temp."
+            )
+        # Compared with zero below, which stopped on a TypeError for a deck that left
+        # it out, since the reader gives it as None by default
         if reference_temp < 0:
             raise ValueError(
                 "The reference temperature cannot be negative: Given value is {0}".format(
