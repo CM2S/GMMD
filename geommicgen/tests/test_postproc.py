@@ -277,6 +277,35 @@ class TestPhaseColours(unittest.TestCase):
         # In the order of the names, as numbers; the order of a set of them changes
         # from one run to the next, and each phase came out in another colour
 
+    def test_every_phase_has_a_colour_of_its_own(self):
+        for i_phases in (1, 7, 8, 20):
+            with self.subTest(phases=i_phases):
+                colours = colors_of_phases(
+                    [Mock(phase=str(j_name)) for j_name in range(2, i_phases + 2)]
+                )
+                self.assertEqual(len(colours), i_phases)
+                self.assertEqual(len(set(colours.values())), i_phases)
+        # There were the seven colours of a scheme, and a phase past them had none
+
+
+class TestManyPhases(PostProcTest):
+    """Test class for the drawing of more phases than a scheme has colours."""
+
+    def test_the_final_configuration_of_eight_phases_is_drawn(self):
+        microstructure = build_microstructure([1.0, 1.0], Disk, [])
+        for i_phase in range(3, 10):
+            microstructure.add_phase(Phase.from_type(str(i_phase), Disk))
+        for i_phase in range(2, 10):
+            disk = Disk(str(i_phase), {"r": 0.04}, [1.0, 1.0])
+            disk.position_center = np.array([0.1 * i_phase, 0.5])
+            microstructure.phases[str(i_phase)].particles.append(disk)
+        _, failures = run_analyses(
+            microstructure, None, self.sample_dir, {"final_config": True}
+        )
+        self.assertEqual(failures, [])
+        self.assertTrue(self.written("final_config.pdf"))
+        # The eighth phase had no colour, and the drawing failed with a KeyError
+
 
 class TestFailingAnalysis(PostProcTest):
     """Test class for an analysis that fails while the others are carried out."""

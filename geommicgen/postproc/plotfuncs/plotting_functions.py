@@ -213,7 +213,20 @@ def set_style(artists, ax, style):
 
 
 def generate_colors(n_colors):
-    """Generate a color for each pahse."""
+    """
+    Generate a colour for each of some phases.
+
+    Parameters
+    ----------
+    n_colors: int
+        Number of colours.
+
+    Returns
+    -------
+    list(tuple)
+        The colours, each different from the others, as their red, green, blue and
+        alpha, from zero to one.
+    """
     colors_def = [
         (68 / 255, 119 / 255, 170 / 255, 1),
         (102 / 255, 204 / 255, 238 / 255, 1),
@@ -223,7 +236,16 @@ def generate_colors(n_colors):
         (170 / 255, 51 / 255, 119 / 255, 1),
         (187 / 255, 187 / 255, 187 / 255, 1),
     ]
-    return colors_def[0 : n_colors + 1]
+    if n_colors <= len(colors_def):
+        return colors_def[:n_colors]
+
+    return [
+        tuple(i_color)
+        for i_color in matplotlib.colormaps["viridis"](np.linspace(0, 1, n_colors))
+    ]
+    # Up to seven phases are told apart by the colours of a scheme of seven; more are
+    # given colours evenly apart along a colour map. The colours of the scheme ran out,
+    # and a phase past the seventh had none to be drawn in
 
 
 def colors_of_phases(particles):
