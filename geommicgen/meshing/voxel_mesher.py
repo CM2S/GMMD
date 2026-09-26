@@ -20,6 +20,7 @@ import numpy as np
 # pylint: disable=relative-beyond-top-level
 from geommicgen.meshing.mesh import DEFAULT_MAX_CELLS, Mesh, StructuredInfo
 from geommicgen.meshing.mesher import Mesher, register_mesher
+from geommicgen.microstructure.microstructure import unit_scale
 
 
 @register_mesher
@@ -149,11 +150,18 @@ class VoxelMesher(Mesher):
         )
         # The grid starts out as matrix everywhere and the particles are stamped on it
 
-        particles = microstructure.particles
+        scale = unit_scale(rve_dims)
+        particles = microstructure.scaled(scale).particles
         for i_particle_ind, i_particle in enumerate(particles):
-            self.stamp_particle(i_particle, phase_grid, spacing, rve_dims)
+            self.stamp_particle(
+                i_particle, phase_grid, spacing * scale, rve_dims * scale
+            )
             if report is not None:
                 report(i_particle_ind, len(particles))
+        # Stamped on the microstructure brought to a shortest side of one, so that the
+        # centres of the voxels are the same points of it in any units. The test of a
+        # sphere lets a point a length of 1e-3 outside in, which in a micrometre RVE
+        # turned every sphere into its bounding box
 
         return Mesh(
             rve_dims,

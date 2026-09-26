@@ -62,6 +62,7 @@ from geommicgen.errors.error_classes import UnsupportedParticleShape
 from geommicgen.meshing.images import periodic_images
 from geommicgen.meshing.mesh import Mesh
 from geommicgen.meshing.mesher import Mesher, register_mesher
+from geommicgen.microstructure.microstructure import unit_scale
 from geommicgen.microstructure.particleclasses import (
     Cylinder,
     CylindricalFiber,
@@ -142,7 +143,8 @@ GMSH_TO_VTK_ORDER = {"tetra10": [0, 1, 2, 3, 4, 5, 6, 7, 9, 8]}
 # order VTK expects. The elements that are not named here are listed alike by both
 
 PBC_TOLERANCE = 1.0e-3
-# Tolerance of the bounding boxes used to pair opposite faces of the RVE
+# Tolerance of the bounding boxes used to pair opposite faces of the RVE, in the units
+# of the model, which is built with the shortest side of the RVE one
 
 
 @contextlib.contextmanager
@@ -325,12 +327,21 @@ class GmshMesher(Mesher):
         # the whole geometry has been fragmented
 
         self.resolve_mesh_size(microstructure)
+        scale = unit_scale(microstructure.rve_dims)
+        unit_microstructure = microstructure.scaled(scale)
+        # The model is built from the microstructure brought to a shortest side of one,
+        # and the mesh read out of it is brought back. OpenCASCADE and gmsh work with
+        # tolerances that are lengths, which no option reaches: built in the user's
+        # units, a micrometre RVE lost its particles in the booleans or had its faces
+        # paired with themselves, and a large one lost them too, or crashed the
+        # process. The size of the elements and what the mesher reports of it stay in
+        # the user's units
         refine_surfaces = []
         for i_attempt in range(self.max_attempts):
             with gmsh_session() as gmsh:
                 try:
                     phase_groups = self.build_model(
-                        gmsh, microstructure, refine_surfaces, report
+                        gmsh, unit_microstructure, refine_surfaces, report, scale
                     )
                 except Exception as error:
                     refine_surfaces = failing_surfaces(error)
@@ -340,7 +351,7 @@ class GmshMesher(Mesher):
                     # The model has to be rebuilt in a new session: once a meshing pass
                     # has failed, gmsh will not produce a mesh for that model again
 
-                return self.extract_mesh(gmsh, microstructure, phase_groups)
+                return self.extract_mesh(gmsh, microstructure, phase_groups, scale)
         # Reading the mesh back is deliberately outside the retry: a failure there is
         # not something refining a surface can fix, and its message can name a surface
         # too, which would have the real error retried away instead of raised
@@ -430,9 +441,13 @@ class GmshMesher(Mesher):
             "Mesh.Algorithm3D", self.descriptors.get("mesh_alg_3d", 1)
         )
         gmsh.option.setNumber("Mesh.MeshSizeFactor", 1)
-        gmsh.option.setNumber("Mesh.MaxNumThreads1D", 4)
-        gmsh.option.setNumber("Mesh.MaxNumThreads2D", 4)
-        gmsh.option.setNumber("Mesh.MaxNumThreads3D", 4)
+        gmsh.option.setNumber("Mesh.MaxNumThreads1D", 1)
+        gmsh.option.setNumber("Mesh.MaxNumThreads2D", 1)
+        gmsh.option.setNumber("Mesh.MaxNumThreads3D", 1)
+        # One thread, so that the same microstructure gives the same mesh on every run.
+        # On four, gmsh gave meshes different in their last digits and in the order of
+        # their cells from one run to the next, and the optimizer of second order
+        # tetrahedra aborted the whole process on ellipsoids
         gmsh.option.setNumber("Mesh.MshFileVersion", 4.1)
         gmsh.option.setNumber(
             "Mesh.RecombinationAlgorithm", self.descriptors["recomb_alg"]
@@ -460,7 +475,9 @@ class GmshMesher(Mesher):
             "Mesh.SecondOrderIncomplete", self.descriptors["element_order_incomp"]
         )
 
-    def build_model(self, gmsh, microstructure, refine_surfaces=(), report=None):
+    def build_model(
+        self, gmsh, microstructure, refine_surfaces=(), report=None, scale=1.0
+    ):
         """
         Build the CAD model of a microstructure and mesh it.
 
@@ -479,6 +496,10 @@ class GmshMesher(Mesher):
         report: callable
             Called with the index of the particle that was added and the total number
             of particles.
+
+        scale: float
+            Factor the microstructure was multiplied by, which the element size, given
+            in the user's units, is multiplied by as well.
 
         Returns
         -------
@@ -561,9 +582,9 @@ class GmshMesher(Mesher):
         # Target number of elements per 2*pi radians of curvature. Before Gmsh 4.7 this
         # option was a boolean and the count lived in Mesh.MinimumElementsPerTwoPi,
         # whose default was 6; the two were merged, so 6 preserves the original intent.
-        gmsh.option.setNumber("Mesh.MeshSizeMax", self.mesh_size)
+        gmsh.option.setNumber("Mesh.MeshSizeMax", self.mesh_size * scale)
         if refine_surfaces:
-            self.refine_around(gmsh, refine_surfaces)
+            self.refine_around(gmsh, refine_surfaces, self.mesh_size * scale)
 
         model.mesh.generate(dim)
         if model.mesh.getLastEntityError():
@@ -583,7 +604,8 @@ class GmshMesher(Mesher):
 
         return phase_groups
 
-    def refine_around(self, gmsh, surfaces):
+    @staticmethod
+    def refine_around(gmsh, surfaces, mesh_size):
         """
         Drive the element size down near the surfaces a previous attempt could not mesh.
 
@@ -597,16 +619,19 @@ class GmshMesher(Mesher):
 
         surfaces: list
             Tags of the surfaces to refine around.
+
+        mesh_size: float
+            Largest element size, in the units of the model.
         """
         field_distance = gmsh.model.mesh.field.add("Distance")
         gmsh.model.mesh.field.setNumbers(field_distance, "SurfacesList", surfaces)
         gmsh.model.mesh.field.setNumber(field_distance, "Sampling", 100)
         field_threshold = gmsh.model.mesh.field.add("Threshold")
         gmsh.model.mesh.field.setNumber(field_threshold, "InField", field_distance)
-        gmsh.model.mesh.field.setNumber(field_threshold, "SizeMin", self.mesh_size / 8)
-        gmsh.model.mesh.field.setNumber(field_threshold, "SizeMax", self.mesh_size)
+        gmsh.model.mesh.field.setNumber(field_threshold, "SizeMin", mesh_size / 8)
+        gmsh.model.mesh.field.setNumber(field_threshold, "SizeMax", mesh_size)
         gmsh.model.mesh.field.setNumber(field_threshold, "DistMin", 0)
-        gmsh.model.mesh.field.setNumber(field_threshold, "DistMax", self.mesh_size)
+        gmsh.model.mesh.field.setNumber(field_threshold, "DistMax", mesh_size)
         gmsh.model.mesh.field.setAsBackgroundMesh(field_threshold)
 
     @staticmethod
@@ -859,7 +884,7 @@ class GmshMesher(Mesher):
 
         gmsh.model.occ.synchronize()
 
-    def extract_mesh(self, gmsh, microstructure, phase_groups):
+    def extract_mesh(self, gmsh, microstructure, phase_groups, scale=1.0):
         """
         Read the mesh out of a gmsh session.
 
@@ -875,6 +900,10 @@ class GmshMesher(Mesher):
             Correspondence between the name of a phase and the *(dimension, tag)* of
             its physical group.
 
+        scale: float
+            Factor the model was built at, which the coordinates are divided by to give
+            them in the units of the microstructure.
+
         Returns
         -------
         `.Mesh`
@@ -887,7 +916,7 @@ class GmshMesher(Mesher):
         """
         node_tags, coordinates, _ = gmsh.model.mesh.getNodes()
         node_tags = np.asarray(node_tags, dtype=np.int64)
-        points = np.asarray(coordinates, dtype=float).reshape(-1, 3)
+        points = np.asarray(coordinates, dtype=float).reshape(-1, 3) / scale
         index_of_tag = np.zeros(int(node_tags.max()) + 1, dtype=np.int64)
         index_of_tag[node_tags] = np.arange(len(node_tags), dtype=np.int64)
         # Gmsh identifies a node by a tag that is neither dense nor ordered, so the

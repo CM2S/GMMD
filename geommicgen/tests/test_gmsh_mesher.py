@@ -22,6 +22,7 @@ from geommicgen.meshing.gmsh_mesher import (
     failing_surfaces,
     gmsh_session,
 )
+from geommicgen.microstructure.particleclasses import CylindricalFiber
 
 
 def triangle_areas(first, second, third):
@@ -306,6 +307,99 @@ class TestGmshExtraction(unittest.TestCase):
     def test_second_order_tetrahedra(self):
         self.assert_matches_meshio(sphere_microstructure(), "tetra10", 0.3)
         # The only element among these whose nodes gmsh lists in an order of its own
+
+
+@unittest.skipUnless(has_gmsh(), "gmsh is not installed")
+class TestGmshScaleInvariance(unittest.TestCase):
+    """Test class for a mesh that is the same in any units of length."""
+
+    def record(self, mesh, scale):
+        """Give the nodes, the cells and the phases of a mesh, its lengths divided."""
+        return (
+            (mesh.points / scale).tolist(),
+            [
+                (i_type, i_connectivity.tolist())
+                for i_type, i_connectivity in mesh.cells
+            ],
+            [i_phase.tolist() for i_phase in mesh.phase],
+            [i_dim / scale for i_dim in mesh.rve_dims],
+            mesh.source["mesh_size"] / scale,
+        )
+
+    def assert_scale_free(self, microstructure, element_type, mesh_size):
+        """Check that a mesh is the same at scales a power of two apart."""
+        reference = self.record(
+            GmshMesher(mesh_size=mesh_size, element_type=element_type).mesh(
+                microstructure
+            ),
+            1.0,
+        )
+        for i_scale in (2.0**-20, 2.0**20):
+            with self.subTest(element_type, scale=i_scale):
+                mesh = GmshMesher(
+                    mesh_size=mesh_size * i_scale, element_type=element_type
+                ).mesh(microstructure.scaled(i_scale))
+                self.assertEqual(self.record(mesh, i_scale), reference)
+        # Powers of two are multiplied out exactly, so a mesher that builds its model
+        # at unit scale gives the same mesh to the last bit. Built in the user's units,
+        # at a millionth of the unit the faces were paired with themselves and the
+        # booleans lost the particles, and at a million the matrix was left unmeshed
+
+    def test_first_order_meshes(self):
+        self.assert_scale_free(disk_microstructure(), "tri3", 0.05)
+        self.assert_scale_free(ellipse_microstructure(), "quad4", 0.05)
+        self.assert_scale_free(sphere_microstructure(), "tetra4", 0.1)
+
+    def test_second_order_meshes_in_the_plane(self):
+        self.assert_scale_free(disk_microstructure(), "tri6", 0.05)
+        self.assert_scale_free(disk_microstructure(), "quad8", 0.05)
+
+    def test_fibres(self):
+        rve_dims = [1.0, 1.0, 1.0]
+        particles = []
+        for i_center in ([0.4, 0.4], [0.95, 0.1]):
+            particle = CylindricalFiber("2", {"r": 0.12, "direction": 2}, rve_dims)
+            particle.position_center = np.array(i_center)
+            particles.append(particle)
+        self.assert_scale_free(
+            build_microstructure(rve_dims, CylindricalFiber, particles), "tetra4", 0.1
+        )
+        # The fibre is extruded by its length along the fibres, which a rescale left in
+        # the user's units
+
+    def test_second_order_tetrahedra(self):
+        reference = GmshMesher(mesh_size=0.1, element_type="tetra10").mesh(
+            sphere_microstructure()
+        )
+        scale = 2.0**-20
+        mesh = GmshMesher(mesh_size=0.1 * scale, element_type="tetra10").mesh(
+            sphere_microstructure().scaled(scale)
+        )
+        np.testing.assert_array_equal(mesh.cells[0][1], reference.cells[0][1])
+        np.testing.assert_allclose(mesh.points / scale, reference.points, atol=1e-7)
+        # The optimizer that places their mid-side nodes moves some of them by up to
+        # 1e-9 from one run to the next, at any scale and on one thread, so the nodes
+        # are compared to a tolerance; the cells are the same
+
+    def test_the_same_microstructure_gives_the_same_mesh(self):
+        first, second = (
+            GmshMesher(mesh_size=0.1, element_type="tetra4").mesh(
+                sphere_microstructure()
+            )
+            for _ in range(2)
+        )
+        self.assertEqual(self.record(first, 1.0), self.record(second, 1.0))
+        # Gmsh meshed on four threads, and gave meshes different in their last digits
+        # and in the order of their cells from one run to the next
+
+    def test_the_element_size_is_reported_in_the_users_units(self):
+        scale = 2.0**-20
+        mesher = GmshMesher(elements_per_particle=6, element_type="tri3")
+        mesh = mesher.mesh(disk_microstructure().scaled(scale))
+        self.assertEqual(mesh.source["mesh_size"], 2 * 0.12 / 6 * scale)
+        self.assertIn("{0:.4g}".format(2 * 0.12 * scale), mesher.warnings[0])
+        # The size is derived from the smallest particle and reported before the model
+        # is built at unit scale
 
 
 if __name__ == "__main__":

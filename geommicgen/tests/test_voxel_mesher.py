@@ -121,6 +121,27 @@ class TestVoxelMesherEquivalence(unittest.TestCase):
         # Driven from the table, so a case cannot be added and left untested, and a
         # fixture that went missing fails here rather than quietly not being loaded
 
+    def test_the_grids_are_the_same_in_any_units(self):
+        for i_name, i_case in EQUIVALENCE_CASES.items():
+            for i_scale in (2.0**-20, 2.0**20):
+                with self.subTest(i_name, scale=i_scale):
+                    microstructure, n_voxels_dims = i_case()
+                    mesh = VoxelMesher(n_voxels_dims).mesh(
+                        microstructure.scaled(i_scale)
+                    )
+                    np.testing.assert_array_equal(
+                        mesh.structured.phase_grid, frozen_grid(i_name)
+                    )
+                    np.testing.assert_array_equal(
+                        mesh.structured.spacing,
+                        np.asarray(microstructure.rve_dims)
+                        * i_scale
+                        / n_voxels_dims,
+                    )
+        # The test of a sphere lets in a point a length of 1e-3 outside it, which at a
+        # millionth of the unit made every sphere its bounding box; the grid is stamped
+        # at unit scale and given the user's spacing
+
     def test_grid_reaches_the_crate_file_unchanged(self):
         microstructure, n_voxels_dims = EQUIVALENCE_CASES["one_disk"]()
         mesh = VoxelMesher(n_voxels_dims).mesh(microstructure)
