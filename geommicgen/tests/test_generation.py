@@ -19,7 +19,7 @@ from geommicgen.micgenmethod.molecular_dynamics_sim import (
     MolecularDynamicsSimulation,
     grid_side,
 )
-from geommicgen.iofuncs.legacy_deck import build_reader
+from geommicgen.config.generation import MolecularDynamics
 from geommicgen.micgenmethod.speed_up_schemes import CellList, Naive
 from geommicgen.micgenmethod.thermostats import (
     IsokineticThermostat,
@@ -454,16 +454,14 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
 
 
 def deck_defaults():
-    """Give the generation parameters of a deck that sets only what has no default."""
-    options = {
-        i_keyword.name.lower(): i_keyword.default_value
-        for i_keyword in build_reader().top_level_keywords
-        if getattr(i_keyword, "keyword_group", None) == "Mic_Gen_Parameters"
-        and hasattr(i_keyword, "default_value")
-    }
-    options.update({"max_residue_per_particle": 0.0, "max_step": 10, "initial_temp": 1e5})
-
-    return options
+    """Give the generation parameters of an input file that gives only what it has to."""
+    return MolecularDynamics.model_validate(
+        {
+            "max_residue_per_particle": 0.0,
+            "max_step": 10,
+            "thermostat": {"name": "multi_temperature", "initial_temp": 1e5},
+        }
+    ).to_options()
 
 
 class TestFromOptions(unittest.TestCase):

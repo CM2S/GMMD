@@ -3,7 +3,6 @@
 import copy
 import os
 import tempfile
-import textwrap
 import unittest
 from typing import Annotated, Literal, Union
 
@@ -341,55 +340,10 @@ EXAMPLES = os.path.join(
     "examples",
 )
 
-EXAMPLE_FILES = {
-    "3D_example_ellipsoids_vf_10_r_1_7": """
-        samples: 5
-        rve_dimensions: [1, 1, 1]
-        phases:
-          0: {type: matrix}
-          1:
-            type: ellipsoid
-            vf: 0.1
-            axis_1: {distribution: normal, mean: 0.125, sigma: 0.025}
-            ratio_12: {distribution: normal, mean: 1.7, sigma: 0.1}
-            ratio_13: {distribution: normal, mean: 1.7, sigma: 0.1}
-            rot_axis_comp_x: 0
-            rot_axis_comp_y: {distribution: uniform, low: -1, high: 1}
-            rot_axis_comp_z: {distribution: uniform, low: -1, high: 1}
-            angle: {distribution: normal, mean: 0.1, sigma: 0.2}
-        generation:
-          max_residue_per_particle: 0
-          max_step: 20000
-          min_distance: 0.002
-          save_history: true
-          speed_up: {name: verlet, factor: 1.1}
-        meshes:
-          voxel: {n_voxels_dims: [70, 70, 70]}
-        analyses: {final_config: true, motion_analysis: true}
-        """,
-    "2D_example_ellipses_vf_50_n_10": """
-        samples: 1
-        rve_dimensions: [1, 1]
-        phases:
-          0: {type: matrix}
-          1:
-            type: ellipse
-            vf: 0.5
-            n: 100
-            angle: {distribution: normal, mean: 0, sigma: 0.2}
-            ratio: 1.2
-        generation:
-          max_residue_per_particle: 0
-          max_step: 150
-          speed_up: {name: verlet, factor: 1.1}
-          save_history: true
-        meshes:
-          gmsh: {mesh_size: 0.1, element_type: tri3}
-          voxel: {n_voxels_dims: [1000, 1000]}
-        analyses: {final_config: true}
-        """,
-}
-# The examples, written as input files by hand
+DECK_FIXTURES = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "fixtures", "decks"
+)
+# The decks of the examples, as they were written before the input files were
 
 
 def assert_same_options(test, options, expected, path="options"):
@@ -436,15 +390,18 @@ class TestRun(unittest.TestCase):
 
     @unittest.skipUnless(os.path.isdir(EXAMPLES), "not run from the repository")
     def test_the_examples_give_what_their_decks_give(self):
-        for i_name, i_text in EXAMPLE_FILES.items():
+        names = [
+            i_name[: -len(".mdsim")]
+            for i_name in sorted(os.listdir(DECK_FIXTURES))
+            if i_name.endswith(".mdsim")
+        ]
+        self.assertEqual(len(names), 2)
+        for i_name in names:
             with self.subTest(example=i_name):
-                path = os.path.join(self.temp_dir.name, i_name + ".yaml")
-                with open(path, "w") as yaml_file:
-                    yaml_file.write(textwrap.dedent(i_text))
                 assert_same_options(
                     self,
-                    read_config(path).to_options(),
-                    read_legacy_deck(os.path.join(EXAMPLES, i_name + ".mdsim")),
+                    read_config(os.path.join(EXAMPLES, i_name + ".yaml")).to_options(),
+                    read_legacy_deck(os.path.join(DECK_FIXTURES, i_name + ".mdsim")),
                 )
         # Whatever reads the options is then the same for either file
 

@@ -15,7 +15,7 @@ from geommicgen.config.run import read_config
 from geommicgen.iofuncs.convert_deck import convert_deck, convert_deck_command
 from geommicgen.iofuncs.legacy_deck import build_reader, read_legacy_deck
 from geommicgen.tests.test__main__ import SEEDED_DECK
-from geommicgen.tests.test_config import EXAMPLES, assert_same_options
+from geommicgen.tests.test_config import DECK_FIXTURES, assert_same_options
 
 KITCHEN_SINK_2D = """
     Problem_Type 1
@@ -279,10 +279,8 @@ class TestEquivalence(DeckTest):
             i_name: self.write(i_text, i_name + ".mdsim")
             for i_name, i_text in DECKS.items()
         }
-        if os.path.isdir(EXAMPLES):
-            for i_name in sorted(os.listdir(EXAMPLES)):
-                if i_name.endswith(".mdsim"):
-                    paths[i_name] = os.path.join(EXAMPLES, i_name)
+        for i_name in sorted(os.listdir(DECK_FIXTURES)):
+            paths[i_name] = os.path.join(DECK_FIXTURES, i_name)
 
         return paths
 
