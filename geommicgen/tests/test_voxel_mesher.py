@@ -12,6 +12,7 @@ from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.microstructure.phase import Phase
 from geommicgen.microstructure.particleclasses import (
     Cylinder,
+    CylindricalFiber,
     Disk,
     Ellipse,
     Ellipsoid,
@@ -272,6 +273,15 @@ class TestVoxelMesherErrors(unittest.TestCase):
         microstructure.add_phase(Phase.from_type("2", Disk))
         with self.assertRaises(ValueError):
             VoxelMesher([8, 8]).mesh(microstructure)
+
+    def test_cylindrical_fibres(self):
+        rve_dims = [1.0, 1.0, 1.0]
+        particle = CylindricalFiber("2", {"r": 0.2, "direction": 2}, rve_dims)
+        particle.position_center = np.array([0.5, 0.5, 0.5])
+        microstructure = build_microstructure(rve_dims, CylindricalFiber, [particle])
+        with self.assertRaisesRegex(ValueError, "Cylindrical fibres"):
+            VoxelMesher([8, 8, 8]).mesh(microstructure)
+        # Refused with a reason, where the stamp stopped with an error about shapes
 
 
 class TestVoxelMesherFromOptions(unittest.TestCase):

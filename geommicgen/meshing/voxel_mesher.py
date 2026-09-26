@@ -21,6 +21,7 @@ import numpy as np
 from geommicgen.meshing.mesh import DEFAULT_MAX_CELLS, Mesh, StructuredInfo
 from geommicgen.meshing.mesher import Mesher, register_mesher
 from geommicgen.microstructure.microstructure import unit_scale
+from geommicgen.microstructure.particleclasses import CylindricalFiber
 
 
 @register_mesher
@@ -131,7 +132,8 @@ class VoxelMesher(Mesher):
         ------
         ValueError:
             If the grid has a different number of directions than the microstructure,
-            or if the microstructure has no matrix phase to fill the grid with.
+            if the microstructure has no matrix phase to fill the grid with, or if it
+            has cylindrical fibres, which are not stamped.
         """
         rve_dims = np.asarray(microstructure.rve_dims, dtype=float)
         if len(self.n_voxels_dims) != len(rve_dims):
@@ -144,6 +146,18 @@ class VoxelMesher(Mesher):
             raise ValueError(
                 "The microstructure has no matrix phase to fill the grid with."
             )
+        if any(
+            i_phase.type is CylindricalFiber
+            for i_phase in microstructure.phases.values()
+        ):
+            raise ValueError(
+                "Cylindrical fibres are not stamped on a grid of voxels; gmsh meshes "
+                "them."
+            )
+        # A fibre is a disk in the plane across it, and is asked for its extent, and
+        # whether a point is inside, with the coordinates of that plane, where the grid
+        # has three, so the stamp stopped with an error of numpy's about shapes that
+        # could not be broadcast together
         spacing = rve_dims / self.n_voxels_dims
         phase_grid = np.full(
             tuple(self.n_voxels_dims), int(microstructure.matrix_phase), dtype=int
@@ -218,10 +232,6 @@ class VoxelMesher(Mesher):
         # index is wrapped back in while the coordinate is not
 
         phase = int(particle.phase)
-        # TODO: a cylindrical fibre is a disk in the plane across it, and is asked for
-        # its extent, and whether a point is inside, with the coordinates of space,
-        # which it reads as those of its plane, so a microstructure of fibres cannot be
-        # stamped
         # TODO: the voxels of the bounding box are tested one at a time, where
         # `particle.points_inside` tests a whole array of points in one operation, as
         # the statistical analyses ask it to since the point lookup of the
