@@ -25,6 +25,8 @@ from geommicgen.micgenmethod.thermostats import (
 from geommicgen.microstructure.particleclasses import Disk
 from geommicgen.pipeline import MESH_DIRECTORY, MeshJob
 from geommicgen.postproc.plotfuncs.plotting_functions import (
+    colors_of_phases,
+    generate_colors,
     histogram_bins,
     keep_what_the_cut_left,
     plot_particles_3d,
@@ -260,6 +262,20 @@ class TestFiguresAreClosed(PostProcTest):
         # pyplot keeps a figure until it is closed, so a figure left open is kept for
         # the rest of the run: the final configuration and the Voronoi plots left
         # nine for every sample
+
+
+class TestPhaseColours(unittest.TestCase):
+    """Test class for the colour each phase is drawn in."""
+
+    def test_each_phase_is_drawn_in_the_same_colour_in_every_run(self):
+        particles = [
+            Mock(phase=i_name) for i_name in ("10", "2", "7", "1", "3", "12", "5", "2")
+        ]
+        colours = colors_of_phases(particles)
+        self.assertEqual(list(colours), ["1", "2", "3", "5", "7", "10", "12"])
+        self.assertEqual(list(colours.values()), generate_colors(7))
+        # In the order of the names, as numbers; the order of a set of them changes
+        # from one run to the next, and each phase came out in another colour
 
 
 class TestFailingAnalysis(PostProcTest):

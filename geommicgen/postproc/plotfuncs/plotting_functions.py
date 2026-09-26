@@ -226,6 +226,31 @@ def generate_colors(n_colors):
     return colors_def[0 : n_colors + 1]
 
 
+def colors_of_phases(particles):
+    """
+    Give each phase of some particles a colour of its own, the same in every run.
+
+    Parameters
+    ----------
+    particles: list(`.Particle`)
+        The particles.
+
+    Returns
+    -------
+    dict
+        Dictionary of the form *{phase name: colour}*, the colours given in the order
+        of the names, as numbers where they are whole numbers.
+    """
+    names = sorted(
+        {i_particle.phase for i_particle in particles},
+        key=lambda name: (0, int(name), "") if str(name).isdigit() else (1, 0, name),
+    )
+
+    return dict(zip(names, generate_colors(len(names))))
+    # The names were taken in the order of a set of them, which changes from one run to
+    # the next, and so did the colour of each phase
+
+
 def plot_particles(particles, rve_dims, sample_dir, **kwargs):
     """Plot the particles."""
     if len(rve_dims) == 2:
@@ -254,9 +279,7 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
     ax.set_xlim(0, rve_dims[0])
     # Setting the correct proportions
 
-    phases = list({i_particle.phase for i_particle in particles})
-    colors = generate_colors(len(phases))
-    phase_colors = dict(zip(phases, colors))
+    phase_colors = colors_of_phases(particles)
 
     for i_particle in particles:
         for j_dim, k_dim in [
@@ -1045,9 +1068,7 @@ def plot_voronoi_2d(
     ax.set_ylim(0, rve_dims[1])
     ax.set_xlim(0, rve_dims[0])
 
-    phases = list({i_particle.phase for i_particle in particles})
-    colors = generate_colors(len(phases))
-    phase_colors = dict(zip(phases, colors))
+    phase_colors = colors_of_phases(particles)
 
     for i_particle in particles:
         for j_dim, k_dim in [
@@ -1228,9 +1249,7 @@ def plot_voronoi_2d_with_imts(
         ax.set_ylim(0, rve_dims[1])
         ax.set_xlim(0, rve_dims[0])
 
-        phases = list({i_particle.phase for i_particle in particles})
-        colors = generate_colors(len(phases))
-        phase_colors = dict(zip(phases, colors))
+        phase_colors = colors_of_phases(particles)
 
         for i_particle in particles:
             for j_dim, k_dim in [
