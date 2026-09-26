@@ -23,7 +23,7 @@ from geommicgen.meshing.gmsh_mesher import (
     failing_surfaces,
     gmsh_session,
 )
-from geommicgen.microstructure.particleclasses import CylindricalFiber
+from geommicgen.microstructure.particleclasses import CylindricalFiber, Ellipse
 
 
 def triangle_areas(first, second, third):
@@ -112,6 +112,19 @@ class TestPeriodicImages(unittest.TestCase):
         particle = Sphere("2", {"r": 0.1}, rve_dims)
         particle.position_center = np.array([0.02, 0.02, 0.02])
         self.assertEqual(len(list(periodic_images(particle, rve_dims))), 8)
+
+    def test_an_ellipse_turned_across_a_face_keeps_its_image(self):
+        rve_dims = [1.0, 1.0]
+        particle = Ellipse(
+            "2", {"major_axis": 0.4, "minor_axis": 0.2, "angle": np.pi / 2}, rve_dims
+        )
+        particle.position_center = np.array([0.5, 0.85])
+        centers = list(periodic_images(particle, rve_dims))
+        self.assertIn((0.5, 0.85 - 1.0, 0.0), centers)
+        # Its long axis is along y and reaches past the top face by 0.05. The image
+        # below the bottom face was discarded, its reach along y taken as the semi
+        # minor axis, 0.1, so the part that pokes out at the top did not come back in
+        # at the bottom
 
     def test_images_can_be_turned_off(self):
         rve_dims = [1.0, 1.0]

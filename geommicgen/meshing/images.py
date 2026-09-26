@@ -36,14 +36,13 @@ def periodic_images(particle, rve_dims, add_images=True):
         zero for a particle that lives in a plane.
     """
     offsets = IMAGE_OFFSETS if add_images else (0,)
-    if particle.dim == 2:
-        radii = (particle.semi_major_axis, particle.semi_minor_axis)
-        # A cylindrical fibre spans the RVE along its own direction, so its centre has
-        # two coordinates and it is enumerated in the plane, like a disk
-    else:
-        radii = (particle.radius,) * 3
-        # The circumscribed radius is used for every shape in space, so the test below
-        # discards only images that cannot reach the RVE under any orientation
+    radii = (particle.radius,) * particle.dim
+    # The circumscribed radius is used for every shape, so the test below discards only
+    # images that cannot reach the RVE under any orientation. In the plane the semi
+    # axes were taken along x and y whatever the angle of the particle, so an ellipse
+    # turned across a face lost the image on the opposite one and the mesh was not
+    # periodic. A cylindrical fibre spans the RVE along its own direction, so its
+    # centre has two coordinates and it is enumerated in the plane, like a disk
 
     for i_image in itertools.product(offsets, repeat=particle.dim):
         center = [
