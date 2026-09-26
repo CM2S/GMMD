@@ -838,15 +838,19 @@ class GmshMesher(Mesher):
                 particle.semi_minor_axis,
             )
             if particle.direction_fibers == 0:
-                factory.rotate([(2, face_tag)], 0, 0, 0, 0, 1, 0, 3 * np.pi / 2)
-                extrude_direction = [particle.length_dir_fibers, 0, 0]
+                factory.rotate(
+                    [(2, face_tag)], center_x, center_y, center_z, 0, 1, 0, np.pi / 2
+                )
             elif particle.direction_fibers == 1:
-                factory.rotate([(2, face_tag)], 0, 0, 0, 1, 0, 0, np.pi / 2)
-                extrude_direction = [0, particle.length_dir_fibers, 0]
-            else:
-                extrude_direction = [0, 0, particle.length_dir_fibers]
-            # The face is drawn in the xy plane and turned to the plane normal to the
-            # direction the fibres run in
+                factory.rotate(
+                    [(2, face_tag)], center_x, center_y, center_z, 1, 0, 0, np.pi / 2
+                )
+            extrude_direction = [0, 0, 0]
+            extrude_direction[particle.direction_fibers] = particle.length_dir_fibers
+            # The face is drawn in the xy plane about the centre of the end of the fibre
+            # and turned about that centre into the plane across the fibre. It was
+            # turned about the origin, which took a fibre along x to the place with its
+            # two coordinates swapped
 
             entities = [
                 i_dim_tag

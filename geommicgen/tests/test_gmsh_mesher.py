@@ -432,6 +432,40 @@ class TestPhaseVolumes(unittest.TestCase):
 
 
 @unittest.skipUnless(has_gmsh(), "gmsh is not installed")
+class TestFibresInEachDirection(unittest.TestCase):
+    """Test class for the place a fibre is meshed at, whichever way it runs."""
+
+    def test_the_fibre_is_meshed_where_it_is(self):
+        rve_dims = [1.5, 1.0, 2.0]
+        for i_direction in (0, 1, 2):
+            particle = CylindricalFiber(
+                "2", {"r": 0.15, "direction": i_direction}, rve_dims
+            )
+            particle.position_center = np.array([0.1, 0.05])
+            mesh = GmshMesher(mesh_size=0.1, element_type="tetra4").mesh(
+                build_microstructure(rve_dims, CylindricalFiber, [particle])
+            )
+            across = [j_dir for j_dir in range(3) if j_dir != i_direction]
+            sides = np.array(rve_dims)[across]
+            with self.subTest(direction=i_direction):
+                for j_connectivity, j_phase in zip(
+                    [j_cells for _, j_cells in mesh.cells], mesh.phase
+                ):
+                    centroids = mesh.points[j_connectivity[j_phase == 2]].mean(axis=1)
+                    offsets = centroids[:, across] - particle.position_center
+                    offsets -= sides * np.round(offsets / sides)
+                    self.assertLess(np.linalg.norm(offsets, axis=1).max(), 0.15)
+                self.assertGreater(
+                    cell_measures(mesh)[2],
+                    0.9 * np.pi * 0.15**2 * rve_dims[i_direction],
+                )
+        # The fibre crosses two faces, so it has three images; every cell of it lies
+        # within its radius of its axis, and together they take up what it does. A
+        # fibre along x was turned about the origin, which swapped its coordinates, and
+        # the images of one along x or y were laid by the sides of x and y
+
+
+@unittest.skipUnless(has_gmsh(), "gmsh is not installed")
 class TestGmshScaleInvariance(unittest.TestCase):
     """Test class for a mesh that is the same in any units of length."""
 
