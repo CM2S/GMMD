@@ -516,6 +516,13 @@ class TestFromOptions(unittest.TestCase):
         # A simulation built without the option weighed its particles by their volume,
         # and one built from a deck by their radius
 
+    def test_a_simulation_built_here_starts_its_particles_as_a_deck_does(self):
+        simulation = MolecularDynamicsSimulation.from_options(deck_defaults())
+        built_here = MolecularDynamicsSimulation(0.0, 10, 5, 0.05, 0.0, "random", False)
+        self.assertEqual(built_here.initial_vel_coeff, simulation.initial_vel_coeff)
+        # A simulation built without the option started them at 0.25 of their radius a
+        # step, and one built from a deck at 0.1
+
     def test_the_options_are_the_ones_the_initializer_takes(self):
         simulation = MolecularDynamicsSimulation.from_options(deck_defaults())
         for i_name in REQUIRED_OPTIONS + OPTIONAL_OPTIONS:
@@ -925,7 +932,12 @@ class TestScaleInvariance(unittest.TestCase):
             for i_index, i_particle in enumerate(particles)
             for j_particle in particles[i_index + 1:]
         ]
-        self.assertGreaterEqual(min(gaps), 0.01 * scale * (1 - 1e-9))
+        self.assertGreaterEqual(
+            min(gaps), 0.01 * scale * (1 - 1e-9) - generator.max_residue
+        )
+        # Less the overlap the run is allowed to end with, which the dilated particles
+        # may keep. A gap kept in the units of the box, as it was, is a thousandth of
+        # this
 
     def test_no_dilation_is_left_on_the_particles(self):
         microstructure = Microstructure([3.0, 3.0])

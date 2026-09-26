@@ -276,7 +276,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
             process.
 
         initial_vel_coeff: float
-            Coeff used to setup the initial temperature of the system.
+            Coeff used to setup the initial temperature of the system. 0.1 by default.
 
         final_overlap_check: bool
             Do a final check using a naive approach for the particle overlap.
@@ -330,7 +330,10 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.dt_adapt = kwargs.get("dt_adapt", True)
         self.offset = kwargs.get("offset", True)
         self.fixed_seed = kwargs.get("fixed_seed", None)
-        self.initial_vel_coeff = kwargs.get("initial_vel_coeff", 0.25)
+        self.initial_vel_coeff = kwargs.get("initial_vel_coeff", 0.1)
+        # The default of the input data file. It was 0.25 here, so a simulation built
+        # without the option started its particles two and a half times as fast as one
+        # built from a file
         self.final_overlap_check = kwargs.get("final_overlap_check", False)
         self.microstructure_sample = None
         self.coord_number = None
