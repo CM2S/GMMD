@@ -20,7 +20,7 @@ import geommicgen.iofuncs.printing as print_funcs
 from geommicgen._optional import require_gmsh
 from geommicgen.iofuncs.md_state import STATE_FILE_NAME
 from geommicgen.pipeline import MESH_DIRECTORY
-from geommicgen.postproc.options import ANALYSES, VORONOI_OPTION_NAMES
+from geommicgen.postproc.options import ANALYSES, VORONOI_OPTION_NAMES, VORONOI_TYPES
 import geommicgen.postproc.voronoimetrics.motion_analysis as motion_analysis
 import geommicgen.postproc.voronoimetrics.stat_analysis as stat_analysis
 import geommicgen.postproc.voronoimetrics.voronoi_analysis as voronoi_analysis
@@ -71,13 +71,6 @@ def announced(step, times, failures):
     print_funcs.print_to_file("Time ellapsed: {0:.3f}s\n".format(times[step]))
     # Every analysis opens with its name and closes with its time, where only the
     # final configuration did and the others went unreported
-
-
-VORONOI_TYPES = ("standard", "set")
-# The Voronoi diagrams the analysis knows how to compute. A name outside this tuple
-# used to be found out deep inside the analysis, as an unbound variable; a weighted
-# one was accepted and quietly computed the standard diagram, its implementation
-# never having been written
 
 VORONOI_OPTIONS = VORONOI_OPTION_NAMES
 # The options handed on to the Voronoi analysis, when they are given

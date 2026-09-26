@@ -1,7 +1,12 @@
 """Test module for the models of the input file."""
 
+import copy
 import os
+import pickle
+import subprocess
+import sys
 import tempfile
+import textwrap
 import unittest
 from typing import Annotated, Literal, Union
 
@@ -15,7 +20,16 @@ from geommicgen.config.base import (
     named,
     read_model,
 )
+from geommicgen.config import generation
 from geommicgen.config.phases import PHASE_MODELS, PhaseModel, PhaseName, type_name
+from geommicgen.config.run import RunConfig, read_config
+from geommicgen.iofuncs.keywords import top_level_reader
+from geommicgen.meshing.mesher import available_meshers
+from geommicgen.micgenmethod import speed_up_schemes, thermostats
+from geommicgen.micgenmethod.molecular_dynamics_sim import (
+    OPTIONAL_OPTIONS,
+    REQUIRED_OPTIONS,
+)
 from geommicgen.microstructure.phase import Phase
 
 
@@ -323,6 +337,318 @@ class TestDescriptors(unittest.TestCase):
             {"distribution": "discrete", "values": [1, 2], "probabilities": [0.1, 0.9]}
         )
         # Added up in floating point, 0.1 and 0.9 are one
+
+
+EXAMPLES = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "examples",
+)
+
+EXAMPLE_FILES = {
+    "3D_example_ellipsoids_vf_10_r_1_7": """
+        samples: 5
+        rve_dimensions: [1, 1, 1]
+        phases:
+          0: {type: matrix}
+          1:
+            type: ellipsoid
+            vf: 0.1
+            axis_1: {distribution: normal, mean: 0.125, sigma: 0.025}
+            ratio_12: {distribution: normal, mean: 1.7, sigma: 0.1}
+            ratio_13: {distribution: normal, mean: 1.7, sigma: 0.1}
+            rot_axis_comp_x: 0
+            rot_axis_comp_y: {distribution: uniform, low: -1, high: 1}
+            rot_axis_comp_z: {distribution: uniform, low: -1, high: 1}
+            angle: {distribution: normal, mean: 0.1, sigma: 0.2}
+        generation:
+          max_residue_per_particle: 0
+          max_step: 20000
+          min_distance: 0.002
+          save_history: true
+          speed_up: {name: verlet, factor: 1.1}
+        meshes:
+          voxel: {n_voxels_dims: [70, 70, 70]}
+        analyses: {final_config: true, motion_analysis: true}
+        """,
+    "2D_example_ellipses_vf_50_n_10": """
+        samples: 1
+        rve_dimensions: [1, 1]
+        phases:
+          0: {type: matrix}
+          1:
+            type: ellipse
+            vf: 0.5
+            n: 100
+            angle: {distribution: normal, mean: 0, sigma: 0.2}
+            ratio: 1.2
+        generation:
+          max_residue_per_particle: 0
+          max_step: 150
+          speed_up: {name: verlet, factor: 1.1}
+          save_history: true
+        meshes:
+          gmsh: {mesh_size: 0.1, element_type: tri3}
+          voxel: {n_voxels_dims: [1000, 1000]}
+        analyses: {final_config: true}
+        """,
+}
+# The examples, written as input files by hand
+
+
+def read_deck(path):
+    """
+    Read an input data file with the reader of the decks, in a process of its own.
+
+    The reader keeps what an earlier deck gave for a keyword a later one leaves out,
+    so a deck is read where no other has been.
+    """
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import pickle, sys; "
+            "from geommicgen.iofuncs.keywords import top_level_reader; "
+            "top_level_reader.read_input_file(sys.argv[1]); "
+            "sys.stdout.buffer.write(pickle.dumps(top_level_reader.all_options))",
+            path,
+        ],
+        capture_output=True,
+        check=True,
+    )
+
+    return pickle.loads(completed.stdout)
+
+
+def assert_same_options(test, options, expected, path="options"):
+    """Check two sets of options are the same, arrays and the type of every value."""
+    if isinstance(expected, dict):
+        test.assertIsInstance(options, dict, path)
+        test.assertEqual(set(options), set(expected), path)
+        for i_key in expected:
+            assert_same_options(
+                test, options[i_key], expected[i_key], "{0}.{1}".format(path, i_key)
+            )
+    elif isinstance(expected, np.ndarray):
+        test.assertIsInstance(options, np.ndarray, path)
+        np.testing.assert_array_equal(options, expected, err_msg=path)
+    else:
+        test.assertEqual(options, expected, path)
+        test.assertIs(type(options), type(expected), path)
+
+
+MINIMAL_RUN = {
+    "samples": 1,
+    "rve_dimensions": [1, 1],
+    "phases": {0: {"type": "matrix"}, 1: {"type": "disk", "r": 0.1, "n": 4}},
+    "generation": {"max_residue_per_particle": 0, "max_step": 10},
+}
+# A run that gives what has no default, and nothing else
+
+
+class TestRun(unittest.TestCase):
+    """Test class for the input file as a whole."""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_dir.cleanup)
+
+    def refused(self, change):
+        """Give the lines of the error a change to the minimal run is refused with."""
+        data = copy.deepcopy(MINIMAL_RUN)
+        change(data)
+        with self.assertRaises(ConfigError) as context:
+            read_model(RunConfig, data, "run.yaml")
+
+        return str(context.exception).splitlines()[1:]
+
+    @unittest.skipUnless(os.path.isdir(EXAMPLES), "not run from the repository")
+    def test_the_examples_give_what_their_decks_give(self):
+        for i_name, i_text in EXAMPLE_FILES.items():
+            with self.subTest(example=i_name):
+                path = os.path.join(self.temp_dir.name, i_name + ".yaml")
+                with open(path, "w") as yaml_file:
+                    yaml_file.write(textwrap.dedent(i_text))
+                assert_same_options(
+                    self,
+                    read_config(path).to_options(),
+                    read_deck(os.path.join(EXAMPLES, i_name + ".mdsim")),
+                )
+        # Whatever reads the options is then the same for either file
+
+    def test_what_is_not_given_is_what_a_deck_that_does_not_give_it_gets(self):
+        options = read_model(RunConfig, MINIMAL_RUN).to_options()
+        for i_keyword in top_level_reader.top_level_keywords:
+            group = getattr(i_keyword, "keyword_group", None)
+            if not hasattr(i_keyword, "default_value") or group is None:
+                continue
+            with self.subTest(keyword=i_keyword.name):
+                self.assertEqual(
+                    options[group.lower()][i_keyword.name.lower()],
+                    i_keyword.default_value,
+                )
+        self.assertEqual(options["save_min"], False)
+        self.assertNotIn("mesh_options", options)
+
+    def test_every_parameter_of_the_simulation_is_given(self):
+        parameters = read_model(RunConfig, MINIMAL_RUN).to_options()[
+            "mic_gen_parameters"
+        ]
+        for i_name in REQUIRED_OPTIONS + OPTIONAL_OPTIONS:
+            self.assertIn(i_name, parameters)
+
+    def test_the_names_are_the_ones_the_simulation_offers(self):
+        for i_models, i_names in (
+            (generation.SPEED_UP_SCHEMES, speed_up_schemes.SPEED_UP_SCHEMES),
+            (generation.THERMOSTATS, thermostats.THERMOSTATS),
+            (generation.CRITERIA, thermostats.LOWERING_TEMP_CRITERIA),
+        ):
+            with self.subTest(names=i_names):
+                self.assertEqual(
+                    {
+                        j_model.model_fields["name"].annotation.__args__[0]
+                        for j_model in i_models
+                    },
+                    {j_name.lower() for j_name in i_names},
+                )
+        self.assertEqual(
+            set(RunConfig.model_fields["meshes"].annotation.model_fields),
+            set(available_meshers()),
+        )
+
+    def test_the_sections_are_checked_against_each_other(self):
+        for i_change, i_lines in (
+            (
+                lambda d: d["phases"].update({2: {"type": "matrix"}}),
+                ["  - phases: one phase has to be the matrix, and phases 0, 2 are"],
+            ),
+            (
+                lambda d: d["phases"].pop(0),
+                ["  - phases: one phase has to be the matrix, and none is"],
+            ),
+            (
+                lambda d: d["phases"].update({2: {"type": "sphere", "r": 0.1, "n": 3}}),
+                ["  - phases.2.type: a sphere is in 3 dimensions, and the RVE in 2"],
+            ),
+            (
+                lambda d: d["phases"][1].update(r=0.3),
+                ["  - phases.1.r: the radius cannot be 0.3 in an RVE of [1.0, 1.0]"],
+            ),
+            (
+                lambda d: d["phases"].update(
+                    {2: {"type": "disk", "r": 0.01, "n": 3, "inside": 0}}
+                ),
+                ["  - phases.2.inside: has to name another phase of particles"],
+            ),
+            (
+                lambda d: d.update(meshes={"voxel": {"n_voxels_dims": [8, 8, 8]}}),
+                [
+                    "  - meshes.voxel.n_voxels_dims: [8, 8, 8] has 3 directions, and "
+                    "the RVE 2"
+                ],
+            ),
+        ):
+            with self.subTest(lines=i_lines):
+                self.assertEqual(self.refused(i_change), i_lines)
+
+    def test_fibres_go_alone_in_one_direction_and_not_on_a_grid(self):
+        def fibres(data, second, meshes=None):
+            data.update(rve_dimensions=[1, 1, 1], meshes=meshes or {})
+            data["phases"][1] = {
+                "type": "cylindrical_fiber", "r": 0.1, "n": 3, "direction": 2
+            }
+            data["phases"][2] = second
+
+        self.assertEqual(
+            self.refused(lambda d: fibres(d, {"type": "sphere", "r": 0.1, "n": 3})),
+            [
+                "  - phases.2.type: cylindrical fibres go with no other particles, and "
+                "phase 1 is of them"
+            ],
+        )
+        self.assertEqual(
+            self.refused(
+                lambda d: fibres(
+                    d,
+                    {"type": "cylindrical_fiber", "r": 0.1, "n": 3, "direction": 1},
+                    {"voxel": {"n_voxels_dims": [8, 8, 8]}},
+                )
+            ),
+            [
+                "  - meshes.voxel: cylindrical fibres are not stamped on a grid of "
+                "voxels; gmsh meshes them",
+                "  - phases: the cylindrical fibres have to run in one direction, "
+                "given as a fixed value",
+            ],
+        )
+        # Each was found once the particles had been generated, or not at all: fibres
+        # in two directions were moved in the plane across the first
+
+    def test_the_meshes_are_refused_as_their_meshers_and_writers_refuse_them(self):
+        for i_meshes, i_line in (
+            (
+                {"femsh": {"mesh_size": 0.1}},
+                "  - meshes.femsh: There is no mesher named femsh. The available "
+                "meshers are gmsh, voxel.",
+            ),
+            (
+                {"gmsh": {"element_type": "tri3"}},
+                "  - meshes.gmsh: Either mesh_size or elements_per_particle must be "
+                "specified.",
+            ),
+            (
+                {"gmsh": {"mesh_size": 0.1, "formats": ["nope"]}},
+                "  - meshes.gmsh: There is no writer for the format nope.",
+            ),
+            (
+                {"voxel": {"n_voxels_dims": [[8, 8], [16, 16]], "file_name": "x"}},
+                "  - meshes.voxel: File_Name x would be given to each of the 2 "
+                "discretisations",
+            ),
+        ):
+            with self.subTest(meshes=i_meshes):
+                lines = self.refused(lambda d: d.update(meshes=i_meshes))
+                self.assertEqual(len(lines), 1)
+                self.assertTrue(lines[0].startswith(i_line), lines[0])
+        # Built from the options before anything is generated, which is where a deck
+        # found them too
+
+    def test_the_simulation_is_refused_what_it_would_stop_on(self):
+        for i_generation, i_line in (
+            (
+                {"thermostat": "berendsen"},
+                "  - generation.thermostat.initial_temp: is missing",
+            ),
+            (
+                {"thermostat": {"name": "isokinetic", "criterion": "original"}},
+                "  - generation.thermostat.criterion: is not a key this section takes",
+            ),
+            (
+                {"speed_up": {"name": "verlet", "factor": 1}},
+                "  - generation.speed_up.factor: Input should be greater than 1 "
+                "(given 1)",
+            ),
+            (
+                {"type_initial_configuration": "hexagonal"},
+                "  - generation.type_initial_configuration: Input should be 'random', "
+                "'grid', 'bcc' or 'fcc' (given 'hexagonal')",
+            ),
+            (
+                {"force_option": "intersection_area"},
+                "  - generation.force_option: is not a key this section takes",
+            ),
+        ):
+            with self.subTest(generation=i_generation):
+                self.assertEqual(
+                    self.refused(lambda d: d["generation"].update(i_generation)),
+                    [i_line],
+                )
+
+    def test_a_file_of_no_sections_is_refused(self):
+        path = os.path.join(self.temp_dir.name, "run.yaml")
+        with open(path, "w") as yaml_file:
+            yaml_file.write("- 1\n- 2\n")
+        with self.assertRaisesRegex(ConfigError, "run.yaml holds no sections"):
+            read_config(path)
 
 
 if __name__ == "__main__":

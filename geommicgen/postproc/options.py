@@ -74,6 +74,12 @@ ANALYSIS_OPTIONS = {
 # type it is read as, the value it has when it is not given, and the line that
 # describes it
 
+VORONOI_TYPES = ("standard", "set")
+# The Voronoi diagrams the analysis knows how to compute. A name outside this tuple
+# used to be found out deep inside the analysis, as an unbound variable; a weighted
+# one was accepted and quietly computed the standard diagram, its implementation
+# never having been written
+
 ANALYSES = (
     "final_config",
     "motion_analysis",
