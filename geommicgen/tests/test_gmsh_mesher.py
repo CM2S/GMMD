@@ -1,7 +1,7 @@
 import os
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import numpy as np
 
@@ -9,6 +9,8 @@ from geommicgen._optional import has_gmsh
 from geommicgen.errors.error_classes import UnsupportedParticleShape
 from geommicgen.meshing.images import periodic_images
 from geommicgen.meshing.mesher import get_mesher
+from geommicgen.microstructure.microstructure import Microstructure
+from geommicgen.microstructure.phase import Phase
 from geommicgen.microstructure.particleclasses import Disk, Point, Sphere
 from geommicgen.tests.helpers import (
     build_microstructure,
@@ -376,6 +378,57 @@ class TestFillsTheRVE(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "cover 1 of an RVE of 6"):
             check_fills_rve(points, [("tetra10", np.array([[0, 1, 2, 3]]))], [2, 1, 3])
+
+
+@unittest.skipUnless(has_gmsh(), "gmsh is not installed")
+class TestPhaseVolumes(unittest.TestCase):
+    """Test class for the report of a phase that takes up more or less than its own."""
+
+    def test_a_piece_lost_to_the_matrix_is_reported(self):
+        import gmsh
+
+        fragment = gmsh.model.occ.fragment
+
+        def losing_a_piece(*args, **kwargs):
+            out_dim_tags, fragment_map = fragment(*args, **kwargs)
+            return out_dim_tags, [fragment_map[0], []] + fragment_map[2:]
+
+        # The first piece of a particle is left out of the map, so what it fragmented
+        # into falls to the matrix, as a piece the booleans lose does
+
+        mesher = GmshMesher(mesh_size=0.1, element_type="tri3")
+        mesher.mesh(disk_microstructure())
+        self.assertFalse(any("takes up" in i for i in mesher.warnings))
+        with patch.object(gmsh.model.occ, "fragment", losing_a_piece):
+            mesh = mesher.mesh(disk_microstructure())
+        self.assertTrue(any("phase 2 takes up" in i for i in mesher.warnings))
+        self.assertAlmostEqual(sum(cell_measures(mesh).values()), 1.0, places=9)
+        # The cells still fill the RVE, so the check of the mesh passes, and the loss
+        # was written without a word
+
+    def test_a_phase_inside_another_is_not_reported(self):
+        rve_dims = [1.0, 1.0]
+        microstructure = Microstructure(rve_dims)
+        microstructure.add_phase(Phase("1", {"phase_type": 1}))
+        microstructure.add_phase(Phase.from_type("2", Disk))
+        microstructure.add_phase(
+            Phase.from_type("3", Disk, inner_phase=True, outer_phase="2")
+        )
+        outer = Disk("2", {"r": 0.2}, rve_dims)
+        outer.position_center = np.array([0.5, 0.5])
+        microstructure.phases["2"].particles.append(outer)
+        for i_center in ([0.42, 0.5], [0.58, 0.52]):
+            inner = Disk("3", {"r": 0.05}, rve_dims)
+            inner.position_center = np.array(i_center)
+            inner.parent = outer
+            microstructure.phases["3"].particles.append(inner)
+
+        mesher = GmshMesher(mesh_size=0.05, element_type="tri3")
+        measures = cell_measures(mesher.mesh(microstructure))
+        self.assertFalse(any("takes up" in i for i in mesher.warnings))
+        self.assertGreater(measures[3], 0.0)
+        # The inner disks take their area from the outer one, whose phase is measured
+        # against it less theirs
 
 
 @unittest.skipUnless(has_gmsh(), "gmsh is not installed")

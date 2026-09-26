@@ -148,6 +148,13 @@ FILL_TOLERANCE = 1.0e-6
 # digits, unless OpenCASCADE has merged a particle within its own tolerance, 1e-7 of
 # the model, onto a face; a piece of a particle lost is far larger than either
 
+PHASE_VOLUME_TOLERANCE = 1.0e-2
+# Relative tolerance on the volume the fragments of a phase take up against the volume
+# of its particles. Both are measured by OpenCASCADE, which measures a disk, an ellipse,
+# a fibre, a sphere and a cylinder, cut by the faces of the RVE or not, to a part in a
+# million or better, but an ellipsoid, a sphere it has stretched, to half a per cent
+# once a face has cut it
+
 PBC_TOLERANCE = 1.0e-3
 # Tolerance of the bounding boxes used to pair opposite faces of the RVE, in the units
 # of the model, which is built with the shortest side of the RVE one
@@ -285,6 +292,48 @@ def check_fills_rve(points, cells, rve_dims):
                 ", and reach outside it" if outside else "",
             )
         )
+
+
+def phase_volume_warnings(factory, dim, materials, particle_volumes, rve_volume):
+    """
+    Report every phase whose fragments take up another volume than its particles.
+
+    Parameters
+    ----------
+    factory: module
+        The OpenCASCADE geometry kernel of gmsh, holding the fragments.
+
+    dim: int
+        Dimension of the fragments.
+
+    materials: dict
+        Tags of the fragments of each phase, by the name of the phase.
+
+    particle_volumes: dict
+        Volume the particles of each phase take up, by the name of the phase, less that
+        of the particles placed inside them.
+
+    rve_volume: float
+        Volume of the RVE, in the units of the model.
+
+    Returns
+    -------
+    list(str)
+        One warning for each phase off by more than `PHASE_VOLUME_TOLERANCE`.
+    """
+    warnings = []
+    for i_name, i_expected in particle_volumes.items():
+        kept = sum(factory.getMass(dim, j_tag) for j_tag in materials[i_name])
+        if abs(kept - i_expected) > PHASE_VOLUME_TOLERANCE * i_expected:
+            warnings.append(
+                "WARNING: phase {0} takes up {1:.4g} of the RVE where its particles "
+                "take up {2:.4g}: part of a particle was lost to another phase, or the "
+                "particles overlap.".format(
+                    i_name, kept / rve_volume, i_expected / rve_volume
+                )
+            )
+
+    return warnings
 
 
 @register_mesher
@@ -617,16 +666,28 @@ class GmshMesher(Mesher):
 
         primitives = []
         primitive_phases = []
+        particle_volumes = {}
         particles = microstructure.particles
         for i_particle_ind, i_particle in enumerate(particles):
-            for j_center in periodic_images(i_particle, rve_dims):
-                for k_dim_tag in self.add_primitive(
-                    factory, model, i_particle, j_center
-                ):
+            for j_image, j_center in enumerate(periodic_images(i_particle, rve_dims)):
+                dim_tags = self.add_primitive(factory, model, i_particle, j_center)
+                if j_image == 0:
+                    volume = sum(factory.getMass(*k_dim_tag) for k_dim_tag in dim_tags)
+                    particle_volumes[i_particle.phase] = (
+                        particle_volumes.get(i_particle.phase, 0.0) + volume
+                    )
+                    if i_particle.parent is not None:
+                        particle_volumes[i_particle.parent.phase] = (
+                            particle_volumes.get(i_particle.parent.phase, 0.0) - volume
+                        )
+                for k_dim_tag in dim_tags:
                     primitives.append(k_dim_tag)
                     primitive_phases.append(i_particle.phase)
             if report is not None:
                 report(i_particle_ind, len(particles))
+        # The images of a particle are translations of one another, so the first one
+        # measures what the images cut by the RVE add up to. A particle placed inside
+        # another takes its volume from the phase of that one
 
         out_dim_tag, cut_map = factory.intersect(
             [(dim, box_tag)], primitives, removeObject=False, removeTool=True
@@ -661,6 +722,12 @@ class GmshMesher(Mesher):
         materials = {i_name: [] for i_name in microstructure.phases}
         for i_fragment, i_name in phase_of_fragment.items():
             materials[i_name].append(i_fragment[1])
+        self.warnings += phase_volume_warnings(
+            factory, dim, materials, particle_volumes, np.prod(rve_dims)
+        )
+        # A piece of a particle the booleans lose becomes matrix, and the cells still
+        # fill the RVE, so the check of the mesh does not see it; the volume of each
+        # phase, against that of its particles, does
         factory.synchronize()
 
         phase_groups = {}
@@ -1063,9 +1130,6 @@ class GmshMesher(Mesher):
         # the booleans that cut the particles against the box can lose a piece without
         # a word; the pairing of the faces sees neither. Such a mesh was taken as it
         # was, and at a large scale one was written with no matrix at all
-        # TODO: a piece of a particle the booleans lose becomes matrix, so the cells
-        # still fill the RVE and the check passes; the area or volume of each phase,
-        # against the particles', would see it
         if len(cells) > 1:
             self.warnings.append(
                 "WARNING: {0} was asked for and gmsh produced {1}; the mesh is written "
