@@ -153,7 +153,7 @@ class TestRescale(unittest.TestCase):
                     "1",
                     {
                         "vf": 0.1,
-                        "axis_2": 0.3 * i_scale,
+                        "axis_2": 0.2 * i_scale,
                         "ratio_32": 0.5,
                         "ratio_21": 0.5,
                         "p_3": 0.3,
@@ -169,9 +169,56 @@ class TestRescale(unittest.TestCase):
                     ],
                     [0.4, 0.2, 0.1],
                 )
-        # The second axis is held to a fifth of the shortest side of the RVE. It was held
-        # to the length 0.2, which left it alone in a smaller unit and clamped it in a
-        # larger one
+        # The second axis was clamped to the length 0.2, which left it alone in a
+        # smaller unit and clamped it in a larger one
+
+    def test_an_ellipsoid_from_its_second_axis_is_the_one_asked_for(self):
+        ellipsoid = Ellipsoid(
+            "1",
+            {
+                "vf": 0.1,
+                "axis_2": 0.3,
+                "ratio_32": 0.3,
+                "ratio_21": 0.8,
+                "p_3": 0.3,
+                "phi_z": 0.2,
+            },
+            [1.0, 1.0, 1.0],
+        )
+        np.testing.assert_allclose(
+            [ellipsoid.axis_1, ellipsoid.axis_2, ellipsoid.axis_3],
+            [0.375, 0.3, 0.09],
+            rtol=1e-15,
+        )
+        # The second axis was clamped to a fifth of the shortest side, and the ratios
+        # to between 0.4 and 1, which gave [0.25, 0.2, 0.08]
+
+    def test_the_axes_the_descriptors_give_are_bounded_as_axes_given(self):
+        rve_dims = [1.0, 1.0, 1.0]
+        for i_descriptors in (
+            {"axis_2": 0.3, "ratio_32": 0.5, "ratio_21": 0.5},
+            {"semi_axis_1": 0.2, "ratio_32": 0.5, "ratio_21": 0.0},
+            {"n": 1, "ratio_12": 1.0, "ratio_13": 1.0},
+        ):
+            with self.subTest(descriptors=i_descriptors):
+                with self.assertRaisesRegex(ValueError, "not an allowable value"):
+                    Ellipsoid(
+                        "1",
+                        dict(
+                            i_descriptors,
+                            vf=0.5,
+                            p_3=0.3,
+                            phi_z=0.2,
+                            rot_axis_comp_x=0.0,
+                            rot_axis_comp_y=0.0,
+                            rot_axis_comp_z=1.0,
+                            angle=0.0,
+                        ),
+                        rve_dims,
+                    )
+        # A first axis of 0.6, a second of none, and a sphere of half the RVE, whose
+        # diameter is 0.98: each longer than half the shortest side, or not there, which
+        # an axis given as a descriptor is refused for
 
 
 class TestEllipsoid(unittest.TestCase):

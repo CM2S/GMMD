@@ -109,7 +109,7 @@ class Ellipsoid(Particle):
             ),
             "ratio_21": (
                 "Ratio a2/a1",
-                lambda ratio_21, rve_dims: ratio_21 <= 1,
+                lambda ratio_21, rve_dims: 0 < ratio_21 <= 1,
                 "float",
             ),
             "ratio_13": (
@@ -119,12 +119,12 @@ class Ellipsoid(Particle):
             ),
             "ratio_32": (
                 "Ratio a3/a2",
-                lambda ratio_31, rve_dims: ratio_31 <= 1,
+                lambda ratio_32, rve_dims: 0 < ratio_32 <= 1,
                 "float",
             ),
             "ratio_321": (
                 "Ratio a3/a1 and a2/a1",
-                lambda ratio_321, rve_dims: ratio_321 <= 1,
+                lambda ratio_321, rve_dims: 0 < ratio_321 <= 1,
                 "float",
             ),
             "p_3": (
@@ -263,26 +263,9 @@ class Ellipsoid(Particle):
             and "ratio_21" in descriptors
             and "axis_2" in descriptors
         ):
-            # file_path = (
-            #     "/home/jose/Documents/code/paper_results/stat_analysis/3D/Results.csv"
-            # )
-            # info = np.genfromtxt(file_path, delimiter=",", skip_header=1)
-            # visible_vars = info[:, 7:9] / 795
-            # # print(visible_vars)
-            # angles = info[:, -2] * np.pi / 180
-            # # for i_ind, i_angle in angles:
-            # #     if i_angle > n
-            # visible_vars = np.array([visible_vars[:, 1], visible_vars[:, 0]]).T
-            # ind = np.random.choice(np.arange(len(visible_vars[:, 1])))
-            # axis_2 = visible_vars[:, 1][ind]
-            # axis_3 = visible_vars[:, 0][ind]
-
-            axis_2 = min(descriptors["axis_2"], 0.2 * min(rve_dims))
-            # Held to a fifth of the shortest side, which it was only for a unit RVE:
-            # the bound was the length 0.2, so the same particles written in other
-            # units were clamped to other shapes
-            axis_1 = axis_2 / max(min(descriptors["ratio_21"], 1), 0.4)
-            axis_3 = max(min(descriptors["ratio_32"], 1), 0.4) * axis_2
+            axis_2 = descriptors["axis_2"]
+            axis_1 = axis_2 / descriptors["ratio_21"]
+            axis_3 = descriptors["ratio_32"] * axis_2
         if "angle" in descriptors:
             angle = descriptors["angle"]
         if (
@@ -297,7 +280,6 @@ class Ellipsoid(Particle):
         if "p_3" in descriptors and "phi_z" in descriptors:
             p_3 = descriptors["p_3"]
             phi_z = descriptors["phi_z"]
-            # phi_z = angles[ind]
 
             rot_mat_y = np.array(
                 [
@@ -323,6 +305,19 @@ class Ellipsoid(Particle):
             rot_axis_comp_z = complete_rot_mat[1, 0] - complete_rot_mat[0, 1]
             angle = np.arccos((np.trace(complete_rot_mat) - 1) / 2)
 
+        axes = {"axis_1": axis_1, "axis_2": axis_2, "axis_3": axis_3}
+        for i_name, i_axis in axes.items():
+            if not Ellipsoid.possible_parameters[i_name][1](i_axis, rve_dims):
+                raise ValueError(
+                    "{0} is not an allowable value for {1}, which the descriptors "
+                    "give.".format(i_axis, i_name)
+                )
+        # The bounds of an axis given as a descriptor hold for one the descriptors give
+        # through a ratio or a volume. The second axis and its ratios were clamped
+        # instead, the axis to a fifth of the shortest side and the ratios to between
+        # 0.4 and 1, which bounded the first axis; the particle asked for was changed
+        # into another without a word, and a ratio outside the clamp could not be asked
+        # for at all
         self.axis_1 = np.abs(axis_1)
         self.axis_2 = np.abs(axis_2)
         self.axis_3 = np.abs(axis_3)
