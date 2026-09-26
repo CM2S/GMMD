@@ -11,6 +11,7 @@ composition the deck runs.
 import contextlib
 import os
 import time
+import traceback
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
@@ -35,9 +36,9 @@ STAT_STEP = "Statistical analysis"
 
 
 @contextlib.contextmanager
-def announced(step, times):
+def announced(step, times, failures):
     """
-    Announce an analysis, and report how long it took under its own name.
+    Announce an analysis, report how long it took, and record it if it fails.
 
     Parameters
     ----------
@@ -46,15 +47,31 @@ def announced(step, times):
 
     times: dict
         Dictionary the seconds it took are put in, under that name.
+
+    failures: list
+        List a failure is appended to, as *(name, error, traceback)*.
     """
     print_funcs.print_to_file(step)
     print_funcs.print_to_file("-" * 80 + "\n")
     start = time.time()
-    yield
+    try:
+        yield
+    except Exception as error:  # pylint: disable=broad-except
+        failures.append((step, error, traceback.format_exc()))
+        error.with_traceback(None)
+        print_funcs.print_to_file(
+            "\t\t- FAILED: {0}: {1}".format(type(error).__name__, error)
+        )
+    # An analysis that fails is recorded rather than raised, as a discretisation is,
+    # so that the analyses after it, and the samples after it, still get their chance;
+    # an error in one, or gmsh ending the process a view was drawn in, ended the batch.
+    # The traceback is kept as text and taken off the error, which would otherwise
+    # keep every frame down to the raise alive until the batch ends
     times[step] = time.time() - start
     print_funcs.print_to_file("Time ellapsed: {0:.3f}s\n".format(times[step]))
     # Every analysis opens with its name and closes with its time, where only the
     # final configuration did and the others went unreported
+
 
 VORONOI_TYPES = ("standard", "set")
 # The Voronoi diagrams the analysis knows how to compute. A name outside this tuple
@@ -225,6 +242,10 @@ def run_analyses(microstructure, state, sample_dir, options):
     dict
         Dictionary of the form *{step: seconds}* for the steps that report a time.
 
+    list
+        The analyses that failed, as *(name, error, traceback)*; the others were still
+        carried out.
+
     Raises
     ------
     ValueError:
@@ -233,13 +254,14 @@ def run_analyses(microstructure, state, sample_dir, options):
     check_analyses(microstructure, state, options)
     os.makedirs(sample_dir, exist_ok=True)
     times = {}
+    failures = []
     # The directory is made once it is known something will be written in it
 
     # Plotting final configuration
     # --------------------------------------------------------------------------------------
     if options.get("final_config", False):
         # Plot and save the final configuration
-        with announced(FINAL_CONFIG_STEP, times):
+        with announced(FINAL_CONFIG_STEP, times, failures):
             plot_particles(
                 microstructure.particles, microstructure.rve_dims, sample_dir
             )
@@ -247,37 +269,32 @@ def run_analyses(microstructure, state, sample_dir, options):
     # Motion analysis
     # --------------------------------------------------------------------------------------
     if options.get("motion_analysis", False):
-        print_funcs.print_to_file(MOTION_STEP)
-        print_funcs.print_to_file("-" * 80 + "\n")
-        histories = {
-            "total_overlap_history": state.total_overlap_history,
-            "max_residue": state.max_residue,
-            "kinetic_energy_history": state.kinetic_energy_history,
-            "temp_change_steps": state.thermostat.temp_change_steps,
-            "temp_change": True,
-            "overlap_ratio": state.thermostat.ratio,
-            "len_sim": state.step,
-            "thermic_energy_history": state.thermic_energy_history,
-            "dt_history": state.all_dt,
-        }
-        if state.position_center_history is not None:
-            histories["position_center_history"] = state.position_center_history
-        else:
-            print_funcs.print_to_file(
-                "\t\t- The run recorded no positions, so the paths are not plotted"
+        with announced(MOTION_STEP, times, failures):
+            histories = {
+                "total_overlap_history": state.total_overlap_history,
+                "max_residue": state.max_residue,
+                "kinetic_energy_history": state.kinetic_energy_history,
+                "temp_change_steps": state.thermostat.temp_change_steps,
+                "temp_change": True,
+                "overlap_ratio": state.thermostat.ratio,
+                "len_sim": state.step,
+                "thermic_energy_history": state.thermic_energy_history,
+                "dt_history": state.all_dt,
+            }
+            if state.position_center_history is not None:
+                histories["position_center_history"] = state.position_center_history
+            else:
+                print_funcs.print_to_file(
+                    "\t\t- The run recorded no positions, so the paths are not plotted"
+                )
+            # The analysis plots the paths when it is given them, so a run that kept
+            # no positions is simply not given any
+            motion_analysis.do_motion_analysis(
+                microstructure.particles,
+                microstructure.rve_dims,
+                sample_dir,
+                **histories
             )
-        # The analysis plots the paths when it is given them, so a run that kept no
-        # positions is simply not given any
-        start = time.time()
-        motion_analysis.do_motion_analysis(
-            microstructure.particles, microstructure.rve_dims, sample_dir, **histories
-        )
-        times[MOTION_STEP] = time.time() - start
-        print_funcs.print_to_file(
-            "Time ellapsed: {0:.3f}s\n".format(times[MOTION_STEP])
-        )
-        # Announced before the histories are gathered, since a run that kept no
-        # positions is told so there, so this one is timed around the analysis itself
 
     # Voronoi analysis
     # --------------------------------------------------------------------------
@@ -287,7 +304,7 @@ def run_analyses(microstructure, state, sample_dir, options):
             for i_option in VORONOI_OPTIONS
             if i_option in options
         }
-        with announced(VORONOI_STEP, times):
+        with announced(VORONOI_STEP, times, failures):
             voronoi_analysis.do_voronoi_analysis(
                 microstructure.particles,
                 microstructure.rve_dims,
@@ -301,12 +318,12 @@ def run_analyses(microstructure, state, sample_dir, options):
         i_option for i_option in STAT_OPTIONS if options.get(i_option, False)
     }
     if stat_options:
-        with announced(STAT_STEP, times):
+        with announced(STAT_STEP, times, failures):
             stat_analysis.do_stat_analysis(
                 microstructure, sample_dir, stat_options, seed=options.get("stat_seed")
             )
 
-    return times
+    return times, failures
 
 
 def post_proc(
@@ -336,12 +353,14 @@ def post_proc(
     -------
     dict
         Dictionary of the form *{step: seconds}* for the steps that report a time.
+
+    list
+        The analyses that failed, as *(name, error, traceback)*.
     """
     check_analyses(current_sample, current_mic_generator, post_proc_opts)
     run_mesh_jobs(mesh_jobs, current_sample, sample_dir)
     # The meshes come first, and the analyses are checked before them: an analysis
     # that cannot be carried out is found out at once rather than after the meshing,
-    # and one that fails while running no longer costs the meshes -- the caller wraps
-    # this in a finally, and some gmsh failures abort the process outright
+    # and one that fails while running no longer costs the meshes
 
     return run_analyses(current_sample, current_mic_generator, sample_dir, post_proc_opts)

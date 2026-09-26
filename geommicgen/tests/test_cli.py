@@ -4,6 +4,7 @@ import io
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 
@@ -238,6 +239,19 @@ class TestAnalyzeCommand(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 self.run_command()
         self.assertFalse(os.path.exists(self.output_dir))
+
+    def test_a_failing_analysis_leaves_the_others(self):
+        with patch(
+            "geommicgen.postproc.postproc.plot_particles",
+            side_effect=RuntimeError("drawn wrong"),
+        ):
+            status, printed = self.run_command(
+                "--final-config", "--stat-nearest-neighbor"
+            )
+        self.assertEqual(status, 1)
+        self.assertIn("failed: RuntimeError: drawn wrong", printed)
+        self.assertTrue(self.written("stat_analysis_results", "stat_results.npz"))
+        self.assertIn("stat_results.npz", printed)
 
     def test_the_motion_analysis_needs_the_state(self):
         status, printed = self.run_command("--final-config", "--motion-analysis")

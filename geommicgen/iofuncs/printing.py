@@ -385,6 +385,42 @@ def print_failed_samples(samples):
     return samples
 
 
+def print_failed_analyses(failures):
+    """
+    Report the analyses that failed, once everything else has been attempted.
+
+    Parameters
+    ----------
+    failures: list
+        Tuples *(index of the sample, analysis, error, traceback)*.
+
+    Returns
+    -------
+    list
+        The same list, so that the caller can tell whether there were any.
+    """
+    if not failures:
+        return failures
+
+    print_to_file("\n" + "=" * 80)
+    print_to_file(
+        "{0} of the analyses asked for could not be carried out:\n".format(
+            len(failures)
+        )
+    )
+    for i_index, i_step, i_error, i_trace in failures:
+        print_to_file(
+            "\t- mic_{0}: {1}: {2}: {3}".format(
+                i_index, i_step, type(i_error).__name__, i_error
+            )
+        )
+        LOGGER.debug("\t\t" + i_trace.rstrip("\n").replace("\n", "\n\t\t"))
+        # The traceback goes to the screen file only, as that of a discretisation does
+    print_to_file("")
+
+    return failures
+
+
 def print_failed_jobs(jobs):
     """
     Report the discretisations that failed, once everything else has been attempted.

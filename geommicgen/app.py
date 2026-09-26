@@ -77,6 +77,7 @@ def run_program(argv=None):
 
     failed_jobs = []
     failed_samples = []
+    failed_analyses = []
     for i_sample in range(n_dp_samples):
         if fixed_seed is not None:
             mic_gen_parameters["fixed_seed"] = fixed_seed + i_sample
@@ -132,12 +133,15 @@ def run_program(argv=None):
         try:
             times_dict = {}
             if current_mic_generator.status:
-                times_dict = post_proc(
+                times_dict, analysis_failures = post_proc(
                     mesh_jobs,
                     current_sample,
                     current_mic_generator,
                     sample_dir,
                     top_level_reader.all_options["post_proc"],
+                )
+                failed_analyses.extend(
+                    (i_sample,) + i_failure for i_failure in analysis_failures
                 )
             else:
                 failed_samples.append(
@@ -169,6 +173,7 @@ def run_program(argv=None):
 
     failed = print_funcs.print_failed_samples(failed_samples)
     failed = print_funcs.print_failed_jobs(failed_jobs) or failed
+    failed = print_funcs.print_failed_analyses(failed_analyses) or failed
     if failed:
         raise SystemExit(1)
-    # Both are reported, whichever happened, and either fails the run
+    # Every kind is reported, whichever happened, and any of them fails the run

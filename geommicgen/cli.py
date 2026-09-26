@@ -546,13 +546,21 @@ def analyze_command(argv=None):
     # absolute path is taken first, since the directory of a bare file name is empty
 
     try:
-        times = run_analyses(microstructure, state, arguments.output_dir, options)
+        times, failures = run_analyses(
+            microstructure, state, arguments.output_dir, options
+        )
     except Exception as error:  # pylint: disable=broad-except
         return report_outcome(error, [])
     # What was refused before anything was written, and why, is what the report
     # carries; nothing is listed, since nothing was written
 
+    for i_step, i_error, _ in failures:
+        print("{0} failed: {1}: {2}".format(i_step, type(i_error).__name__, i_error))
     status = report_outcome(None, analysis_files(arguments.output_dir, options))
+    if failures:
+        status = 1
+    # An analysis that failed does not stop the others, and what they wrote is listed;
+    # the command still ends unsuccessfully
     print_funcs.print_final_message(
         dict({"Reading the microstructure": read_seconds}, **times)
     )

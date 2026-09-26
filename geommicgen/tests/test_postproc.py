@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 import numpy as np
 
 from geommicgen._optional import has_gmsh
-from geommicgen.errors.error_classes import MissingOptionalDependency
+from geommicgen.errors.error_classes import MissingOptionalDependency, ProcessDied
 from geommicgen.iofuncs.md_state import load_md_state, save_md_state
 from geommicgen.iofuncs.printing import log_to_terminal, screen_to
 from geommicgen.meshing.voxel_mesher import VoxelMesher
@@ -22,6 +22,7 @@ from geommicgen.postproc.plotfuncs.plotting_functions import (
 from geommicgen.postproc.voronoimetrics.voronoi_analysis import do_voronoi_analysis
 from geommicgen.postproc.postproc import (
     FINAL_CONFIG_STEP,
+    STAT_STEP,
     check_analyses,
     post_proc,
     run_analyses,
@@ -31,6 +32,7 @@ from geommicgen.tests.helpers import (
     disk_microstructure,
     sphere_microstructure,
 )
+from geommicgen.tests.test_process import ending
 
 
 def a_state(directory, positions=True):
@@ -77,13 +79,18 @@ class TestPostProc(PostProcTest):
     """Test class for the composition the input data file runs."""
 
     def test_the_final_configuration_time_is_returned(self):
-        times = post_proc([], disk_microstructure(), None, self.sample_dir, {"final_config": True})
+        times, failures = post_proc(
+            [], disk_microstructure(), None, self.sample_dir, {"final_config": True}
+        )
+        self.assertEqual(failures, [])
         self.assertEqual(list(times), [FINAL_CONFIG_STEP])
         self.assertGreater(times[FINAL_CONFIG_STEP], 0.0)
         self.assertTrue(self.written("final_config.pdf"))
 
     def test_nothing_asked_for_returns_no_times(self):
-        self.assertEqual(post_proc([], disk_microstructure(), None, self.sample_dir, {}), {})
+        self.assertEqual(
+            post_proc([], disk_microstructure(), None, self.sample_dir, {}), ({}, [])
+        )
 
     def test_the_meshes_are_run(self):
         job = MeshJob(VoxelMesher([4, 4]), [], "grid")
@@ -100,6 +107,44 @@ class TestPostProc(PostProcTest):
         self.assertIsNone(job.time)
         self.assertFalse(self.written(MESH_DIRECTORY))
         # A request that cannot be honoured is found out at once, not after the meshing
+
+
+class TestFailingAnalysis(PostProcTest):
+    """Test class for an analysis that fails while the others are carried out."""
+
+    OPTIONS = {"final_config": True, "stat_nearest_neighbor": True}
+
+    def test_it_is_recorded_and_the_others_run(self):
+        with patch(
+            "geommicgen.postproc.postproc.plot_particles",
+            side_effect=RuntimeError("drawn wrong"),
+        ):
+            times, failures = run_analyses(
+                disk_microstructure(), None, self.sample_dir, self.OPTIONS
+            )
+        self.assertEqual(len(failures), 1)
+        step, error, trace = failures[0]
+        self.assertEqual(step, FINAL_CONFIG_STEP)
+        self.assertIsInstance(error, RuntimeError)
+        self.assertIsNone(error.__traceback__)
+        self.assertIn("drawn wrong", trace)
+        self.assertEqual(set(times), {FINAL_CONFIG_STEP, STAT_STEP})
+        self.assertTrue(self.written("stat_analysis_results", "stat_results.npz"))
+        # The error raised out of the run, and the analyses after it and the samples
+        # after it were never carried out
+
+    def test_a_view_whose_process_ends_is_recorded(self):
+        with patch(
+            "geommicgen.postproc.postproc.plot_particles",
+            side_effect=lambda *args: ending(),
+        ):
+            _, failures = run_analyses(
+                disk_microstructure(), None, self.sample_dir, self.OPTIONS
+            )
+        self.assertIsInstance(failures[0][1], ProcessDied)
+        self.assertTrue(self.written("stat_analysis_results", "stat_results.npz"))
+        # What gmsh does to the process a view is drawn in, when it ends it rather than
+        # raise
 
 
 class TestCheckAnalyses(PostProcTest):

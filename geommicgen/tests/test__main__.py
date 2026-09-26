@@ -9,8 +9,8 @@ import tempfile
 import unittest
 from unittest.mock import sentinel, Mock, patch, call
 import subprocess
-
 import sys
+import textwrap
 
 import numpy as np
 import yaml
@@ -90,14 +90,18 @@ class DeckRunTest(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_dir.cleanup)
 
+    RUN = (
+        "from geommicgen.app import run_program; import sys; run_program(sys.argv[1:])"
+    )
+    # What the process runs: the program, on the deck it is given
+
     def run_deck(self, text):
         """Run a deck in a process of its own, giving its status and its stderr."""
         deck_path = os.path.join(self.temp_dir.name, "deck.mdsim")
         with open(deck_path, "w") as deck:
             deck.write(text)
         completed = subprocess.run(
-            [sys.executable, "-c", "from geommicgen.app import run_program; import sys; "
-             "run_program(sys.argv[1:])", deck_path],
+            [sys.executable, "-c", self.RUN, deck_path],
             capture_output=True, text=True, check=False, cwd=self.temp_dir.name,
         )
         # In a process of its own because the reader keeps what an earlier deck gave
@@ -174,6 +178,57 @@ class TestFailedSample(DeckRunTest):
             os.path.exists(os.path.join(self.temp_dir.name, "deck", "mic_0", "meshes"))
         )
         self.assertNotIn("could not be generated", stdout)
+
+
+class TestFailedAnalysis(DeckRunTest):
+    """Test class for an analysis that fails in one sample of a run."""
+
+    RUN = textwrap.dedent(
+        """
+        import sys
+        import geommicgen.postproc.postproc as postproc
+        from geommicgen.app import run_program
+
+        drawn = []
+
+        def failing_first(*args):
+            drawn.append(args)
+            if len(drawn) == 1:
+                raise RuntimeError("drawn wrong")
+            return plot_particles(*args)
+
+        plot_particles = postproc.plot_particles
+        postproc.plot_particles = failing_first
+        run_program(sys.argv[1:])
+        """
+    )
+    # The program, with the final configuration of its first sample failing to be drawn
+
+    def test_the_run_goes_on_and_fails(self):
+        status, stderr, stdout = self.run_deck(
+            TestFailedSample.OVERLAPPING_DECK.replace("vf 0.5", "vf 0.1").replace(
+                "Max_Step 2", "Max_Step 200"
+            )
+            + "final_config True\nstat_nearest_neighbor True\n"
+        )
+        self.assertEqual(status, 1, stderr)
+        self.assertNotIn("Traceback", stderr)
+        results_dir = os.path.join(self.temp_dir.name, "deck")
+        self.assertTrue(
+            os.path.exists(
+                os.path.join(results_dir, "mic_0", "stat_analysis_results")
+            )
+        )
+        self.assertFalse(
+            os.path.exists(os.path.join(results_dir, "mic_0", "final_config.pdf"))
+        )
+        self.assertTrue(
+            os.path.exists(os.path.join(results_dir, "mic_1", "final_config.pdf"))
+        )
+        self.assertIn("1 of the analyses asked for could not be carried out", stdout)
+        self.assertIn("mic_0: Generating final configuration", stdout)
+        # The statistics of the sample, and the whole of the next sample, are still
+        # carried out, and the run fails at the end, as it does for a mesh
 
 
 class TestFixedSeedAcrossSamples(unittest.TestCase):
