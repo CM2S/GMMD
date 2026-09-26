@@ -2,6 +2,7 @@
 
 import copy
 import os
+import re
 import tempfile
 import unittest
 from typing import Annotated, Literal, Union
@@ -17,7 +18,13 @@ from geommicgen.config.base import (
     read_model,
 )
 from geommicgen.config import generation
-from geommicgen.config.phases import PHASE_MODELS, PhaseModel, PhaseName, type_name
+from geommicgen.config.phases import (
+    PHASE_MODELS,
+    Descriptor,
+    PhaseModel,
+    PhaseName,
+    type_name,
+)
 from geommicgen.config.run import RunConfig, read_config
 from geommicgen.iofuncs.legacy_deck import build_reader, read_legacy_deck
 from geommicgen.meshing.mesher import available_meshers
@@ -579,6 +586,121 @@ class TestRun(unittest.TestCase):
             yaml_file.write("- 1\n- 2\n")
         with self.assertRaisesRegex(ConfigError, "run.yaml holds no sections"):
             read_config(path)
+
+
+REFERENCE_FILE = os.path.join(EXAMPLES, "reference.yaml")
+# The reference input file, which documents every key
+
+
+def model_fields():
+    """Give the name of every key of every section of an input file, and whether each
+    has no default, keyed by the section's model."""
+    models = [
+        RunConfig,
+        generation.MolecularDynamics,
+        *generation.SPEED_UP_SCHEMES,
+        *generation.THERMOSTATS,
+        *generation.CRITERIA,
+        RunConfig.model_fields["meshes"].annotation,
+        RunConfig.model_fields["analyses"].annotation,
+        *PHASE_MODELS.values(),
+        *[
+            i_type
+            for i_type in Descriptor.__origin__.__args__
+        ],
+    ]
+    meshes = RunConfig.model_fields["meshes"].annotation
+    models += [
+        i_field.annotation.__args__[0] for i_field in meshes.model_fields.values()
+    ]
+
+    return {
+        i_model: {
+            j_name: j_field.is_required() for j_name, j_field in i_model.model_fields.items()
+        }
+        for i_model in models
+    }
+
+
+@unittest.skipUnless(os.path.exists(REFERENCE_FILE), "not run from the repository")
+class TestReferenceFile(unittest.TestCase):
+    """Test class holding the reference input file to the models of the file."""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(REFERENCE_FILE) as reference:
+            cls.text = reference.read()
+        cls.keys = set(re.findall(r"^\s*#?\s*([a-z_][a-z0-9_]*):", cls.text, re.M))
+        for i_mapping in re.findall(r"\{([^{}]*)\}", cls.text):
+            cls.keys |= set(re.findall(r"([a-z_][a-z0-9_]*):", i_mapping))
+        # The keys the file gives or shows, commented out or not: each opens a line, or
+        # is inside a mapping written on one
+
+    def test_it_is_a_run(self):
+        read_config(REFERENCE_FILE)
+
+    def test_every_key_there_is_is_shown(self):
+        for i_model, i_fields in model_fields().items():
+            with self.subTest(section=i_model.__name__):
+                self.assertEqual(set(i_fields) - self.keys, set())
+
+    def test_every_key_shown_is_one_there_is(self):
+        fields = set().union(*model_fields().values())
+        self.assertEqual(self.keys - fields, set())
+
+    def test_the_keys_without_a_default_are_the_ones_marked_required(self):
+        lines = self.text.splitlines()
+        for i_model in (RunConfig, generation.MolecularDynamics):
+            for i_name, i_required in model_fields()[i_model].items():
+                with self.subTest(key=i_name):
+                    index = next(
+                        j_index
+                        for j_index, j_line in enumerate(lines)
+                        if re.match(r"\s*{0}:".format(i_name), j_line)
+                    )
+                    comment = []
+                    while index > 0 and lines[index - 1].strip().startswith("#"):
+                        index -= 1
+                        comment.append(lines[index])
+                    marked = any(
+                        re.match(r"\s*# \S.*\[required\]", j_line) for j_line in comment
+                    ) or (
+                        not comment
+                        and "# {0} [required]".format(i_name.capitalize()) in self.text
+                    )
+                    self.assertEqual(marked, i_required)
+        # A key is documented in the comment right above it, where the lines indented
+        # further document the keys of its section; a section set apart by a blank line
+        # is documented under its heading
+
+    def test_each_type_is_shown_with_its_parameters_and_descriptions(self):
+        types = [i_name for i_name in PHASE_MODELS if i_name != "matrix"]
+        for i_index, i_name in enumerate(types):
+            with self.subTest(type=i_name):
+                start = self.text.index("\n#   {0} ".format(i_name))
+                end = (
+                    self.text.index("\n#   {0} ".format(types[i_index + 1]))
+                    if i_index + 1 < len(types)
+                    else self.text.index("\n# Every type takes")
+                )
+                block = self.text[start:end]
+                particle_class = PHASE_MODELS[i_name].particle_class
+                self.assertEqual(
+                    set(re.findall(r"^#     ([a-z_0-9]+):", block, re.M)),
+                    set(particle_class.possible_parameters) - {"n", "vf"},
+                )
+                sets = block[block.index("described by one of:") :].split(":", 1)[1]
+                sets = re.sub(r"\n#\s*", " ", sets)
+                self.assertEqual(
+                    {
+                        frozenset(j_name.strip() for j_name in j_set.split(","))
+                        for j_set in sets.split("|")
+                    },
+                    {
+                        frozenset(j_description)
+                        for j_description in particle_class.acceptable_descriptions
+                    },
+                )
 
 
 if __name__ == "__main__":
