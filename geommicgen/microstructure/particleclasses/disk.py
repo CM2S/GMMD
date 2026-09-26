@@ -266,7 +266,7 @@ class Disk(Ellipse):
         # GJK algorithm is written for 3D
 
     def intersection_length(
-        self, other_particle: Particle, box: list, tol: float = 1e-8, **kwargs
+        self, other_particle: Particle, box: list, **kwargs
     ) -> Union[float, np.array]:
         """
         Compute the intersection length between the Disk and the other particle.
@@ -301,10 +301,9 @@ class Disk(Ellipse):
             )
             unit_vector = self.intersection_vector(other_particle, box)
         else:
-            intersection = self.intersection_gjk(other_particle, box, tol=tol)
-            # TODO: `intersection_gjk` takes no tolerance, so a disk asked about any
-            # other shape raises, and a microstructure of disks and ellipses cannot be
-            # generated whenever a disk comes first in a pair
+            intersection = self.intersection_gjk(other_particle, box)
+            # `intersection_gjk` takes no tolerance, and was given one, so a disk asked
+            # about any other shape raised
             overlap_length, unit_vector = self.intersection_length_mink_diff(
                 other_particle, box, dist_met=dist_met
             )

@@ -2447,3 +2447,28 @@ class TestPointInsideSphere(unittest.TestCase):
         # A point a ten thousandth of the radius beyond the surface is outside a sphere
         # of any size. The band used to be a length of 1e-3, so a sphere of radius 0.1
         # let such a point in, and one of a millionth of the unit its whole RVE
+
+
+class TestDiskAndEllipse(unittest.TestCase):
+    """Test class for the overlap of a disk and an ellipse."""
+
+    def test_the_overlap_is_the_same_whichever_is_asked(self):
+        rve_dims = [1.0, 1.0]
+        disk = Disk("1", {"r": 0.1}, rve_dims)
+        disk.position_center = np.array([0.5, 0.5])
+        for i_x, i_overlapping in ((0.62, True), (0.68, True), (0.75, False)):
+            ellipse = Ellipse(
+                "2", {"major_axis": 0.2, "minor_axis": 0.1, "angle": 0.3}, rve_dims
+            )
+            ellipse.position_center = np.array([i_x, 0.52])
+            with self.subTest(x=i_x):
+                length, direction = disk.intersection_length(ellipse, rve_dims)
+                other_length, other_direction = ellipse.intersection_length(
+                    disk, rve_dims
+                )
+                self.assertAlmostEqual(length, other_length, places=8)
+                self.assertEqual(length > 0, i_overlapping)
+                if i_overlapping:
+                    np.testing.assert_allclose(direction, -other_direction, atol=1e-4)
+        # A disk asked about an ellipse raised, since it gave the test of intersection
+        # a tolerance that test does not take

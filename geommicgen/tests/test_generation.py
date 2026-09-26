@@ -816,6 +816,42 @@ class TestFinalOverlapCheck(unittest.TestCase):
         # overlap exactly; the check measured it the way the thermostat said next
 
 
+class TestDisksAndEllipses(unittest.TestCase):
+    """Test class for a microstructure with a phase of disks and one of ellipses."""
+
+    def test_it_is_generated(self):
+        microstructure = Microstructure([1.0, 1.0])
+        microstructure.add_phase(Phase("0", {"phase_type": 1}))
+        microstructure.add_phase(Phase("1", {"phase_type": 2, "r": 0.08, "n": 15}))
+        microstructure.add_phase(
+            Phase(
+                "2",
+                {
+                    "phase_type": 3,
+                    "major_axis": 0.12,
+                    "minor_axis": 0.06,
+                    "angle": 0.3,
+                    "n": 15,
+                },
+            )
+        )
+        generator = MolecularDynamicsSimulation(
+            1e-4, 5, 1, 1e-3, 0.0, "random", False, fixed_seed=11
+        )
+        generator.set_thermostat(
+            MultiTemperatureIsokineticThermostat(
+                None, criterion="ratio_in_out", max_ratio_osc=2, temp_low_ratio=1 / 4
+            )
+        )
+        generator.set_speed_up_scheme(CellList())
+        generator.generate_microstructure(microstructure)
+        self.assertEqual(len(microstructure.particles), 30)
+        self.assertGreater(generator.total_overlap, 0)
+        # Five steps leave the particles overlapping, so pairs of a disk and an ellipse
+        # were measured. A disk asked about an ellipse raised, so the run stopped at
+        # the first such pair a disk came first in
+
+
 class TestMolecularDynamicSimulationForce(unittest.TestCase):
     def setUp(self):
         self.md_init_mock_kwargs = {
