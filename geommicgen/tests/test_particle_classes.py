@@ -1016,8 +1016,8 @@ class TestCylinder(unittest.TestCase):
             all(np.abs(furthest_point_2 - np.array([0.6, 0.8, 0.4])) < 1e-4)
         )
 
-    def test_intersection_cylinder_cylinder_non_intersecting(self):
-        """Test for intersection_cylinder_cylinder with non-intersecting cylinder."""
+    def test_intersection_non_intersecting(self):
+        """Test for the intersection of two cylinders that do not intersect."""
         rve_dims = [1, 1, 1]
         phase_1 = "1"
         descriptors_1 = {
@@ -1040,11 +1040,11 @@ class TestCylinder(unittest.TestCase):
         }
         cyl_2 = Cylinder(phase_2, descriptors_2, rve_dims)
         cyl_2.position_center = np.array([0.5, 0.9, 0.5])
-        intersection, _ = cyl_1.intersection_cylinder_cylinder(cyl_2, rve_dims)
+        intersection = cyl_1.intersection(cyl_2, rve_dims)
         self.assertTrue(not intersection)
 
-    def test_intersection_cylinder_cylinder_intersecting_cc1_1(self):
-        """Test for intersection_cylinder_cylinder with intersecting cylinder, type cc1."""
+    def test_intersection_intersecting_cc1_1(self):
+        """Test for the intersection of two cylinders that intersect, type cc1."""
         rve_dims = [1, 1, 1]
         phase_1 = "1"
         descriptors_1 = {
@@ -1067,13 +1067,11 @@ class TestCylinder(unittest.TestCase):
         }
         cyl_2 = Cylinder(phase_2, descriptors_2, rve_dims)
         cyl_2.position_center = np.array([0.5, 0.6, 0.5])
-        intersection, overlap_length = cyl_1.intersection_cylinder_cylinder(
-            cyl_2, rve_dims
-        )
+        intersection = cyl_1.intersection(cyl_2, rve_dims)
         self.assertTrue(intersection)
 
-    def test_intersection_cylinder_cylinder_intersecting_cc1_2(self):
-        """Test for intersection_cylinder_cylinder with intersecting cylinder, type cc1."""
+    def test_intersection_intersecting_cc1_2(self):
+        """Test for the intersection of two cylinders that intersect, type cc1."""
         rve_dims = [1, 1, 1]
         phase_1 = "1"
         descriptors_1 = {
@@ -1096,15 +1094,13 @@ class TestCylinder(unittest.TestCase):
         }
         cyl_2 = Cylinder(phase_2, descriptors_2, rve_dims)
         cyl_2.position_center = np.array([0.65, 0.5, 0.5])
-        intersection, overlap_length = cyl_1.intersection_cylinder_cylinder(
-            cyl_2, rve_dims
-        )
+        intersection = cyl_1.intersection(cyl_2, rve_dims)
         intersection_1 = cyl_1.intersection_gjk(cyl_2, rve_dims)
 
         self.assertTrue(intersection)
 
-    def test_intersection_cylinder_cylinder_intersecting_cd_1(self):
-        """Test for intersection_cylinder_cylinder with intersecting cylinder, type cd."""
+    def test_intersection_intersecting_cd_1(self):
+        """Test for the intersection of two cylinders that intersect, type cd."""
         rve_dims = [1, 1, 1]
         phase_1 = "1"
         descriptors_1 = {
@@ -1127,11 +1123,11 @@ class TestCylinder(unittest.TestCase):
         }
         cyl_2 = Cylinder(phase_2, descriptors_2, rve_dims)
         cyl_2.position_center = np.array([0.65, 0.5, 0.65])
-        intersection, _ = cyl_1.intersection_cylinder_cylinder(cyl_2, rve_dims)
+        intersection = cyl_1.intersection(cyl_2, rve_dims)
         self.assertTrue(intersection)
 
     def test_intersection_top_disks(self):
-        """Test for intersection_cylinder_cylinder with intersecting cylinder, type d1."""
+        """Test for the intersection of two cylinders that intersect, type d1."""
         rve_dims = [1, 1, 1]
         phase_1 = "1"
         descriptors_1 = {
@@ -1154,7 +1150,7 @@ class TestCylinder(unittest.TestCase):
         }
         cyl_2 = Cylinder(phase_2, descriptors_2, rve_dims)
         cyl_2.position_center = np.array([0.5, 0.5, 0.65])
-        intersection, _ = cyl_1.intersection_cylinder_cylinder(cyl_2, rve_dims)
+        intersection = cyl_1.intersection(cyl_2, rve_dims)
         self.assertTrue(intersection)
 
 
@@ -1783,105 +1779,6 @@ class TestIntersectionCylinder(unittest.TestCase):
         # Side by side, end to end, crossed, and of two lengths, each a little closer
         # and a little further than touching. The test of the caps answered with a
         # tuple, true whatever it held, and held true for three of the pairs apart
-
-
-class TestIntegrationCylinder(unittest.TestCase):
-    """Test the Monte Carlo integration for cylinders."""
-
-    @unittest.skip("Not working and currently not used")
-    def test_cylinder_inside(self):
-        """The cylinder is completly inside an ellipsoid.
-
-        (Not working, but also currently not used)"""
-        rve_dims = [2.5, 2.5, 2.5]
-        cylinder = Cylinder(
-            "1",
-            {
-                "r_cyl": 0.3,
-                "length": 0.8,
-                "azimuth_angle": 0,
-                "polar_angle": np.pi / 2,
-                "n": 1,
-            },
-            rve_dims,
-        )
-        cylinder.position_center = np.array([0.5, 0.5, 0.5])
-        ellipsoid = Ellipsoid(
-            "1",
-            {
-                "axis_1": 1,
-                "axis_2": 1,
-                "axis_3": 1,
-                "rot_axis_comp_x": np.sqrt(3) / 3,
-                "rot_axis_comp_y": np.sqrt(3) / 3,
-                "rot_axis_comp_z": np.sqrt(3) / 3,
-                "angle": 0,
-            },
-            rve_dims,
-        )
-        ellipsoid.position_center = np.array([0.5, 0.5, 0.5])
-        intersection_volume, error_estimate = ellipsoid.intersection_area_monte_carlo(
-            cylinder, rve_dims, tol=1e-1
-        )
-        # # print(
-        #     "error_estimate_2",
-        #     error_estimate,
-        #     intersection_volume,
-        #     cylinder.volume,
-        #     ((intersection_volume - cylinder.volume) / cylinder.volume) * 100,
-        # )
-        self.assertTrue(
-            np.abs((intersection_volume - cylinder.volume) / cylinder.volume) * 100 < 1
-        )
-
-    @unittest.skip("Test failing, but function no longer used.")
-    def test_cylinder_outside(self):
-        """An Ellipsoid is completly inside the Cylinder."""
-        rve_dims = [1, 1, 1]
-        cylinder = Cylinder(
-            "1",
-            {
-                "r_cyl": 0.5,
-                "length": 0.8,
-                "azimuth_angle": 0,
-                "polar_angle": np.pi / 2,
-                "n": 1,
-            },
-            rve_dims,
-        )
-        cylinder.position_center = np.array([0.5, 0.5, 0.5])
-        ellipsoid = Ellipsoid(
-            "1",
-            {
-                "axis_1": 0.05,
-                "axis_2": 0.2,
-                "axis_3": 0.1,
-                "rot_axis_comp_x": np.sqrt(3) / 3,
-                "rot_axis_comp_y": np.sqrt(3) / 3,
-                "rot_axis_comp_z": np.sqrt(3) / 3,
-                "angle": 0,
-            },
-            rve_dims,
-        )
-        ellipsoid.position_center = np.array([0.5, 0.5, 0.5])
-        intersection_volume, error_estimate = cylinder.intersection_area_monte_carlo(
-            ellipsoid, rve_dims, tol=1e-1
-        )
-        (
-            intersection_volume_2,
-            error_estimate_2,
-        ) = cylinder.intersection_area_monte_carlo(ellipsoid, rve_dims, tol=1)
-        # print("error_estimate_1", error_estimate, intersection_volume, ellipsoid.volume)
-        # print(
-        #     "error_estimate_2",
-        #     error_estimate_2,
-        #     intersection_volume_2,
-        #     ellipsoid.volume,
-        # )
-        self.assertTrue(
-            np.abs((intersection_volume - ellipsoid.volume) / ellipsoid.volume) * 100
-            < 1
-        )
 
 
 class TestParticlePoint(unittest.TestCase):
