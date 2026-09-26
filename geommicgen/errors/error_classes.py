@@ -4,9 +4,27 @@ This module contains the class for errors.
 Mostly unused at this point.
 """
 
+import functools
+
 
 class Error(Exception):
     """Base class for exceptions in this module."""
+
+    def __new__(cls, *args, **kwargs):
+        """Create the error, keeping the arguments it is built with."""
+        error = super().__new__(cls, *args, **kwargs)
+        error.init_args = (args, kwargs)
+        return error
+
+    def __reduce__(self):
+        """Give what rebuilds the error: its class, its arguments and its attributes."""
+        args, kwargs = self.init_args
+        return (functools.partial(type(self), **kwargs), args, self.__dict__)
+        # An exception is pickled as its class and its message, and unpickled by
+        # calling the class with the message, which an error of this module takes for
+        # what it builds its message from: some came back with the message inside a
+        # second one, and the others could not be built at all. An error raised in
+        # another process reaches this one pickled
 
 
 class InputError(Error):
