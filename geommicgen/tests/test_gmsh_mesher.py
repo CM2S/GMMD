@@ -6,13 +6,18 @@ from unittest.mock import Mock, patch
 import numpy as np
 
 from geommicgen._optional import has_gmsh
-from geommicgen.errors.error_classes import UnsupportedParticleShape
+from geommicgen.errors.error_classes import (
+    MeshingProcessDied,
+    RaisedInAnotherProcess,
+    UnsupportedParticleShape,
+)
 from geommicgen.meshing.images import periodic_images
 from geommicgen.meshing.mesher import get_mesher
 from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.microstructure.phase import Phase
 from geommicgen.microstructure.particleclasses import Disk, Point, Sphere
 from geommicgen.tests.helpers import (
+    ProcessEndingMesher,
     build_microstructure,
     disk_microstructure,
     ellipse_microstructure,
@@ -398,14 +403,14 @@ class TestPhaseVolumes(unittest.TestCase):
         # into falls to the matrix, as a piece the booleans lose does
 
         mesher = GmshMesher(mesh_size=0.1, element_type="tri3")
-        mesher.mesh(disk_microstructure())
+        mesher.mesh_in_this_process(disk_microstructure())
         self.assertFalse(any("takes up" in i for i in mesher.warnings))
         with patch.object(gmsh.model.occ, "fragment", losing_a_piece):
-            mesh = mesher.mesh(disk_microstructure())
+            mesh = mesher.mesh_in_this_process(disk_microstructure())
         self.assertTrue(any("phase 2 takes up" in i for i in mesher.warnings))
         self.assertAlmostEqual(sum(cell_measures(mesh).values()), 1.0, places=9)
         # The cells still fill the RVE, so the check of the mesh passes, and the loss
-        # was written without a word
+        # was written without a word. Meshed in this process, which the patch reaches
 
     def test_a_phase_inside_another_is_not_reported(self):
         rve_dims = [1.0, 1.0]
@@ -494,6 +499,39 @@ class TestThinCaps(unittest.TestCase):
         # thin beside the face at one. The side of the cap was paired with the flat face
         # of the cut, so the disk lost the cap, the second order mesh of it failed, and
         # the sphere's cap was meshed into cells of no volume
+
+
+@unittest.skipUnless(has_gmsh(), "gmsh is not installed")
+class TestMeshingInAProcessOfItsOwn(unittest.TestCase):
+    """Test class for the process a mesh is made in."""
+
+    def test_a_process_that_ends_is_reported(self):
+        with self.assertRaisesRegex(MeshingProcessDied, "killed by SIGKILL"):
+            ProcessEndingMesher(mesh_size=0.1, element_type="tri3").mesh(
+                disk_microstructure()
+            )
+        mesh = GmshMesher(mesh_size=0.1, element_type="tri3").mesh(
+            disk_microstructure()
+        )
+        self.assertGreater(mesh.n_cells, 0)
+        # Gmsh can end its process rather than raise, which took the one that asked for
+        # the mesh down with it, and every discretisation after it
+
+    def test_an_error_comes_back_as_it_was_raised(self):
+        with self.assertRaisesRegex(ValueError, "has dimension 3") as context:
+            GmshMesher(mesh_size=0.1, element_type="tetra4").mesh(
+                disk_microstructure()
+            )
+        self.assertIsInstance(context.exception.__cause__, RaisedInAnotherProcess)
+        self.assertIn("mesh_in_this_process", str(context.exception.__cause__))
+        # The traceback of the other process is the cause, so it is printed with it
+
+    def test_the_progress_is_reported_as_it_is_made(self):
+        reported = []
+        GmshMesher(mesh_size=0.1, element_type="tri3").mesh(
+            disk_microstructure(), report=lambda *i_args: reported.append(i_args)
+        )
+        self.assertEqual(reported, [(0, 2), (1, 2)])
 
 
 @unittest.skipUnless(has_gmsh(), "gmsh is not installed")

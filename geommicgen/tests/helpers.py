@@ -1,13 +1,25 @@
 """Module containing the helpers shared by the test modules."""
 
+import os
+import signal
+
 import numpy as np
 
+from geommicgen.meshing.gmsh_mesher import GmshMesher
 from geommicgen.meshing.mesh import Mesh, StructuredInfo
 from geommicgen.micgenmethod.molecular_dynamics_sim import MolecularDynamicsSimulation
 from geommicgen.micgenmethod.thermostats import IsokineticThermostat
 from geommicgen.microstructure.particleclasses import Disk, Ellipse, Sphere
 from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.microstructure.phase import Phase
+
+
+class ProcessEndingMesher(GmshMesher):
+    """Gmsh mesher that ends the process it meshes in, as gmsh can, giving nothing."""
+
+    def mesh_in_this_process(self, microstructure, report=None):
+        """End the process, which is the one `mesh` starts for it."""
+        os.kill(os.getpid(), signal.SIGKILL)
 
 
 def non_conforming_mesh(mesh):

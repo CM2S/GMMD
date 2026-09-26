@@ -17,9 +17,9 @@ from geommicgen.meshing.gmsh_mesher import GmshMesher
 from geommicgen.meshing.mesher import available_meshers, get_mesher
 from geommicgen.meshing.voxel_mesher import VoxelMesher
 from geommicgen.meshing.mesh import Mesh
-from geommicgen.tests.helpers import disk_microstructure
+from geommicgen.tests.helpers import ProcessEndingMesher, disk_microstructure
 from geommicgen.translators.crate import CrateWriter
-from geommicgen.errors.error_classes import MeshTooLargeError
+from geommicgen.errors.error_classes import MeshingProcessDied, MeshTooLargeError
 from geommicgen.translators.links import LinksWriter
 
 
@@ -354,6 +354,19 @@ class TestMeshJobRunWithGmsh(unittest.TestCase):
         # Both would write tri3.vtu, so one would land on top of the other and only the
         # second would survive. Nothing is written at all instead. A grid cannot collide
         # this way, since no writer claims the .vti an image is written as
+
+    def test_a_mesher_that_ends_its_process_leaves_the_jobs_after_it(self):
+        jobs = [
+            MeshJob(ProcessEndingMesher(mesh_size=0.1, element_type="tri3"), [], "a"),
+            build_mesh_jobs({"gmsh": {"element_type": "tri3", "mesh_size": 0.1}})[0],
+        ]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            for i_job in jobs:
+                i_job.run(disk_microstructure(), temp_dir)
+        self.assertIsInstance(jobs[0].error, MeshingProcessDied)
+        self.assertIsNone(jobs[1].error)
+        # Gmsh can end its process rather than raise, and no except caught that; the
+        # job that asked is told instead, and the next one runs
 
     def test_the_links_deck_and_the_standard_output_are_written(self):
         job = build_mesh_jobs({"gmsh": {"element_type": "tri3", "mesh_size": 0.1}})[0]

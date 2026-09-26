@@ -5,6 +5,7 @@ Mostly unused at this point.
 """
 
 import functools
+import signal
 
 
 class Error(Exception):
@@ -412,6 +413,43 @@ class UnsupportedParticleShape(Error):
             "There is no geometry for a particle of shape {0}, so it would be left "
             "out of the mesh.".format(shape_name)
         )
+
+    def message(self):
+        """Print message."""
+        print(str(self))
+
+
+class MeshingProcessDied(Error):
+    """Raised when the process a mesh was being made in ends without giving it."""
+
+    def __init__(self, mesher_name, exit_code):
+        """Initizalize MeshingProcessDied instance."""
+        self.mesher_name = mesher_name
+        self.exit_code = exit_code
+        try:
+            ending = "was killed by {0}".format(signal.Signals(-exit_code).name)
+        except (TypeError, ValueError):
+            ending = "ended with exit code {0}".format(exit_code)
+        # A process killed by a signal reports minus the number of the signal
+        super().__init__(
+            "The process the {0} mesher was meshing in {1} before it gave a mesh: "
+            "the mesher took its process down rather than raise.".format(
+                mesher_name, ending
+            )
+        )
+
+    def message(self):
+        """Print message."""
+        print(str(self))
+
+
+class RaisedInAnotherProcess(Error):
+    """Carries the traceback of an error raised in another process, as its cause."""
+
+    def __init__(self, trace):
+        """Initizalize RaisedInAnotherProcess instance."""
+        self.trace = trace
+        super().__init__("\n\n" + trace)
 
     def message(self):
         """Print message."""
