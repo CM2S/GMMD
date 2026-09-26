@@ -171,8 +171,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
         How the overlap of two particles pushes them apart: by the length they overlap
         by, the one way there is.
 
-    force_rescale: bool
-        Flag for the use of force rescale.
+    force_rescale: {False}
+        Whether the forces are rescaled, which they are not: no rescale ran.
 
     dt_adapt: bool
         Flag for the use of the adaptive time step choice.
@@ -192,9 +192,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
 
     microstructure_sample: `.Microstructure`
         Microstructure to be generated.
-
-    force_rescale_coeff: float
-        Force rescale coefficient. Currently not in use.
 
     coord_number: float
         Mean coordination number of the particles in the simulation.
@@ -265,8 +262,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
             How the overlap of two particles pushes them apart: by the length they
             overlap by, the one way there is, and the default.
 
-        force_rescale: bool
-            Flag for the use of force rescale.
+        force_rescale: {False}
+            Whether the forces are rescaled, which they are not, the default.
 
         dt_adapt: bool
             Flag for the use of the adaptive time step choice.
@@ -323,13 +320,19 @@ class MolecularDynamicsSimulation(GenerationMethod):
         # and neither ran: neither took the method of the distance the run passes, and
         # the area gave no direction, so either stopped the run at its first pair
         self.force_rescale = kwargs.get("force_rescale", False)
+        if self.force_rescale:
+            raise ValueError(
+                "The forces are not rescaled: force_rescale can only be False."
+            )
+        # The rescale read an attribute no simulation had, so asking for it stopped the
+        # run at its first step, and the coefficient it multiplied the forces by was
+        # one, the lines that changed it having been commented out
         self.dt_adapt = kwargs.get("dt_adapt", True)
         self.offset = kwargs.get("offset", True)
         self.fixed_seed = kwargs.get("fixed_seed", None)
         self.initial_vel_coeff = kwargs.get("initial_vel_coeff", 0.25)
         self.final_overlap_check = kwargs.get("final_overlap_check", False)
         self.microstructure_sample = None
-        self.force_rescale_coeff = 1
         self.coord_number = None
         self.thermic_energy_history = []
         self.all_dt = []
@@ -957,7 +960,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
         The forces are reset, computed and saved at *self.particle_forces*.
 
         Forces due particle interactions, thermostats and damping are considered.
-        A force rescale can also be specified according to *self.force_rescale_coeff*.
 
         Parameters
         ----------
@@ -973,15 +975,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
         # Computing forces due to the thermostat
         self.compute_forces_damping(particles)
         # Computing forces due to damping
-        if self.force_rescale:
-            self.particle_forces = [
-                (
-                    force * self.force_rescale_coeff
-                    if self.current_max_force != 0
-                    else force
-                )
-                for force in self.particle_forces
-            ]
 
     def compute_forces_overlap(self, particles):
         """

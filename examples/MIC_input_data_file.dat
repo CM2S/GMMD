@@ -829,11 +829,12 @@
 #                                                                          Force rescale [O]
 # ==========================================================================================
 # Meaning:   Flag for the use of a force rescaling procedure, that approximates the sceme
-#            described in Salnikov et al. (2015).
+#            described in Salnikov et al. (2015). No rescale runs, so the flag can only
+#            be False.
 #
 # Syntax:    Force_Rescale x
 #
-# x:         float
+# x:         {False}
 # ------------------------------------------------------------------------------------------
 [insert here]
 

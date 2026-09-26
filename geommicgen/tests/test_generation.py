@@ -489,7 +489,6 @@ class TestFromOptions(unittest.TestCase):
             {
                 "damping_coeff": 0.3,
                 "particle_mass_opt": "unit",
-                "force_rescale": True,
                 "dt_adapt": False,
                 "offset": False,
                 "fixed_seed": 7,
@@ -502,7 +501,6 @@ class TestFromOptions(unittest.TestCase):
         simulation = MolecularDynamicsSimulation.from_options(options)
         self.assertEqual(simulation.damping_coeff, 0.3)
         self.assertEqual(simulation.particle_mass_opt, "unit")
-        self.assertTrue(simulation.force_rescale)
         self.assertFalse(simulation.dt_adapt)
         self.assertFalse(simulation.offset)
         self.assertEqual(simulation.fixed_seed, 7)
@@ -551,6 +549,17 @@ class TestFromOptions(unittest.TestCase):
                         dict(deck_defaults(), **{i_option: "nope"})
                     )
                 self.assertIn("nope", str(context.exception))
+
+    def test_a_force_rescale_is_refused(self):
+        with self.assertRaisesRegex(ValueError, "force_rescale"):
+            MolecularDynamicsSimulation.from_options(
+                dict(deck_defaults(), force_rescale=True)
+            )
+        simulation = MolecularDynamicsSimulation.from_options(
+            dict(deck_defaults(), force_rescale=False)
+        )
+        self.assertFalse(simulation.force_rescale)
+        # It stopped the run at its first step, reading an attribute no simulation had
 
     def test_a_force_option_that_does_not_run_is_refused(self):
         for i_option in ("intersection_area", "force_spring"):

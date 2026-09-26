@@ -335,7 +335,6 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
                         # If the total overlap has increased in the previous iterations
                         self.reference_temp *= self.temp_low_ratio
                         # self.molecular_dynamics_sim.dt *= 1.001
-                        # self.molecular_dynamics_sim.force_rescale_coeff *= 2  # 16 ** 2
                         # Lowering the temperature
                         self.temp_change_steps.append(self.molecular_dynamics_sim.step)
                         # Saving minimum equilibration times and times at which the
@@ -344,7 +343,6 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
                     # If the total overlap has increased in the previous iterations
                     self.reference_temp *= self.temp_low_ratio
                     # self.molecular_dynamics_sim.dt *= 1.001
-                    # self.molecular_dynamics_sim.force_rescale_coeff *= 2  # 16 ** 2
                     # Lowering the temperature
                     self.temp_change_steps.append(self.molecular_dynamics_sim.step)
                     # Saving minimum equilibration times and times at which the

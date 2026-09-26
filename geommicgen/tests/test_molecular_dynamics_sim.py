@@ -791,34 +791,6 @@ class TestMolecularDynamicSimulationForce(unittest.TestCase):
         for force in current_generation_method.particle_forces:
             self.assertTrue(np.all(force == np.zeros(2)))
 
-    def test_compute_forces_with_force_rescale(self):
-        """Check that the forces are rescaled by force_rescale_coeff when force_rescale is
-        enabled and the current max force is non-zero."""
-        current_generation_method = MolecularDynamicsSimulation(
-            *self.md_init_mock_kwargs.values()
-        )
-        current_generation_method.force_rescale = True
-        current_generation_method.force_rescale_coeff = 2.0
-        current_generation_method.current_max_force = 1.0
-
-        def _set_forces(particles):
-            current_generation_method.particle_forces = [
-                np.array([1.0, 0.0]),
-                np.array([0.0, 1.0]),
-            ]
-
-        current_generation_method.compute_forces_overlap = Mock(side_effect=_set_forces)
-        current_generation_method.compute_forces_thermostat = Mock()
-        current_generation_method.compute_forces_damping = Mock()
-        particles = [Mock(dim=2), Mock(dim=2)]
-        current_generation_method.compute_forces(particles)
-        self.assertTrue(
-            np.allclose(current_generation_method.particle_forces[0], np.array([2.0, 0.0]))
-        )
-        self.assertTrue(
-            np.allclose(current_generation_method.particle_forces[1], np.array([0.0, 2.0]))
-        )
-
     def test_compute_forces_thermostat_no_force_coeff_is_a_no_op(self):
         """Check that no force is added when the thermostat has no force coefficient."""
         current_generation_method = MolecularDynamicsSimulation(
