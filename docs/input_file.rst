@@ -1,0 +1,41 @@
+The input file
+==============
+
+A run of GMMD is described by an input file, a YAML file holding the phases of the
+microstructure and their descriptors, the parameters of the generation, and the meshes
+and analyses to make of each sample::
+
+    geommicgen input_file.yaml
+
+Each phase is keyed by a whole number, which the meshes label it with, and gives the
+type of its particles and a descriptor for each parameter of one of the descriptions
+the type accepts: a number for a value every particle shares, or a distribution each
+particle's value is drawn from, written as the microstructure file writes one.
+
+The file is validated whole before anything is generated or written. A key the file
+does not take is refused, and so is a key given twice; values a run would stop on are
+refused, and so are sections that do not agree with each other, such as particles of
+another dimension than the RVE. Every problem is named at once, by its path in the
+file::
+
+    geommicgen: input_file.yaml has 2 problems:
+      - generation.max_step: is missing
+      - phases.1.axis_1.sigma: Input should be greater than or equal to 0 (given -0.025)
+
+Beside the copy of the input file, the results folder holds the run it resolved to,
+``input_file.resolved.yaml``, with every default filled in, which reads back as the
+same run.
+
+A deck of the keyword format (``.mdsim``) that earlier versions read is still run, with
+a line saying that the format is on its way out. ``geommicgen-convert-deck`` writes the
+input file a deck amounts to, beside it, saying what the deck gave that nothing read.
+
+Every key
+---------
+
+``examples/reference.yaml`` documents every key the file takes -- what it means, the
+values it takes and its default -- and runs as it is written. The test suite holds it
+to the models the file is read into.
+
+.. literalinclude:: ../examples/reference.yaml
+   :language: yaml

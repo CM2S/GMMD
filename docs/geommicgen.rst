@@ -11,6 +11,7 @@ Subpackages
 
 .. toctree::
 
+    geommicgen.config
     geommicgen.errors
     geommicgen.iofuncs
     geommicgen.meshing
