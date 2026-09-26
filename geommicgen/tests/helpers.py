@@ -22,6 +22,15 @@ class ProcessEndingMesher(GmshMesher):
         os.kill(os.getpid(), signal.SIGKILL)
 
 
+class FailingMesher(GmshMesher):
+    """Gmsh mesher that warns, as meshing can before it fails, and then fails."""
+
+    def mesh_in_this_process(self, microstructure, report=None):
+        """Leave a warning on the mesher, and raise."""
+        self.warnings = ["WARNING: left before the failure"]
+        raise ValueError("failed after a warning")
+
+
 def non_conforming_mesh(mesh):
     """
     Build a copy of a mesh whose opposite faces are no longer discretised alike.

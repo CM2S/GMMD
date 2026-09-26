@@ -7,7 +7,7 @@ import numpy as np
 
 from geommicgen._optional import has_gmsh
 from geommicgen.errors.error_classes import (
-    MeshingProcessDied,
+    ProcessDied,
     RaisedInAnotherProcess,
     UnsupportedParticleShape,
 )
@@ -17,6 +17,7 @@ from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.microstructure.phase import Phase
 from geommicgen.microstructure.particleclasses import Disk, Point, Sphere
 from geommicgen.tests.helpers import (
+    FailingMesher,
     ProcessEndingMesher,
     build_microstructure,
     disk_microstructure,
@@ -506,7 +507,7 @@ class TestMeshingInAProcessOfItsOwn(unittest.TestCase):
     """Test class for the process a mesh is made in."""
 
     def test_a_process_that_ends_is_reported(self):
-        with self.assertRaisesRegex(MeshingProcessDied, "killed by SIGKILL"):
+        with self.assertRaisesRegex(ProcessDied, "killed by SIGKILL"):
             ProcessEndingMesher(mesh_size=0.1, element_type="tri3").mesh(
                 disk_microstructure()
             )
@@ -525,6 +526,15 @@ class TestMeshingInAProcessOfItsOwn(unittest.TestCase):
         self.assertIsInstance(context.exception.__cause__, RaisedInAnotherProcess)
         self.assertIn("mesh_in_this_process", str(context.exception.__cause__))
         # The traceback of the other process is the cause, so it is printed with it
+
+    def test_the_warnings_come_back_with_an_error(self):
+        mesher = FailingMesher(mesh_size=0.1, element_type="tri3")
+        with self.assertRaisesRegex(ValueError, "failed after a warning") as context:
+            mesher.mesh(disk_microstructure())
+        self.assertEqual(mesher.warnings, ["WARNING: left before the failure"])
+        self.assertFalse(hasattr(context.exception, "mesher_state"))
+        # The warnings of a mesh that failed are printed with the failure, which is
+        # when they are wanted most
 
     def test_the_progress_is_reported_as_it_is_made(self):
         reported = []

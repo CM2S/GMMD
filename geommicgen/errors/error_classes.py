@@ -419,12 +419,12 @@ class UnsupportedParticleShape(Error):
         print(str(self))
 
 
-class MeshingProcessDied(Error):
-    """Raised when the process a mesh was being made in ends without giving it."""
+class ProcessDied(Error):
+    """Raised when a process of its own a task ran in ends before the task did."""
 
-    def __init__(self, mesher_name, exit_code):
-        """Initizalize MeshingProcessDied instance."""
-        self.mesher_name = mesher_name
+    def __init__(self, task, exit_code):
+        """Initizalize ProcessDied instance."""
+        self.task = task
         self.exit_code = exit_code
         try:
             ending = "was killed by {0}".format(signal.Signals(-exit_code).name)
@@ -432,10 +432,8 @@ class MeshingProcessDied(Error):
             ending = "ended with exit code {0}".format(exit_code)
         # A process killed by a signal reports minus the number of the signal
         super().__init__(
-            "The process the {0} mesher was meshing in {1} before it gave a mesh: "
-            "the mesher took its process down rather than raise.".format(
-                mesher_name, ending
-            )
+            "The process {0} ran in {1} before it was done: gmsh, or what it called, "
+            "took the process down rather than raise.".format(task, ending)
         )
 
     def message(self):

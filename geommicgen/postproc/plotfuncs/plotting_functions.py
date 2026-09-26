@@ -24,6 +24,7 @@ from matplotlib import cm
 
 from geommicgen.microstructure.particleclasses import Ellipse, Particle
 
+from geommicgen._process import in_own_process
 from geommicgen.meshing.gmsh_mesher import GmshMesher, gmsh_session
 from geommicgen.meshing.images import periodic_images
 from geommicgen.microstructure.microstructure import unit_scale
@@ -516,6 +517,7 @@ def write_gmsh_view(gmsh, results_dir, name):
     # than read and written back identical
 
 
+@in_own_process("drawing the particles with gmsh")
 def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
 
     particles, rve_dims, scale = at_unit_scale(particles, rve_dims)
@@ -550,6 +552,7 @@ def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
         write_gmsh_view(gmsh, sample_dir, "final_config")
 
 
+@in_own_process("drawing the particles with gmsh")
 def plot_particles_3d_one_by_one(particles, rve_dims, sample_dir, **kwargs):
     final_config_dir = os.path.join(sample_dir, "final_config")
     os.makedirs(final_config_dir)
@@ -679,6 +682,7 @@ def plot_overlap_history(
             return graph_overlap_history
 
 
+@in_own_process("drawing the paths of the particles")
 def plot_paths(particles, box, position_center_history, motion_results_dir):
     """Plot particle paths."""
     path_results_dir = os.path.join(motion_results_dir, "paths")
@@ -1349,6 +1353,7 @@ def plot_voronoi_2d_with_imts(
         plt.close()
 
 
+@in_own_process("drawing the Voronoi cells with gmsh")
 def plot_voronoi_3d(particles, voronoi, rve_dims, sample_dir, save=True, show=False):
     """Plot the Voronoi for circular particles."""
     particles, rve_dims, scale = at_unit_scale(particles, rve_dims)
@@ -1431,6 +1436,7 @@ def plot_voronoi_3d(particles, voronoi, rve_dims, sample_dir, save=True, show=Fa
         write_gmsh_view(gmsh, sample_dir, "voronoi")
 
 
+@in_own_process("drawing the Voronoi cells with gmsh")
 def plot_voronoi_3d_with_imts(
     particles, voronoi, rve_dims, imts, dir, save=True, show=False
 ):

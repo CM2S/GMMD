@@ -52,19 +52,14 @@ element_order_incomp: {0, 1}
 """
 
 import contextlib
-import multiprocessing
-import traceback
 
 import numpy as np
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 from geommicgen._optional import require_gmsh
-from geommicgen.errors.error_classes import (
-    MeshingProcessDied,
-    RaisedInAnotherProcess,
-    UnsupportedParticleShape,
-)
+from geommicgen._process import in_own_process
+from geommicgen.errors.error_classes import UnsupportedParticleShape
 from geommicgen.meshing.images import periodic_images
 from geommicgen.meshing.mesh import Mesh
 from geommicgen.meshing.mesher import Mesher, register_mesher
@@ -160,17 +155,6 @@ PHASE_VOLUME_TOLERANCE = 1.0e-2
 # a fibre, a sphere and a cylinder, cut by the faces of the RVE or not, to a part in a
 # million or better, but an ellipsoid, a sphere it has stretched, to half a per cent
 # once a face has cut it
-
-MESHING_START_METHOD = (
-    "forkserver"
-    if "forkserver" in multiprocessing.get_all_start_methods()
-    else "spawn"
-)
-# How the process a mesh is made in is started: forked from a server process that has
-# imported this module and never run gmsh, or, where there is no such server, started
-# afresh. Either way it is sent the mesher and the microstructure. A process forked
-# from the one asking for the mesh deadlocked once gmsh had run in that one, whose
-# threads OpenCASCADE leaves behind
 
 PBC_TOLERANCE = 1.0e-3
 # Tolerance of the bounding boxes used to pair opposite faces of the RVE, along the
@@ -317,42 +301,36 @@ def check_fills_rve(points, cells, rve_dims):
         )
 
 
-def mesh_in_child(connection, mesher, microstructure, reporting):
+@in_own_process("meshing with gmsh")
+def mesh_keeping_state(mesher, microstructure, report=None):
     """
-    Mesh a microstructure in the process this runs in, and send back what came of it.
+    Mesh a microstructure with gmsh, giving with the mesh what was set on the mesher.
 
     Parameters
     ----------
-    connection: `multiprocessing.connection.Connection`
-        End of the pipe the messages are sent through.
-
     mesher: `.GmshMesher`
         Mesher that makes the mesh.
 
     microstructure: `.Microstructure`
         Microstructure to be meshed.
 
-    reporting: bool
-        Whether the progress over the particles is sent as it is made.
+    report: callable
+        Called with the index of the particle that was added to the model and the total
+        number of particles.
+
+    Returns
+    -------
+    tuple
+        The mesh, and the attributes of the mesher.
     """
-    report = None
-    if reporting:
-
-        def report(index, total):
-            connection.send(("report", index, total))
-
     try:
         mesh = mesher.mesh_in_this_process(microstructure, report)
-    except Exception as error:  # pylint: disable=broad-except
-        trace = traceback.format_exc()
-        try:
-            connection.send(("error", error, trace, vars(mesher)))
-        except Exception:  # pylint: disable=broad-except
-            connection.send(("error", RuntimeError(str(error)), trace, vars(mesher)))
-        # An error that cannot be pickled is sent as its message
-    else:
-        connection.send(("mesh", mesh, vars(mesher)))
-    connection.close()
+    except Exception as error:
+        error.mesher_state = vars(mesher)
+        raise
+    # The warnings are wanted most when meshing failed, so the error carries them
+
+    return mesh, vars(mesher)
 
 
 def phase_volume_warnings(factory, dim, materials, particle_volumes, rve_volume):
@@ -518,48 +496,21 @@ class GmshMesher(Mesher):
         MissingOptionalDependency:
             If gmsh is not installed.
 
-        MeshingProcessDied:
+        ProcessDied:
             If the process the mesh was being made in ended without giving it.
         """
         require_gmsh()
         # Refused here rather than in the process that would mesh, before one is started
-        context = multiprocessing.get_context(MESHING_START_METHOD)
-        if MESHING_START_METHOD == "forkserver":
-            context.set_forkserver_preload([__name__])
-        receiver, sender = context.Pipe(duplex=False)
-        process = context.Process(
-            target=mesh_in_child,
-            args=(sender, self, microstructure, report is not None),
-        )
-        process.start()
-        sender.close()
-        message = None
         try:
-            while True:
-                message = receiver.recv()
-                if message[0] != "report":
-                    break
-                report(*message[1:])
-        except EOFError:
-            message = None
-            # The pipe was closed with nothing more on it, which only happens when the
-            # process ended before it could send what came of the mesh
-        except BaseException:
-            process.terminate()
+            mesh, state = mesh_keeping_state(self, microstructure, report=report)
+        except Exception as error:
+            vars(self).update(vars(error).pop("mesher_state", {}))
             raise
-        finally:
-            receiver.close()
-            process.join()
-        if message is None:
-            raise MeshingProcessDied(self.name, process.exitcode)
-
-        vars(self).update(message[-1])
+        vars(self).update(state)
         # What meshing sets on the mesher, the warnings and the element size it settled
         # on, was set on the one in the other process
-        if message[0] == "error":
-            raise message[1] from RaisedInAnotherProcess(message[2])
 
-        return message[1]
+        return mesh
 
     def mesh_in_this_process(self, microstructure, report=None):
         """

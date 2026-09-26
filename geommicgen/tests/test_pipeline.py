@@ -19,7 +19,7 @@ from geommicgen.meshing.voxel_mesher import VoxelMesher
 from geommicgen.meshing.mesh import Mesh
 from geommicgen.tests.helpers import ProcessEndingMesher, disk_microstructure
 from geommicgen.translators.crate import CrateWriter
-from geommicgen.errors.error_classes import MeshingProcessDied, MeshTooLargeError
+from geommicgen.errors.error_classes import MeshTooLargeError, ProcessDied
 from geommicgen.translators.links import LinksWriter
 
 
@@ -363,7 +363,7 @@ class TestMeshJobRunWithGmsh(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             for i_job in jobs:
                 i_job.run(disk_microstructure(), temp_dir)
-        self.assertIsInstance(jobs[0].error, MeshingProcessDied)
+        self.assertIsInstance(jobs[0].error, ProcessDied)
         self.assertIsNone(jobs[1].error)
         # Gmsh can end its process rather than raise, and no except caught that; the
         # job that asked is told instead, and the next one runs
