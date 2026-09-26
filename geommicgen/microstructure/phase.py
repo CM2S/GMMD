@@ -24,6 +24,11 @@ from .particleclasses import (
     Cylinder,
 )
 
+MAX_PARTICLES = 100000
+# Most particles a phase given by its volume fraction is built with. Nothing bounded
+# the loop, so a description whose particles came out far smaller than the fraction
+# asked for built particles until the memory ran out
+
 
 class Phase:
     """
@@ -272,6 +277,12 @@ class Phase:
         ----------
         rve_dims: list
             List containing the size of the microstructure in each dimension.
+
+        Raises
+        ------
+        ValueError:
+            If the phase is given by its volume fraction, and its particles come out
+            too small to reach it with `MAX_PARTICLES` of them.
         """
         particles = []
         if "vf" in self.descriptors and "n" not in self.descriptors:
@@ -281,14 +292,22 @@ class Phase:
             vf_real = 0
             # Initializing the real volume fraction
             while vf_real < self.descriptors["vf"].value:
-
+                if len(particles) == MAX_PARTICLES:
+                    raise ValueError(
+                        "Phase {0} has {1} particles, of a mean volume of {2:.3g}, "
+                        "and they fill {3:.3g} of the {4:.3g} asked for: its particles "
+                        "come out too small for its volume fraction.".format(
+                            self.name,
+                            len(particles),
+                            vf_real * np.prod(rve_dims) / len(particles),
+                            vf_real,
+                            self.descriptors["vf"].value,
+                        )
+                    )
                 for i_descriptor_name, i_descriptor in self.descriptors.items():
                     current_sample[i_descriptor_name] = i_descriptor.generate_sample()
                 particles.append(self.type(self.name, current_sample, rve_dims))
                 vf_real += particles[-1].volume / np.prod(rve_dims)
-                # TODO: nothing bounds the loop, so a description whose particles come
-                # out far smaller than asked for builds particles until the memory runs
-                # out
         else:
             # The desired number of disks was specified
             samples = {}
