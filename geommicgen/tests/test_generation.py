@@ -325,6 +325,13 @@ class TestFromOptions(unittest.TestCase):
         self.assertTrue(simulation.save_history)
         self.assertEqual(simulation.min_distance, 0.01)
 
+    def test_a_simulation_built_here_weighs_its_particles_as_a_deck_does(self):
+        simulation = MolecularDynamicsSimulation.from_options(deck_defaults())
+        built_here = MolecularDynamicsSimulation(0.0, 10, 5, 0.05, 0.0, "random", False)
+        self.assertEqual(built_here.particle_mass_opt, simulation.particle_mass_opt)
+        # A simulation built without the option weighed its particles by their volume,
+        # and one built from a deck by their radius
+
     def test_the_options_are_the_ones_the_initializer_takes(self):
         simulation = MolecularDynamicsSimulation.from_options(deck_defaults())
         for i_name in REQUIRED_OPTIONS + OPTIONAL_OPTIONS:

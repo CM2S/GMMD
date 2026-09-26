@@ -259,6 +259,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
 
         particle_mass_opt: {"volume", "radius", "unit"}
             Use as the mass of a particle either its volume/area, its radius or unit.
+            The radius by default.
 
         force_option: {"intersection_length"}
             How the overlap of two particles pushes them apart: by the length they
@@ -306,9 +307,10 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.time = None
         self.step = 0
         self.damping_coeff = kwargs.get("damping_coeff", 0)
-        self.particle_mass_opt = kwargs.get("particle_mass_opt", "volume")
-        # TODO: the input data file defaults to "radius", so a simulation built here
-        # without the option weighs its particles otherwise than one built from a file
+        self.particle_mass_opt = kwargs.get("particle_mass_opt", "radius")
+        # The default of the input data file, and of the particles. It was the volume
+        # here, so a simulation built without the option weighed its particles
+        # otherwise than one built from a file, and gave another microstructure
         self.force_option = kwargs.get("force_option", "intersection_length")
         if self.force_option != "intersection_length":
             raise ValueError(
