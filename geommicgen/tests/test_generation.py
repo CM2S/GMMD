@@ -359,6 +359,20 @@ class TestFromOptions(unittest.TestCase):
                     )
                 self.assertIn("nope", str(context.exception))
 
+    def test_a_force_option_that_does_not_run_is_refused(self):
+        for i_option in ("intersection_area", "force_spring"):
+            with self.subTest(force_option=i_option):
+                with self.assertRaisesRegex(ValueError, i_option):
+                    MolecularDynamicsSimulation.from_options(
+                        dict(deck_defaults(), force_option=i_option)
+                    )
+        simulation = MolecularDynamicsSimulation.from_options(
+            dict(deck_defaults(), force_option="intersection_length")
+        )
+        self.assertEqual(simulation.force_option, "intersection_length")
+        # Either stopped the run at its first pair of particles, once they had been
+        # generated and the results folder written
+
 
 class TestGridInitialConfiguration(unittest.TestCase):
     """Test class for the initial configuration that places the particles on a grid."""
@@ -943,15 +957,14 @@ class TestMolecularDynamicSimulationForce(unittest.TestCase):
         current_generation_method = MolecularDynamicsSimulation(
             *self.md_init_mock_kwargs.values()
         )
-        current_generation_method.force_option = "intersection_area"
         current_generation_method.thermostat = Mock()
         current_generation_method.thermostat.kin_energy_div = False
         current_generation_method.set_speed_up_scheme(Mock(particle_list=[[1], [0]]))
         current_generation_method.particle_forces = [0, 0]
         particle_1 = Mock(position_center=np.array([0.6, 0.5]))
-        particle_1.intersection_area.return_value = (0.1, np.array([1, 0]))
+        particle_1.intersection_length.return_value = (0.1, np.array([1, 0]))
         particle_2 = Mock(position_center=np.array([0.5, 0.5]))
-        particle_2.intersection_area.return_value = (0.1, np.array([-1, 0]))
+        particle_2.intersection_length.return_value = (0.1, np.array([-1, 0]))
         particles = [particle_1, particle_2]
         current_generation_method.compute_forces_overlap(particles)
         self.assertTrue(current_generation_method.total_overlap == 0.1)

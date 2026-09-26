@@ -749,29 +749,6 @@ class Particle(abc.ABC):
 
         return mass
 
-    def force_spring(self, other_particle, box, degree=2):
-        """Compute force due to non-linear spring at the intersection of degree *degree*."""
-        disp, unit_vector = self.intersection_length(other_particle, box)
-        dist = self.radius + other_particle.radius - disp
-        # Distance between the current sphere and the nearest image of the other sphere
-        r_min = (
-            self.radius
-            if self.radius < other_particle.radius
-            else other_particle.radius
-        )
-        r_max = (
-            other_particle.radius
-            if other_particle.radius > self.radius
-            else self.radius
-        )
-        if disp <= 0:
-            force = 0
-        elif disp >= r_min + r_max:
-            force = r_min + r_max
-        else:
-            force = (r_max + r_min) * (1 - (dist / (r_max + r_min)) ** degree)
-        return force, unit_vector
-
     @property
     def volume_circ(self):
         """Volme of the corresponding circumscribed spheres/disk."""

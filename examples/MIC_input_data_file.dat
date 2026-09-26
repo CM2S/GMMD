@@ -266,8 +266,7 @@
 # Meaning:   It is the maximum allowable overlap per particle, i.e. the total overlap
 #            divided by the number of particles, such that a given configuration is
 #            considered legal. The overlap of two particles is the depth they overlap
-#            by, a length in the units of the RVE dimensions; with Force_Option
-#            intersection_area it is their overlap area/volume, in those units.
+#            by, a length in the units of the RVE dimensions.
 #
 # Syntax:    Max_Residue_Per_Particle x
 #
@@ -850,12 +849,10 @@
 #
 # Syntax:    Force_Option x
 #
-# x:         {"intersection_length", "intersection_area"}
+# x:         {"intersection_length"}
 #
 #            "intersection_length" - intersection force proportional to the intersection
-#                length between the interacting particles.
-#            "intersection_area"   - intersection force proportional to the intersection
-#                area/volume between the interacting particles.
+#                length between the interacting particles, the one there is.
 # ------------------------------------------------------------------------------------------
 [insert here]
 

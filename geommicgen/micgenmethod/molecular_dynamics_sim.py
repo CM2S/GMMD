@@ -167,8 +167,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
     particle_mass_opt: {"volume", "radius", "unit"}
         Use as the mass of a particle either its volume/area, its radius or unit.
 
-    force_option: str
-        Name of the method used to compute the intersection overlap between the particles.
+    force_option: {"intersection_length"}
+        How the overlap of two particles pushes them apart: by the length they overlap
+        by, the one way there is.
 
     force_rescale: bool
         Flag for the use of force rescale.
@@ -259,8 +260,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
         particle_mass_opt: {"volume", "radius", "unit"}
             Use as the mass of a particle either its volume/area, its radius or unit.
 
-        force_option: str
-            Name of the method used to compute the intersection overlap between the particles.
+        force_option: {"intersection_length"}
+            How the overlap of two particles pushes them apart: by the length they
+            overlap by, the one way there is, and the default.
 
         force_rescale: bool
             Flag for the use of force rescale.
@@ -308,6 +310,16 @@ class MolecularDynamicsSimulation(GenerationMethod):
         # TODO: the input data file defaults to "radius", so a simulation built here
         # without the option weighs its particles otherwise than one built from a file
         self.force_option = kwargs.get("force_option", "intersection_length")
+        if self.force_option != "intersection_length":
+            raise ValueError(
+                "The force option {0} is not one there is: the particles are pushed "
+                "apart by the length they overlap by, intersection_length.".format(
+                    self.force_option
+                )
+            )
+        # The area or the volume they overlap by, and a spring, were offered as well,
+        # and neither ran: neither took the method of the distance the run passes, and
+        # the area gave no direction, so either stopped the run at its first pair
         self.force_rescale = kwargs.get("force_rescale", False)
         self.dt_adapt = kwargs.get("dt_adapt", True)
         self.offset = kwargs.get("offset", True)
@@ -733,13 +745,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
         Returns
         -------
         float
-            The factor: the scale of the box, to the power of the dimension of the
-            overlap, a length unless the force is taken from the intersection area,
-            which has the dimension of the box.
+            The factor: the scale of the box, the overlap being a length.
         """
-        power = len(self.box) if self.force_option == "intersection_area" else 1
-
-        return self.box_scale**power
+        return self.box_scale
 
     def contract_all_particles(self, particles):
         """Contract all the particles in the simulation box by their dilation."""
@@ -930,7 +938,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 j_particle = particles[j_particle_index]
                 if j_particle_index > i_particle_index:
                     # Running through the particle pairs that have not been considered yet
-                    intersection_area, _ = getattr(i_particle, self.force_option)(
+                    intersection_area, _ = i_particle.intersection_length(
                         j_particle, self.box, dist_met=self.last_distance_method
                     )
                     self.total_overlap += intersection_area
@@ -1008,14 +1016,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 j_particle = particles[j_particle_index]
                 if j_particle_index > i_particle_index:
                     # Running through the particle pairs that have not been considered yet
-                    intersection_area, unit_vector_i_j = getattr(
-                        i_particle, self.force_option
-                    )(j_particle, self.box, dist_met=dist_met)
-                    # TODO: only the intersection length takes the method of the
-                    # distance and gives a direction with the overlap; the intersection
-                    # area and the spring take no method, and the area gives no
-                    # direction, so the other force options stop the run at its first
-                    # pair
+                    intersection_area, unit_vector_i_j = i_particle.intersection_length(
+                        j_particle, self.box, dist_met=dist_met
+                    )
                     self.particle_overlap_areas_dict.setdefault(
                         (i_particle_index, j_particle_index),
                         [0 for _ in range(self.step - 1)],
@@ -1086,24 +1089,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         """
         if self.dt_adapt:
             harm_r = hmean([particle.radius for particle in particles])
-            if self.force_option == "force_spring":
-                max_vel = np.max(
-                    [
-                        np.linalg.norm(i_particle_vel)
-                        for i_particle_vel in self.particle_velocities
-                    ]
-                )
-                k_eff = (
-                    2 * (2 * harm_r - max_vel * self.delta_t) / (2 * harm_r)
-                    if max_vel != 0 and 2 * harm_r > self.delta_t * max_vel
-                    else 1
-                )
-                self.delta_t = np.sqrt(2 / max(1, self.coord_number)) * np.sqrt(
-                    harm_r / k_eff
-                )
-
-            elif self.force_option == "intersection_length":
-                self.delta_t = np.sqrt(2 / max(1, self.coord_number)) * np.sqrt(harm_r)
+            self.delta_t = np.sqrt(2 / max(1, self.coord_number)) * np.sqrt(harm_r)
         self.all_dt.append(self.delta_t)
 
     def integrate(self, particles):

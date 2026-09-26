@@ -47,7 +47,6 @@ class TestRVENormalization(unittest.TestCase):
         self.mdsim.min_distance = 1
         self.mdsim._original_box = None
         self.mdsim.box_scale = 1
-        self.mdsim.force_option = "intersection_length"
         self.mdsim.total_overlap = 0.0
         self.mdsim.max_residue = None
         self.mdsim.total_overlap_history = []
