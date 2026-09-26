@@ -103,6 +103,41 @@ def create_figure(
     return [fig, axs, (w, h)]
 
 
+def histogram_bins(values, bins):
+    """
+    Give the bins of a histogram of values, and the range they span.
+
+    Parameters
+    ----------
+    values: array
+        The values.
+
+    bins: object
+        The bins asked for, as `matplotlib.pyplot.hist` takes them.
+
+    Returns
+    -------
+    object
+        The bins asked for, or one bin when the values agree to nine digits.
+
+    tuple
+        The range of that bin, a tenth of the values wide around them, or None for the
+        range of the values.
+    """
+    values = np.asarray(values, dtype=float)
+    if values.size == 0 or not np.isclose(
+        values.min(), values.max(), rtol=1e-9, atol=0
+    ):
+        return bins, None
+    half = 0.05 * abs(values.max()) if values.max() != 0 else 0.5
+
+    return 1, (values.min() - half, values.max() + half)
+    # Values that differ in their last digits alone, as the cells of a regular
+    # arrangement do, left numpy no room for the bins between them, and the histogram
+    # failed; bins it sizes from the spread of the values would have been a width of
+    # the last digit over a range of any width
+
+
 def create_legend(artists, labels, axes, to_fig=False, fig_h=4, ncols=3):
     if to_fig:
         lw_common = axes.spines["bottom"].get_linewidth()
@@ -868,7 +903,8 @@ def plot_nearest_neighbor_dist(vals, **kwargs):
     else:
         plt.figure()
 
-    graph = plt.hist(vals, bins="auto", histtype="step")
+    bins, value_range = histogram_bins(vals, "auto")
+    graph = plt.hist(vals, bins=bins, range=value_range, histtype="step")
     closed = finish_statistical_plot(
         kwargs,
         (
@@ -1300,8 +1336,12 @@ def plot_voronoi_2d_with_imts(
         N = len(particles)
 
         if i_order == 0:
+            perimeters = np.abs(np.array(imts)[in_box, i_order])
+            bins, value_range = histogram_bins(perimeters, 10)
             plt.hist(
-                np.abs(np.array(imts)[in_box, i_order]),
+                perimeters,
+                bins=bins,
+                range=value_range,
                 color=(68 / 255, 119 / 255, 170 / 255, 1),
             )
             ax.set_xlabel(r"Perimeter")
@@ -1606,8 +1646,12 @@ def plot_voronoi_3d_with_imts(
         ax = plt.gca()
 
         if i_order == 0:
+            areas = np.abs(np.array(imts)[:, i_order])
+            bins, value_range = histogram_bins(areas, 10)
             plt.hist(
-                np.abs(np.array(imts)[:, i_order]),
+                areas,
+                bins=bins,
+                range=value_range,
                 color=(68 / 255, 119 / 255, 170 / 255, 1),
             )
             ax.set_xlabel(r"Surface Area")

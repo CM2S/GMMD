@@ -18,6 +18,7 @@ from geommicgen.meshing.voxel_mesher import VoxelMesher
 from geommicgen.microstructure.particleclasses import Disk
 from geommicgen.pipeline import MESH_DIRECTORY, MeshJob
 from geommicgen.postproc.plotfuncs.plotting_functions import (
+    histogram_bins,
     keep_what_the_cut_left,
     plot_particles_3d,
     plot_paths,
@@ -154,6 +155,41 @@ class TestPlotsWithoutTeX(PostProcTest):
         self.assertTrue(self.written("stat_analysis_results", "k_ripleys_func.pdf"))
         # The Voronoi plots set the text by TeX, for every plot after them as well,
         # so a plot needed a TeX installation, which nothing declared
+
+
+class TestHistograms(PostProcTest):
+    """Test class for the histograms of values that all but coincide."""
+
+    def test_values_alike_are_one_bin_around_them(self):
+        values = [1.0, 1.0 + 4.4e-16, 1.0 + 2.2e-16]
+        for i_bins in (10, "auto"):
+            with self.subTest(bins=i_bins):
+                bins, value_range = histogram_bins(values, i_bins)
+                self.assertEqual(bins, 1)
+                counts, _ = np.histogram(values, bins=bins, range=value_range)
+                self.assertEqual(counts.tolist(), [3])
+        self.assertEqual(histogram_bins([1.0, 1.1], "auto"), ("auto", None))
+        # numpy refuses bins between values that differ in their last digits, and
+        # sizes "auto" bins from their spread, a width of the last digit
+
+    def test_the_cells_of_two_disks_alike_are_drawn(self):
+        _, failures = run_analyses(
+            disk_microstructure(),
+            None,
+            self.sample_dir,
+            {
+                "voronoi_analysis": True,
+                "plot_voronoi": True,
+                "plot_imts": True,
+                "stat_nearest_neighbor": True,
+            },
+        )
+        self.assertEqual(failures, [])
+        self.assertTrue(
+            self.written("voronoi_analysis_results", "voronoi_hist_0.pdf")
+        )
+        # The two cells of the periodic RVE have the same perimeter to the last few
+        # digits, and the histogram of the perimeters failed
 
 
 class TestColourMap(PostProcTest):
