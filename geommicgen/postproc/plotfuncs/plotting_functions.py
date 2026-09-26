@@ -6,6 +6,7 @@ import numpy as np
 import scipy.integrate as integrate
 
 import contextlib
+import copy
 import os
 
 
@@ -25,6 +26,7 @@ from geommicgen.microstructure.particleclasses import Ellipse, Particle
 
 from geommicgen.meshing.gmsh_mesher import GmshMesher, gmsh_session
 from geommicgen.meshing.images import periodic_images
+from geommicgen.microstructure.microstructure import unit_scale
 import geommicgen.iofuncs.printing as print_funcs
 
 latex_textwidth = 5.92  # in = 496pt
@@ -269,8 +271,38 @@ MESH_SIZE_VORONOI_IMTS = 0.1
 # tensors covers the whole of a three by three block of images, so it is coarser.
 
 
+def at_unit_scale(particles, rve_dims):
+    """
+    Give copies of particles, and the dimensions of their RVE, brought to unit scale.
+
+    A view is built from them as the mesher builds its model, so that the tolerances of
+    OpenCASCADE and gmsh, which are lengths, mean the same in any units; `gmsh_view`
+    writes its files back in the user's.
+
+    Parameters
+    ----------
+    particles: list(`.Particle`)
+        Particles of the view. They are copied, not changed.
+
+    rve_dims: list(float)
+        Dimensions of the microstructure in each spatial direction.
+
+    Returns
+    -------
+    tuple
+        The copies, the dimensions, and the factor, from `unit_scale`, they were
+        multiplied by.
+    """
+    scale = unit_scale(rve_dims)
+    copies = [copy.deepcopy(i_particle) for i_particle in particles]
+    for i_copy in copies:
+        i_copy.rescale(scale)
+
+    return copies, [i_dim * scale for i_dim in rve_dims], scale
+
+
 @contextlib.contextmanager
-def gmsh_view(name, mesh_size, dim=3, repeatable=False):
+def gmsh_view(name, mesh_size, dim=3, scale=1.0):
     """
     Open a gmsh session set up to build a view of the particles, and close it after.
 
@@ -280,15 +312,14 @@ def gmsh_view(name, mesh_size, dim=3, repeatable=False):
         Name given to the model.
 
     mesh_size: float
-        Largest element size.
+        Largest element size, in the units the view is built in.
 
     dim: {2, 3}
         Number of spatial dimensions of the microstructure.
 
-    repeatable: bool
-        Whether to mesh on one thread. Gmsh does not give the same mesh twice when it
-        meshes on several, so a view whose file is read back afterwards asks for this
-        and pays for it; one that is only looked at does not.
+    scale: float
+        Factor the view is built at, from `at_unit_scale`. The files the session
+        writes are divided by it, back into the units of the microstructure.
 
     Yields
     ------
@@ -305,12 +336,15 @@ def gmsh_view(name, mesh_size, dim=3, repeatable=False):
         # sets are the ones that produce its element; the size is set where that mesher
         # builds its model, which a view never does, so asking for one used to do
         # nothing and every view set it again itself
-        if repeatable:
-            for i_dim in (1, 2, 3):
-                gmsh.option.setNumber("Mesh.MaxNumThreads{0}D".format(i_dim), 1)
-        # One, and not zero: zero means to take the count from General.NumThreads, which
-        # is one by default but is read from the user's gmsh configuration file, so a
-        # machine that sets it would go back to meshing on several without saying so
+        gmsh.option.setNumber("Mesh.ScalingFactor", 1 / scale)
+        gmsh.option.setNumber("Mesh.MshFileVersion", 2.2)
+        # The factor is applied to the nodes that are written and not to the model. The
+        # entities a file of version 4 lists beside the nodes were written unscaled, or
+        # scaled about their own centres, in neither unit; version 2.2 lists none, and
+        # a viewer reads the nodes alone. A view was built in the user's units, where
+        # OpenCASCADE refuses an edge shorter than 1e-7 and its booleans lose pieces: a
+        # micrometre RVE gave an empty view, without an error. The session meshes on
+        # one thread, as the mesher does, so a view is the same from one run to the next
         model = gmsh.model
         model.add(name)
 
@@ -398,6 +432,14 @@ def keep_what_the_cut_left(factory, dim, box_tag, particle_tags, phase_dim_tag):
         removeObject=True,
         removeTool=True,
     )
+    if particle_tags and not out_dim_tag:
+        raise ValueError(
+            "Cutting {0} particles against the RVE left nothing to view.".format(
+                len(particle_tags)
+            )
+        )
+    # Written as an empty view without a word, which is what OpenCASCADE made of a
+    # micrometre RVE before the views were built at unit scale
     kept = set(out_dim_tag)
     factory.synchronize()
     # Synchronizing here is what lets the model be read below, by getBoundary
@@ -476,9 +518,10 @@ def write_gmsh_view(gmsh, results_dir, name):
 
 def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
 
+    particles, rve_dims, scale = at_unit_scale(particles, rve_dims)
     dim = len(rve_dims)
     mesh_size = particles[0].radius / 5
-    with gmsh_view(sample_dir, mesh_size) as (gmsh, model, factory):
+    with gmsh_view(sample_dir, mesh_size, scale=scale) as (gmsh, model, factory):
 
         box_tag = factory.addBox(
             0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2]
@@ -510,10 +553,11 @@ def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
 def plot_particles_3d_one_by_one(particles, rve_dims, sample_dir, **kwargs):
     final_config_dir = os.path.join(sample_dir, "final_config")
     os.makedirs(final_config_dir)
+    particles, rve_dims, scale = at_unit_scale(particles, rve_dims)
     for i_ind, i_particle in enumerate(particles):
         dim = len(rve_dims)
         mesh_size = particles[0].radius / 2
-        with gmsh_view(sample_dir, mesh_size) as (gmsh, model, factory):
+        with gmsh_view(sample_dir, mesh_size, scale=scale) as (gmsh, model, factory):
 
             box_tag = factory.addBox(
                 0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2]
@@ -640,53 +684,47 @@ def plot_paths(particles, box, position_center_history, motion_results_dir):
     path_results_dir = os.path.join(motion_results_dir, "paths")
     os.makedirs(path_results_dir, exist_ok=True)
     if particles[0].dim == 2:
-        original_centers = [i_particle.position_center for i_particle in particles]
-        try:
-            for step in range(len(position_center_history[0])):
-                # Updating particle position to current time
-                for i_particle_ind, i_particle in enumerate(particles):
-                    i_particle.position_center = position_center_history[
-                        i_particle_ind
-                    ][step]
+        particles, box, scale = at_unit_scale(particles, box)
+        for step in range(len(position_center_history[0])):
+            # Updating particle position to current time
+            for i_particle_ind, i_particle in enumerate(particles):
+                i_particle.position_center = (
+                    np.asarray(position_center_history[i_particle_ind][step]) * scale
+                )
+            # Copies of the particles are walked along the path, at the scale the
+            # view is built at; the microstructure's own were, and had to be put back
+            # for the analyses that read them afterwards
 
-                dim = len(box)
-                mesh_size = particles[0].radius / 5
-                with gmsh_view(path_results_dir, mesh_size, dim) as (
-                    gmsh,
-                    model,
-                    factory,
-                ):
+            dim = len(box)
+            mesh_size = particles[0].radius / 5
+            with gmsh_view(path_results_dir, mesh_size, dim, scale=scale) as (
+                gmsh,
+                model,
+                factory,
+            ):
 
-                    box_tag = factory.addRectangle(
-                        0,
-                        0,
-                        0,
-                        box[0],
-                        box[1],
-                    )
+                box_tag = factory.addRectangle(
+                    0,
+                    0,
+                    0,
+                    box[0],
+                    box[1],
+                )
 
-                    particle_tags, phase_dim_tag = add_particles_to_view(
-                        factory, model, particles, box
-                    )
+                particle_tags, phase_dim_tag = add_particles_to_view(
+                    factory, model, particles, box
+                )
 
-                    phase_dim_tag = keep_what_the_cut_left(
-                        factory, dim, box_tag, particle_tags, phase_dim_tag
-                    )
+                phase_dim_tag = keep_what_the_cut_left(
+                    factory, dim, box_tag, particle_tags, phase_dim_tag
+                )
 
-                    tag_phase_boundaries(model, phase_dim_tag, dim, dim - 1)
+                tag_phase_boundaries(model, phase_dim_tag, dim, dim - 1)
 
-                    # Generate a 3D mesh
-                    model.mesh.generate(2)
+                # Generate a 3D mesh
+                model.mesh.generate(2)
 
-                    write_gmsh_view(
-                        gmsh, path_results_dir, "mic_step_{0}".format(step)
-                    )
-        finally:
-            for i_particle, i_center in zip(particles, original_centers):
-                i_particle.position_center = i_center
-            # The particles are the microstructure's own, and the history holds where
-            # they stood before the run was contracted, resized and offset, so the walk
-            # through it is undone for the analyses that read them afterwards
+                write_gmsh_view(gmsh, path_results_dir, "mic_step_{0}".format(step))
 
     elif particles[0].dim == 3:
 
@@ -1313,8 +1351,14 @@ def plot_voronoi_2d_with_imts(
 
 def plot_voronoi_3d(particles, voronoi, rve_dims, sample_dir, save=True, show=False):
     """Plot the Voronoi for circular particles."""
+    particles, rve_dims, scale = at_unit_scale(particles, rve_dims)
+    vertices = np.asarray(voronoi.vertices) * scale
     dim = len(rve_dims)
-    with gmsh_view(sample_dir, MESH_SIZE_VORONOI) as (gmsh, model, factory):
+    with gmsh_view(sample_dir, MESH_SIZE_VORONOI, scale=scale) as (
+        gmsh,
+        model,
+        factory,
+    ):
 
         box_tag = factory.addBox(
             0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2]
@@ -1331,10 +1375,7 @@ def plot_voronoi_3d(particles, voronoi, rve_dims, sample_dir, save=True, show=Fa
         factory.synchronize()
 
         verticesTags = np.array(
-            [
-                factory.addPoint(vertex[0], vertex[1], vertex[2])
-                for vertex in voronoi.vertices
-            ]
+            [factory.addPoint(vertex[0], vertex[1], vertex[2]) for vertex in vertices]
         )
         edgeTags = {}
         edge_point = {}
@@ -1377,7 +1418,8 @@ def plot_voronoi_3d(particles, voronoi, rve_dims, sample_dir, save=True, show=Fa
         voronoiWires = model.addPhysicalGroup(
             1, list(edgeTags.values())
         )  # [(1, all_voronoi_line) for all_voronoi_line in all_voronoi_lines])
-        model.setPhysicalName(2, voronoiWires, "Voronoi")
+        model.setPhysicalName(1, voronoiWires, "Voronoi")
+        # Named in the dimension of the group, the lines; named in two, it was not
         # voronoiWires = model.addPhysicalGroup(1, [tag[1] for tag in out_dim_tag_3]) #[(1, all_voronoi_line) for all_voronoi_line in all_voronoi_lines])
         # model.setPhysicalName(1, voronoiWires, "Voronoi")
 
@@ -1394,7 +1436,13 @@ def plot_voronoi_3d_with_imts(
 ):
     """Plot the Voronoi for circular particles."""
     title = os.path.join(dir, "voronoi_wIMTs")
-    with gmsh_view(title, MESH_SIZE_VORONOI_IMTS, repeatable=True) as (
+    scale = unit_scale(rve_dims)
+    rve_dims = [i_dim * scale for i_dim in rve_dims]
+    vertices = np.asarray(voronoi.vertices) * scale
+    # Built at unit scale, as every view is. The element size, and the margin the
+    # volumes of a cell are found within below, are lengths: at a millionth of the unit
+    # the margin took in every cell, and every cell was painted with the first's values
+    with gmsh_view(title, MESH_SIZE_VORONOI_IMTS, scale=scale) as (
         gmsh,
         model,
         factory,
@@ -1411,10 +1459,7 @@ def plot_voronoi_3d_with_imts(
         # RVE
 
         verticesTags = np.array(
-            [
-                factory.addPoint(vertex[0], vertex[1], vertex[2])
-                for vertex in voronoi.vertices
-            ]
+            [factory.addPoint(vertex[0], vertex[1], vertex[2]) for vertex in vertices]
         )
         planeSurfaceTags = []
         planeSurfaceDictTags = {}
@@ -1426,15 +1471,15 @@ def plot_voronoi_3d_with_imts(
                 if -1 in ridge or any([vertex not in particle_region for vertex in ridge]):
                     continue
 
-                vertices = voronoi.vertices[ridge]
-                center_gravity = 1 / len(ridge) * np.sum(vertices, axis=0)
+                ridge_vertices = vertices[ridge]
+                center_gravity = 1 / len(ridge) * np.sum(ridge_vertices, axis=0)
                 # Computing the center of the polygon
-                ref_vec_x = vertices[0] - center_gravity
-                ref_vec_y = (vertices[1] - center_gravity) - np.dot(
-                    vertices[1] - center_gravity, ref_vec_x
+                ref_vec_x = ridge_vertices[0] - center_gravity
+                ref_vec_y = (ridge_vertices[1] - center_gravity) - np.dot(
+                    ridge_vertices[1] - center_gravity, ref_vec_x
                 ) / np.dot(ref_vec_x, ref_vec_x) * ref_vec_x
                 angles = []
-                for i_vertex in vertices:
+                for i_vertex in ridge_vertices:
                     i_ref_vec = i_vertex - center_gravity
                     angles.append(
                         np.arctan2(i_ref_vec.dot(ref_vec_y), i_ref_vec.dot(ref_vec_x))

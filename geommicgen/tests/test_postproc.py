@@ -4,7 +4,9 @@ import os
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+
+import numpy as np
 
 from geommicgen._optional import has_gmsh
 from geommicgen.errors.error_classes import MissingOptionalDependency
@@ -12,6 +14,12 @@ from geommicgen.iofuncs.md_state import load_md_state, save_md_state
 from geommicgen.iofuncs.printing import log_to_terminal, screen_to
 from geommicgen.meshing.voxel_mesher import VoxelMesher
 from geommicgen.pipeline import MESH_DIRECTORY, MeshJob
+from geommicgen.postproc.plotfuncs.plotting_functions import (
+    keep_what_the_cut_left,
+    plot_particles_3d,
+    plot_paths,
+)
+from geommicgen.postproc.voronoimetrics.voronoi_analysis import do_voronoi_analysis
 from geommicgen.postproc.postproc import (
     FINAL_CONFIG_STEP,
     check_analyses,
@@ -197,6 +205,68 @@ class TestMotionAnalysisWithPaths(PostProcTest):
         self.assertTrue(os.listdir(paths))
         # The history ends where the particles are, as a run's does; the fixture's own
         # positions would put two overlapping disks at the origin
+
+
+@unittest.skipUnless(has_gmsh(), "gmsh is not installed")
+class TestViewsInAnyUnits(unittest.TestCase):
+    """Test class for the gmsh views of a microstructure in any units."""
+
+    def views(self, scale):
+        """Write every gmsh view of a scaled microstructure, and read the nodes back."""
+        import meshio
+
+        spheres = sphere_microstructure().scaled(scale)
+        disks = disk_microstructure().scaled(scale)
+        with tempfile.TemporaryDirectory() as directory:
+            plot_particles_3d(spheres.particles, spheres.rve_dims, directory)
+            do_voronoi_analysis(
+                spheres.particles,
+                np.array(spheres.rve_dims),
+                directory,
+                plot_voronoi=True,
+                plot_imts=True,
+            )
+            plot_paths(
+                disks.particles,
+                disks.rve_dims,
+                [[i_particle.position_center] for i_particle in disks.particles],
+                directory,
+            )
+            nodes = {}
+            with open(os.path.join(directory, "final_config.msh")) as msh:
+                self.assertNotIn("$Entities", msh.read())
+            for i_file in (
+                "final_config.msh",
+                "final_config.vtk",
+                os.path.join("voronoi_analysis_results", "voronoi.vtk"),
+                os.path.join("voronoi_analysis_results", "voronoi_wIMTs.vtk"),
+                os.path.join("paths", "mic_step_0.vtk"),
+            ):
+                nodes[i_file] = meshio.read(os.path.join(directory, i_file)).points
+
+        return nodes
+
+    def test_the_views_are_the_same_in_any_units(self):
+        reference = self.views(1.0)
+        for i_scale in (2.0**-20, 2.0**20):
+            for i_file, i_nodes in self.views(i_scale).items():
+                with self.subTest(i_file, scale=i_scale):
+                    self.assertEqual(i_nodes.shape, reference[i_file].shape)
+                    np.testing.assert_allclose(
+                        i_nodes / i_scale, reference[i_file], rtol=0, atol=1e-14
+                    )
+        # Built at unit scale and written back in the user's units, where they were
+        # built in the user's: at a millionth of the unit OpenCASCADE refused the edges
+        # of the Voronoi cells and gave an empty view of the particles without an
+        # error. The files carry sixteen digits, so the nodes are compared to that
+
+    def test_a_cut_that_leaves_nothing_is_refused(self):
+        factory = Mock()
+        factory.intersect.return_value = ([], [])
+        with self.assertRaisesRegex(ValueError, "left nothing to view"):
+            keep_what_the_cut_left(factory, 3, 1, [2, 3], {"2": [(3, 2), (3, 3)]})
+        # What OpenCASCADE returned for a micrometre RVE, before the views were built at
+        # unit scale; the empty view was written without an error
 
 
 if __name__ == "__main__":
