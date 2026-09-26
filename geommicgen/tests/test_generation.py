@@ -2,6 +2,7 @@
 Unit tests regarding microstructure generation.
 The classes tested are the GenerationMethod class and the MolecularDynamicsSimulation class.
 """
+import itertools
 import unittest
 from unittest.mock import sentinel, Mock, patch, call
 
@@ -850,6 +851,56 @@ class TestDisksAndEllipses(unittest.TestCase):
         # Five steps leave the particles overlapping, so pairs of a disk and an ellipse
         # were measured. A disk asked about an ellipse raised, so the run stopped at
         # the first such pair a disk came first in
+
+
+class TestInnerPhase(unittest.TestCase):
+    """Test class for a phase placed inside the particles of another."""
+
+    def generate(self, rve_dims, outer, inner):
+        """Generate a phase of *outer* particles and one of *inner* ones inside them."""
+        microstructure = Microstructure(rve_dims)
+        microstructure.add_phase(Phase("0", {"phase_type": 1}))
+        microstructure.add_phase(Phase("1", outer))
+        microstructure.add_phase(
+            Phase("2", dict(inner, inner_phase=True, outer_phase=1))
+        )
+        generator = MolecularDynamicsSimulation(
+            1e-4, 50, 1, 1e-3, 0.0, "random", False, fixed_seed=5
+        )
+        generator.set_thermostat(
+            MultiTemperatureIsokineticThermostat(
+                None, criterion="ratio_in_out", max_ratio_osc=2, temp_low_ratio=1 / 4
+            )
+        )
+        generator.set_speed_up_scheme(CellList())
+        generator.generate_microstructure(microstructure)
+
+        return microstructure.phases["2"].particles
+
+    def test_inner_cylinders_do_not_overlap(self):
+        particles = self.generate(
+            [1.0, 1.0, 1.0],
+            {"phase_type": 4, "r": 0.2, "n": 3},
+            {
+                "phase_type": 7,
+                "r_cyl": 0.02,
+                "length": 0.1,
+                "n": 12,
+                "azimuth_angle_distribution": "normal",
+                "azimuth_angle_mean": 0.0,
+                "azimuth_angle_sigma": 1.0,
+                "polar_angle_distribution": "normal",
+                "polar_angle_mean": 0.0,
+                "polar_angle_sigma": 1.0,
+            },
+        )
+        self.assertEqual(len(particles), 12)
+        for i_first, i_second in itertools.combinations(particles, 2):
+            if i_first.parent is i_second.parent:
+                self.assertFalse(i_first.intersection_gjk(i_second, [1.0, 1.0, 1.0]))
+        # Each is placed where it meets none placed before it in the same sphere. The
+        # test of the caps answered with a pair, true whatever it held, so every
+        # cylinder after the first stayed where it was first tried: two of these met
 
 
 class TestMolecularDynamicSimulationForce(unittest.TestCase):

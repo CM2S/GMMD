@@ -184,11 +184,10 @@ class Cylinder(Particle):
 
     def intersection(self, other_particle: Particle, box: list) -> bool:
         """Check for the intersection between *self* and the *other_particle*."""
-        if isinstance(other_particle, Cylinder):
-            other_particle: Cylinder
-            intersection = self.intersection_cylinder_cylinder(other_particle, box)
-        else:
-            intersection = self.intersection_gjk(other_particle, box)
+        intersection = self.intersection_gjk(other_particle, box)
+        # Two cylinders are told apart by GJK too, as their overlap is measured by the
+        # Minkowski difference. The test of their caps answered with a tuple, which is
+        # always true, and took a quarter of the pairs apart for intersecting
         return intersection
 
     def intersection_area(self, other_particle: Particle, box: list) -> float:
@@ -677,7 +676,8 @@ class Cylinder(Particle):
         # TODO: the half length of the other cylinder is taken as this one's in the two
         # calls above, so two cylinders of different lengths are found apart depending
         # on which is asked; and a disk whose normal is across the other's axis divides
-        # by the rounding residue of their dot product, placing a point 1e15 away
+        # by the rounding residue of their dot product, placing a point 1e15 away. Only
+        # its tests call it since `intersection` asks GJK, so it is mended or removed
 
         intersection = False
         overlap_length = 0

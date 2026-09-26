@@ -1743,6 +1743,48 @@ class TestGeneratePointInsideCylinder(unittest.TestCase):
         # frame by the rotation rather than by its transpose, and most fell outside
 
 
+class TestIntersectionCylinder(unittest.TestCase):
+    """Test class for telling whether two cylinders intersect."""
+
+    AXES = {"x": (0.0, np.pi / 2), "y": (np.pi / 2, np.pi / 2), "z": (0.0, 0.0)}
+    # The azimuth and the polar angle of a cylinder along each axis
+
+    def cylinder(self, axis, length, center):
+        """Build a cylinder of radius 0.1 along *axis*, of *length*, at *center*."""
+        cylinder = Cylinder(
+            "2",
+            {
+                "r_cyl": 0.1,
+                "length": length,
+                "azimuth_angle": self.AXES[axis][0],
+                "polar_angle": self.AXES[axis][1],
+            },
+            [1.0, 1.0, 1.0],
+        )
+        cylinder.position_center = np.array(center)
+        return cylinder
+
+    def test_pairs_whose_answer_is_known(self):
+        for i_first, i_second, i_intersecting in (
+            (("z", 0.2, [0.5, 0.5, 0.5]), ("z", 0.2, [0.65, 0.5, 0.5]), True),
+            (("z", 0.2, [0.5, 0.5, 0.5]), ("z", 0.2, [0.75, 0.5, 0.5]), False),
+            (("z", 0.2, [0.5, 0.5, 0.5]), ("z", 0.2, [0.5, 0.5, 0.72]), False),
+            (("x", 0.2, [0.5, 0.5, 0.5]), ("y", 0.2, [0.5, 0.5, 0.65]), True),
+            (("x", 0.2, [0.5, 0.5, 0.5]), ("y", 0.2, [0.5, 0.5, 0.75]), False),
+            (("z", 0.24, [0.5, 0.5, 0.5]), ("z", 0.1, [0.5, 0.5, 0.66]), True),
+            (("z", 0.24, [0.5, 0.5, 0.5]), ("z", 0.1, [0.5, 0.5, 0.68]), False),
+        ):
+            first = self.cylinder(*i_first)
+            second = self.cylinder(*i_second)
+            rve_dims = [1.0, 1.0, 1.0]
+            with self.subTest(first=i_first, second=i_second):
+                self.assertEqual(first.intersection(second, rve_dims), i_intersecting)
+                self.assertEqual(second.intersection(first, rve_dims), i_intersecting)
+        # Side by side, end to end, crossed, and of two lengths, each a little closer
+        # and a little further than touching. The test of the caps answered with a
+        # tuple, true whatever it held, and held true for three of the pairs apart
+
+
 class TestIntegrationCylinder(unittest.TestCase):
     """Test the Monte Carlo integration for cylinders."""
 

@@ -188,7 +188,7 @@ class Particle(abc.ABC):
         self,
         particle_2: Particle,
         box: list,
-    ) -> tuple[bool, float]:
+    ) -> bool:
         """Check using a version of the GJK intersection method if the particles intersect.
 
         At the core of the algorithm is the theorem stating that if the two convex shapes
