@@ -264,6 +264,24 @@ class TestFenicsSolvesOnTheMesh(unittest.TestCase):
             GmshMesher(mesh_size=0.2, element_type="tetra4"), sphere_microstructure()
         )
 
+    def test_a_small_cell(self):
+        scale = 2.0**-30
+        self.check_one_material(
+            VoxelMesher([16, 16]), disk_microstructure().scaled(scale)
+        )
+        # The example found the faces within the default tolerance of NumPy, a length
+        # of 1e-8, and this cell is narrower than that: every node was held
+
+    @unittest.skipUnless(has_gmsh(), "gmsh is not installed")
+    def test_a_large_cell(self):
+        scale = 2.0**30
+        self.check_one_material(
+            GmshMesher(mesh_size=0.1 * scale, element_type="tri3"),
+            disk_microstructure().scaled(scale),
+        )
+        # A node gmsh puts on a face lies there to a few parts in 1e16 of the cell,
+        # which in this one is more than a length of 1e-8, so the faces were not found
+
     def test_the_phases_are_the_materials(self):
         stiffer = 10 * self.YOUNG
         result = self.run_fenics(

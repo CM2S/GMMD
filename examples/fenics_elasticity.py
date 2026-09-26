@@ -91,16 +91,22 @@ def main(argv=None):
 
     coordinates = domain.geometry.x[:, : domain.geometry.dim]
     lower, upper = coordinates.min(axis=0), coordinates.max(axis=0)
+    tol = 1e-8 * np.max(upper - lower)
+    # A face is found within a length relative to the cell. The default of np.isclose
+    # is a length of 1e-8, which in a micrometre cell took in nodes inside it, and in a
+    # large one missed nodes of the face
     fdim = tdim - 1
     conditions = []
     for i_dir in range(domain.geometry.dim):
         facets = dmesh.locate_entities_boundary(
-            domain, fdim, lambda x, d=i_dir: np.isclose(x[d], lower[d])
+            domain,
+            fdim,
+            lambda x, d=i_dir: np.isclose(x[d], lower[d], rtol=0, atol=tol),
         )
         dofs = fem.locate_dofs_topological(space.sub(i_dir), fdim, facets)
         conditions.append(fem.dirichletbc(0.0, dofs, space.sub(i_dir)))
     facets = dmesh.locate_entities_boundary(
-        domain, fdim, lambda x: np.isclose(x[0], upper[0])
+        domain, fdim, lambda x: np.isclose(x[0], upper[0], rtol=0, atol=tol)
     )
     dofs = fem.locate_dofs_topological(space.sub(0), fdim, facets)
     stretch = arguments.strain * (upper[0] - lower[0])
