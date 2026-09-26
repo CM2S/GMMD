@@ -730,12 +730,15 @@ class DiscreteDistribution(PhaseDescriptor):
 
         self.values = values
         self.probabilities = probabilities
-        DiscreteDistribution.parameters = []
+        self.parameters = []
         for i_ind, (i_val, i_prob) in enumerate(zip(self.values, self.probabilities)):
             setattr(self, "value_{0}".format(i_ind + 1), i_val)
-            DiscreteDistribution.parameters.append("value_{0}".format(i_ind + 1))
+            self.parameters.append("value_{0}".format(i_ind + 1))
             setattr(self, "prob_{0}".format(i_ind + 1), i_prob)
-            DiscreteDistribution.parameters.append("prob_{0}".format(i_ind + 1))
+            self.parameters.append("prob_{0}".format(i_ind + 1))
+        # The parameters of this distribution, over those the class declares. They were
+        # written over the class's, so a deck read after a discrete descriptor was built
+        # offered only as many values as that descriptor had
 
         super().__init__(name)
 

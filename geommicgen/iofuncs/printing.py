@@ -212,7 +212,7 @@ def print_microstructure_info(microstructure):
                 )
             )
 
-            for k_parameter in j_descriptor.__class__.parameters:
+            for k_parameter in j_descriptor.parameters:
                 print_to_file(
                     "\t\t- {0}: {1}:".format(
                         k_parameter.capitalize(), getattr(j_descriptor, k_parameter)

@@ -325,6 +325,19 @@ class TestDescriptorKeys(unittest.TestCase):
                 self.assertEqual(set(i_type.possible_parameters), described)
         # The eccentricity of an ellipse was declared and in no description, and the
         # ratio of a cylinder in two descriptions and not declared
+class TestDiscreteDistribution(unittest.TestCase):
+    """Test class for a descriptor that takes one of a few values."""
+
+    def test_the_parameters_of_one_are_its_own(self):
+        declared = set(phase_module.DiscreteDistribution.parameters)
+        distribution = phase_module.DiscreteDistribution("r", [0.1, 0.2], [0.5, 0.5])
+        self.assertEqual(
+            distribution.parameters, ["value_1", "prob_1", "value_2", "prob_2"]
+        )
+        self.assertEqual(set(phase_module.DiscreteDistribution.parameters), declared)
+        self.assertEqual(len(declared), 20)
+        # They were written over the class's, from which the input data file takes the
+        # keywords it reads
 
 
 if __name__ == "__main__":
