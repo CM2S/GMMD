@@ -11,7 +11,7 @@ import unittest
 import numpy as np
 
 # pylint: disable=import-error
-from geommicgen.iofuncs.keywords import Keyword, top_level_reader
+from geommicgen.iofuncs.legacy_deck import Keyword, build_reader
 from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.microstructure.phase import Phase, FixedValue, NormalDistribution
 from geommicgen.microstructure.particleclasses import Matrix, Ellipse
@@ -22,6 +22,8 @@ ELLIPSE_EXAMPLE_PATH = os.path.join(
     _GEOMMICGEN_DIR, "resources", "examples", "2D_example_ellipses_vf_50_n_10.mdsim"
 )
 
+
+top_level_reader = build_reader()
 
 @unittest.skip("Integration test using a full example file; skipped from the regular run.")
 class EllipseExampleTests(unittest.TestCase):

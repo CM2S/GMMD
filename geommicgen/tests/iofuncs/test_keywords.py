@@ -7,7 +7,7 @@ import unittest
 import numpy as np
 
 # pylint: disable=import-error
-from geommicgen.iofuncs.keywords import (
+from geommicgen.iofuncs.legacy_deck import (
     Keyword,
     KeywordTypeA,
     KeywordTypeB,
@@ -15,16 +15,6 @@ from geommicgen.iofuncs.keywords import (
     TopLevelReader,
     generate_all_possible_keywords_from_particle_attributes,
 )
-
-
-SHARED_READER = Keyword.input_reader
-
-
-def tearDownModule():
-    """Give the keywords back the reader of the input data file."""
-    Keyword.input_reader = SHARED_READER
-    # Every TopLevelReader made here becomes the reader of every keyword, which the
-    # tests that read a whole deck afterwards would otherwise go on using
 
 
 class TestKeywordIsIn(unittest.TestCase):

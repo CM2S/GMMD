@@ -17,7 +17,7 @@ from geommicgen.cli import (
     translate_command,
 )
 from geommicgen.postproc.options import ANALYSES, ANALYSIS_OPTIONS, with_defaults
-from geommicgen.iofuncs.keywords import top_level_reader
+from geommicgen.iofuncs.legacy_deck import build_reader
 from geommicgen.iofuncs.md_state import save_md_state
 from geommicgen.iofuncs.microstructure_file import write_microstructure_file
 from geommicgen.tests.helpers import a_generation_run, disk_microstructure
@@ -518,7 +518,7 @@ class TestAnalysisOptions(unittest.TestCase):
     def test_the_deck_reads_the_analyses_declared(self):
         keywords = {
             i_keyword.name.lower(): i_keyword
-            for i_keyword in top_level_reader.top_level_keywords
+            for i_keyword in build_reader().top_level_keywords
             if getattr(i_keyword, "keyword_group", None) == "post_proc"
         }
         self.assertEqual(set(keywords), set(ANALYSIS_OPTIONS))

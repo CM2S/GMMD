@@ -19,7 +19,7 @@ from geommicgen.micgenmethod.molecular_dynamics_sim import (
     MolecularDynamicsSimulation,
     grid_side,
 )
-from geommicgen.iofuncs.keywords import top_level_reader
+from geommicgen.iofuncs.legacy_deck import build_reader
 from geommicgen.micgenmethod.speed_up_schemes import CellList, Naive
 from geommicgen.micgenmethod.thermostats import (
     IsokineticThermostat,
@@ -457,7 +457,7 @@ def deck_defaults():
     """Give the generation parameters of a deck that sets only what has no default."""
     options = {
         i_keyword.name.lower(): i_keyword.default_value
-        for i_keyword in top_level_reader.top_level_keywords
+        for i_keyword in build_reader().top_level_keywords
         if getattr(i_keyword, "keyword_group", None) == "Mic_Gen_Parameters"
         and hasattr(i_keyword, "default_value")
     }

@@ -15,7 +15,7 @@ from geommicgen.pipeline import build_mesh_jobs
 from geommicgen.postproc.postproc import post_proc
 
 import geommicgen.iofuncs.file_handling as fileio
-from geommicgen.iofuncs.keywords import top_level_reader
+from geommicgen.iofuncs.legacy_deck import read_legacy_deck
 
 from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.micgenmethod.molecular_dynamics_sim import MolecularDynamicsSimulation
@@ -38,13 +38,12 @@ def run_program(argv=None):
     # The results go in a directory named after the input data file, beside it, and
     # the extension says which generation method the file describes
 
-    top_level_reader.read_input_file(input_file_path)
+    options = read_legacy_deck(input_file_path)
     results_folder = fileio.create_design_point_results_directory(
         input_file_dir, input_file_name
     )
     fileio.copy_input_file(input_file_path, results_folder)
 
-    options = top_level_reader.all_options
     mic_gen_parameters = options.get("mic_gen_parameters", {})
     missing = [
         i_keyword
@@ -93,7 +92,7 @@ def run_program(argv=None):
         # Printing initial message
 
         mesh_jobs = build_mesh_jobs(
-            top_level_reader.all_options.get("mesh_options", {}), input_file_name
+            options.get("mesh_options", {}), input_file_name
         )
         # Initializing the mesh generators
 
@@ -121,7 +120,7 @@ def run_program(argv=None):
                 current_sample,
                 (
                     None
-                    if top_level_reader.all_options["save_min"]
+                    if options["save_min"]
                     else current_mic_generator
                 ),
                 provenance=provenance,
@@ -138,7 +137,7 @@ def run_program(argv=None):
                     current_sample,
                     current_mic_generator,
                     sample_dir,
-                    top_level_reader.all_options["post_proc"],
+                    options["post_proc"],
                 )
                 failed_analyses.extend(
                     (i_sample,) + i_failure for i_failure in analysis_failures
@@ -159,7 +158,7 @@ def run_program(argv=None):
             fileio.save_status(
                 sample_dir, current_sample, current_mic_generator, mesh_jobs
             )
-            if top_level_reader.all_options["save_min"]:
+            if options["save_min"]:
                 fileio.delete_screen(sample_dir)
             print_funcs.screen_to(None)
             # Rewritten now that the discretisations have been attempted, so that

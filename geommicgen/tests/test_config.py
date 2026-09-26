@@ -2,9 +2,6 @@
 
 import copy
 import os
-import pickle
-import subprocess
-import sys
 import tempfile
 import textwrap
 import unittest
@@ -23,7 +20,7 @@ from geommicgen.config.base import (
 from geommicgen.config import generation
 from geommicgen.config.phases import PHASE_MODELS, PhaseModel, PhaseName, type_name
 from geommicgen.config.run import RunConfig, read_config
-from geommicgen.iofuncs.keywords import top_level_reader
+from geommicgen.iofuncs.legacy_deck import build_reader, read_legacy_deck
 from geommicgen.meshing.mesher import available_meshers
 from geommicgen.micgenmethod import speed_up_schemes, thermostats
 from geommicgen.micgenmethod.molecular_dynamics_sim import (
@@ -395,30 +392,6 @@ EXAMPLE_FILES = {
 # The examples, written as input files by hand
 
 
-def read_deck(path):
-    """
-    Read an input data file with the reader of the decks, in a process of its own.
-
-    The reader keeps what an earlier deck gave for a keyword a later one leaves out,
-    so a deck is read where no other has been.
-    """
-    completed = subprocess.run(
-        [
-            sys.executable,
-            "-c",
-            "import pickle, sys; "
-            "from geommicgen.iofuncs.keywords import top_level_reader; "
-            "top_level_reader.read_input_file(sys.argv[1]); "
-            "sys.stdout.buffer.write(pickle.dumps(top_level_reader.all_options))",
-            path,
-        ],
-        capture_output=True,
-        check=True,
-    )
-
-    return pickle.loads(completed.stdout)
-
-
 def assert_same_options(test, options, expected, path="options"):
     """Check two sets of options are the same, arrays and the type of every value."""
     if isinstance(expected, dict):
@@ -471,13 +444,13 @@ class TestRun(unittest.TestCase):
                 assert_same_options(
                     self,
                     read_config(path).to_options(),
-                    read_deck(os.path.join(EXAMPLES, i_name + ".mdsim")),
+                    read_legacy_deck(os.path.join(EXAMPLES, i_name + ".mdsim")),
                 )
         # Whatever reads the options is then the same for either file
 
     def test_what_is_not_given_is_what_a_deck_that_does_not_give_it_gets(self):
         options = read_model(RunConfig, MINIMAL_RUN).to_options()
-        for i_keyword in top_level_reader.top_level_keywords:
+        for i_keyword in build_reader().top_level_keywords:
             group = getattr(i_keyword, "keyword_group", None)
             if not hasattr(i_keyword, "default_value") or group is None:
                 continue

@@ -12,11 +12,12 @@ import tempfile
 import unittest
 
 import geommicgen
-from geommicgen.iofuncs.keywords import (
-    FORMAT_KEYWORDS,
-    OLD_MESHER_NAMES,
+from geommicgen.iofuncs.legacy_deck import (
+    LEGACY_MESHERS,
+    build_reader,
+    format_keywords,
     mesher_keywords,
-    top_level_reader,
+    read_legacy_deck,
 )
 from geommicgen.meshing.mesher import available_meshers, get_mesher
 from geommicgen.translators import writer_options
@@ -35,9 +36,8 @@ class MeshOptionsTest(unittest.TestCase):
         deck_path = os.path.join(self.deck_dir.name, "deck.mdsim")
         with open(deck_path, "w") as deck:
             deck.write("Mesh_Options\n" + mesh_options)
-        top_level_reader.read_input_file(deck_path)
 
-        return top_level_reader.all_options["mesh_options"]
+        return read_legacy_deck(deck_path)["mesh_options"]
 
     def test_each_discretisation_keeps_its_own_options(self):
         options = self.read(
@@ -83,15 +83,13 @@ class MeshOptionsTest(unittest.TestCase):
         # written at all; the grid is now always written, and the keyword is gone
 
     def test_the_meshers_options_come_from_the_meshers(self):
-        headers = {
-            i_keyword.name
-            for i_keyword in top_level_reader.all_keywords["Mesh_Options"].header_keys
-        }
-        self.assertEqual(headers, set(available_meshers()) | set(OLD_MESHER_NAMES))
+        mesh_options = build_reader().all_keywords["Mesh_Options"]
+        headers = {i_keyword.name for i_keyword in mesh_options.header_keys}
+        self.assertEqual(headers, set(available_meshers()) | set(LEGACY_MESHERS))
         for i_name in available_meshers():
             declared = set(get_mesher(i_name).options)
             read_here = {i_keyword.name for i_keyword in mesher_keywords(i_name)}
-            sub_keys = top_level_reader.all_keywords["Mesh_Options"].sub_keys[i_name]
+            sub_keys = mesh_options.sub_keys[i_name]
             read_under = {i_keyword.name for i_keyword in sub_keys}
 
             self.assertTrue(declared)
@@ -99,23 +97,6 @@ class MeshOptionsTest(unittest.TestCase):
             self.assertTrue(declared <= read_under)
         # A deck names a mesher under the mesher's own name, and whatever the mesher
         # declares is read under it, without this module naming either
-
-    def test_a_mesher_given_under_its_old_name_is_read_under_its_own(self):
-        old = self.read(
-            "femsh\nmesh_size 0.1\nelement_type tri3\nrgmsh\nn_voxels_dims [8, 8]\n"
-        )
-        new = self.read(
-            "gmsh\nmesh_size 0.1\nelement_type tri3\nvoxel\nn_voxels_dims [8, 8]\n"
-        )
-
-        self.assertEqual(old, new)
-        # A deck written before the meshers were asked for by their own names
-
-    def test_a_mesher_given_under_both_names_is_refused(self):
-        with self.assertRaises(ValueError) as context:
-            self.read("femsh\nmesh_size 0.1\ngmsh\nmesh_size 0.2\n")
-
-        self.assertIn("gmsh", str(context.exception))
 
     def test_a_mesher_that_does_not_exist_is_named_with_the_line(self):
         with self.assertRaises(ValueError) as context:
@@ -146,12 +127,40 @@ class MeshOptionsTest(unittest.TestCase):
 
     def test_the_formats_options_come_from_the_formats(self):
         declared = set(writer_options())
-        read_here = {i_keyword.name for i_keyword in FORMAT_KEYWORDS}
+        read_here = {i_keyword.name for i_keyword in format_keywords()}
 
         self.assertTrue(declared)
         self.assertTrue(declared <= read_here)
         # Whatever a writer declares is read from the input data file without this
         # module naming it
+
+    def test_a_mesher_is_read_under_the_name_it_had(self):
+        options = self.read(
+            "femsh\nmesh_size 0.1\nelement_type tri3\nrgmsh\nn_voxels_dims [8, 8]\n"
+        )
+        self.assertEqual(
+            options,
+            {
+                "gmsh": {"mesh_size": 0.1, "element_type": "tri3"},
+                "voxel": {"n_voxels_dims": [[8, 8]]},
+            },
+        )
+        with self.assertRaisesRegex(ValueError, "gmsh was specified twice"):
+            self.read("femsh\nmesh_size 0.1\ngmsh\nmesh_size 0.2\n")
+        # The decks of the thesis ask for them so
+
+    def test_a_deck_is_not_given_what_an_earlier_one_gave(self):
+        self.read("voxel\nn_voxels_dims [8, 8]\nfile_name first\n")
+        deck_path = os.path.join(self.deck_dir.name, "second.mdsim")
+        with open(deck_path, "w") as deck:
+            deck.write("Verlet_Factor 1.5\n")
+        self.assertNotIn("mesh_options", read_legacy_deck(deck_path))
+        with open(deck_path, "w") as deck:
+            deck.write("Max_Step 3\n")
+        parameters = read_legacy_deck(deck_path)["mic_gen_parameters"]
+        self.assertNotIn("verlet_factor", parameters)
+        # One reader read every deck, and gave a keyword a deck left out the value an
+        # earlier deck gave it
 
 
 REFERENCE_DECK = os.path.join(
@@ -193,9 +202,10 @@ class TestReferenceInputFile(unittest.TestCase):
 
     def declared(self):
         """Give every keyword name the reader accepts, top level and sub keyword."""
-        names = {i_keyword.name for i_keyword in top_level_reader.top_level_keywords}
+        reader = build_reader()
+        names = {i_keyword.name for i_keyword in reader.top_level_keywords}
         for i_name in ("Mesh_Options",):
-            group = top_level_reader.all_keywords[i_name]
+            group = reader.all_keywords[i_name]
             names |= {i_keyword.name for i_keyword in group.all_sub_keys}
         return {i_name.lower() for i_name in names}
 
