@@ -86,3 +86,7 @@ A .pdf file of the final microstructure is created with the line ``final_config 
     :alt: Two-point correlation function
 
     Two-point correlation function of the microstructure.
+
+.. include:: /_includes/previous_button.inc
+    
+.. include:: /_includes/next_button.inc

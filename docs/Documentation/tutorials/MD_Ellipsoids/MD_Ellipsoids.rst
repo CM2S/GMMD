@@ -94,3 +94,6 @@ Since ``Motion_Analysis True`` is set in the input file, a motion analysis of th
     Time step history.
 
 
+.. include:: /_includes/previous_button.inc
+    
+.. include:: /_includes/next_button.inc
