@@ -61,7 +61,7 @@ Output files
 After running the command, a folder named ``MD_Disks`` will be created in the same directory as the input file. This folder contains all the output data related to the microstructure generation.
 A .pdf file of the final microstructure is created with the line ``final_config True`` in the input file and a gif of the molecular dynamics simulation is created. It is important to note that the gif frames are created in each step of the simulation, which increases the simulation time. The default setting is to not create the gif.
 
-As you can note, the final frame of the gif is different from the final configuration image. This is because, after the simulation, it is applied an offset that minimizes particles sitting tangent to the boundary (:ref:`offset_for_better_meshing`). This ensures that the FEM mesh is the least distorted possible. Besides this, in order to guarentee the minimum distance between particles, GMMD first dilates them, runs the simulation and then contracts the particles. This dilation and contraction steps are also not seen in the gif, eventhough hardly noticeable.
+As you can note, the final frame of the gif is different from the final configuration image. This is because, after the simulation, it is applied an offset that minimizes particles sitting tangent to the boundary (see :ref:`offset_for_better_meshing`). This ensures that the FEM mesh is the least distorted possible. Besides this, in order to guarentee the minimum distance between particles, GMMD first dilates them, runs the simulation and then contracts the particles. This dilation and contraction steps are also not seen in the gif, eventhough hardly noticeable.
 
 .. list-table:: 
    :widths: 45 55
