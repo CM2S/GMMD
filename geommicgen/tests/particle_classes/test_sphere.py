@@ -235,18 +235,11 @@ class TestSphereIntersection(unittest.TestCase):
         with self.subTest("Test intersection area"):
             self.assertEqual( sphere_1.intersection_area(sphere_2, rve_dims), 4/3*np.pi*0.1**3 )
 
-
         with self.subTest("Test intersection length"):
-            self.skipTest("Skipping intersection length check")
-            # This test gives an error, eventhough it shouldn't. Problem not fixed yet
             (intersection_length,intersection_dir) = sphere_1.intersection_length(sphere_2, rve_dims)
             sphere_2.position_center += (intersection_length) * intersection_dir
-            intersection = sphere_1.intersection(sphere_2, rve_dims)
-            # Prints for debuging
-            print("Here")
-            print(intersection_length)
-            print(sphere_1.intersection_area(sphere_2, rve_dims))
-            self.assertTrue(not intersection)
+            self.assertAlmostEqual(sphere_1.intersection_area(sphere_2, rve_dims), 0, places=10)
+
 
 
 
