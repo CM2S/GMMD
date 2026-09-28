@@ -88,12 +88,14 @@ class TestEllipse(unittest.TestCase):
         )
         with self.subTest("dilate"):
             ellipse.dilate(0.05)
-            self.assertAlmostEqual(ellipse.radius, 0.25)
+            self.assertAlmostEqual(ellipse.semi_major_axis, 0.25)
+            self.assertAlmostEqual(ellipse.semi_minor_axis, 0.15)
+            self.assertAlmostEqual(ellipse.angle, 0)
             self.assertAlmostEqual(ellipse.volume, np.pi * 0.25 * 0.15)
         with self.subTest("contract back to the original size"):
             ellipse.contract(0.05)
-            self.assertAlmostEqual(ellipse.radius, 0.2)
-            self.assertAlmostEqual(ellipse.volume, np.pi * 0.2 * 0.1)
+            self.assertAlmostEqual(ellipse.semi_major_axis, 0.2)
+            self.assertAlmostEqual(ellipse.semi_minor_axis, 0.1)
 
     def test_point_inside(self):
         rve_dims = [1, 1]

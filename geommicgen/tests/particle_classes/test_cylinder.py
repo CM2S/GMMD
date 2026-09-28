@@ -118,12 +118,13 @@ class TestCylinder(unittest.TestCase):
         cyl = Cylinder("1", descriptors, [1,1,1])
         with self.subTest("dilate"):
             cyl.dilate(0.05)
-            self.assertAlmostEqual(cyl.radius,0.19142, places = 5 )
+            self.assertAlmostEqual(cyl.r_cyl, 0.15)
+            self.assertAlmostEqual(cyl.length, 0.3 )
             self.assertAlmostEqual(cyl.volume, 0.3 * np.pi * 0.15 ** 2)
         with self.subTest("contract back to the original size"):
             cyl.contract(0.05)
-            self.assertAlmostEqual(cyl.radius, 0.14142, places = 5)
-            self.assertAlmostEqual(cyl.volume, 0.2 * np.pi * 0.1 ** 2)
+            self.assertAlmostEqual(cyl.r_cyl, 0.1)
+            self.assertAlmostEqual(cyl.length, 0.2)
 
     def test_rescale(self):
         descriptors = {

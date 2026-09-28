@@ -263,20 +263,6 @@ class Ellipsoid(Particle):
             and "ratio_21" in descriptors
             and "axis_2" in descriptors
         ):
-            # file_path = (
-            #     "/home/jose/Documents/code/paper_results/stat_analysis/3D/Results.csv"
-            # )
-            # info = np.genfromtxt(file_path, delimiter=",", skip_header=1)
-            # visible_vars = info[:, 7:9] / 795
-            # # print(visible_vars)
-            # angles = info[:, -2] * np.pi / 180
-            # # for i_ind, i_angle in angles:
-            # #     if i_angle > n
-            # visible_vars = np.array([visible_vars[:, 1], visible_vars[:, 0]]).T
-            # ind = np.random.choice(np.arange(len(visible_vars[:, 1])))
-            # axis_2 = visible_vars[:, 1][ind]
-            # axis_3 = visible_vars[:, 0][ind]
-
             axis_2 = min(descriptors["axis_2"], 0.2)
             axis_1 = axis_2 / max(min(descriptors["ratio_21"], 1), 0.4)
             axis_3 = max(min(descriptors["ratio_32"], 1), 0.4) * axis_2
@@ -365,9 +351,9 @@ class Ellipsoid(Particle):
             4
             / 3
             * np.pi
-            * (self.semi_axis_1 + self.delta)
-            * (self.semi_axis_2 + self.delta)
-            * (self.semi_axis_3 + self.delta)
+            * self.semi_axis_1
+            * self.semi_axis_2
+            * self.semi_axis_3
         )
 
         return volume
@@ -375,9 +361,7 @@ class Ellipsoid(Particle):
     @property
     def radius(self):
         """Radius of the circumscribed sphere to the ellipsoid."""
-        radius = (
-            np.max([self.semi_axis_1, self.semi_axis_2, self.semi_axis_3]) + self.delta
-        )
+        radius = np.max([self.semi_axis_1, self.semi_axis_2, self.semi_axis_3])
         # Radius of the circunscribed sphere
 
         return radius
@@ -391,24 +375,24 @@ class Ellipsoid(Particle):
 
     @property
     def semi_axis_1(self):
-        """Semi principal axis along xx before aplying the rotation."""
-        semi_axis_1 = self.axis_1 / 2
+        """Semi principal axis along xx before aplying the rotation, including *self.delta*."""
+        semi_axis_1 = self.axis_1 / 2 + self.delta
         # Radius of the circunscribed sphere
 
         return semi_axis_1
 
     @property
     def semi_axis_2(self):
-        """Semi principal axis along yy before aplying the rotation."""
-        semi_axis_2 = self.axis_2 / 2
+        """Semi principal axis along yy before aplying the rotation, including *self.delta*."""
+        semi_axis_2 = self.axis_2 / 2 + self.delta
         # Radius of the circunscribed sphere
 
         return semi_axis_2
 
     @property
     def semi_axis_3(self):
-        """Semi principal axis along zz before aplying the rotation."""
-        semi_axis_3 = self.axis_3 / 2
+        """Semi principal axis along zz before aplying the rotation, including *self.delta*."""
+        semi_axis_3 = self.axis_3 / 2 + self.delta
         # Radius of the circunscribed sphere
 
         return semi_axis_3
@@ -672,9 +656,9 @@ class Ellipsoid(Particle):
         R = np.linalg.norm(w)
         x_loc = np.array(
             [
-                r * (self.semi_axis_1 + self.delta) * w[0] / R,
-                r * (self.semi_axis_2 + self.delta) * w[1] / R,
-                r * (self.semi_axis_3 + self.delta) * w[2] / R,
+                r * self.semi_axis_1 * w[0] / R,
+                r * self.semi_axis_2 * w[1] / R,
+                r * self.semi_axis_3 * w[2] / R,
             ]
         )
 
@@ -953,10 +937,7 @@ class Ellipsoid(Particle):
                 + (dir_normal[2] / self.semi_axis_3) ** 2
             )
         )
-        dir_normal_unit = dir_normal / np.linalg.norm(dir_normal)
-        point_on_ellipsoid_loc = (
-            rescale_factor * dir_normal + self.delta * dir_normal_unit
-        )
+        point_on_ellipsoid_loc = rescale_factor * dir_normal
         point_on_ellipsoid_glob = (
             self.rotation_mat.dot(point_on_ellipsoid_loc) + self.position_center
         )
@@ -986,4 +967,5 @@ class Ellipsoid(Particle):
         self.axis_1 *= rescale_parameter
         self.axis_2 *= rescale_parameter
         self.axis_3 *= rescale_parameter
+        self.delta *= rescale_parameter
         self.position_center *= rescale_parameter

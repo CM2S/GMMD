@@ -617,8 +617,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
                         i_particle.position_center.flatten()
                     )
                     # Saving the final configuration
-            self.contract_all_particles(particles)
             self.resize_sim_box_and_all_particles_inside(particles, size="original")
+            self.contract_all_particles(particles)
             if self.offset:
                 offset = self.compute_rve_offset(particles, self.box)
                 for i_particle in particles:

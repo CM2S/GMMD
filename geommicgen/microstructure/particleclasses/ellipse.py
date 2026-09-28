@@ -169,23 +169,23 @@ class Ellipse(Particle):
         """Area(volume) of the ellipse. Only approximate if *self.delta*!=0."""
         volume = (
             np.pi
-            * (self.semi_major_axis + self.delta)
-            * (self.semi_minor_axis + self.delta)
+            * (self.semi_major_axis)
+            * (self.semi_minor_axis)
         )
 
         return volume
 
     @property
     def semi_major_axis(self):
-        """Semi major axis of the ellipse."""
-        semi_major_axis = self.major_axis / 2
+        """Semi major axis of the ellipse, including the dilation *self.delta*."""
+        semi_major_axis = self.major_axis / 2 + self.delta
 
         return semi_major_axis
 
     @property
     def semi_minor_axis(self):
-        """Semi minor axis of the ellipse."""
-        semi_minor_axis = self.minor_axis / 2
+        """Semi minor axis of the ellipse, including the dilation *self.delta*."""
+        semi_minor_axis = self.minor_axis / 2 + self.delta
 
         return semi_minor_axis
 
@@ -199,7 +199,7 @@ class Ellipse(Particle):
     @property
     def radius(self):
         """Radius of the circumscribed circle to the ellipse."""
-        radius = self.semi_major_axis + self.delta
+        radius = self.semi_major_axis
 
         return radius
 
@@ -681,8 +681,8 @@ class Ellipse(Particle):
             z[1] = np.random.normal()
             r = np.random.uniform() ** (1 / 2)
             R = np.linalg.norm(z)
-            x_loc = r * (self.semi_major_axis + self.delta) * z[0] / R
-            y_loc = r * (self.semi_minor_axis + self.delta) * z[1] / R
+            x_loc = r * self.semi_major_axis * z[0] / R
+            y_loc = r * self.semi_minor_axis * z[1] / R
             [x_glob, y_glob] = self.rot_mat.T.dot([x_loc, y_loc]) + self.position_center
             points.append(np.array([x_glob, y_glob]))
 
@@ -773,8 +773,7 @@ class Ellipse(Particle):
                 + (dir_normal[1] / self.semi_minor_axis) ** 2
             )
         )
-        dir_nomal_unit = dir_normal / np.linalg.norm(dir_normal)
-        point_on_ellipse_loc = rescale_factor * dir_normal + self.delta * dir_nomal_unit
+        point_on_ellipse_loc = rescale_factor * dir_normal
         point_on_ellipse_glob = (
             self.rot_mat.T.dot(point_on_ellipse_loc) + self.position_center
         )
@@ -784,6 +783,7 @@ class Ellipse(Particle):
         """Rescale all size parameters and the position according to *rescale_parameter*."""
         self.major_axis *= rescale_parameter
         self.minor_axis *= rescale_parameter
+        self.delta *= rescale_parameter
         self.position_center *= rescale_parameter
 
 

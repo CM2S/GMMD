@@ -187,11 +187,15 @@ class TestEllipsoid(unittest.TestCase):
     def test_contract_and_dilate(self):
         with self.subTest("dilate"):
             self.ellipsoid.dilate(0.05)
+            self.assertAlmostEqual(self.ellipsoid.semi_axis_1, 0.25)
+            self.assertAlmostEqual(self.ellipsoid.semi_axis_2, 0.2)
+            self.assertAlmostEqual(self.ellipsoid.semi_axis_3, 0.15)
             self.assertAlmostEqual(self.ellipsoid.volume, (4/3)*np.pi * 0.25*0.2*0.15)
         with self.subTest("contract back to the original size"):
             self.ellipsoid.contract(0.05)
-            self.assertAlmostEqual(self.ellipsoid.volume, (4/3)*np.pi * 0.2*0.15*0.1)
-
+            self.assertAlmostEqual(self.ellipsoid.semi_axis_1, 0.2)
+            self.assertAlmostEqual(self.ellipsoid.semi_axis_2, 0.15)
+            self.assertAlmostEqual(self.ellipsoid.semi_axis_3, 0.1)
     def test_point_inside(self):
         self.ellipsoid.position_center = [0.5,0.5,0.5]
         with self.subTest("Point inside the ellipsoid"):
