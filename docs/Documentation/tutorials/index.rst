@@ -21,13 +21,4 @@ The input files for the tutorials are located in the ``geommicgen/resources/exam
     MD_Ellipsoids/MD_Ellipsoids
     MD_Spheres_Cylinders/MD_Spheres_Cylinders
 
-.. 3D examples
-.. -----------
-
-.. .. toctree::
-..     :maxdepth: 1
-
-..     RSA_Fibers/RSA_Fibers
-..     MD_Ellipsoids/MD_Ellipsoids
-..     MD_Spheres_Cylinders/MD_Spheres_Cylinders
     
