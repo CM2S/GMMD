@@ -9,8 +9,7 @@ In any tutorial, to learn more about a specific line of code in the input file a
 
 The input files for the tutorials are located in the ``geommicgen/resources/examples`` directory.
 
-2D examples
------------
+
 
 .. toctree::
     :maxdepth: 1
@@ -18,15 +17,17 @@ The input files for the tutorials are located in the ``geommicgen/resources/exam
     MD_Disks/MD_Disks
     MD_Ellipses/MD_Ellipses
     RSA_Disks_Squares/RSA_Disks_Squares
-
-
-3D examples
------------
-
-.. toctree::
-    :maxdepth: 1
-
     RSA_Fibers/RSA_Fibers
     MD_Ellipsoids/MD_Ellipsoids
     MD_Spheres_Cylinders/MD_Spheres_Cylinders
+
+.. 3D examples
+.. -----------
+
+.. .. toctree::
+..     :maxdepth: 1
+
+..     RSA_Fibers/RSA_Fibers
+..     MD_Ellipsoids/MD_Ellipsoids
+..     MD_Spheres_Cylinders/MD_Spheres_Cylinders
     
