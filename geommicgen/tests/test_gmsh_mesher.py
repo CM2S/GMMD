@@ -197,9 +197,25 @@ class TestGmshMesherConfiguration(unittest.TestCase):
         self.assertEqual(mesher.mesh_size, 0.2)
         self.assertEqual(mesher.element_type, "tetra4")
         self.assertIsNone(mesher.elements_per_particle)
-        self.assertEqual(mesher.label, "tetra4")
+        self.assertEqual(mesher.label, "tetra4_h0.2")
         # The base class passes each declared option to the initializer by name, and
         # leaves the ones that were not given to its defaults
+
+    def test_the_label_names_the_resolution_asked_for(self):
+        self.assertEqual(
+            GmshMesher(mesh_size=0.05, element_type="tri6").label, "tri6_h0.05"
+        )
+        self.assertEqual(
+            GmshMesher(elements_per_particle=4, element_type="tri6").label, "tri6_epp4"
+        )
+        self.assertEqual(
+            GmshMesher(
+                mesh_size=0.05, elements_per_particle=2.5, element_type="tri6"
+            ).label,
+            "tri6_h0.05_epp2.5",
+        )
+        # Two resolutions of one element are two files, where the element alone named
+        # them alike
 
     def test_an_option_left_out_takes_the_default(self):
         (mesher,) = GmshMesher.from_options({"mesh_size": 0.2})

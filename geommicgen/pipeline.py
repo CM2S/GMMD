@@ -199,7 +199,7 @@ def job_base_name(deck_name, label):
 
     label: str
         What tells this discretisation apart from another of the same microstructure:
-        the element for a mesh, the number of voxels for a grid.
+        the element and the resolution for a mesh, the number of voxels for a grid.
 
     Returns
     -------

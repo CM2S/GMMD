@@ -368,12 +368,13 @@
 #
 #                Meaning: Name of the files of the discretisation, without any extension.
 #                         Defaults to the name of this file followed by what discretises it,
-#                         the element for a mesh and the number of voxels for a grid, which
-#                         is what tells two of them apart; naming the files is therefore
-#                         refused when more than one resolution is asked for. Two
-#                         discretisations may be given one name when each is written in
-#                         formats of its own, and are refused one name and one format
-#                         between them, which would write one of the two over the other.
+#                         the element and the resolution asked for for a mesh (tri6_h0.05,
+#                         tri6_epp4) and the number of voxels for a grid, which is what
+#                         tells two of them apart; naming the files is therefore refused
+#                         when more than one resolution is asked for. Two discretisations
+#                         may be given one name when each is written in formats of its
+#                         own, and are refused one name and one format between them, which
+#                         would write one of the two over the other.
 #
 #                Syntax: file_name x
 #

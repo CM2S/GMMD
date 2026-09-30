@@ -61,7 +61,7 @@ class TestExamples(unittest.TestCase):
         )
         self.assertTrue(os.path.exists(os.path.join(sample, "final_config.pdf")))
         meshes = os.listdir(os.path.join(sample, "meshes"))
-        self.assertIn("example_tri3.vtu", meshes)
+        self.assertIn("example_tri3_h0.2.vtu", meshes)
         self.assertIn("example_32_32.vti", meshes)
         # A final configuration, a finite element mesh and a grid, as the example asks
 

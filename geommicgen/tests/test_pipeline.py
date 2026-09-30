@@ -32,7 +32,7 @@ class TestBuildMeshJobs(unittest.TestCase):
         self.assertIsInstance(jobs[0].mesher, GmshMesher)
         self.assertEqual(jobs[0].mesher.element_type, "tri6")
         self.assertEqual(jobs[0].mesher.mesh_size, 0.05)
-        self.assertEqual(jobs[0].base_name, "tri6")
+        self.assertEqual(jobs[0].base_name, "tri6_h0.05")
         self.assertEqual([type(i_writer) for i_writer in jobs[0].writers], [LinksWriter])
         self.assertEqual(jobs[0].description, "Finite element mesh generation")
 
@@ -349,7 +349,7 @@ class TestMeshJobRunWithGmsh(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             job.run(disk_microstructure(), temp_dir)
             self.assertIsInstance(job.error, ValueError)
-            self.assertIn("tri3.vtu", str(job.error))
+            self.assertIn("tri3_h0.15.vtu", str(job.error))
             self.assertEqual(os.listdir(temp_dir), [])
         # Both would write tri3.vtu, so one would land on top of the other and only the
         # second would survive. Nothing is written at all instead. A grid cannot collide
@@ -376,7 +376,12 @@ class TestMeshJobRunWithGmsh(unittest.TestCase):
             written = sorted(os.path.basename(i_file) for i_file in job.files)
             self.assertEqual(
                 written,
-                ["tri3.mesh", "tri3.mesh.json", "tri3.vtu", "tri3_example.rve"],
+                [
+                    "tri3_h0.1.mesh",
+                    "tri3_h0.1.mesh.json",
+                    "tri3_h0.1.vtu",
+                    "tri3_h0.1_example.rve",
+                ],
             )
             for i_file in job.files:
                 self.assertTrue(os.path.exists(i_file))

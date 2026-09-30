@@ -113,10 +113,34 @@ class TestMeshCommand(unittest.TestCase):
             self.assertEqual(status, 0)
         self.assertEqual(
             self.written(),
-            ["mic_tri3.mesh.json", "mic_tri3.vtu", "mic_tri6.mesh.json", "mic_tri6.vtu"],
+            [
+                "mic_tri3_h0.2.mesh.json",
+                "mic_tri3_h0.2.vtu",
+                "mic_tri6_h0.2.mesh.json",
+                "mic_tri6_h0.2.vtu",
+            ],
         )
         # Both were called mic.vtu, so the second was written over the first without
         # a word; a deck has always named them after the label of the mesher
+
+    @unittest.skipUnless(has_gmsh(), "gmsh is not installed")
+    def test_two_sizes_into_one_directory_do_not_collide(self):
+        for i_size in ("0.2", "0.1"):
+            status, _ = self.run_command(
+                [self.microstructure_path, "--mesh-size", i_size, "-o", self.output_dir]
+            )
+            self.assertEqual(status, 0)
+        self.assertEqual(
+            self.written(),
+            [
+                "mic_tri3_h0.1.mesh.json",
+                "mic_tri3_h0.1.vtu",
+                "mic_tri3_h0.2.mesh.json",
+                "mic_tri3_h0.2.vtu",
+            ],
+        )
+        # Named after the element alone, both were mic_tri3.vtu, and the finer mesh
+        # was written over the coarser one without a word
 
     @unittest.skipUnless(has_gmsh(), "gmsh is not installed")
     def test_a_finite_element_mesh(self):
@@ -128,10 +152,10 @@ class TestMeshCommand(unittest.TestCase):
         self.assertEqual(
             self.written(),
             [
-                "mic_tri3.mesh",
-                "mic_tri3.mesh.json",
-                "mic_tri3.vtu",
-                "mic_tri3_example.rve",
+                "mic_tri3_h0.15.mesh",
+                "mic_tri3_h0.15.mesh.json",
+                "mic_tri3_h0.15.vtu",
+                "mic_tri3_h0.15_example.rve",
             ],
         )
         # Named after the microstructure and the element, so that meshing it again

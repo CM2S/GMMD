@@ -375,6 +375,41 @@ def phase_volume_warnings(factory, dim, materials, particle_volumes, rve_volume)
     return warnings
 
 
+def resolution_label(element_type, mesh_size=None, elements_per_particle=None):
+    """
+    Name a discretisation after its element and the resolution asked for.
+
+    Parameters
+    ----------
+    element_type: str
+        Name of the element.
+
+    mesh_size: float
+        Largest element size, when one was asked for.
+
+    elements_per_particle: float
+        Number of elements across the smallest particle, when that was asked for.
+
+    Returns
+    -------
+    str
+        The element, then h and the size, then epp and the elements per particle, of
+        those that were asked for: tri6_h0.05, tri6_epp4, tri6_h0.05_epp4.
+    """
+    parts = [element_type]
+    if mesh_size is not None:
+        parts.append("h{0:g}".format(mesh_size))
+    if elements_per_particle is not None:
+        parts.append("epp{0:g}".format(elements_per_particle))
+
+    return "_".join(parts)
+    # The files are named after the label, so a label of the element alone gave a
+    # microstructure meshed at two sizes one name, and the second mesh was written over
+    # the first without a word. What was asked for names it, rather than the size it
+    # came to, which depends on the microstructure: one request names the files alike
+    # across the samples of a run
+
+
 @register_mesher
 class GmshMesher(Mesher):
     """
@@ -465,7 +500,7 @@ class GmshMesher(Mesher):
         self.descriptors = ELEMENT_DESCRIPTORS[element_type]
         self.max_attempts = max_attempts
         self.warnings = []
-        self.label = element_type
+        self.label = resolution_label(element_type, mesh_size, elements_per_particle)
 
     def mesh(self, microstructure, report=None):
         """
