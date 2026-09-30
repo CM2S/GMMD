@@ -346,14 +346,14 @@ def mesh_command(argv=None):
     mesher = meshers[0]
     # Built the way a deck builds it, from the options the mesher declares
 
-    from geommicgen.iofuncs.microstructure_yaml import read_microstructure_yaml
+    from geommicgen.iofuncs.microstructure_file import read_microstructure_file
 
     # Imported here rather than at the top: reading a microstructure pulls in the
     # particle classes and the parts of scipy they use, which is most of the cost of
     # starting up, and the other command never reads one
 
     started = opened(arguments.microstructure, "Microstructure")
-    microstructure = read_microstructure_yaml(arguments.microstructure)
+    microstructure = read_microstructure_file(arguments.microstructure)
     read_seconds = time.time() - started
     job = MeshJob(
         mesher,
@@ -521,7 +521,7 @@ def analyze_command(argv=None):
         )
 
     from geommicgen.iofuncs.md_state import STATE_FILE_NAME, load_md_state
-    from geommicgen.iofuncs.microstructure_yaml import read_microstructure_yaml
+    from geommicgen.iofuncs.microstructure_file import read_microstructure_file
     from geommicgen.postproc.postproc import run_analyses
 
     # Imported here rather than at the top, as the meshing command does: the analyses
@@ -532,7 +532,7 @@ def analyze_command(argv=None):
     # The analyses report through the logger; the terminal is where a command's
     # report goes, and no screen file is written -- as the other commands do not
 
-    microstructure = read_microstructure_yaml(arguments.microstructure)
+    microstructure = read_microstructure_file(arguments.microstructure)
     state = None
     if options["motion_analysis"]:
         state = load_md_state(

@@ -4,7 +4,7 @@ Solve linear elasticity with FEniCS on a microstructure GMMD has meshed.
 GMMD writes a mesh FEniCS reads when it is asked for the xdmf format, from a deck with
 ``Formats [xdmf]`` or from the command line:
 
-    geommicgen-mesh mic.yaml --to xdmf
+    geommicgen-mesh mic.json --to xdmf
 
 The file holds the cells and the phase of each, which dolfinx reads as the mesh and as
 a set of cell tags. This script gives every phase a Young modulus of its own and

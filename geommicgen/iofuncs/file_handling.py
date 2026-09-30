@@ -14,14 +14,15 @@ from geommicgen.iofuncs.md_state import (
     load_md_state,
     save_md_state,
 )
-from geommicgen.iofuncs.microstructure_yaml import (
-    read_microstructure_yaml,
-    write_microstructure_yaml,
+from geommicgen.iofuncs.microstructure_file import (
+    read_microstructure_file,
+    write_microstructure_file,
 )
 from .printing import print_output, screen_to, SCREEN_FILE_NAME
 
-MIC_FILE_NAME = "mic.yaml"
-MIC_EXTENSIONS = {".yaml", ".yml"}
+MIC_FILE_NAME = "mic.json"
+MIC_EXTENSIONS = {".json", ".yaml", ".yml"}
+# A microstructure file written before the file was JSON is still read, as YAML
 
 
 def first_free_directory(base, start=None):
@@ -150,7 +151,7 @@ def load_previous_sample(previous_mic_path):
         raise ValueError(
             "Wrong extension for the previous microstructure file: {0}".format(ext)
         )
-    current_sample = read_microstructure_yaml(previous_mic_path)
+    current_sample = read_microstructure_file(previous_mic_path)
     current_mic_generator = load_md_state(
         os.path.join(os.path.dirname(previous_mic_path), STATE_FILE_NAME)
     )
@@ -190,7 +191,7 @@ def save_mic(
         Path of the microstructure file that was written.
     """
     file_path = os.path.join(sample_dir, MIC_FILE_NAME)
-    write_microstructure_yaml(current_sample, file_path, provenance=provenance)
+    write_microstructure_file(current_sample, file_path, provenance=provenance)
     if current_mic_generator is not None:
         save_md_state(sample_dir, current_mic_generator)
     if print_out:

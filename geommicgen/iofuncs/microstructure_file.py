@@ -1,13 +1,22 @@
 """
-Module containing the reading and writing of microstructures in the YAML format.
+Module containing the reading and writing of microstructure files.
 
 This module provides a human readable, tool agnostic representation of a microstructure.
 Only the geometry defining attributes of each particle are stored, since every derived
 quantity, such as the rotation matrices, the radii and the volumes, is rebuilt by the
 constructors of the particle classes when the file is read back.
+
+The file is JSON, one particle to a line. It was YAML, and a file written then is still
+read: the document is the same, only its syntax differs. JSON is what a machine writes
+for machines, which this file is: every language reads it with its own library, and
+Python reads a microstructure of twenty thousand ellipsoids in a twentieth of a second
+where PyYAML took fifteen. A number is also a number in it however it is spelt, where
+YAML 1.1 reads 1e-3 as a string.
 """
 
 import datetime
+import json
+import os
 
 import numpy as np
 import yaml
@@ -33,32 +42,90 @@ FORMAT_NAME = "geommicgen-microstructure"
 # Identifier written in the header of every file produced by this module
 
 FORMAT_VERSION = 1
-# Version of the schema, so that readers can detect incompatible files
+# Version of the schema, so that readers can detect incompatible files. The schema did
+# not change when the syntax went from YAML to JSON
+
+YAML_EXTENSIONS = (".yaml", ".yml")
+# Extensions of the files written before the syntax was JSON, which are read as YAML
 
 
-class _FlowMapping(dict):
-    """Mapping that is dumped in the flow style, so that a record stays on one line."""
+def _plain(value):
+    """
+    Give a numpy value as the Python value JSON writes.
+
+    Parameters
+    ----------
+    value: object
+        Value the JSON encoder does not know.
+
+    Returns
+    -------
+    object
+        The value as a list or as a Python scalar.
+
+    Raises
+    ------
+    TypeError:
+        If the value is not a numpy one.
+    """
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, np.generic):
+        return value.item()
+    raise TypeError(
+        "A value of type {0} cannot be written to a microstructure file.".format(
+            type(value).__name__
+        )
+    )
+    # The conversions numpy itself provides, so that no value has to be converted by
+    # hand before it is written
 
 
-class _MicrostructureDumper(yaml.SafeDumper):
-    """Dumper that keeps every particle record on a single line."""
+def _json(value):
+    """Write a value as JSON on one line."""
+    return json.dumps(value, default=_plain, ensure_ascii=False)
 
 
-def _represent_flow_mapping(dumper, data):
-    """Represent a `._FlowMapping` in the flow style."""
-    return dumper.represent_mapping("tag:yaml.org,2002:map", data, flow_style=True)
+def _json_document(document):
+    """
+    Write a document as JSON, with every phase and every particle on a line of its own.
 
+    Parameters
+    ----------
+    document: dict
+        Document to be written.
 
-_MicrostructureDumper.add_representer(_FlowMapping, _represent_flow_mapping)
-_MicrostructureDumper.add_representer(
-    np.ndarray, lambda dumper, data: dumper.represent_data(data.tolist())
-)
-_MicrostructureDumper.add_multi_representer(
-    np.generic, lambda dumper, data: dumper.represent_data(data.item())
-)
-# Registered on a private dumper so that the global safe dumper is left untouched. The
-# numpy representers use the conversions numpy itself provides, so that no value has to
-# be converted by hand before it is written
+    Returns
+    -------
+    str
+        The JSON text.
+    """
+    members = []
+    for i_key, i_value in document.items():
+        if i_key == "phases" and i_value:
+            value = (
+                "{\n"
+                + ",\n".join(
+                    "    {0}: {1}".format(_json(j_name), _json(j_record))
+                    for j_name, j_record in i_value.items()
+                )
+                + "\n  }"
+            )
+        elif i_key == "particles" and i_value:
+            value = (
+                "[\n"
+                + ",\n".join("    " + _json(j_record) for j_record in i_value)
+                + "\n  ]"
+            )
+        else:
+            value = _json(i_value)
+        members.append("  {0}: {1}".format(_json(i_key), value))
+
+    return "{\n" + ",\n".join(members) + "\n}\n"
+    # One record to a line keeps the file as readable, and as easy to compare between
+    # two runs, as it was in YAML; json.dumps with an indent would put every coordinate
+    # of every particle on a line of its own
+
 
 SHAPE_CLASSES = {
     i_type.__name__: i_type for i_type in Phase.phase_types.values()
@@ -118,7 +185,9 @@ def _shape_parameters(particle):
         }
     else:
         raise ValueError(
-            "The particle type {0} is not supported by the YAML format.".format(shape)
+            "The particle type {0} cannot be written to a microstructure file.".format(
+                shape
+            )
         )
     # Collecting only the attributes that define the geometry
 
@@ -174,8 +243,8 @@ def _descriptors_to_records(phase):
                 break
         if fields is None:
             raise ValueError(
-                "The descriptor type {0} is not supported by the YAML "
-                "format.".format(type(i_descriptor).__name__)
+                "The descriptor type {0} cannot be written to a microstructure "
+                "file.".format(type(i_descriptor).__name__)
             )
         kind, attributes = fields
         record = {"distribution": kind}
@@ -188,9 +257,9 @@ def _descriptors_to_records(phase):
     return records
 
 
-def write_microstructure_yaml(microstructure, file_path, provenance=None):
+def write_microstructure_file(microstructure, file_path, provenance=None):
     """
-    Write a microstructure to a YAML file.
+    Write a microstructure to a microstructure file, in JSON.
 
     Parameters
     ----------
@@ -203,7 +272,20 @@ def write_microstructure_yaml(microstructure, file_path, provenance=None):
     provenance: dict
         Additional information about the generation of the microstructure, such as the
         input data file and the random seed. Optional.
+
+    Raises
+    ------
+    ValueError:
+        If the file is named as a YAML one.
     """
+    if os.path.splitext(file_path)[1].lower() in YAML_EXTENSIONS:
+        raise ValueError(
+            "{0} is named as a YAML file, and microstructure files are written in "
+            "JSON. Name it .json instead.".format(file_path)
+        )
+    # The reader takes the extension at its word, and JSON read as YAML 1.1 turns a
+    # number spelt 1e-05, which JSON writes for a small one, into a string
+
     type_codes = {i_type: i_code for i_code, i_type in Phase.phase_types.items()}
     # Inverting the correspondence between phase type and phase type class
 
@@ -249,22 +331,15 @@ def write_microstructure_yaml(microstructure, file_path, provenance=None):
         parent = getattr(i_particle, "parent", None)
         if parent is not None and id(parent) in particle_ids:
             record["parent_id"] = particle_ids[id(parent)]
-        document["particles"].append(_FlowMapping(record))
+        document["particles"].append(record)
     # The identifier is the position in the particle list, which is the order the
     # meshers and the analyses iterate
 
-    with open(file_path, "w") as yaml_file:
-        yaml.dump(
-            document,
-            yaml_file,
-            Dumper=_MicrostructureDumper,
-            sort_keys=False,
-            default_flow_style=None,
-            width=200,
-            allow_unicode=True,
-        )
-    # Each particle record is a mapping of scalars and flat lists, so the dumper keeps
-    # it on a single line
+    text = _json_document(document)
+    with open(file_path, "w", encoding="utf-8") as mic_file:
+        mic_file.write(text)
+    # The whole text is made before the file is opened, so a value that cannot be
+    # written leaves no half written file behind
 
 
 def _provenance_record(microstructure, provenance):
@@ -306,7 +381,7 @@ def _provenance_record(microstructure, provenance):
 
 def particle_from_record(record, rve_dims):
     """
-    Build a particle from its record in a YAML file.
+    Build a particle from its record in a microstructure file.
 
     Parameters
     ----------
@@ -358,7 +433,9 @@ def particle_from_record(record, rve_dims):
         }
     else:
         raise ValueError(
-            "The particle shape {0} is not supported by the YAML format.".format(shape)
+            "The particle shape {0} is not one a microstructure file holds.".format(
+                shape
+            )
         )
     # A fresh dictionary is built for every particle because some of the constructors
     # remove entries from the one they are given
@@ -377,9 +454,12 @@ def particle_from_record(record, rve_dims):
     return particle
 
 
-def read_microstructure_yaml(file_path):
+def read_microstructure_file(file_path):
     """
-    Read a microstructure from a YAML file.
+    Read a microstructure from a microstructure file.
+
+    The file is read as JSON, unless its extension says it was written as YAML, before
+    the syntax changed.
 
     Parameters
     ----------
@@ -396,8 +476,11 @@ def read_microstructure_yaml(file_path):
     ValueError:
         If the file is not in the expected format or version.
     """
-    with open(file_path, "r") as yaml_file:
-        document = yaml.safe_load(yaml_file)
+    with open(file_path, "r", encoding="utf-8") as mic_file:
+        if os.path.splitext(file_path)[1].lower() in YAML_EXTENSIONS:
+            document = yaml.safe_load(mic_file)
+        else:
+            document = json.load(mic_file)
 
     if document.get("format") != FORMAT_NAME:
         raise ValueError(

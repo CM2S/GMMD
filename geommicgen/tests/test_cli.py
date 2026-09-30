@@ -19,7 +19,7 @@ from geommicgen.cli import (
 from geommicgen.postproc.options import ANALYSES, ANALYSIS_OPTIONS, with_defaults
 from geommicgen.iofuncs.keywords import top_level_reader
 from geommicgen.iofuncs.md_state import save_md_state
-from geommicgen.iofuncs.microstructure_yaml import write_microstructure_yaml
+from geommicgen.iofuncs.microstructure_file import write_microstructure_file
 from geommicgen.tests.helpers import a_generation_run, disk_microstructure
 
 
@@ -28,8 +28,8 @@ class TestMeshCommand(unittest.TestCase):
 
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.microstructure_path = os.path.join(self.temp_dir.name, "mic.yaml")
-        write_microstructure_yaml(disk_microstructure(), self.microstructure_path)
+        self.microstructure_path = os.path.join(self.temp_dir.name, "mic.json")
+        write_microstructure_file(disk_microstructure(), self.microstructure_path)
         self.output_dir = os.path.join(self.temp_dir.name, "out")
 
     def tearDown(self):
@@ -143,8 +143,8 @@ class TestTranslateCommand(unittest.TestCase):
 
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        microstructure_path = os.path.join(self.temp_dir.name, "mic.yaml")
-        write_microstructure_yaml(disk_microstructure(), microstructure_path)
+        microstructure_path = os.path.join(self.temp_dir.name, "mic.json")
+        write_microstructure_file(disk_microstructure(), microstructure_path)
         self.staged = os.path.join(self.temp_dir.name, "staged")
         with contextlib.redirect_stdout(io.StringIO()):
             mesh_command(
@@ -195,8 +195,8 @@ class TestAnalyzeCommand(unittest.TestCase):
         self.sample_dir = os.path.join(self.temp_dir.name, "sample")
         os.makedirs(self.sample_dir)
         self.microstructure = disk_microstructure()
-        self.microstructure_path = os.path.join(self.sample_dir, "mic.yaml")
-        write_microstructure_yaml(self.microstructure, self.microstructure_path)
+        self.microstructure_path = os.path.join(self.sample_dir, "mic.json")
+        write_microstructure_file(self.microstructure, self.microstructure_path)
         self.output_dir = os.path.join(self.temp_dir.name, "out")
 
     def tearDown(self):
@@ -297,8 +297,8 @@ class TestCommandReports(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_dir.cleanup)
-        self.microstructure_path = os.path.join(self.temp_dir.name, "mic.yaml")
-        write_microstructure_yaml(disk_microstructure(), self.microstructure_path)
+        self.microstructure_path = os.path.join(self.temp_dir.name, "mic.json")
+        write_microstructure_file(disk_microstructure(), self.microstructure_path)
         self.output_dir = os.path.join(self.temp_dir.name, "out")
 
     def run_command(self, command, argv):

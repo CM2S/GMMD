@@ -1,8 +1,10 @@
+import json
 import os
 import tempfile
 import unittest
 
 import numpy as np
+import yaml
 
 from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.microstructure.phase import Phase
@@ -14,29 +16,29 @@ from geommicgen.microstructure.particleclasses import (
     Ellipsoid,
     Sphere,
 )
-from geommicgen.iofuncs.microstructure_yaml import (
+from geommicgen.iofuncs.microstructure_file import (
     FORMAT_NAME,
-    read_microstructure_yaml,
-    write_microstructure_yaml,
+    read_microstructure_file,
+    write_microstructure_file,
 )
 from geommicgen.tests.helpers import build_microstructure
 
 
-class TestMicrostructureYamlRoundTrip(unittest.TestCase):
-    """Test class for the round trip of every particle shape through the YAML format."""
+class TestMicrostructureFileRoundTrip(unittest.TestCase):
+    """Test class for the round trip of every particle shape through the file."""
 
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.file_path = os.path.join(self.temp_dir.name, "mic.yaml")
+        self.file_path = os.path.join(self.temp_dir.name, "mic.json")
 
     def tearDown(self):
         self.temp_dir.cleanup()
 
     def round_trip(self, microstructure):
         """Write and read back a microstructure, returning the one that was read."""
-        write_microstructure_yaml(microstructure, self.file_path)
+        write_microstructure_file(microstructure, self.file_path)
 
-        return read_microstructure_yaml(self.file_path)
+        return read_microstructure_file(self.file_path)
 
     def assert_particles_equal(self, original, restored):
         """Check that the geometry of every particle survived the round trip."""
@@ -129,12 +131,12 @@ class TestMicrostructureYamlRoundTrip(unittest.TestCase):
         # The fibre spans the RVE, so its centre has one coordinate fewer than the RVE
 
 
-class TestMicrostructureYamlStructure(unittest.TestCase):
-    """Test class for the structure of the file produced by the YAML writer."""
+class TestMicrostructureFileStructure(unittest.TestCase):
+    """Test class for the structure of the file produced by the writer."""
 
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.file_path = os.path.join(self.temp_dir.name, "mic.yaml")
+        self.file_path = os.path.join(self.temp_dir.name, "mic.json")
         self.rve_dims = [1.0, 1.0]
         particles = []
         for i_center in ([0.25, 0.75], [0.6, 0.1]):
@@ -147,55 +149,122 @@ class TestMicrostructureYamlStructure(unittest.TestCase):
         self.temp_dir.cleanup()
 
     def test_one_line_per_particle(self):
-        write_microstructure_yaml(self.microstructure, self.file_path)
-        with open(self.file_path, "r") as yaml_file:
-            lines = yaml_file.read().splitlines()
-        particle_lines = [line for line in lines if line.startswith("- {")]
+        write_microstructure_file(self.microstructure, self.file_path)
+        with open(self.file_path, "r") as mic_file:
+            lines = mic_file.read().splitlines()
+        particle_lines = [line for line in lines if '"shape": "Disk"' in line]
         self.assertEqual(len(particle_lines), 2)
         for line in particle_lines:
-            self.assertIn("shape: Disk", line)
-        # A record spread over several lines would not start with the flow style marker
+            record = json.loads(line.strip().rstrip(","))
+            self.assertEqual(record["shape"], "Disk")
+            self.assertEqual(len(record["center"]), 2)
+        # A record spread over several lines would not parse on its own
+
+    def test_one_line_per_phase(self):
+        write_microstructure_file(self.microstructure, self.file_path)
+        with open(self.file_path, "r") as mic_file:
+            lines = mic_file.read().splitlines()
+        phase_lines = [line for line in lines if '"type_code"' in line]
+        self.assertEqual(len(phase_lines), 2)
+
+    def test_is_json(self):
+        write_microstructure_file(
+            self.microstructure, self.file_path, provenance={"fixed_seed": 12345}
+        )
+        with open(self.file_path, "r") as mic_file:
+            document = json.load(mic_file)
+        self.assertEqual(document["format"], FORMAT_NAME)
+        self.assertEqual(document["rve_dims"], self.rve_dims)
+        self.assertEqual(len(document["particles"]), 2)
+        self.assertEqual(document["particles"][1]["center"], [0.6, 0.1])
+        self.assertEqual(document["provenance"]["fixed_seed"], 12345)
+        # Read by the standard library alone, as any other tool would read it
+
+    def test_numpy_values_are_written_as_numbers(self):
+        self.microstructure.particles[0].position_center = np.array(
+            [np.float32(0.25), np.float32(0.75)]
+        )
+        write_microstructure_file(
+            self.microstructure, self.file_path, provenance={"n": np.int64(3)}
+        )
+        with open(self.file_path, "r") as mic_file:
+            document = json.load(mic_file)
+        self.assertEqual(document["provenance"]["n"], 3)
+        self.assertEqual(document["particles"][0]["center"], [0.25, 0.75])
+
+    def test_unwritable_value_leaves_no_file(self):
+        with self.assertRaises(TypeError):
+            write_microstructure_file(
+                self.microstructure, self.file_path, provenance={"what": object()}
+            )
+        self.assertFalse(os.path.exists(self.file_path))
+
+    def test_refuses_to_write_a_yaml_name(self):
+        yaml_path = os.path.join(self.temp_dir.name, "mic.yaml")
+        with self.assertRaisesRegex(ValueError, "JSON"):
+            write_microstructure_file(self.microstructure, yaml_path)
+        self.assertFalse(os.path.exists(yaml_path))
+
+    def test_small_numbers_survive(self):
+        self.microstructure.particles[0].position_center = np.array([1.5e-06, 0.75])
+        write_microstructure_file(self.microstructure, self.file_path)
+        restored = read_microstructure_file(self.file_path)
+        self.assertEqual(restored.particles[0].position_center[0], 1.5e-06)
+        # JSON spells it 1.5e-06, which YAML 1.1 would have read as a string
+
+    def test_yaml_file_is_still_read(self):
+        write_microstructure_file(self.microstructure, self.file_path)
+        with open(self.file_path, "r") as mic_file:
+            document = json.load(mic_file)
+        yaml_path = os.path.join(self.temp_dir.name, "mic.yaml")
+        with open(yaml_path, "w") as yaml_file:
+            yaml.safe_dump(document, yaml_file, sort_keys=False)
+        restored = read_microstructure_file(yaml_path)
+        self.assertEqual(restored.matrix_phase, "1")
+        self.assertEqual(len(restored.particles), 2)
+        np.testing.assert_allclose(restored.particles[1].position_center, [0.6, 0.1])
+        # A microstructure written before the syntax was JSON holds the same document
 
     def test_matrix_phase_and_dimensions_preserved(self):
-        write_microstructure_yaml(self.microstructure, self.file_path)
-        restored = read_microstructure_yaml(self.file_path)
+        write_microstructure_file(self.microstructure, self.file_path)
+        restored = read_microstructure_file(self.file_path)
         self.assertEqual(restored.matrix_phase, "1")
         self.assertEqual(restored.dim, 2)
         np.testing.assert_allclose(restored.rve_dims, self.rve_dims)
         self.assertEqual(sorted(restored.phases.keys()), ["1", "2"])
 
     def test_provenance_is_written(self):
-        write_microstructure_yaml(
+        write_microstructure_file(
             self.microstructure, self.file_path, provenance={"fixed_seed": 12345}
         )
-        restored = read_microstructure_yaml(self.file_path)
-        with open(self.file_path, "r") as yaml_file:
-            contents = yaml_file.read()
-        self.assertIn("provenance:", contents)
-        self.assertIn("fixed_seed: 12345", contents)
-        self.assertIn("geommicgen_version:", contents)
+        restored = read_microstructure_file(self.file_path)
+        with open(self.file_path, "r") as mic_file:
+            contents = mic_file.read()
+        self.assertIn('"provenance":', contents)
+        self.assertIn('"fixed_seed": 12345', contents)
+        self.assertIn('"geommicgen_version":', contents)
         self.assertEqual(len(restored.particles), 2)
         # The provenance is informational and must not disturb the reader
 
     def test_rejects_foreign_file(self):
-        with open(self.file_path, "w") as yaml_file:
-            yaml_file.write("format: something-else\nversion: 1\n")
+        with open(self.file_path, "w") as mic_file:
+            mic_file.write('{"format": "something-else", "version": 1}')
         with self.assertRaises(ValueError):
-            read_microstructure_yaml(self.file_path)
+            read_microstructure_file(self.file_path)
 
     def test_rejects_unsupported_version(self):
-        with open(self.file_path, "w") as yaml_file:
-            yaml_file.write("format: {0}\nversion: 99\n".format(FORMAT_NAME))
+        with open(self.file_path, "w") as mic_file:
+            mic_file.write('{{"format": "{0}", "version": 99}}'.format(FORMAT_NAME))
         with self.assertRaises(ValueError):
-            read_microstructure_yaml(self.file_path)
+            read_microstructure_file(self.file_path)
 
 
-class TestMicrostructureYamlCoated(unittest.TestCase):
+class TestMicrostructureFileCoated(unittest.TestCase):
     """Test class for the round trip of coated inclusions."""
 
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.file_path = os.path.join(self.temp_dir.name, "mic.yaml")
+        self.file_path = os.path.join(self.temp_dir.name, "mic.json")
 
     def tearDown(self):
         self.temp_dir.cleanup()
@@ -218,8 +287,8 @@ class TestMicrostructureYamlCoated(unittest.TestCase):
         inner.parent = outer
         microstructure.phases["3"].particles.append(inner)
 
-        write_microstructure_yaml(microstructure, self.file_path)
-        restored = read_microstructure_yaml(self.file_path)
+        write_microstructure_file(microstructure, self.file_path)
+        restored = read_microstructure_file(self.file_path)
 
         self.assertTrue(restored.phases["3"].inner_phase)
         self.assertEqual(restored.phases["3"].outer_phase, "2")
@@ -229,12 +298,12 @@ class TestMicrostructureYamlCoated(unittest.TestCase):
         self.assertIsNone(restored_outer.parent)
 
 
-class TestMicrostructureYamlDescriptors(unittest.TestCase):
+class TestMicrostructureFileDescriptors(unittest.TestCase):
     """Test class for the round trip of the phase descriptors."""
 
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.file_path = os.path.join(self.temp_dir.name, "mic.yaml")
+        self.file_path = os.path.join(self.temp_dir.name, "mic.json")
 
     def tearDown(self):
         self.temp_dir.cleanup()
@@ -262,8 +331,8 @@ class TestMicrostructureYamlDescriptors(unittest.TestCase):
             )
         )
 
-        write_microstructure_yaml(microstructure, self.file_path)
-        restored = read_microstructure_yaml(self.file_path)
+        write_microstructure_file(microstructure, self.file_path)
+        restored = read_microstructure_file(self.file_path)
 
         descriptors = restored.phases["2"].descriptors
         self.assertEqual(descriptors["major_axis"].mean, 0.2)

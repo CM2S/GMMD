@@ -263,7 +263,7 @@ class ConvertMicTest(unittest.TestCase):
 
     def test_converts_to_the_named_file(self):
         """The converted microstructure goes where it was asked to go."""
-        file_path = os.path.join(self.sample_dir, "elsewhere.yaml")
+        file_path = os.path.join(self.sample_dir, "elsewhere.json")
         self.assertEqual(convert_mic_command([self.archive_path, "-o", file_path]), 0)
 
         self.assertTrue(os.path.exists(file_path))

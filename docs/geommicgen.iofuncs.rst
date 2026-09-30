@@ -10,6 +10,6 @@ Submodules
    geommicgen.iofuncs.file_handling
    geommicgen.iofuncs.md_state
    geommicgen.iofuncs.keywords
-   geommicgen.iofuncs.microstructure_yaml
+   geommicgen.iofuncs.microstructure_file
    geommicgen.iofuncs.printing
 

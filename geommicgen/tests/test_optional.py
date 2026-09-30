@@ -30,7 +30,7 @@ import geommicgen.postproc.postproc
 import geommicgen.postproc.plotfuncs.plotting_functions
 import geommicgen.pipeline
 import geommicgen.cli
-import geommicgen.iofuncs.microstructure_yaml
+import geommicgen.iofuncs.microstructure_file
 
 from geommicgen._optional import require_gmsh
 from geommicgen.errors.error_classes import MissingOptionalDependency

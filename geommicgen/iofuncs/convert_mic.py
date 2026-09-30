@@ -15,7 +15,7 @@ import pickle
 # pylint: disable=relative-beyond-top-level
 from geommicgen.iofuncs.file_handling import MIC_FILE_NAME
 from geommicgen.iofuncs.md_state import save_md_state
-from geommicgen.iofuncs.microstructure_yaml import write_microstructure_yaml
+from geommicgen.iofuncs.microstructure_file import write_microstructure_file
 
 
 def convert_mic_command(argv=None):
@@ -42,7 +42,7 @@ def convert_mic_command(argv=None):
     parser.add_argument(
         "-o",
         "--output",
-        help="microstructure file to be written, mic.yaml beside the input by default",
+        help="microstructure file to be written, mic.json beside the input by default",
     )
     arguments = parser.parse_args(argv)
 
@@ -55,7 +55,7 @@ def convert_mic_command(argv=None):
     if file_path is None:
         file_path = os.path.join(os.path.dirname(arguments.mic), MIC_FILE_NAME)
 
-    write_microstructure_yaml(
+    write_microstructure_file(
         archive["microstructure"],
         file_path,
         provenance={"converted_from": os.path.basename(arguments.mic)},

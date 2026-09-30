@@ -161,9 +161,9 @@ GMMD generates a set of microstructures from an **input data file**, and post-pr
 | What | Command |
 |---|---|
 | Generate a set of microstructures | `geommicgen input_data_file.mdsim` |
-| Mesh a microstructure | `geommicgen-mesh mic.yaml ...` |
+| Mesh a microstructure | `geommicgen-mesh mic.json ...` |
 | Translate a mesh for a solver | `geommicgen-translate mesh.vtu --to ...` |
-| Analyse a microstructure | `geommicgen-analyze mic.yaml ...` |
+| Analyse a microstructure | `geommicgen-analyze mic.json ...` |
 | Convert a `.mic` file of an earlier version | `geommicgen-convert-mic mic.mic` |
 
 Each command lists its options with `--help`.
@@ -187,8 +187,8 @@ Each sample is generated, written to a folder of its own, and then meshed and an
 The meshing is two stages -- a mesh of the microstructure, and that mesh in the formats solvers read -- and each has a command of its own. `geommicgen-mesh` discretises a microstructure file and writes the mesh; `geommicgen-translate` writes a mesh in the formats solvers read, taking the file the previous stage wrote, or one another tool produced:
 
 ```bash
-geommicgen-mesh mic.yaml --mesher gmsh --mesh-size 0.05 --element-type tri6 --to links
-geommicgen-mesh mic.yaml --mesher voxel --n-voxels-dims 100 100 --to crate
+geommicgen-mesh mic.json --mesher gmsh --mesh-size 0.05 --element-type tri6 --to links
+geommicgen-mesh mic.json --mesher voxel --n-voxels-dims 100 100 --to crate
 geommicgen-translate mic.vtu --to links,xdmf
 geommicgen-translate --list-formats
 ```
@@ -204,15 +204,15 @@ The gmsh mesher offers `tri3`, `tri6`, `quad4` and `quad8` in two dimensions and
 `geommicgen-analyze` runs the analyses from a microstructure file and, for the motion of the particles, from the `md_state.npz` a generation run writes beside it:
 
 ```bash
-geommicgen-analyze mic_0/mic.yaml --motion-analysis --stat-two-pt-corr -o mic_0/analysis
-geommicgen-analyze mic.yaml --voronoi-analysis --voronoi-type set --plot-voronoi
+geommicgen-analyze mic_0/mic.json --motion-analysis --stat-two-pt-corr -o mic_0/analysis
+geommicgen-analyze mic.json --voronoi-analysis --voronoi-type set --plot-voronoi
 ```
 
 Every analysis the input data file can ask for is a flag of the same name, and an earlier analysis in the output directory is written over.
 
 ### Microstructures of an earlier version
 
-A microstructure used to be stored as a `.mic` file, a pickle of the objects that held it. It is a YAML file now, which any tool can read and a person can edit. `geommicgen-convert-mic` turns the one into the other, writing the state of the generation run beside it:
+A microstructure used to be stored as a `.mic` file, a pickle of the objects that held it. It is a JSON file now, one particle to a line, which any tool can read and a person can edit. A `mic.yaml`, which development versions wrote before, is still read. `geommicgen-convert-mic` turns the one into the other, writing the state of the generation run beside it:
 
 ```bash
 geommicgen-convert-mic mic_0/mic.mic
@@ -226,7 +226,7 @@ Running GMMD on an input data file, say `input_data_file.mdsim`, creates a folde
 input_data_file/
 ├── input_data_file.mdsim          copy of the input data file
 ├── mic_0/
-│   ├── mic.yaml                   microstructure file
+│   ├── mic.json                   microstructure file
 │   ├── status                     status of the generation: flag, time, final overlap
 │   ├── md_state.npz               histories of the generation run, read by the motion analysis  (not with save_min)
 │   ├── mic.screen                 log of the run, everything printed to the terminal             (not with save_min)

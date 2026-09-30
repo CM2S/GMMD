@@ -4,6 +4,7 @@ The classes tested are the GenerationMethod class and the MolecularDynamicsSimul
 """
 import contextlib
 import io
+import json
 import os
 import tempfile
 import unittest
@@ -13,7 +14,6 @@ import sys
 import textwrap
 
 import numpy as np
-import yaml
 
 from geommicgen.app import run_program
 
@@ -131,7 +131,7 @@ class TestMandatoryKeywords(DeckRunTest):
         status, stderr, _ = self.run_deck(SEEDED_DECK)
         self.assertEqual(status, 0, stderr)
         self.assertTrue(
-            os.path.exists(os.path.join(self.temp_dir.name, "deck", "mic_1", "mic.yaml"))
+            os.path.exists(os.path.join(self.temp_dir.name, "deck", "mic_1", "mic.json"))
         )
         # The keyword was required and read by nothing; it is still accepted
 
@@ -158,7 +158,7 @@ class TestFailedSample(DeckRunTest):
         self.assertEqual(status, 1, stderr)
         self.assertNotIn("Traceback", stderr)
         sample_dir = os.path.join(self.temp_dir.name, "deck", "mic_0")
-        self.assertTrue(os.path.exists(os.path.join(sample_dir, "mic.yaml")))
+        self.assertTrue(os.path.exists(os.path.join(sample_dir, "mic.json")))
         self.assertFalse(os.path.exists(os.path.join(sample_dir, "meshes")))
         with open(os.path.join(sample_dir, "status")) as status_file:
             self.assertIn("Status: False", status_file.read())
@@ -247,8 +247,8 @@ class TestFixedSeedAcrossSamples(unittest.TestCase):
         results_dir = os.path.join(self.temp_dir.name, name)
         documents = []
         for i_sample in range(2):
-            with open(os.path.join(results_dir, "mic_{0}".format(i_sample), "mic.yaml")) as f:
-                documents.append(yaml.safe_load(f))
+            with open(os.path.join(results_dir, "mic_{0}".format(i_sample), "mic.json")) as f:
+                documents.append(json.load(f))
 
         return documents
 
