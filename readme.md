@@ -189,12 +189,13 @@ The meshing is two stages -- a mesh of the microstructure, and that mesh in the 
 ```bash
 geommicgen-mesh mic.json --mesher gmsh --mesh-size 0.05 --element-type tri6 --to links
 geommicgen-mesh mic.json --elements-per-particle 4,8 --element-type tri3,tri6
+geommicgen-mesh input_data_file/mic_*/mic.json --elements-per-particle 4 --to links
 geommicgen-mesh mic.json --mesher voxel --n-voxels-dims 100 100 --to crate
 geommicgen-translate mic.vtu --to links,xdmf
 geommicgen-translate --list-formats
 ```
 
-A mesh is written as a VTK file whichever mesher produced it, `.vtu` for an unstructured mesh and `.vti` for a grid, with a small `.mesh.json` beside it holding what those formats cannot carry. The files are named after the microstructure file and what discretised it -- `mic_tri6_h0.05.vtu`, `mic_tri6_epp4.vtu`, `mic_100_100.vti` -- so that meshing one microstructure several ways into one directory keeps them apart; `--name` names them outright. The size, the elements per particle and the element each take several values, separated by commas, and there is a mesh for every combination: the second line above writes four. Giving no `--to` stops after that file, which is a complete stage: `geommicgen-translate` picks up from it later, or somewhere else.
+A mesh is written as a VTK file whichever mesher produced it, `.vtu` for an unstructured mesh and `.vti` for a grid, with a small `.mesh.json` beside it holding what those formats cannot carry. The files are named after the microstructure file and what discretised it -- `mic_tri6_h0.05.vtu`, `mic_tri6_epp4.vtu`, `mic_100_100.vti` -- so that meshing one microstructure several ways into one directory keeps them apart; `--name` names them outright. The size, the elements per particle and the element each take several values, separated by commas, and there is a mesh for every combination: the second line above writes four. Several microstructures can be given at once, as the third line meshes every sample of a run; each is meshed into `meshes/` beside it unless `-o` says otherwise. Giving no `--to` stops after that file, which is a complete stage: `geommicgen-translate` picks up from it later, or somewhere else.
 
 The LINKS and Abaqus decks, and the example CRATE input file written beside a grid, carry placeholder materials and a placeholder loading, a stretch along x, marked as such: a microstructure says nothing about either, but with them the decks run as written, which is how they are checked. The CRATE file also declares the dimensions of the RVE, which the grid does not carry. FEniCS reads the `.xdmf` file, with the phase of every cell as a cell tag; [`examples/fenics_elasticity.py`](examples/fenics_elasticity.py) reads one, gives each phase a material and solves.
 
@@ -246,4 +247,4 @@ input_data_file/
 
 `save_min`, the lightweight mode geared towards data-driven frameworks, keeps only the microstructure and status files.
 
-`geommicgen-mesh`, `geommicgen-translate` and `geommicgen-analyze` write where their `-o` option says, the current directory by default.
+`geommicgen-mesh` writes the meshes of a microstructure into `meshes/` beside it, as a run does, and `geommicgen-translate` and `geommicgen-analyze` write into the current directory; each writes where its `-o` option says instead.

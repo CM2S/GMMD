@@ -21,6 +21,7 @@ import time
 # pylint: disable=relative-beyond-top-level
 import geommicgen.iofuncs.printing as print_funcs
 from geommicgen.pipeline import (
+    MESH_DIRECTORY,
     MeshJob,
     job_base_name,
     write_formats,
@@ -206,11 +207,9 @@ def declared_options(arguments, options):
     return {i_name.lower(): getattr(arguments, i_name.lower()) for i_name in options}
 
 
-def add_output_arguments(parser):
+def add_output_arguments(parser, default=".", where="directory to write into"):
     """Add the arguments saying where the files go and what they are called."""
-    parser.add_argument(
-        "-o", "--output-dir", default=".", help="directory to write into"
-    )
+    parser.add_argument("-o", "--output-dir", default=default, help=where)
     parser.add_argument("--name", help="name of the files, without an extension")
 
 
@@ -327,7 +326,7 @@ def report_outcome(error, files, name=None):
 
 def mesh_command(argv=None):
     """
-    Discretise a microstructure read from a file.
+    Discretise microstructures read from files.
 
     Parameters
     ----------
@@ -341,9 +340,11 @@ def mesh_command(argv=None):
     """
     parser = argparse.ArgumentParser(
         prog="geommicgen-mesh",
-        description="Discretise a microstructure and write the mesh.",
+        description="Discretise microstructures and write the meshes.",
     )
-    parser.add_argument("microstructure", help="microstructure file to be meshed")
+    parser.add_argument(
+        "microstructure", nargs="+", help="microstructure files to be meshed"
+    )
     parser.add_argument(
         "--mesher",
         default="gmsh",
@@ -359,7 +360,12 @@ def mesh_command(argv=None):
         help="formats to write besides the mesh itself, separated by commas",
     )
     writer_arguments(parser)
-    add_output_arguments(parser)
+    add_output_arguments(
+        parser,
+        default=None,
+        where="directory to write into (default: {0}/ beside each "
+        "microstructure)".format(MESH_DIRECTORY),
+    )
     arguments = parser.parse_args(argv)
 
     writers = resolve_writers(
@@ -382,57 +388,116 @@ def mesh_command(argv=None):
     # Built the way a deck builds them, from the options the mesher declares: several
     # sizes or elements are a mesh each, as several resolutions are a grid each
 
+    paths = list(dict.fromkeys(arguments.microstructure))
+    refuse_colliding_microstructures(parser, paths, arguments)
+
     from geommicgen.iofuncs.microstructure_file import read_microstructure_file
 
     # Imported here rather than at the top: reading a microstructure pulls in the
     # particle classes and the parts of scipy they use, which is most of the cost of
     # starting up, and the other command never reads one
 
-    started = opened(arguments.microstructure, "Microstructure")
-    microstructure = read_microstructure_file(arguments.microstructure)
-    read_seconds = time.time() - started
-    jobs = [
-        MeshJob(
-            i_mesher,
-            writers,
-            arguments.name
-            or job_base_name(
-                os.path.basename(arguments.microstructure), i_mesher.label
-            ),
+    if len(paths) == 1:
+        opened(paths[0], "Microstructure")
+    else:
+        opened("{0} and {1} more".format(paths[0], len(paths) - 1), "Microstructures")
+    outcomes = []
+    reading_step = "Reading the microstructure" + ("s" if len(paths) > 1 else "")
+    times = {reading_step: 0.0}
+    for i_path in paths:
+        output_dir = arguments.output_dir or os.path.join(
+            os.path.dirname(i_path), MESH_DIRECTORY
         )
-        for i_mesher in meshers
-    ]
-    # Named after the microstructure file and the label of the mesher, as a deck names
-    # a discretisation after the deck and the label: the label is what tells one
-    # discretisation of a microstructure from another, so meshing the same
-    # microstructure with two elements, or at two resolutions, into one directory no
-    # longer writes the second over the first. --name still says it outright
-    print_funcs.print_to_file("Generating meshes")
-    print_funcs.print_to_file("-" * 80 + "\n")
-    for i_job in jobs:
-        print_funcs.print_to_file("\t> {0}".format(i_job.title))
-        i_job.run(microstructure, arguments.output_dir, report=report_progress)
-        for j_warning in i_job.mesher.warnings:
-            print_funcs.print_to_file("\t\t- {0}".format(j_warning))
-    # Each discretisation is attempted whatever became of the ones before it, as a
-    # deck attempts them
+        # Beside the microstructure unless told otherwise, as a run of a deck puts
+        # the meshes of a sample beside its microstructure, so that a set of samples
+        # is meshed by one command, each into its own directory
+        print_funcs.print_to_file(
+            "Generating meshes" + ("" if len(paths) == 1 else " of " + i_path)
+        )
+        print_funcs.print_to_file("-" * 80 + "\n")
+        reading = time.time()
+        try:
+            microstructure = read_microstructure_file(i_path)
+        except Exception as error:  # pylint: disable=broad-except
+            outcomes.append((i_path, error, []))
+            continue
+        finally:
+            times[reading_step] += time.time() - reading
+        # A microstructure that cannot be read is reported, and the others are still
+        # meshed
+
+        jobs = [
+            MeshJob(
+                j_mesher,
+                writers,
+                arguments.name
+                or job_base_name(os.path.basename(i_path), j_mesher.label),
+            )
+            for j_mesher in meshers
+        ]
+        # Named after the microstructure file and the label of the mesher, as a deck
+        # names a discretisation after the deck and the label: the label is what tells
+        # one discretisation of a microstructure from another, so meshing the same
+        # microstructure with two elements, or at two resolutions, into one directory
+        # does not write the second over the first. --name still says it outright
+        for j_job in jobs:
+            print_funcs.print_to_file("\t> {0}".format(j_job.title))
+            j_job.run(microstructure, output_dir, report=report_progress)
+            for k_warning in j_job.mesher.warnings:
+                print_funcs.print_to_file("\t\t- {0}".format(k_warning))
+            outcomes.append(
+                (os.path.join(output_dir, j_job.base_name), j_job.error, j_job.files)
+            )
+        # Each discretisation is attempted whatever became of the ones before it, as a
+        # deck attempts them
+        for j_step, j_seconds in print_funcs.step_times(None, jobs, {}).items():
+            step = j_step if len(paths) == 1 else "{0}: {1}".format(i_path, j_step)
+            times[step] = j_seconds
 
     status = 0
-    for i_job in jobs:
-        status = max(
-            status,
-            report_outcome(
-                i_job.error, i_job.files, i_job.base_name if len(jobs) > 1 else None
-            ),
-        )
-    print_funcs.print_final_message(
-        dict(
-            {"Reading the microstructure": read_seconds},
-            **print_funcs.step_times(None, jobs, {}),
-        )
-    )
+    for i_name, i_error, i_files in outcomes:
+        name = i_name if len(outcomes) > 1 else None
+        status = max(status, report_outcome(i_error, i_files, name))
+    print_funcs.print_final_message(times)
 
     return status
+
+
+def refuse_colliding_microstructures(parser, paths, arguments):
+    """
+    Refuse microstructures whose meshes would be written over each other.
+
+    Parameters
+    ----------
+    parser: argparse.ArgumentParser
+        Parser to report through.
+
+    paths: list
+        Paths of the microstructure files, each once.
+
+    arguments: argparse.Namespace
+        The arguments, whose output directory and name say where the meshes go.
+    """
+    if len(paths) > 1 and arguments.name:
+        parser.error(
+            "--name would give the meshes of each of the {0} microstructures one name, "
+            "and each would be written over the one before. Leave it out and they are "
+            "named after their microstructure.".format(len(paths))
+        )
+    if arguments.output_dir is None:
+        return
+    names = [os.path.basename(i_path) for i_path in paths]
+    shared = sorted({i_name for i_name in names if names.count(i_name) > 1})
+    if shared:
+        parser.error(
+            "More than one of the microstructures is called {0}, so their meshes would "
+            "be written over each other in {1}. Leave -o out and each is meshed into "
+            "{2}/ beside it.".format(
+                " or ".join(shared), arguments.output_dir, MESH_DIRECTORY
+            )
+        )
+    # Refused before anything is read: the samples of a run are all called mic.json,
+    # and they are what one would give together
 
 
 def translate_command(argv=None):

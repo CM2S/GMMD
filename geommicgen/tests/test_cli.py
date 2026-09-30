@@ -142,6 +142,78 @@ class TestMeshCommand(unittest.TestCase):
         # Named after the element alone, both were mic_tri3.vtu, and the finer mesh
         # was written over the coarser one without a word
 
+    def samples(self, n_samples):
+        """Write the microstructure as the samples of a run, mic_0/mic.json, ..."""
+        paths = []
+        for i_sample in range(n_samples):
+            sample_dir = os.path.join(self.temp_dir.name, "mic_{0}".format(i_sample))
+            os.makedirs(sample_dir)
+            paths.append(os.path.join(sample_dir, "mic.json"))
+            write_microstructure_file(disk_microstructure(), paths[-1])
+
+        return paths
+
+    def test_the_meshes_go_beside_the_microstructure_by_default(self):
+        status, _ = self.run_command(
+            [self.microstructure_path, "--mesher", "voxel", "--n-voxels-dims", "8", "8"]
+        )
+        self.assertEqual(status, 0)
+        self.assertEqual(
+            sorted(os.listdir(os.path.join(self.temp_dir.name, "meshes"))),
+            ["mic_8_8.mesh.json", "mic_8_8.vti"],
+        )
+        # Where a run of a deck puts the meshes of a sample, rather than wherever the
+        # command happened to be started
+
+    def test_the_samples_of_a_run_in_one_call(self):
+        paths = self.samples(2)
+        status, printed = self.run_command(
+            paths + ["--mesher", "voxel", "--n-voxels-dims", "8", "8"]
+        )
+        self.assertEqual(status, 0)
+        for i_path in paths:
+            self.assertEqual(
+                sorted(os.listdir(os.path.join(os.path.dirname(i_path), "meshes"))),
+                ["mic_8_8.mesh.json", "mic_8_8.vti"],
+            )
+            self.assertIn("Generating meshes of " + i_path, printed)
+        # Each into its own directory, so the meshes of mic_0/mic.json and of
+        # mic_1/mic.json, both mic_8_8, stay apart
+
+    def test_samples_of_one_name_into_one_directory_are_refused(self):
+        printed = io.StringIO()
+        with contextlib.redirect_stderr(printed), self.assertRaises(SystemExit):
+            mesh_command(
+                self.samples(2)
+                + ["--mesher", "voxel", "--n-voxels-dims", "8", "8"]
+                + ["-o", self.output_dir]
+            )
+        self.assertIn("mic.json", printed.getvalue())
+        self.assertFalse(os.path.exists(self.output_dir))
+        # Both would be written as mic_8_8, the second over the first
+
+    def test_a_name_for_several_microstructures_is_refused(self):
+        printed = io.StringIO()
+        with contextlib.redirect_stderr(printed), self.assertRaises(SystemExit):
+            mesh_command(
+                self.samples(2)
+                + ["--mesher", "voxel", "--n-voxels-dims", "8", "8", "--name", "one"]
+            )
+        self.assertIn("--name", printed.getvalue())
+
+    def test_one_that_cannot_be_read_leaves_the_others(self):
+        broken = os.path.join(self.temp_dir.name, "broken.json")
+        with open(broken, "w") as broken_file:
+            broken_file.write("not a microstructure")
+        paths = self.samples(1)
+        status, printed = self.run_command(
+            [broken] + paths + ["--mesher", "voxel", "--n-voxels-dims", "8", "8"]
+        )
+        self.assertEqual(status, 1)
+        self.assertIn(broken + ": JSONDecodeError", printed)
+        written = os.path.join(self.temp_dir.name, "mic_0", "meshes", "mic_8_8.vti")
+        self.assertTrue(os.path.exists(written))
+
     @unittest.skipUnless(has_gmsh(), "gmsh is not installed")
     def test_several_sizes_in_one_call(self):
         status, printed = self.run_command(
