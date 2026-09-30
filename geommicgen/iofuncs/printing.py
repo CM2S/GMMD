@@ -323,10 +323,16 @@ def step_times(mic_generator, mesh_generators, times_dict):
     for i_generator in mesh_generators:
         if i_generator.time is None:
             continue
-        name = getattr(i_generator, "description", None) or type(i_generator).__name__
+        name = (
+            getattr(i_generator, "title", None)
+            or getattr(i_generator, "description", None)
+            or type(i_generator).__name__
+        )
         times[name] = i_generator.time
         # A step that does not say what it is called is reported under its class name,
-        # rather than under whichever name the loop happened to leave behind
+        # rather than under whichever name the loop happened to leave behind. A mesh
+        # job is reported under its title, since two of one mesher share a description
+        # and the second took the place of the first in the table
     times.update(times_dict)
 
     return times

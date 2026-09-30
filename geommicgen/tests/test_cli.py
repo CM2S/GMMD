@@ -143,6 +143,56 @@ class TestMeshCommand(unittest.TestCase):
         # was written over the coarser one without a word
 
     @unittest.skipUnless(has_gmsh(), "gmsh is not installed")
+    def test_several_sizes_in_one_call(self):
+        status, printed = self.run_command(
+            [self.microstructure_path, "--elements-per-particle", "2,3",
+             "--element-type", "tri3,tri6", "-o", self.output_dir]
+        )
+        self.assertEqual(status, 0)
+        self.assertEqual(
+            [i_name for i_name in self.written() if i_name.endswith(".vtu")],
+            [
+                "mic_tri3_epp2.vtu",
+                "mic_tri3_epp3.vtu",
+                "mic_tri6_epp2.vtu",
+                "mic_tri6_epp3.vtu",
+            ],
+        )
+        for i_label in ("tri3_epp2", "tri3_epp3", "tri6_epp2", "tri6_epp3"):
+            self.assertIn(
+                "Finite element mesh generation ({0})".format(i_label), printed
+            )
+        # Every mesh is announced and timed under its own label: under the description
+        # alone the table of times kept the last of them
+
+    def test_a_failure_among_several_is_named(self):
+        status, printed = self.run_command(
+            [self.microstructure_path, "--mesh-size", "0.2,0.1", "--element-type",
+             "tetra4", "-o", self.output_dir]
+        )
+        self.assertEqual(status, 1)
+        self.assertIn("mic_tetra4_h0.2: ValueError", printed)
+        self.assertIn("mic_tetra4_h0.1: ValueError", printed)
+        # A three dimensional element for a two dimensional microstructure, refused
+        # before gmsh is needed, once for each mesh
+
+    def test_a_name_for_several_meshes_is_refused(self):
+        printed = io.StringIO()
+        with contextlib.redirect_stderr(printed), self.assertRaises(SystemExit):
+            mesh_command(
+                [self.microstructure_path, "--mesh-size", "0.2,0.1", "--name", "one",
+                 "-o", self.output_dir]
+            )
+        self.assertIn("tri3_h0.2, tri3_h0.1", printed.getvalue())
+        self.assertFalse(os.path.exists(self.output_dir))
+
+    def test_a_size_that_is_not_a_number_is_refused(self):
+        printed = io.StringIO()
+        with contextlib.redirect_stderr(printed), self.assertRaises(SystemExit):
+            mesh_command([self.microstructure_path, "--mesh-size", "0.2,fine"])
+        self.assertIn("--mesh-size", printed.getvalue())
+
+    @unittest.skipUnless(has_gmsh(), "gmsh is not installed")
     def test_a_finite_element_mesh(self):
         status, _ = self.run_command(
             [self.microstructure_path, "--mesher", "gmsh", "--mesh-size", "0.15",

@@ -115,7 +115,7 @@ def run_mesh_jobs(mesh_jobs, microstructure, sample_dir):
     print_funcs.print_to_file("Generating meshes")
     print_funcs.print_to_file("-" * 80 + "\n")
     for i_job in mesh_jobs:
-        print_funcs.print_to_file("\t> {0}".format(i_job.description))
+        print_funcs.print_to_file("\t> {0}".format(i_job.title))
         i_job.run(
             microstructure,
             os.path.join(sample_dir, MESH_DIRECTORY),

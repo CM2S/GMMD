@@ -134,6 +134,19 @@ class MeshJob:
         finally:
             self.time = time.time() - start
 
+    @property
+    def title(self):
+        """
+        Name the job in the report of a run: what discretises, and the label.
+
+        Returns
+        -------
+        str
+            Such as "Finite element mesh generation (tri6_h0.05)", which tells apart
+            two jobs of one mesher where the description alone does not.
+        """
+        return "{0} ({1})".format(self.description, self.mesher.label)
+
     def summary(self):
         """
         Say in one line what became of the discretisation.

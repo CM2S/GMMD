@@ -27,7 +27,8 @@ class Keyword:
     name: str
         Name of the keyword.
 
-    type_str: optional, {'float', 'int', 'bool', 'str', 'none'}
+    type_str: optional, {'float', 'int', 'bool', 'str', 'int_list', 'float_list',
+        'str_list', 'none'}
         Type of the value corresponding to the keyword. 'none' will set the value of the
         keyword as its name.
 
@@ -121,6 +122,15 @@ class Keyword:
                 # Written as [a, b], or as [a, b] [c, d] for several lists at once, in
                 # which case each is read as a list of its own. A bare row of numbers
                 # is read as one list
+            elif self.type_str == "float_list":
+                value_str = " ".join(line.split()[1:]).strip()
+                if value_str.startswith("[") and value_str.endswith("]"):
+                    value_str = value_str[1:-1]
+                final_val = [
+                    float(i_value) for i_value in value_str.replace(",", " ").split()
+                ]
+                # Written as [a, b] like every other list in the input file, or as a
+                # single value, which is a list of one
             elif self.type_str == "str_list":
                 value_str = " ".join(line.split()[1:]).strip()
                 if value_str.startswith("[") and value_str.endswith("]"):

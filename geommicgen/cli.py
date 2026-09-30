@@ -58,10 +58,33 @@ def format_names(value):
     return [i_name.strip() for i_name in value.split(",") if i_name.strip()]
 
 
+def float_values(value):
+    """
+    Split and read the numbers given to an option that takes several, such as sizes.
+
+    Parameters
+    ----------
+    value: str
+        The numbers, separated by commas.
+
+    Returns
+    -------
+    list
+        The numbers.
+
+    Raises
+    ------
+    ValueError:
+        If one of them is not a number, which argparse reports with the option.
+    """
+    return [float(i_value) for i_value in format_names(value)]
+
+
 ARGUMENT_KWARGS = {
     "int": {"type": int},
     "int_list": {"type": int, "nargs": "+", "metavar": "N"},
     "float": {"type": float},
+    "float_list": {"type": float_values, "metavar": "VALUES"},
     "str": {"type": str},
     "str_list": {"type": format_names, "metavar": "NAMES"},
     "bool": {"action": argparse.BooleanOptionalAction, "default": None},
@@ -269,7 +292,7 @@ def report_progress(index, total):
         print()
 
 
-def report_outcome(error, files):
+def report_outcome(error, files, name=None):
     """
     Report what was written and what stopped it, and give the status to exit with.
 
@@ -281,13 +304,20 @@ def report_outcome(error, files):
     files: list
         Paths of the files that were written.
 
+    name: str
+        What the work was, said before the error when one command did several.
+
     Returns
     -------
     int
         Status the program should exit with.
     """
     if error is not None:
-        print("{0}: {1}".format(type(error).__name__, error))
+        print(
+            "{0}{1}: {2}".format(
+                "" if name is None else name + ": ", type(error).__name__, error
+            )
+        )
         if files:
             print("written before it failed:")
     print_files(files)
@@ -341,10 +371,16 @@ def mesh_command(argv=None):
         )
     except ValueError as error:
         parser.error(str(error))
-    if len(meshers) != 1:
-        parser.error("a command line asks for one discretisation at a time")
-    mesher = meshers[0]
-    # Built the way a deck builds it, from the options the mesher declares
+    if arguments.name and len(meshers) > 1:
+        parser.error(
+            "--name would give each of the {0} meshes asked for ({1}) one name, and "
+            "each would be written over the one before. Leave it out and they are "
+            "named after the microstructure and their label.".format(
+                len(meshers), ", ".join(i_mesher.label for i_mesher in meshers)
+            )
+        )
+    # Built the way a deck builds them, from the options the mesher declares: several
+    # sizes or elements are a mesh each, as several resolutions are a grid each
 
     from geommicgen.iofuncs.microstructure_file import read_microstructure_file
 
@@ -355,14 +391,17 @@ def mesh_command(argv=None):
     started = opened(arguments.microstructure, "Microstructure")
     microstructure = read_microstructure_file(arguments.microstructure)
     read_seconds = time.time() - started
-    job = MeshJob(
-        mesher,
-        writers,
-        arguments.name
-        or job_base_name(
-            os.path.basename(arguments.microstructure), mesher.label
-        ),
-    )
+    jobs = [
+        MeshJob(
+            i_mesher,
+            writers,
+            arguments.name
+            or job_base_name(
+                os.path.basename(arguments.microstructure), i_mesher.label
+            ),
+        )
+        for i_mesher in meshers
+    ]
     # Named after the microstructure file and the label of the mesher, as a deck names
     # a discretisation after the deck and the label: the label is what tells one
     # discretisation of a microstructure from another, so meshing the same
@@ -370,14 +409,27 @@ def mesh_command(argv=None):
     # longer writes the second over the first. --name still says it outright
     print_funcs.print_to_file("Generating meshes")
     print_funcs.print_to_file("-" * 80 + "\n")
-    print_funcs.print_to_file("\t> {0}".format(job.description))
-    job.run(microstructure, arguments.output_dir, report=report_progress)
-    for i_warning in mesher.warnings:
-        print_funcs.print_to_file("\t\t- {0}".format(i_warning))
+    for i_job in jobs:
+        print_funcs.print_to_file("\t> {0}".format(i_job.title))
+        i_job.run(microstructure, arguments.output_dir, report=report_progress)
+        for j_warning in i_job.mesher.warnings:
+            print_funcs.print_to_file("\t\t- {0}".format(j_warning))
+    # Each discretisation is attempted whatever became of the ones before it, as a
+    # deck attempts them
 
-    status = report_outcome(job.error, job.files)
+    status = 0
+    for i_job in jobs:
+        status = max(
+            status,
+            report_outcome(
+                i_job.error, i_job.files, i_job.base_name if len(jobs) > 1 else None
+            ),
+        )
     print_funcs.print_final_message(
-        {"Reading the microstructure": read_seconds, job.description: job.time}
+        dict(
+            {"Reading the microstructure": read_seconds},
+            **print_funcs.step_times(None, jobs, {}),
+        )
     )
 
     return status

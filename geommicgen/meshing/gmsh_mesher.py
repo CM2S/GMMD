@@ -52,6 +52,7 @@ element_order_incomp: {0, 1}
 """
 
 import contextlib
+import itertools
 
 import numpy as np
 
@@ -443,16 +444,18 @@ class GmshMesher(Mesher):
     description = "Finite element mesh generation"
     default_formats = ("links",)
     options = {
-        "Mesh_Size": {"type": "float", "help": "largest element size"},
+        "Mesh_Size": {"type": "float_list", "help": "largest element size"},
         "Elements_Per_Particle": {
-            "type": "float",
+            "type": "float_list",
             "help": "elements across the smallest particle, instead of a size",
         },
         "Element_Type": {
-            "type": "str",
+            "type": "str_list",
             "help": "element to mesh with (default: tri3)",
         },
     }
+    # Each takes several values, separated by commas on the command line and written
+    # as a list in an input data file, and there is a mesh for every combination
 
     def __init__(
         self, mesh_size=None, element_type="tri3", elements_per_particle=None,
@@ -501,6 +504,43 @@ class GmshMesher(Mesher):
         self.max_attempts = max_attempts
         self.warnings = []
         self.label = resolution_label(element_type, mesh_size, elements_per_particle)
+
+    @classmethod
+    def from_options(cls, options):
+        """
+        Build one mesher for every element and every resolution the options ask for.
+
+        Parameters
+        ----------
+        options: dict
+            Options given for the discretisation. Each of *mesh_size*,
+            *elements_per_particle* and *element_type* holds one value or a list of
+            them.
+
+        Returns
+        -------
+        list
+            One mesher for every combination of the values given, in the order they
+            were given, the same combination once.
+        """
+        given = {}
+        names = [i_name.lower() for i_name in cls.options]
+        for i_name in sorted(names, key=lambda i_name: i_name != "element_type"):
+            value = options.get(i_name)
+            values = [] if value is None else np.atleast_1d(value).tolist()
+            if values:
+                given[i_name] = list(dict.fromkeys(values))
+        # One value is a list of one; an option that was not given, or given no value,
+        # is left to the default of the initializer. A value given twice is one mesh,
+        # since the second would be written over the first under the same name. The
+        # element varies slowest, so the meshes of one element come together
+
+        return [
+            cls(**dict(zip(given, i_values)))
+            for i_values in itertools.product(*given.values())
+        ]
+        # A size sweep, or two elements at one size, is one request: each mesh is named
+        # after its element and resolution, so none is written over another
 
     def mesh(self, microstructure, report=None):
         """

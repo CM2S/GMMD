@@ -44,9 +44,21 @@ class MeshOptionsTest(unittest.TestCase):
             "voxel\nn_voxels_dims [16, 16]\nfile_name my_grid\n"
         )
 
-        self.assertEqual(options["gmsh"]["element_type"], "tri3")
+        self.assertEqual(options["gmsh"]["element_type"], ["tri3"])
+        self.assertEqual(options["gmsh"]["mesh_size"], [0.1])
         self.assertEqual(options["voxel"]["n_voxels_dims"], [[16, 16]])
         self.assertEqual(options["voxel"]["file_name"], "my_grid")
+
+    def test_several_sizes_and_elements_are_read_as_lists(self):
+        options = self.read(
+            "gmsh\nelements_per_particle [3, 6]\nmesh_size 0.1, 0.05\n"
+            "element_type [tri3, tri6]\n"
+        )
+
+        self.assertEqual(options["gmsh"]["elements_per_particle"], [3.0, 6.0])
+        self.assertEqual(options["gmsh"]["mesh_size"], [0.1, 0.05])
+        self.assertEqual(options["gmsh"]["element_type"], ["tri3", "tri6"])
+        # A mesh for each combination, as a grid for each resolution
 
     def test_several_resolutions_are_read_as_one_list_each(self):
         options = self.read("voxel\nn_voxels_dims [16, 16] [32, 32]\n")

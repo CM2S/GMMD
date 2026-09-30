@@ -323,13 +323,18 @@
 #                ========================================================================
 #                'gmsh' - the element type, and the mesh size or the elements per particle
 #                ------------------------------------------------------------------------
+#                Each of the three takes a list as well, and there is a mesh for every
+#                combination of the values given, each named after its element and its
+#                resolution: element_type [tri3, tri6] with elements_per_particle [4, 8]
+#                is four meshes, tri3_epp4, tri3_epp8, tri6_epp4 and tri6_epp8.
+#                ........................................................................
 #                   Mesh size                                                            [O]
 #
 #                Meaning: Largest element size allowed; the size is refined from it by the
 #                         curvature of the geometry. Either this or elements_per_particle
 #                         is required.
 #
-#                Syntax: mesh_size x
+#                Syntax: mesh_size x, or mesh_size [x1, x2] for a mesh at each
 #
 #                x: float
 #
@@ -348,17 +353,19 @@
 #                         absolute length. If mesh_size is also given, the smaller of the
 #                         two is used. Either this or mesh_size is required.
 #
-#                Syntax: elements_per_particle x
+#                Syntax: elements_per_particle x, or elements_per_particle [x1, x2]
 #
 #                x: float
 #                ........................................................................
-#                   Element type                                                         [M]
+#                   Element type                                                         [O]
 #
-#                Meaning: Type of element used to mesh the microstructure.
+#                Meaning: Type of element used to mesh the microstructure. Defaults to
+#                         tri3. A quad mesh is made by recombining triangles, and may keep
+#                         a few where no pair is found; the mesher reports it.
 #
-#                Syntax: element_type x
+#                Syntax: element_type x, or element_type [x1, x2] for a mesh with each
 #
-#                x: {'tri3', 'tri6', tetra4', 'tetra10'}
+#                x: {'tri3', 'tri6', 'quad4', 'quad8'} (2D), {'tetra4', 'tetra10'} (3D)
 #                ========================================================================
 #
 #                ========================================================================

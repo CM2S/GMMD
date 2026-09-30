@@ -217,6 +217,25 @@ class TestGmshMesherConfiguration(unittest.TestCase):
         # Two resolutions of one element are two files, where the element alone named
         # them alike
 
+    def test_one_mesher_for_every_combination_asked_for(self):
+        meshers = GmshMesher.from_options(
+            {"element_type": ["tri3", "tri6"], "elements_per_particle": [3, 6]}
+        )
+
+        self.assertEqual(
+            [i_mesher.label for i_mesher in meshers],
+            ["tri3_epp3", "tri3_epp6", "tri6_epp3", "tri6_epp6"],
+        )
+        # The element varies slowest, so the meshes of one element come together
+
+    def test_a_value_given_twice_is_one_mesher(self):
+        meshers = GmshMesher.from_options({"mesh_size": [0.1, 0.1, 0.05]})
+
+        self.assertEqual(
+            [i_mesher.label for i_mesher in meshers], ["tri3_h0.1", "tri3_h0.05"]
+        )
+        # Both would be named tri3_h0.1, and the second written over the first
+
     def test_an_option_left_out_takes_the_default(self):
         (mesher,) = GmshMesher.from_options({"mesh_size": 0.2})
 
