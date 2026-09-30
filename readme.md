@@ -105,6 +105,15 @@ pip install -e .
 
 After installation, the `geommicgen`, `geommicgen-mesh`, `geommicgen-translate`, `geommicgen-analyze` and `geommicgen-convert-mic` commands are available from any directory.
 
+### Updating GMMD
+
+An editable install picks up changes to the source code, but not changes to `pyproject.toml`: a new command or a new dependency comes only with installing again. After pulling, install again from the cloned directory, with the extras you use:
+
+```bash
+git pull
+pip install -e '.[gmsh]'
+```
+
 ### Optional dependencies
 
 - **Gmsh** is required to produce finite element meshes of the microstructures and the three dimensional visualizations. A run that only asks for a regular grid needs none of it. Install it with the extra:
