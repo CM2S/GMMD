@@ -461,6 +461,67 @@ class EllipsoidTestPartiallyIntersecting_1(unittest.TestCase):
         #     self.assertTrue(intersection)
 
 
+def aligned_ellipsoid(axes, center):
+    """An ellipsoid with its axes along x, y and z, centred at *center*."""
+    ellipsoid = Ellipsoid(
+        "1",
+        {
+            "axis_1": axes[0],
+            "axis_2": axes[1],
+            "axis_3": axes[2],
+            "rot_axis_comp_x": 0,
+            "rot_axis_comp_y": 0,
+            "rot_axis_comp_z": 1.0,
+            "angle": 0,
+        },
+        [1.0, 1.0, 1.0],
+    )
+    ellipsoid.position_center = np.array(center)
+
+    return ellipsoid
+
+
+class TestEllipsoidAlgebraicIntersection(unittest.TestCase):
+    """Test class for the algebraic test of two ellipsoids, on pairs far from touching.
+
+    It gets both wrong; see the TODO in `intersection_ellipsoid_ellipsoid`.
+    """
+
+    def setUp(self):
+        self.box = [1.0, 1.0, 1.0]
+        self.overlapping = (
+            aligned_ellipsoid([0.25, 0.33, 0.14], [0.5, 0.5, 0.5]),
+            aligned_ellipsoid([0.07, 0.18, 0.38], [0.5, 0.53, 0.55]),
+        )
+        # Each holds the centre of the other; scaled about their centres they touch
+        # at 0.21 of their size
+        self.separated = (
+            aligned_ellipsoid([0.06, 0.3, 0.32], [0.5, 0.5, 0.5]),
+            aligned_ellipsoid([0.12, 0.19, 0.19], [0.63, 0.48, 0.6]),
+        )
+        # They touch once scaled to 1.49 of their size
+
+    def test_gjk_tells_the_pairs_apart(self):
+        self.assertTrue(self.overlapping[0].intersection_gjk(self.overlapping[1], self.box))
+        self.assertFalse(self.separated[0].intersection_gjk(self.separated[1], self.box))
+
+    @unittest.expectedFailure
+    def test_the_overlap_is_found(self):
+        self.assertTrue(
+            self.overlapping[0].intersection_ellipsoid_ellipsoid(
+                self.overlapping[1], self.box
+            )
+        )
+
+    @unittest.expectedFailure
+    def test_the_separation_is_found(self):
+        self.assertFalse(
+            self.separated[0].intersection_ellipsoid_ellipsoid(
+                self.separated[1], self.box
+            )
+        )
+
+
 class EllipseTestPartiallyIntersecting_1(unittest.TestCase):
     def setUp(self):
 

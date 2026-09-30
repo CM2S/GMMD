@@ -773,6 +773,21 @@ class Ellipsoid(Particle):
 
     def intersection_ellipsoid_ellipsoid(self, other_ellipsoid, box):
         """Check if the current and the other ellipsoid intersect."""
+        # TODO: the answer is wrong for 23 of 400 random pairs, mostly separated pairs
+        # called overlapping, some overlaps missed, and not only near tangency: 7 of the
+        # 344 pairs that would have to be scaled about their centres by more than 20% to
+        # touch were wrong, as are two concentric ellipsoids crossed like a plus sign.
+        # The coefficients of det(lambda*A_i + A_j) are right, to 1e-12 of the quartic
+        # fitted to the determinant; the conditions on the eta coefficients are what
+        # fail, 23 wrong again on the exact coefficients, some of them asking a float to
+        # be == 0. Counting the distinct positive real roots of the quartic, which
+        # separate the pair (Wang, Wang and Kim), got all 400 right, with a tolerance
+        # left to find for the double root at tangency. The truth was the Perram-Wertheim
+        # contact function, under which GJK got all 400 right too. The semi-axes it reads
+        # also leave out `delta`, which the support function adds. It decides nothing in
+        # a run, `intersection` and `intersection_length` going to GJK and its one
+        # caller, `intersection_area`, being called by tests alone; the pairs it gets
+        # wrong are in TestEllipsoidAlgebraicIntersection
 
         def coefficients_characteristic_equation(M_i, axis_lengths, A_j):
             """
