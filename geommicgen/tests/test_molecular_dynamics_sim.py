@@ -117,8 +117,8 @@ class TestRVENormalization(unittest.TestCase):
 
         # The offset is subtracted and the centre is then wrapped back into the RVE,
         # which is a rigid translation of a periodic cell followed by the choice of the
-        # canonical representative in [0, box). Copies of init_positions are kept above
-        # because position_center used to alias them, which made this assertion compare
+        # canonical representative in [0, box). position_center is given copies of
+        # init_positions above: were they the same arrays, this assertion would compare
         # a value with itself and hold no matter what the offset did.
         for ind, particle in enumerate(particles):
             expected = (init_positions[ind] - offset) % np.asarray(

@@ -80,9 +80,7 @@ Some software must be installed to successfully run GMMD:
   `sudo tar -xvf ParaView-< version >.tar.gz`
 
 * Gmsh and gmsh2links (see [here](https://github.com/CM2S/Utilities/tree/master/gmsh)) - Required to produce finite element meshes of the microstructures to be used in FEM analysis through LINKS. The Gmsh Python API is one of the pip dependencies, installed with `GMMD` (see [Installation](#installation)); gmsh2links is installed from its repository.
-  `GMMD` requires **Gmsh 4.15 or newer**, the version it is tested against. It uses the
-  mesh-size option names Gmsh introduced in 4.7 (`Mesh.MeshSize*`, which replaced
-  `Mesh.CharacteristicLength*`), so Gmsh 4.5/4.6 are no longer supported.
+  `GMMD` requires **Gmsh 4.15 or newer**, the version it is tested against.
   If you instead install the SDK tarball by hand from
   [gmsh.info](https://gmsh.info/bin/Linux/), add its Python API to your `PYTHONPATH`:
   ```bash

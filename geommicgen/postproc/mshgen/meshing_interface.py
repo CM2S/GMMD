@@ -80,12 +80,7 @@ class FEMMeshGenerator(MeshGenerator):
 
     enforce_pbc_flag: bool
         Flag for the enforcement of periodic boundary conditions. True by default, for
-        every particle shape. It used to be forced to False for Ellipsoids, Cylinders and
-        CylindricalFibers, which made their meshes silently non-periodic. The underlying
-        cause was not Gmsh: the RVE offset was applied without wrapping the centres back
-        into the cell, so the periodic image crossing the opposite face was never built
-        and the geometry handed to Gmsh really was not periodic. With that fixed, these
-        shapes mesh periodically like any other.
+        every particle shape.
 
     time: float
         Time in seconds to generate the mesh.
