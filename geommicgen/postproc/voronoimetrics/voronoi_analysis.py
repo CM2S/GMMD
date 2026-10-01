@@ -12,7 +12,7 @@ import pickle
 import numpy as np
 
 from scipy.spatial import Voronoi
-from scipy.special import sph_harm
+from scipy.special import sph_harm_y
 
 from geommicgen.postproc.plotfuncs.plotting_functions import (
     plot_voronoi_2d,
@@ -553,9 +553,9 @@ def compute_3d_irreducible_minkowski_tensors(voronoi):
                         if np.abs(order) <= degree:
                             all_phi[i_particle][
                                 degree, order + 6
-                            ] += area_ridge * sph_harm(
-                                order,
+                            ] += area_ridge * sph_harm_y(
                                 degree,
+                                order,
                                 angles_normal_ridge[0],
                                 angles_normal_ridge[1],
                             )
@@ -598,9 +598,9 @@ def compute_3d_irreducible_minkowski_tensors_polyhedron(unormals, area):
                 phi[degree, order + 6] = np.sum(
                     [
                         area[k_face]
-                        * sph_harm(
-                            order,
+                        * sph_harm_y(
                             degree,
+                            order,
                             angles_normal[k_face][0],
                             angles_normal[k_face][1],
                         )

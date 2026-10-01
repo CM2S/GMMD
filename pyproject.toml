@@ -1,0 +1,47 @@
+[project]
+name = "geommicgen"
+dynamic = ["version"]
+description = "GMMD: Geometric Methods for Microstructure Design"
+readme = "readme.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+keywords = ["Microstructure generation"]
+authors = [
+    {name = "José Luís P. Vila-Chã", email = "jvc@fe.up.pt"},
+    {name = "Bernardo P. Ferreira", email = "bpferreira@fe.up.pt"},
+    {name = "Francisco M. Andrade Pires", email = "fpires@fe.up.pt"},
+]
+
+dependencies = [
+    "cycler>=0.10.0",
+    "kiwisolver>=1.3.1",
+    "matplotlib>=3.4.2",
+    "numpy>=1.21.0",
+    "Pillow>=8.2.0",
+    "pyparsing>=2.4.7",
+    "python-dateutil>=2.8.1",
+    "scipy>=1.15.0",
+    "six>=1.16.0",
+    "tabulate>=0.8.9",
+    "gmsh==4.9.0",
+]
+
+[project.optional-dependencies]
+docs = ["sphinx", "myst-parser", "sphinx-rtd-theme", "sphinx-favicon"]
+test = ["pytest", "pytest-cov", "coverage"]
+
+[project.urls]
+"Homepage" = "https://github.com/CM2S/GMMD"
+"Source" = "https://github.com/CM2S/GMMD"
+"Bug Reports" = "https://github.com/CM2S/GMMD/issues"
+
+[project.scripts]
+geommicgen = "geommicgen.app:run_program"
+
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "geommicgen.__version__"}
+
