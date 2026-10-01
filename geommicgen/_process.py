@@ -6,12 +6,18 @@ run it was part of ended with it. A function of a module that calls gmsh is deco
 with `in_own_process`, and every call to it then runs in a process of its own: what it
 returns and what it raises come back to the one that called it, and a process that
 ends before it returned is told with an error.
+
+The process is a fresh interpreter, started with `subprocess` on `geommicgen._worker`,
+which imports the module of the function and nothing else: the script the calling
+process was started from is never run in it, whether or not its top level is kept from
+running when imported.
 """
 
-import contextlib
 import functools
 import importlib
-import multiprocessing
+import os
+import pickle
+import subprocess
 import sys
 import traceback
 
@@ -19,93 +25,41 @@ import traceback
 # pylint: disable=relative-beyond-top-level
 from geommicgen.errors.error_classes import ProcessDied, RaisedInAnotherProcess
 
-START_METHOD = (
-    "forkserver"
-    if "forkserver" in multiprocessing.get_all_start_methods()
-    else "spawn"
-)
-# How the process is started: forked from a server process that has imported the
-# modules below and never run gmsh, or, where there is no such server, started afresh.
-# Either way it is sent the arguments. A process forked from the one making the call
-# deadlocked once gmsh had run in that one, whose threads OpenCASCADE leaves behind
 
-PRELOADED = [
-    "geommicgen.meshing.gmsh_mesher",
-    "geommicgen.postproc.plotfuncs.plotting_functions",
-]
-# Modules the server imports once, so that a process forked from it does not import
-# them again. Only the first call starts the server, so every call names all of them
-
-
-@contextlib.contextmanager
-def main_module_hidden():
+def serve():
     """
-    Keep a process started meanwhile from running the main module of this one.
+    Call the function a process was started for, and send back what came of it.
 
-    A process that is not forked from this one runs the file this one was started
-    from, to find what was defined there, and a script that meshes at its top level,
-    with nothing to keep it from running when imported, meshed again in it, or was
-    refused. Nothing a call here sends is defined there, so the file and the spec that
-    lead to it are taken off the main module while the process is started.
+    The call is read from stdin, and what comes of it is sent on stdout, pickled: what
+    the function reports, then what it returns or what it raised.
     """
-    main_module = sys.modules["__main__"]
-    hidden = {
-        i_name: vars(main_module).pop(i_name)
-        for i_name in ("__file__", "__spec__")
-        if i_name in vars(main_module)
-    }
-    main_module.__spec__ = None
-    # Read as an attribute, which every module has, so it is left at None
-    try:
-        yield
-    finally:
-        del main_module.__spec__
-        vars(main_module).update(hidden)
+    channel = os.fdopen(os.dup(sys.stdout.fileno()), "wb")
+    os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
+    # The calling process reads what is sent on stdout, so what is printed here, by
+    # Python or by a library it calls, goes to stderr instead. A pipe of its own would
+    # leave stdout alone, but handing a process one more pipe is not portable to Windows
 
+    def send(*message):
+        channel.write(pickle.dumps(message, protocol=pickle.HIGHEST_PROTOCOL))
+        channel.flush()
+        # Pickled whole before it is written, so that a message that cannot be pickled
+        # leaves nothing of itself on the channel
 
-def call_in_child(connection, module, name, args, kwargs, reporting):
-    """
-    Call a decorated function in the process this runs in, and send what came of it.
-
-    Parameters
-    ----------
-    connection: `multiprocessing.connection.Connection`
-        End of the pipe the messages are sent through.
-
-    module: str
-        Name of the module the function belongs to.
-
-    name: str
-        Name of the function in its module.
-
-    args: tuple
-        Positional arguments of the call.
-
-    kwargs: dict
-        Keyword arguments of the call.
-
-    reporting: bool
-        Whether the function is given a *report* that sends what it reports.
-    """
+    module, name, args, kwargs, reporting = pickle.load(sys.stdin.buffer)
     if reporting:
-
-        def report(*reported):
-            connection.send(("report", reported))
-
-        kwargs = dict(kwargs, report=report)
+        kwargs = dict(kwargs, report=lambda *reported: send("report", reported))
     try:
         function = getattr(importlib.import_module(module), name).in_this_process
         result = function(*args, **kwargs)
     except Exception as error:  # pylint: disable=broad-except
         trace = traceback.format_exc()
         try:
-            connection.send(("error", error, trace))
+            send("error", error, trace)
         except Exception:  # pylint: disable=broad-except
-            connection.send(("error", RuntimeError(str(error)), trace))
+            send("error", RuntimeError(str(error)), trace)
         # An error that cannot be pickled is sent as its message
     else:
-        connection.send(("result", result))
-    connection.close()
+        send("result", result)
 
 
 def in_own_process(task):
@@ -137,43 +91,45 @@ def in_own_process(task):
         @functools.wraps(function)
         def call(*args, **kwargs):
             report = kwargs.pop("report", None)
-            context = multiprocessing.get_context(START_METHOD)
-            if START_METHOD == "forkserver":
-                context.set_forkserver_preload(PRELOADED)
-            receiver, sender = context.Pipe(duplex=False)
-            process = context.Process(
-                target=call_in_child,
-                args=(
-                    sender,
-                    function.__module__,
-                    function.__qualname__,
-                    args,
-                    kwargs,
-                    report is not None,
-                ),
+            process = subprocess.Popen(
+                [sys.executable, "-m", "geommicgen._worker"],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                env=dict(os.environ, PYTHONPATH=os.pathsep.join(sys.path)),
             )
-            with main_module_hidden():
-                process.start()
-            sender.close()
+            # The process searches where this one does, so that it imports the
+            # package, and the module of the function, from where this one did
             message = None
             try:
+                with process.stdin:
+                    pickle.dump(
+                        (
+                            function.__module__,
+                            function.__qualname__,
+                            args,
+                            kwargs,
+                            report is not None,
+                        ),
+                        process.stdin,
+                        protocol=pickle.HIGHEST_PROTOCOL,
+                    )
                 while True:
-                    message = receiver.recv()
+                    message = pickle.load(process.stdout)
                     if message[0] != "report":
                         break
                     report(*message[1])
-            except EOFError:
+            except (BrokenPipeError, EOFError, pickle.UnpicklingError):
                 message = None
-                # The pipe was closed with nothing more on it, which only happens when
-                # the process ended before it could send what came of the call
+                # The process ended before it read the call, or before it sent all of
+                # what came of it
             except BaseException:
-                process.terminate()
+                process.kill()
                 raise
             finally:
-                receiver.close()
-                process.join()
+                process.stdout.close()
+                process.wait()
             if message is None:
-                raise ProcessDied(task, process.exitcode)
+                raise ProcessDied(task, process.returncode)
             if message[0] == "error":
                 raise message[1] from RaisedInAnotherProcess(message[2])
 

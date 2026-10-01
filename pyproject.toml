@@ -57,8 +57,7 @@ geommicgen = ["tests/fixtures/*.npy"]
 
 
 [tool.coverage.run]
-concurrency = ["multiprocessing"]
-parallel = true
-sigterm = true
-# The meshes and the views drawn with gmsh are made in processes of their own, which
-# coverage measures only when told to, and saves one file for each, combined after
+patch = ["subprocess"]
+# The meshes and the views drawn with gmsh are made in interpreters of their own, which
+# coverage measures only when told to, and saves one file for each, combined after the
+# run

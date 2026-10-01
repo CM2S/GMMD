@@ -1,11 +1,13 @@
 """Test module for running a function in a process of its own."""
 
+import importlib
 import os
 import subprocess
 import sys
 import tempfile
 import textwrap
 import unittest
+from unittest.mock import patch
 
 from geommicgen._process import in_own_process
 from geommicgen.errors.error_classes import ProcessDied, RaisedInAnotherProcess
@@ -31,6 +33,15 @@ def raising():
 def ending():
     """End the other process without raising, as gmsh can."""
     os._exit(3)
+
+
+@in_own_process("printing")
+def printing():
+    """Print in another process, from Python and as a library writing to stdout."""
+    print("printed by Python")
+    sys.stdout.flush()
+    os.write(1, b"written to the file descriptor\n")
+    return "sent"
 
 
 class TestInOwnProcess(unittest.TestCase):
@@ -65,13 +76,32 @@ class TestInOwnProcess(unittest.TestCase):
         # Gmsh can end its process rather than raise, which took the one that called
         # it down with it
 
-    def test_the_main_module_is_left_as_it_was(self):
-        main_module = sys.modules["__main__"]
-        before = (getattr(main_module, "__file__", None), main_module.__spec__)
-        adding(1, 2)
-        self.assertEqual(
-            (getattr(main_module, "__file__", None), main_module.__spec__), before
+    def test_what_is_printed_there_does_not_reach_what_is_sent(self):
+        self.assertEqual(printing(), "sent")
+        # What comes of the call is sent on stdout, and what the function prints goes
+        # to stderr, whether from Python or from a library such as gmsh
+
+    def test_a_module_found_through_the_search_path_of_this_process(self):
+        module = textwrap.dedent(
+            """
+            from geommicgen._process import in_own_process
+
+
+            @in_own_process("being found")
+            def found():
+                return 42
+            """
         )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with open(os.path.join(temp_dir, "found_module.py"), "w") as module_file:
+                module_file.write(module)
+            with patch.object(sys, "path", [temp_dir, *sys.path]), patch.dict(
+                sys.modules
+            ):
+                found_module = importlib.import_module("found_module")
+                self.assertEqual(found_module.found(), 42)
+        # The other process searches where this one does, so a module this one was
+        # told where to find is found there too
 
     def test_a_script_that_calls_it_at_its_top_level_runs_once(self):
         script = textwrap.dedent(
@@ -91,9 +121,9 @@ class TestInOwnProcess(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.count("top level"), 1)
         self.assertIn("total 3", result.stdout)
-        # A process that is not forked from the calling one ran the file that one was
-        # started from, and a script with nothing to keep its top level from running
-        # when imported was refused, or ran again in it
+        # The other process is a fresh interpreter that imports the module of the
+        # function alone, so a script with nothing to keep its top level from running
+        # when imported is not run again in it
 
     def test_the_views_drawn_with_gmsh_run_in_their_own(self):
         for i_name in (
