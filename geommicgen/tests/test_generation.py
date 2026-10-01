@@ -54,6 +54,49 @@ class TestGenerationMethod(unittest.TestCase):
             _ = MicGenTestIncomp()
 
 
+class TestRveOffset(unittest.TestCase):
+    """The faces of the RVE are put in the widest gaps between the particles."""
+
+    @staticmethod
+    def disks(centres):
+        disks = []
+        for centre in centres:
+            disk = Disk("1", {"r": 0.1, "n": 1}, [1, 1])
+            disk.position_center = np.array(centre, dtype=float)
+            disks.append(disk)
+        return disks
+
+    @staticmethod
+    def face_distances(offset, particles, box):
+        """Distance along each axis from each particle's centre to the nearest face."""
+        return np.array(
+            [
+                [
+                    min(
+                        (particle.position_center[i_dim] - offset[i_dim]) % side,
+                        (offset[i_dim] - particle.position_center[i_dim]) % side,
+                    )
+                    for i_dim, side in enumerate(box)
+                ]
+                for particle in particles
+            ]
+        )
+
+    def test_a_lone_disk_is_half_a_box_from_the_faces(self):
+        """A disk at x = 0.5 has its widest gap centred on x = 0, the box itself."""
+        particles = self.disks([[0.5, 0.05]])
+        offset = MicGenTest().compute_rve_offset(particles, [1, 1])
+        np.testing.assert_allclose(
+            self.face_distances(offset, particles, [1, 1]), [[0.5, 0.5]]
+        )
+
+    def test_no_face_cuts_a_particle_when_there_is_a_gap(self):
+        particles = self.disks([[0.405, 0.568], [0.339, 0.618], [0.103, 0.319]])
+        offset = MicGenTest().compute_rve_offset(particles, [1, 1])
+        np.testing.assert_allclose(offset[:2], [0.754, 0.9685])
+        self.assertTrue(np.all(self.face_distances(offset, particles, [1, 1]) > 0.1))
+
+
 class TestMolecularDynamicSimulation(unittest.TestCase):
     """Test class for the MolecularDynamicsSimulation class"""
 

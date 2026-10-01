@@ -71,24 +71,15 @@ class GenerationMethod(abc.ABC):
             # wraps from the last limit round to the first one is included too
             sort_max[i_dim] = np.argsort(dist[i_dim])
             # Getting the indices sorting the distances from smallest to largest
-        k_ind_sort = [1, 1, 1]
-        # Initializing the list for the current indices of the sort vector
         for i_dim in range(particles[0].dim):
-            while True:
-                if k_ind_sort[i_dim] > len(dist[i_dim]):
-                    # every gap has been tried; keep the widest one
-                    k_ind_sort[i_dim] = 1
-                i_gap = sort_max[i_dim][-k_ind_sort[i_dim]]
-                offset[i_dim] = (
-                    all_lim_sort[i_dim][i_gap] + dist[i_dim][i_gap] / 2
-                ) % rve_dims[i_dim]
-                # offset is the midpoint of the gap, taken on the circle, which puts
-                # the RVE face as far as it can be from the nearest particle extreme
-                # along this direction.
-                if 0 < offset[i_dim] < rve_dims[i_dim]:
-                    # accept the current offset if it is inside the simulation box
-                    # else move to the next
-                    break
-                k_ind_sort[i_dim] += 1
+            i_gap = sort_max[i_dim][-1]
+            offset[i_dim] = (
+                all_lim_sort[i_dim][i_gap] + dist[i_dim][i_gap] / 2
+            ) % rve_dims[i_dim]
+            # offset is the midpoint of the widest gap, taken on the circle, which puts
+            # the RVE face as far as it can be from the nearest particle extreme along
+            # this direction. Taken on the circle it is in [0, rve_dims[i_dim]) already,
+            # and 0 is an offset like any other, the box left where it is: refusing it
+            # for the next gap put the face through the middle of a lone particle
 
         return offset
