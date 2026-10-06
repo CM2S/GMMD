@@ -103,29 +103,20 @@ class Cylinder(Particle):
         """
         self.check_if_descriptor_values_are_valid(descriptors, rve_dims)
         if "r_cyl" in descriptors:
-            if descriptors["r_cyl"] <= 0:
-                raise ValueError(
-                    "In Phase {0}:".format(phase)
-                    + "The radius of a cylinder particle must be a positive number."
-                )
-            self.r_cyl = descriptors["r_cyl"]
+            self.r_cyl_from_input = descriptors["r_cyl"]
             if "ratio" in descriptors:
-                self.length = self.r_cyl * descriptors["ratio"]
+                self.length_from_input = self.r_cyl_from_input * descriptors["ratio"]
+
         if "length" in descriptors:
-            if descriptors["length"] <= 0:
-                raise ValueError(
-                    "In Phase {0}:".format(phase)
-                    + "The length of a cylinder particle must be a positive number."
-                )
-            self.length = descriptors["length"]
+            self.length_from_input = descriptors["length"]
             if "vf" in descriptors and "n" in descriptors:
-                self.r_cyl = np.sqrt(
+                self.r_cyl_from_input = np.sqrt(
                     descriptors["vf"]
                     * np.prod(rve_dims)
-                    / (self.length * np.pi * descriptors["n"])
+                    / (self.length_from_input * np.pi * descriptors["n"])
                 )
             elif "ratio" in descriptors:
-                self.r_cyl = self.length / descriptors["ratio"]
+                self.r_cyl_from_input = self.length_from_input / descriptors["ratio"]
         if "azimuth_angle" in descriptors:
             self.azimuth_angle = np.abs(descriptors["azimuth_angle"])
         if "polar_angle" in descriptors:
@@ -133,19 +124,19 @@ class Cylinder(Particle):
         self.rot_mat = np.array(
             [
                 [
-                    np.sin(self.polar_angle) * np.cos(self.azimuth_angle),
-                    np.sin(self.polar_angle) * np.sin(self.azimuth_angle),
-                    np.cos(self.polar_angle),
-                ],
-                [
                     np.cos(self.polar_angle) * np.cos(self.azimuth_angle),
-                    np.cos(self.polar_angle) * np.sin(self.azimuth_angle),
-                    -np.sin(self.polar_angle),
+                    -np.sin(self.azimuth_angle),
+                    np.sin(self.polar_angle) * np.cos(self.azimuth_angle),
                 ],
                 [
-                    -np.sin(self.azimuth_angle),
+                    np.cos(self.polar_angle) * np.sin(self.azimuth_angle),
                     np.cos(self.azimuth_angle),
+                    np.sin(self.polar_angle) * np.sin(self.azimuth_angle),
+                ],
+                [
+                    -np.sin(self.polar_angle),
                     0,
+                    np.cos(self.polar_angle),
                 ],
             ]
         )
@@ -154,8 +145,20 @@ class Cylinder(Particle):
     @property
     def volume(self):
         """Particle volume. Only approximate if *self.delta !=0."""
-        volume = (self.length + 2 * self.delta) * np.pi * (self.r_cyl + self.delta) ** 2
+        volume = self.length * np.pi * self.r_cyl ** 2
         return volume
+
+    @property
+    def r_cyl(self):
+        """Radius of the cylinder, including the dilation *self.delta*."""
+        r_cyl = self.r_cyl_from_input + self.delta
+        return r_cyl
+
+    @property
+    def length(self):
+        """Length of the cylinder, including the dilation *self.delta* at both ends."""
+        length = self.length_from_input + 2 * self.delta
+        return length
 
     @property
     def sym_axis_unit_vec(self):
@@ -172,7 +175,7 @@ class Cylinder(Particle):
     @property
     def radius(self):
         """Radius of the circumscribed sphere to the cylinder."""
-        radius = np.sqrt((self.length / 2) ** 2 + self.r_cyl ** 2) + self.delta
+        radius = np.sqrt((self.length / 2) ** 2 + self.r_cyl ** 2)
         return radius
 
     @property
@@ -272,13 +275,7 @@ class Cylinder(Particle):
             else 0
         )
 
-        dir_unit = direction / np.linalg.norm(direction)
-        point_global = (
-            self.position_center
-            + axial_vec_local
-            + trans_vec_local
-            + self.delta * dir_unit
-        )
+        point_global = self.position_center + axial_vec_local + trans_vec_local
 
         return point_global
 
@@ -294,8 +291,9 @@ class Cylinder(Particle):
 
     def rescale(self, rescale_parameter):
         """Rescale all size parameters and the position according to *rescale_parameter*."""
-        self.r_cyl *= rescale_parameter
-        self.length *= rescale_parameter
+        self.r_cyl_from_input *= rescale_parameter
+        self.length_from_input *= rescale_parameter
+        self.delta *= rescale_parameter
         self.position_center *= rescale_parameter
 
     def intersection_cylinder_cylinder(

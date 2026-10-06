@@ -193,7 +193,7 @@ class Sphere(Ellipsoid):
     @property
     def volume(self):
         """Volume of the sphere."""
-        volume = 4 * np.pi / 3 * (self.radius + self.delta) ** 3
+        volume = 4 * np.pi / 3 * self.radius ** 3
 
         return volume
 
@@ -410,7 +410,8 @@ class Sphere(Ellipsoid):
         -------
         intersection_length: float
             Intersection length between the particles.
-        """
+        """ 
+        # d = distance between the 2 spheres
         d = np.linalg.norm(
             Particle.nearest_periodic_image(
                 self.position_center, other_sphere.position_center, box
@@ -418,29 +419,7 @@ class Sphere(Ellipsoid):
             - other_sphere.position_center
         )
         # Distance between the current sphere and the nearest image of the other sphere
-        if self.radius >= other_sphere.radius:
-            # The radius of the self is larger than the radius of the other sphere
-            r_1 = self.radius
-            # Sphere 1 is the sphere with the larger radius
-            r_2 = other_sphere.radius
-            # Sphere 2 is the sphere with the smaller radius
-        else:
-            # The radius of the other sphere is larger than the radius of the self
-            r_1 = other_sphere.radius
-            # Sphere 1 is the sphere with the larger radius
-            r_2 = self.radius
-            # Sphere 2 is the sphere with the smaller radius
-        if d >= (r_1 + r_2):
-            # The spheres intersect at most at one point
-            intersection_length = 0
-            # The intersection length of the spheres is zero
-        elif d <= r_1 - r_2:
-            # Sphere 2 is interely contained within Sphere 1
-            intersection_length = 2 * r_2
-            # The intersection length is the diameter of the smaller sphere
-        else:
-            intersection_length = r_1 + r_2 - d
-            # intersection length
+        intersection_length = max(0, self.radius + other_sphere.radius - d)
         return intersection_length
         # Returning the intersection length
 

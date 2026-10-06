@@ -12,7 +12,12 @@ from geommicgen.postproc.plotfuncs.plotting_functions import (
 import pickle
 import numpy as np
 
-from geommicgen.micgenmethod.speed_up_schemes import SpeedUpScheme, CellList, VerletList
+from geommicgen.micgenmethod.speed_up_schemes import (
+    SpeedUpScheme,
+    CellList,
+    VerletList,
+    Naive
+)
 from geommicgen.microstructure.particleclasses import Ellipse, Disk
 
 from geommicgen.micgenmethod.microstructure_gen_method import (
@@ -39,6 +44,10 @@ class TestSpeedUpScheme(unittest.TestCase):
         with self.assertRaises(TypeError):
 
             _ = SpeedUpSchemeTest()
+
+
+class TestCellList(unittest.TestCase):
+    """Class for the unit test regarding the CellListspeed up schemes"""
 
     def test_cell_list_n_cell_dim(self):
         """Test the property n_cell_dim of cell lists"""
@@ -166,6 +175,7 @@ class TestSpeedUpScheme(unittest.TestCase):
         correct_particle_list[4] = {2, 3, 4}
 
         self.assertTrue(current_cell_list.particle_list == correct_particle_list)
+
 
     def test_neighbor_cell_is_bottom(self):
         radii = [0.1, 0.05, 0.1, 0.1, 0.14]
@@ -424,6 +434,7 @@ class TestVerlet(unittest.TestCase):
         )
 
 
+
 def load_a_troublesome_example(previous_mic_path):
     """Load a troblesome example for debugging."""
 
@@ -490,3 +501,14 @@ def load_a_troublesome_example(previous_mic_path):
             show=True,
             save=False,
         )
+
+
+
+class TestNaive(unittest.TestCase):
+    """Class for the unit test regarding the Naive up schemes"""
+
+    def test_Naive(self):
+        particles = [Mock(), Mock(), Mock()]
+        speed_up_scheme = Naive()
+        speed_up_scheme.new_list(particles)
+        self.assertEqual(speed_up_scheme.particle_list, [[0,1,2], [0,1,2], [0,1,2]])
