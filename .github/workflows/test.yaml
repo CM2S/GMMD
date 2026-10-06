@@ -42,12 +42,12 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install -e .[test]
-      # - name: Test with pytest
-      #   run: |
-      #     pytest --cov=geommicgen/ --cov-report=xml geommicgen/tests
-      - name: Test with unittest
+      - name: Test with pytest
         run: |
-          python -m unittest discover -s geommicgen/tests -t .
+          pytest --cov=geommicgen/ --cov-report=xml geommicgen/tests
+      # - name: Test with unittest
+      #   run: |
+      #     python -m unittest discover -s geommicgen/tests -t .
 
       # - name: Upload coverage reports to Codecov
       #   uses: codecov/codecov-action@v4.0.1
