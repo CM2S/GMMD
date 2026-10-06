@@ -19,15 +19,12 @@ sys.path.insert(0, os.path.abspath(".."))
 
 
 # -- Project information -----------------------------------------------------
-
-project = "GMMD"
-copyright = "2021, Jose Vila-Cha"
-author = "Jose Vila-Cha"
-
-# The short X.Y version
-version = ""
-# The full version, including alpha/beta/rc tags
-release = ""
+from geommicgen import __author__, __copyright__, __title__, __version__
+author = __author__
+copyright = __copyright__
+project = __title__
+release = __version__
+version = __version__
 
 
 # -- General configuration ---------------------------------------------------
@@ -50,6 +47,8 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.githubpages",
     "sphinx.ext.napoleon",
+    "myst_parser",
+    "sphinx_favicon",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -85,7 +84,7 @@ pygments_style = None
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "classic"
+html_theme = "sphinx_rtd_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -184,3 +183,28 @@ epub_exclude_files = ["search.html"]
 
 
 # -- Extension configuration -------------------------------------------------
+autosummary_generate = True
+add_module_names = False
+
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "torch": ("https://pytorch.org/docs/stable/", None),
+}
+
+myst_enable_extensions = [
+    "amsmath",
+    "attrs_inline",
+    "colon_fence",
+    "deflist",
+    "dollarmath",
+    "fieldlist",
+    "html_admonition",
+    "html_image",
+    "replacements",
+    "smartquotes",
+    "strikethrough",
+    "substitution",
+    "tasklist",
+]
+
