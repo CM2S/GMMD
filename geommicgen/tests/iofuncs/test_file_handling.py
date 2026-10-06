@@ -36,10 +36,15 @@ class TestFileHandling(unittest.TestCase):
 
     def test_copy_input_file(self):
         "Check that the input file is copied to the results folder"
-        with tempfile.NamedTemporaryFile() as input_file, tempfile.TemporaryDirectory() as results_folder:
-            copy_input_file(input_file.name, results_folder)
+        with tempfile.TemporaryDirectory() as input_dir, tempfile.TemporaryDirectory() as results_folder:
+            # The input file must be closed before copying: Windows does not allow
+            # opening a file that is still held open by NamedTemporaryFile
+            input_file_path = os.path.join(input_dir, "input_file.mdsim")
+            with open(input_file_path, "w") as input_file:
+                input_file.write("input file contents")
+            copy_input_file(input_file_path, results_folder)
             copied_file = os.listdir(results_folder)[0]
-            expected_file_name = os.path.basename(input_file.name)
+            expected_file_name = os.path.basename(input_file_path)
             self.assertEqual(copied_file, expected_file_name)
             self.assertTrue(os.path.isfile(os.path.join(results_folder, expected_file_name)))
 
