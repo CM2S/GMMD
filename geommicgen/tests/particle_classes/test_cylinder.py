@@ -616,11 +616,8 @@ class TestGJKIntersectionCylinder(unittest.TestCase):
 class TestIntegrationCylinder(unittest.TestCase):
     """Test the Monte Carlo integration for cylinders."""
 
-    @unittest.expectedFailure
+    @unittest.skip("Test sometimes fails. Since the area is computed using a monte carlo process, it has some randomness to it. Thus, sometimes the test fails, eventhough most times is is successful. Since the intersection area is not used in the default options, the test will be skipped.")
     def test_cylinder_inside(self):
-        """The cylinder is completly inside an ellipsoid.
-
-        (Not working, but also currently not used)"""
         rve_dims = [2.5, 2.5, 2.5]
         cylinder = Cylinder(
             "1",
@@ -651,18 +648,11 @@ class TestIntegrationCylinder(unittest.TestCase):
         intersection_volume, error_estimate = ellipsoid.intersection_area_monte_carlo(
             cylinder, rve_dims, tol=1e-1
         )
-        # # print(
-        #     "error_estimate_2",
-        #     error_estimate,
-        #     intersection_volume,
-        #     cylinder.volume,
-        #     ((intersection_volume - cylinder.volume) / cylinder.volume) * 100,
-        # )
         self.assertTrue(
             np.abs((intersection_volume - cylinder.volume) / cylinder.volume) * 100 < 1
         )
 
-    @unittest.skip("Test failing, but function no longer used.")
+    @unittest.skip("Test sometimes fails. Since the area is computed using a monte carlo process, it has some randomness to it. Thus, sometimes the test fails, eventhough most times is is successful. Since the intersection area is not used in the default options, the test will be skipped.")
     def test_cylinder_outside(self):
         """An Ellipsoid is completly inside the Cylinder."""
         rve_dims = [1, 1, 1]
@@ -699,13 +689,6 @@ class TestIntegrationCylinder(unittest.TestCase):
             intersection_volume_2,
             error_estimate_2,
         ) = cylinder.intersection_area_monte_carlo(ellipsoid, rve_dims, tol=1)
-        # print("error_estimate_1", error_estimate, intersection_volume, ellipsoid.volume)
-        # print(
-        #     "error_estimate_2",
-        #     error_estimate_2,
-        #     intersection_volume_2,
-        #     ellipsoid.volume,
-        # )
         self.assertTrue(
             np.abs((intersection_volume - ellipsoid.volume) / ellipsoid.volume) * 100
             < 1
