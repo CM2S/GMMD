@@ -145,13 +145,15 @@ class TestEllipse(unittest.TestCase):
         )
         ellipse.position_center = np.array([0.3, 0.4])
         ellipse.dilate(0.05)
+        t = 0.0521975
+        # t is the thickness from inflation
         ellipse.rescale(2)
         # the major axis are not affected by dilate, only the semi_axis. This is because only the semi_axis are used during the simulation. Thus, major axis store user input and the rescale parameter.
         self.assertAlmostEqual(ellipse.major_axis, 0.8)
         self.assertAlmostEqual(ellipse.minor_axis, 0.4)
         # test semi_axis, that are affected by both dilate and rescale
-        self.assertAlmostEqual(ellipse.semi_major_axis, 0.5)
-        self.assertAlmostEqual(ellipse.semi_minor_axis, 0.3)
+        self.assertAlmostEqual(ellipse.semi_major_axis, 0.4+2*t)
+        self.assertAlmostEqual(ellipse.semi_minor_axis, 0.2+2*t)
         np.testing.assert_allclose(ellipse.position_center, np.array([0.6, 0.8]))
 
     def test_generate_point_inside(self):
