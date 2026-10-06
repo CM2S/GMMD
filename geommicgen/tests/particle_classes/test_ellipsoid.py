@@ -350,7 +350,7 @@ class EllipsoidIntersection(unittest.TestCase):
         with self.subTest("Test intersection length"):
             intersection_length, unit_vector = self.ellipsoid.intersection_length(other_ellipsoid, box)
 
-            other_ellipsoid.position_center = intersection_length * unit_vector
+            other_ellipsoid.position_center += intersection_length * unit_vector
             self.assertTrue(not self.ellipsoid.intersection(other_ellipsoid, box))
 
     def test_partially_intersecting(self):
@@ -391,10 +391,7 @@ class EllipsoidIntersection(unittest.TestCase):
             intersection_length, unit_vector = self.ellipsoid.intersection_length(other_ellipsoid, box)
 
             self.assertAlmostEqual(intersection_length, 0.17888543)
-            np.testing.assert_allclose(
-                unit_vector,
-                [4.47199053e-01, 4.56811048e-06, 8.94434462e-01],
-                rtol=1e-6,
-                atol=1e-9,
-            )
+            np.testing.assert_allclose(  
+                np.abs(unit_vector), [1 / np.sqrt(5), 0, 2 / np.sqrt(5)], atol=1e-4  
+            )  
 

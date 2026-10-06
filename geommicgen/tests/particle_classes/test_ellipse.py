@@ -67,7 +67,7 @@ class TestEllipse(unittest.TestCase):
         ellipse = Ellipse(
             "1", {"major_axis": 0.4, "minor_axis": 0.2, "angle": 0}, [1,1]
             )
-        self.assertEqual(ellipse.volume,np.pi*0.2*0.1)
+        self.assertAlmostEqual(ellipse.volume,np.pi*0.2*0.1)
 
     def test_properties(self):
         rve_dims = [1, 1]
@@ -81,26 +81,26 @@ class TestEllipse(unittest.TestCase):
         with self.subTest("radius_insc"):
             self.assertAlmostEqual(ellipse.radius_insc, 0.1)
 
-    def test_contract_and_dilate(self):
-        rve_dims = [1, 1]
-        ellipse = Ellipse(
-            "1", {"major_axis": 0.4, "minor_axis": 0.2, "angle": 0}, rve_dims
-        )
+    def test_dilate_and_contract(self):  
+        ellipse = Ellipse("1", {"major_axis": 0.8, "minor_axis": 0.2, "angle": 0.3, "n": 1}, [10, 10])  
+        ellipse.position_center = np.zeros(2)
         with self.subTest("dilate"):
-            ellipse.dilate(0.05)
-            self.assertAlmostEqual(ellipse.semi_major_axis, 0.25)
-            self.assertAlmostEqual(ellipse.semi_minor_axis, 0.15)
-            self.assertAlmostEqual(ellipse.angle, 0)
-            self.assertAlmostEqual(ellipse.volume, np.pi * 0.25 * 0.15)
+            # The distance between any point in the dilated ellipse and its closest point in the original ellipse must be more or equal to 0.05
+            # If there is an error in suport_function this test is invalid
+            directions = [np.array([np.cos(t), np.sin(t), 0]) for t in np.linspace(0, np.pi, 721)]  
+            before = [d.dot(ellipse.support_function(d)) for d in directions]  
+            ellipse.dilate(0.05)  
+            after = [d.dot(ellipse.support_function(d)) for d in directions]  
+            self.assertGreaterEqual(min(np.subtract(after, before)), 0.05 - 1e-9)  
         with self.subTest("contract back to the original size"):
             ellipse.contract(0.05)
-            self.assertAlmostEqual(ellipse.semi_major_axis, 0.2)
+            self.assertAlmostEqual(ellipse.semi_major_axis, 0.4)
             self.assertAlmostEqual(ellipse.semi_minor_axis, 0.1)
 
     def test_point_inside(self):
         rve_dims = [1, 1]
         ellipse = Ellipse(
-            "1", {"major_axis": 0.4, "minor_axis": 0.2, "angle": 0}, rve_dims
+            "1", {"major_axis": 0.4, "minor_axis": 0.2, "angle": np.pi/3}, rve_dims
         )
         ellipse.position_center = np.array([0.5, 0.5])
         with self.subTest("Point inside the ellipse"):
@@ -144,15 +144,20 @@ class TestEllipse(unittest.TestCase):
             "1", {"major_axis": 0.4, "minor_axis": 0.2, "angle": 0}, [1, 1]
         )
         ellipse.position_center = np.array([0.3, 0.4])
+        ellipse.dilate(0.05)
         ellipse.rescale(2)
+        # the major axis are not affected by dilate, only the semi_axis. This is because only the semi_axis are used during the simulation. Thus, major axis store user input and the rescale parameter.
         self.assertAlmostEqual(ellipse.major_axis, 0.8)
         self.assertAlmostEqual(ellipse.minor_axis, 0.4)
+        # test semi_axis, that are affected by both dilate and rescale
+        self.assertAlmostEqual(ellipse.semi_major_axis, 0.5)
+        self.assertAlmostEqual(ellipse.semi_minor_axis, 0.3)
         np.testing.assert_allclose(ellipse.position_center, np.array([0.6, 0.8]))
 
     def test_generate_point_inside(self):
         rve_dims = [1, 1]
         ellipse = Ellipse(
-            "1", {"major_axis": 0.4, "minor_axis": 0.2, "angle": 0}, rve_dims
+            "1", {"major_axis": 0.4, "minor_axis": 0.2, "angle": np.pi/4}, rve_dims
         )
         ellipse.position_center = np.array([0.5, 0.5])
         for _ in range(20):
@@ -610,6 +615,26 @@ class TestEllipseIntersectionArea(unittest.TestCase):
             self.assertTrue(A1 < 1e-4)
 
 
+    def test_intersection_ellipse_ellipse_VS_gjk(self):
+        # test if the function intersection_ellipse_ellipse gives the same result as intersection_gjk.
+        # These function output True if there is intersection, and false otherwise.
+        # If there is an error in intersection_gjk the results from this test are invalid.
+        self.rve_dims = [1.0, 1.0]
+        for i in range(100):
+            ellipse_1 = Ellipse(
+                "1", {"major_axis":0.3, "minor_axis": 0.1, "angle": np.random.rand()*2*np.pi, "n" : 1}, self.rve_dims
+            )
+            ellipse_1.position_center = np.random.rand(2)
+            ellipse_2 = Ellipse(
+                "1", {"major_axis":0.3, "minor_axis": 0.1, "angle":np.random.rand()*2*np.pi, "n" : 1}, self.rve_dims
+            )
+            ellipse_2.position_center = np.random.rand(2)
+            intersection_gjk = ellipse_1.intersection_gjk(ellipse_2, self.rve_dims)
+            intersection_ellipse_ellipse = ellipse_1.intersection_ellipse_ellipse(ellipse_2, self.rve_dims)
+            self.assertEqual(intersection_gjk, intersection_ellipse_ellipse)
+              
+
+
 class TestEllipseIntersectionLength(unittest.TestCase):
 
     def test_intersection_length(self):
@@ -715,7 +740,7 @@ class TestEllipseIntersectionLength(unittest.TestCase):
         self.assertTrue(not intersection)
 
     def test_intersection_length_mink_diff(self):
-        # Tests the intersection between 2 ellipsoids using intersection_lenght_mink_diff with dist_aprox
+        # Tests the intersection between 2 ellipses using intersection_length_mink_diff with dist_approx
 
         rve_dims = [1, 1]
         ellipse_1 = Ellipse(

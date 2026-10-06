@@ -176,16 +176,42 @@ class Ellipse(Particle):
         return volume
 
     @property
+    def inflation(self):
+        """
+        Amount *t* added to both semi-axes to account for the dilation *self.delta*.
+
+        *t* is the positive root of 2s*t^3 + 4ab*t^2 - 2s*delta^2*t - s^2*delta^2 = 0,
+        with s = a + b and a, b the undilated semi-axes, taken with the sign of *self.delta*.
+        """
+        key = (self.major_axis, self.minor_axis, self.delta)
+        if getattr(self, "_inflation_cache", (None,))[0] != key:
+            if self.delta == 0:
+                inflation = 0.0
+            else:
+                a = self.major_axis / 2
+                b = self.minor_axis / 2
+                s = a + b
+                roots = np.roots(
+                    [2 * s, 4 * a * b, -2 * s * self.delta ** 2, -(s ** 2) * self.delta ** 2]
+                )
+                # Descartes' rule of signs guarantees exactly one positive real root
+                positive_root = max(roots[np.abs(roots.imag) < 1e-12].real)
+                inflation = np.sign(self.delta) * positive_root
+            self._inflation_cache = (key, inflation)
+
+        return self._inflation_cache[1]
+
+    @property
     def semi_major_axis(self):
         """Semi major axis of the ellipse, including the dilation *self.delta*."""
-        semi_major_axis = self.major_axis / 2 + self.delta
+        semi_major_axis = self.major_axis / 2 + self.inflation
 
         return semi_major_axis
 
     @property
     def semi_minor_axis(self):
         """Semi minor axis of the ellipse, including the dilation *self.delta*."""
-        semi_minor_axis = self.minor_axis / 2 + self.delta
+        semi_minor_axis = self.minor_axis / 2 + self.inflation
 
         return semi_minor_axis
 

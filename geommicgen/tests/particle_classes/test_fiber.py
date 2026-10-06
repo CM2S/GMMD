@@ -29,5 +29,7 @@ class TestFiber(unittest.TestCase):
         self.assertEqual(self.fiber.radius, 0.1)
 
     def test_volume(self):
-        self.assertAlmostEqual(self.fiber.volume, np.pi*0.1**2*3)
+        self.assertAlmostEqual(self.fiber.volume, np.pi*0.1**2*3)  
+        self.fiber.dilate(0.05)  
+        self.assertAlmostEqual(self.fiber.volume, np.pi*0.15**2*3)  
         

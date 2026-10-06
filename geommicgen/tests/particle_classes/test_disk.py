@@ -169,7 +169,7 @@ class TestDisk(unittest.TestCase):
 
         with self.subTest("One disk is completely inside the other"):
             other_disk2 = self._build_disk(descriptors={"n": 1, "r": 0.02}, position_center=np.array([0.5, 0.5]))
-            self.assertAlmostEqual(disk.intersection_length_disk_disk(other_disk2, box), 2 * 0.02)
+            self.assertAlmostEqual(disk.intersection_length_disk_disk(other_disk2, box), 0.1 + 0.02)
 
         with self.subTest("The disks partially overlap"):
             other_disk3 = self._build_disk(descriptors={"n": 1, "r": 0.1}, position_center=np.array([0.55, 0.5]))
