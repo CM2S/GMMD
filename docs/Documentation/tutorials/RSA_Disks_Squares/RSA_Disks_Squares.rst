@@ -53,7 +53,8 @@ In this example, the RVE has dimensions [1.9, 1.0].
 Generation Method
 =================
 
-This example uses a Random Sequential Adsorption simulation to generate the microstructure. The speed up scheme used is Cell and a minimum distance of 0.005 between particles is imposed.
+This example uses a Random Sequential Adsorption simulation to generate the microstructure. In a given simulation step, this method places a new particle in a random position inside the simulation box. If the new particle does not overlap with any particle already in the simulation box, it is accepted, otherwise it is rejected.
+The speed up scheme used is Cell and a minimum distance of 0.005 between particles is imposed.
 The maximum number of iterations, 10000, is significantly larger than the number used for MD simulations in the previous tutorials. This is beacuse RSA simulations take more, but faster, iterations than MD simulations.
 
 

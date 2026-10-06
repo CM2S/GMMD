@@ -33,6 +33,10 @@ Verlet_Factor 1.1
 # -----------------------------------------------------------------------------------------
 Save_History True
 final_config True
+voronoi_analysis True
+plot_voronoi True
+#voronoi_type set
+plot_imts True
 
 # Mesh generation
 # ------------------------------------------------------------------------------------------
