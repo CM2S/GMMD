@@ -10,6 +10,7 @@ Thermostat and SpeedUpScheme abstract classes to work.
 """
 
 from contextlib import contextmanager
+import itertools
 import time
 import numpy as np
 from scipy.stats import hmean
@@ -17,11 +18,66 @@ from scipy.stats import hmean
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 import geommicgen.errors.error_classes as errors
-import geommicgen.iofuncs.file_handling as fileio
 import geommicgen.iofuncs.printing as print_funcs
+from geommicgen.microstructure.microstructure import unit_scale
 from geommicgen.microstructure.particleclasses import Matrix
 from geommicgen.micgenmethod.microstructure_gen_method import GenerationMethod
 from geommicgen.micgenmethod.integration_methods import verlet_sync_integration
+from geommicgen.micgenmethod.speed_up_schemes import speed_up_scheme_from_options
+from geommicgen.micgenmethod.thermostats import thermostat_from_options
+
+REQUIRED_OPTIONS = (
+    "max_residue_per_particle",
+    "max_step",
+    "max_steps_to_relax",
+    "dt",
+    "min_distance",
+    "type_initial_configuration",
+    "save_history",
+)
+# The generation parameters a simulation is built from, in the order the initializer
+# takes them; the input data file gives every one, by default where it has one
+
+OPTIONAL_OPTIONS = (
+    "damping_coeff",
+    "particle_mass_opt",
+    "force_option",
+    "force_rescale",
+    "dt_adapt",
+    "offset",
+    "fixed_seed",
+    "initial_vel_coeff",
+    "final_overlap_check",
+)
+# The generation parameters the initializer takes by keyword, and has a default for
+
+
+def grid_side(n_particles, dim):
+    """
+    Number of cells per side of the smallest cubic grid with a cell per particle.
+
+    Parameters
+    ----------
+    n_particles: int
+        Number of particles to place.
+
+    dim: int
+        Number of spatial dimensions.
+
+    Returns
+    -------
+    int
+        Number of cells along each side.
+    """
+    side = max(1, int(round(n_particles ** (1 / dim))))
+    while side**dim < n_particles:
+        side += 1
+    while side > 1 and (side - 1) ** dim >= n_particles:
+        side -= 1
+    # Settled on the integer rather than on the float root, which rounds 27 ** (1/3) to
+    # a hair over three and would take four cells a side for twenty-seven particles
+
+    return side
 
 
 class MolecularDynamicsSimulation(GenerationMethod):
@@ -111,8 +167,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
     particle_mass_opt: {"volume", "radius", "unit"}
         Use as the mass of a particle either its volume/area, its radius or unit.
 
-    force_option: str
-        Name of the method used to compute the intersection overlap between the particles.
+    force_option: {"intersection_length"}
+        How the overlap of two particles pushes them apart: by the length they overlap
+        by, the one way there is.
 
     force_rescale: bool
         Flag for the use of force rescale.
@@ -202,9 +259,11 @@ class MolecularDynamicsSimulation(GenerationMethod):
 
         particle_mass_opt: {"volume", "radius", "unit"}
             Use as the mass of a particle either its volume/area, its radius or unit.
+            The radius by default.
 
-        force_option: str
-            Name of the method used to compute the intersection overlap between the particles.
+        force_option: {"intersection_length"}
+            How the overlap of two particles pushes them apart: by the length they
+            overlap by, the one way there is, and the default.
 
         force_rescale: bool
             Flag for the use of force rescale.
@@ -248,8 +307,21 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.time = None
         self.step = 0
         self.damping_coeff = kwargs.get("damping_coeff", 0)
-        self.particle_mass_opt = kwargs.get("particle_mass_opt", "volume")
+        self.particle_mass_opt = kwargs.get("particle_mass_opt", "radius")
+        # The default of the input data file, and of the particles. It was the volume
+        # here, so a simulation built without the option weighed its particles
+        # otherwise than one built from a file, and gave another microstructure
         self.force_option = kwargs.get("force_option", "intersection_length")
+        if self.force_option != "intersection_length":
+            raise ValueError(
+                "The force option {0} is not one there is: the particles are pushed "
+                "apart by the length they overlap by, intersection_length.".format(
+                    self.force_option
+                )
+            )
+        # The area or the volume they overlap by, and a spring, were offered as well,
+        # and neither ran: neither took the method of the distance the run passes, and
+        # the area gave no direction, so either stopped the run at its first pair
         self.force_rescale = kwargs.get("force_rescale", False)
         self.dt_adapt = kwargs.get("dt_adapt", True)
         self.offset = kwargs.get("offset", True)
@@ -264,6 +336,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
 
         self.status = False
         self._original_box = None
+        self.box_scale = 1
+        self.last_distance_method = "dist_approx"
 
     def generate_microstructure(self, microstructure_sample):
         """
@@ -278,6 +352,12 @@ class MolecularDynamicsSimulation(GenerationMethod):
             Microstructure sample to be generated
         """
         self.microstructure_sample = microstructure_sample
+        if self.fixed_seed is not None:
+            np.random.seed(self.fixed_seed)
+        # Seeded before the first draw. The particles themselves are drawn next -- their
+        # sizes and orientations from the descriptors -- so a seed set any later, as it
+        # was when it was set with the initial positions, left them different in every
+        # run and only the positions the same
         for phase in microstructure_sample.phases.values():
             if phase.type is not Matrix and not phase.inner_phase:
                 phase.generate_particles(microstructure_sample.rve_dims)
@@ -295,8 +375,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
             start = time.time()
             self.run_molecular_dynamics_simulation(microstructure_sample.particles)
             self.time = time.time() - start
-            if self.final_overlap_check:
-                self.check_overlap_naive(microstructure_sample.particles)
             microstructure_sample.total_overlap = self.total_overlap
             # Placing inner phases
             # ------------------------------------------------------------------------------
@@ -350,6 +428,44 @@ class MolecularDynamicsSimulation(GenerationMethod):
         else:
             self.box = list(rve_dims)
 
+    @classmethod
+    def from_options(cls, options):
+        """
+        Build the simulation an input data file asks for, thermostat and scheme included.
+
+        Parameters
+        ----------
+        options: dict
+            Generation parameters, keyed as the input data file keys them.
+
+        Returns
+        -------
+        `.MolecularDynamicsSimulation`
+            The simulation, ready to generate a microstructure.
+
+        Raises
+        ------
+        ValueError:
+            If a parameter the simulation needs is not given, or if the thermostat or
+            the speed up scheme named is not one there is.
+        """
+        missing = [i_name for i_name in REQUIRED_OPTIONS if i_name not in options]
+        if missing:
+            raise ValueError(
+                "The input data file does not give {0}, which a molecular dynamics "
+                "simulation needs.".format(", ".join(missing))
+            )
+        simulation = cls(
+            *(options[i_name] for i_name in REQUIRED_OPTIONS),
+            **{i_name: options[i_name] for i_name in OPTIONAL_OPTIONS if i_name in options}
+        )
+        simulation.set_thermostat(thermostat_from_options(options))
+        simulation.set_speed_up_scheme(speed_up_scheme_from_options(options))
+        # Built the way the meshers and the writers are built from their options, so
+        # the program that reads the input data file names no parameter of the method
+
+        return simulation
+
     def set_thermostat(self, thermostat):
         """Set the thermostat for the moleuclar dynamics simulation."""
         self.thermostat = thermostat
@@ -372,13 +488,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
         particles: list(particles)
             Particles in the simulation box.
         """
-        self.position_center_history = [[None] for _ in particles]
         self.particle_velocities = [None for _ in particles]
         if self.type_init_conf == "random":
             # Random configuration for the particle centers and the zero velocity
-            if self.fixed_seed is not None:
-                np.random.seed(self.fixed_seed)
-                # Generating the same initial configuration in different runs.
             for i_ind, i_particle in enumerate(particles):
                 # Running through all the particles
                 i_particle.position_center = self.box * np.random.uniform(
@@ -386,81 +498,36 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 )
                 self.particle_velocities[i_ind] = np.zeros(i_particle.dim)
                 # Generating the positions from a random uniform distribution
-                self.position_center_history[i_ind][0] = i_particle.position_center
-                # Saving initial configuration
         elif self.type_init_conf == "grid":
             # Particles randomly assigned to a place in a grid constructed to have an equal
             # number of cells in each direction and a total number of cells larger than the
             # number of particles
-            if particles[0].dim == 3:
-                # n_cells_side = int(np.ceil(np.cbrt(len(particles))))
-                n_cells_side = 6
-                # Number of cells in each direction
-                cell_length = np.array(self.box) / n_cells_side
-                # Length of the cells in each direction
-                k_counter = 0
-                # Initializing the counter
-                grid_places = np.arange(n_cells_side**3)
-                # Label of each grid place
-                np.random.shuffle(grid_places)
-                # Distributing the particles randomly to different cells of the grid
-                for x_cell, y_cell, z_cell in (
-                    (x_cell, y_cell, z_cell)
-                    for x_cell in range(n_cells_side)
-                    for y_cell in range(n_cells_side)
-                    for z_cell in range(n_cells_side)
-                ):
-                    if grid_places[k_counter] < len(particles):
-                        particles[grid_places[k_counter]].position_center = np.array(
-                            [
-                                x_cell * cell_length[0] + cell_length[0] / 2,
-                                y_cell * cell_length[1] + cell_length[1] / 2,
-                                z_cell * cell_length[2] + cell_length[2] / 2,
-                            ]
-                        )
-
-                        # Generating the positions from a random uniform
-                        # distribution between
-                        self.particle_velocities[grid_places[k_counter]] = (
-                            np.random.uniform(low=-0.1, high=0.1, size=3)
-                        )
-                        self.position_center_history[grid_places[k_counter]][0] = (
-                            particles[grid_places[k_counter]].position_center
-                        )
-                        # Saving particle history
-                    k_counter += 1
-            elif particles[0].dim == 2:
-                n_cells_side = int(np.ceil(np.sqrt(len(particles))))
-                # Number of cells in each direction
-                cell_length = self.box / n_cells_side
-                # Length of the cells in each direction
-                k_counter = 0
-                # Initializing the counter
-                grid_places = np.arange(n_cells_side**2)
-                # Label of each grid place
-                np.random.shuffle(grid_places)
-                # Distributing the particles randomly to different cells of the grid
-                for x_cell, y_cell in (
-                    (x_cell, y_cell)
-                    for x_cell in range(n_cells_side)
-                    for y_cell in range(n_cells_side)
-                ):
-                    if grid_places[k_counter] < len(particles):
-                        particles[grid_places[k_counter]].position_center = np.array(
-                            [
-                                x_cell * cell_length[0] + cell_length[0] / 2,
-                                y_cell * cell_length[1] + cell_length[1] / 2,
-                            ]
-                        )
-                        # Generating the positions from a random uniform distribution
-                        self.particle_velocities = np.random.uniform(
-                            low=-0.1, high=0.1, size=2
-                        )
-                        self.position_center_history[grid_places[k_counter]][0] = (
-                            particles[grid_places[k_counter]].position_center
-                        )
-                    # # Saving particle history
-                    k_counter += 1
+            dim = particles[0].dim
+            n_cells_side = grid_side(len(particles), dim)
+            # Number of cells in each direction
+            cell_length = np.array(self.box, dtype=float) / n_cells_side
+            # Length of the cells in each direction
+            grid_places = np.arange(n_cells_side**dim)
+            # Label of each grid place
+            np.random.shuffle(grid_places)
+            # Distributing the particles randomly to different cells of the grid
+            for k_counter, k_cell in enumerate(
+                itertools.product(range(n_cells_side), repeat=dim)
+            ):
+                i_particle = grid_places[k_counter]
+                if i_particle < len(particles):
+                    particles[i_particle].position_center = (
+                        np.array(k_cell) + 0.5
+                    ) * cell_length
+                    self.particle_velocities[i_particle] = np.random.uniform(
+                        low=-0.1, high=0.1, size=dim
+                    )
+                    # Placing the particle at the centre of its cell, with a small
+                    # random velocity
+            # Written once for both dimensions. The three dimensional version had the
+            # number of cells per side fixed at six, so a run of more than 216 particles
+            # left the rest with no position at all; the two dimensional one divided the
+            # box, a list, by an integer, and gave every particle the one velocity
         elif self.type_init_conf == "bcc":
             step = self.box[0] / 4
             ind_part = 0
@@ -473,9 +540,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
                             [i_row, j_column, k_layer * 0.5]
                         )
                         self.particle_velocities[ind_part] = np.zeros(particles[0].dim)
-                        self.position_center_history[ind_part][0] = particles[
-                            ind_part
-                        ].position_center
                         ind_part += 1
                 else:
                     for i_row, j_column in (
@@ -491,10 +555,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
                             ]
                         )
                         self.particle_velocities[ind_part] = np.zeros(particles[0].dim)
-                        self.position_center_history[ind_part][0] = particles[
-                            ind_part
-                        ].position_center
-                        # Saving initial configuration
                         ind_part += 1
             print(ind_part, "\n\n\n")
 
@@ -510,9 +570,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
                             [i_row, j_column, k_layer * 0.5]
                         )
                         self.particle_velocities[ind_part] = np.zeros(particles[0].dim)
-                        self.position_center_history[ind_part][0] = particles[
-                            ind_part
-                        ].position_center
                         ind_part += 1
                     for i_row, j_column in (
                         (i_row, j_column)
@@ -529,10 +586,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
                             ]
                         )
                         self.particle_velocities[ind_part] = np.zeros(particles[0].dim)
-                        self.position_center_history[ind_part][0] = particles[
-                            ind_part
-                        ].position_center
-                        # Saving initial configuration
                         ind_part += 1
                 else:
                     for i_row, j_column in (
@@ -550,10 +603,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
                             ]
                         )
                         self.particle_velocities[ind_part] = np.zeros(particles[0].dim)
-                        self.position_center_history[ind_part][0] = particles[
-                            ind_part
-                        ].position_center
-                        # Saving initial configuration
                         ind_part += 1
                     for i_row, j_column in (
                         (i_row, j_column)
@@ -570,10 +619,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
                             ]
                         )
                         self.particle_velocities[ind_part] = np.zeros(particles[0].dim)
-                        self.position_center_history[ind_part][0] = particles[
-                            ind_part
-                        ].position_center
-                        # Saving initial configuration
                         ind_part += 1
         else:
             try:
@@ -590,6 +635,10 @@ class MolecularDynamicsSimulation(GenerationMethod):
         the begin of the simulation and contract all the particles so that a minimum
         distance is ensured.
 
+        The simulation runs in between, in the box normalised by
+        `resize_sim_box_and_all_particles_inside`; what it records of itself is brought
+        back to the user's units with the particles.
+
         Parameters
         ----------
         particles: list(`.Particle`)
@@ -597,12 +646,22 @@ class MolecularDynamicsSimulation(GenerationMethod):
         """
         real_vf = self.microstructure_sample.volume_fraction
         self.dilate_all_particles(particles)
-        self.resize_sim_box_and_all_particles_inside(particles, size="unitary")
-        virtual_vf = self.microstructure_sample.volume_fraction
         if self.min_distance != 0:
             print_funcs.print_virtual_total_volume_fraction(
-                real_vf, virtual_vf, self.min_distance
+                real_vf, self.microstructure_sample.volume_fraction, self.min_distance
             )
+        # Both fractions are taken in the user's units, the units of the volume of the
+        # microstructure they are fractions of. The virtual one was taken once the
+        # particles had been normalised, and was off by a power of the shortest side
+        self.resize_sim_box_and_all_particles_inside(particles, size="unitary")
+        self.position_center_history = [
+            [np.array(i_particle.position_center, dtype=float)]
+            for i_particle in particles
+        ]
+        # Where the particles start, recorded in the box the run moves them in. It was
+        # recorded as the particle's own array, before the box was normalised, and
+        # ended up in the box's units only because the normalisation scaled that array
+        # in place
         try:
             yield
         finally:
@@ -618,19 +677,86 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     # Saving the final configuration
             self.contract_all_particles(particles)
             self.resize_sim_box_and_all_particles_inside(particles, size="original")
+            # Contracted in the box, by the dilation as the box scaled it, which leaves
+            # none on the particles whatever the scale. The contraction took the user's
+            # half distance off particles whose dilation the box had scaled
+            offset = np.zeros(len(self.box))
             if self.offset:
-                offset = self.compute_rve_offset(particles, self.box)
+                offset = np.array(self.compute_rve_offset(particles, self.box))[
+                    : len(self.box)
+                ]
                 for i_particle in particles:
                     # Running through all the particles
-                    i_particle.position_center -= np.array(offset)[: len(self.box)]
-                    # Applying the offset to the particles
+                    i_particle.position_center = (
+                        i_particle.position_center - offset
+                    ) % np.asarray(self.box, dtype=float)
+                    # Applying the offset to the particles, and wrapping the centre back
+                    # into the RVE. The offset is a rigid translation of a periodic
+                    # cell, so wrapping selects the canonical representative of the
+                    # same microstructure rather than changing it. Without it a centre
+                    # can sit almost a full box length outside, and the mesher only
+                    # builds periodic images for j in {-1, 0, 1}: the partner crossing
+                    # the opposite face would then need j = 2 and is never created,
+                    # leaving the geometry genuinely non-periodic.
+            self.records_to_user_units(particles, offset)
+
+    def records_to_user_units(self, particles, offset):
+        """
+        Bring what the simulation records of itself from its box to the user's units.
+
+        The overlaps, the tolerance on them and the path of every particle are written
+        next to the microstructure, and read with it, so they are given in its units.
+        The energies and the time increments stay in the box's: they are the dynamics
+        of a run in a box whose shortest side is one, and nothing compares them with a
+        length of the microstructure.
+
+        Parameters
+        ----------
+        particles: list(`.Particle`)
+            Particles of the simulation, back in the user's units.
+
+        offset: array
+            Translation applied to the particles once the run was over.
+        """
+        overlap_units = self.overlap_units()
+        if self.total_overlap is not None:
+            self.total_overlap /= overlap_units
+        if self.max_residue is not None:
+            self.max_residue /= overlap_units
+        # Neither exists when the run was stopped before it measured anything, and the
+        # error that stopped it is the one to be seen
+        self.total_overlap_history = [
+            i_overlap / overlap_units for i_overlap in self.total_overlap_history
+        ]
+        box = np.asarray(self.box, dtype=float)
+        self.position_center_history = [
+            [
+                (np.asarray(j_position, dtype=float) * min(self.box) - offset) % box
+                for j_position in i_history
+            ]
+            for i_history in self.position_center_history
+        ]
+        # The path is moved by the offset too, so that it ends where the particle is.
+        # It was left in the box's units and before the offset, so the motion analysis
+        # drew it against particles and a cell in the user's units that it did not fit
+
+    def overlap_units(self):
+        """
+        Give the factor that takes an overlap from the user's units to the box's.
+
+        Returns
+        -------
+        float
+            The factor: the scale of the box, the overlap being a length.
+        """
+        return self.box_scale
 
     def contract_all_particles(self, particles):
-        """Contract all the particles in the simulation box."""
+        """Contract all the particles in the simulation box by their dilation."""
         for i_particle in particles:
             # Running through all the particles
-            i_particle.contract(self.min_distance / 2)
-            # Dilate i_particle
+            i_particle.contract(self.min_distance / 2 * self.box_scale)
+            # The half distance as the box scaled it with the dilation, computed alike
 
     def dilate_all_particles(self, particles):
         """Dilate all the particles in the simulation box."""
@@ -644,17 +770,21 @@ class MolecularDynamicsSimulation(GenerationMethod):
         if size == "unitary":
             if self._original_box is None:
                 self._original_box = list(self.box)
-                self.box = [1 for _ in self._original_box]
-                rescale_parameter = 1 / min(self._original_box)
+                self.box_scale = unit_scale(self._original_box)
+                self.box = [i_dim * self.box_scale for i_dim in self._original_box]
                 for i_particle in particles:
-                    i_particle.rescale(rescale_parameter)
+                    i_particle.rescale(self.box_scale)
+            # The shortest side becomes one and the others keep their proportion to it.
+            # The box used to become all ones, which folded a cell longer in one
+            # direction into a square: the particles, placed across the whole cell, were
+            # wrapped into a part of it, simulated at a higher packing than asked for,
+            # and scaled back into that part, leaving the rest of the cell empty
         elif size == "original":
             if self._original_box is not None:
-                rescale_parameter = min(self._original_box)
                 self.box = list(self._original_box)
                 self._original_box = None
                 for i_particle in particles:
-                    i_particle.rescale(rescale_parameter)
+                    i_particle.rescale(min(self.box))
 
         else:
             raise ValueError("Size choice for simulation box unknown: {0}".format(size))
@@ -702,8 +832,12 @@ class MolecularDynamicsSimulation(GenerationMethod):
         with self.virtual_particle_sizes(particles):
             number_particles = len(particles)
             # Saving the number of particles
-            self.max_residue = self.max_residue_per_particle * number_particles
-            # Maximum total overlap residue
+            overlap_units = self.overlap_units()
+            self.max_residue = (
+                self.max_residue_per_particle * number_particles * overlap_units
+            )
+            # Maximum total overlap residue, given in the user's units and compared
+            # here with overlaps measured in the box's
             n_steps_relax = 0
             # Initializing the number of steps that a microstructure was complying with the
             # maximum overlap residue
@@ -714,7 +848,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
 
             print_funcs.print_to_terminal_refresh(
                 self.step,
-                self.total_overlap,
+                self.total_overlap / overlap_units,
                 first=True,
             )
             # # Print info about the iteration
@@ -742,20 +876,13 @@ class MolecularDynamicsSimulation(GenerationMethod):
 
                 if self.total_overlap <= self.max_residue + 1e-12:
                     # If the configuration has an overlap area smaller than the tolerance
-                    self.status = True
                     n_steps_relax += 1
                 else:
                     n_steps_relax = 0
                     # Restarting the count
                 print_funcs.print_to_terminal_refresh(
                     self.step,
-                    self.total_overlap,
-                )
-                fileio.save_mic(
-                    fileio.SAMPLE_DIR,
-                    self.microstructure_sample,
-                    None,
-                    print_out=False,
+                    self.total_overlap / overlap_units,
                 )
                 if self.step > 500 and all(
                     (
@@ -771,9 +898,35 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     # If after 500 iterations all the iterations produced a relative change
                     # smaller than 1e-5% assume it is not possible to find a legal
                     # configuration
-                    self.status = False
                     print_funcs.print_to_file("Failed sample")
                     break
+            if self.final_overlap_check:
+                self.check_overlap_naive(particles)
+            self.status = self.total_overlap <= self.max_residue + 1e-12
+            # Whether the configuration that is kept is legal. It used to be set the
+            # first time the overlap dipped under the tolerance and never unset, so a
+            # run that was legal once and ran out of steps illegal reported success.
+            # Decided here, in the box the run measures overlaps in and with the
+            # particles it measures, still dilated: the naive check ran once the box
+            # had been restored, so its overlap, in the user's units, was compared with
+            # a tolerance in the box's
+
+    def distance_method(self):
+        """
+        Give the method the overlap between two particles is measured with.
+
+        Returns
+        -------
+        str
+            "dist_exact" once the kinetic energy has diverged from the thermic energy,
+            "dist_approx" until then.
+        """
+        if self.thermostat.kin_energy_div:
+            dist_met = "dist_exact"
+        else:
+            dist_met = "dist_approx"
+
+        return dist_met
 
     def check_overlap_naive(self, particles):
         """Check the overlap between particle naively.
@@ -787,11 +940,15 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 j_particle = particles[j_particle_index]
                 if j_particle_index > i_particle_index:
                     # Running through the particle pairs that have not been considered yet
-                    intersection_area, _ = getattr(i_particle, self.force_option)(
-                        j_particle, self.box
+                    intersection_area, _ = i_particle.intersection_length(
+                        j_particle, self.box, dist_met=self.last_distance_method
                     )
                     self.total_overlap += intersection_area
-                    # Updating the overlap area
+                    # Updating the overlap area, measured the way the run measured it
+                    # last, which the thermostat may have changed since. Measured the
+                    # default way, a cylinder's overlap was taken along the line between
+                    # the centres where the run took it exactly, and the check reported
+                    # an overlap the run never saw
 
     def compute_forces(self, particles):
         """
@@ -841,12 +998,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
         coordination number (*self.coord_number*).
 
         """
-        # If the kinetic energy diverged from the thermic energy compute
-        # intersection exactly
-        if self.thermostat.kin_energy_div:
-            dist_met = "dist_exact"
-        else:
-            dist_met = "dist_approx"
+        dist_met = self.distance_method()
+        self.last_distance_method = dist_met
         self.total_overlap = 0
         # Setting the total overlap to zero as it will computed again
         self.particle_overlap_areas = [0 for _ in particles]
@@ -865,9 +1018,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 j_particle = particles[j_particle_index]
                 if j_particle_index > i_particle_index:
                     # Running through the particle pairs that have not been considered yet
-                    intersection_area, unit_vector_i_j = getattr(
-                        i_particle, self.force_option
-                    )(j_particle, self.box, dist_met=dist_met)
+                    intersection_area, unit_vector_i_j = i_particle.intersection_length(
+                        j_particle, self.box, dist_met=dist_met
+                    )
                     self.particle_overlap_areas_dict.setdefault(
                         (i_particle_index, j_particle_index),
                         [0 for _ in range(self.step - 1)],
@@ -938,24 +1091,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         """
         if self.dt_adapt:
             harm_r = hmean([particle.radius for particle in particles])
-            if self.force_option == "force_spring":
-                max_vel = np.max(
-                    [
-                        np.linalg.norm(i_particle_vel)
-                        for i_particle_vel in self.particle_velocities
-                    ]
-                )
-                k_eff = (
-                    2 * (2 * harm_r - max_vel * self.delta_t) / (2 * harm_r)
-                    if max_vel != 0 and 2 * harm_r > self.delta_t * max_vel
-                    else 1
-                )
-                self.delta_t = np.sqrt(2 / max(1, self.coord_number)) * np.sqrt(
-                    harm_r / k_eff
-                )
-
-            elif self.force_option == "intersection_length":
-                self.delta_t = np.sqrt(2 / max(1, self.coord_number)) * np.sqrt(harm_r)
+            self.delta_t = np.sqrt(2 / max(1, self.coord_number)) * np.sqrt(harm_r)
         self.all_dt.append(self.delta_t)
 
     def integrate(self, particles):
@@ -1085,6 +1221,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 if i_inner_particle.volume < 0.5 * available_volume[outer_particle_ind]:
                     available_volume[outer_particle_ind] -= i_inner_particle.volume
                     out_part_in_part[outer_particle_ind].append(i_inner_particle)
+                    i_inner_particle.parent = outer_phase.particles[outer_particle_ind]
                     print(i_particle_ind)
                     break
         # Placing inner phase particles in each outer phase particle 1-by-1
@@ -1095,7 +1232,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
         ):
             placed_particles = []
             for j_inner_particle in i_list_inner_particles:
-                j_inner_particle.dilate(0.01 * j_inner_particle.radius)
+                clearance = 0.01 * j_inner_particle.radius
+                j_inner_particle.dilate(clearance)
                 i_outer_particle.contract(j_inner_particle.radius * 1.05)
                 p_iter = 0
                 while p_iter < 200:
@@ -1120,4 +1258,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
                         break
 
                 i_outer_particle.dilate(j_inner_particle.radius * 1.05)
-                j_inner_particle.contract(0.01 * j_inner_particle.radius)
+                j_inner_particle.contract(clearance)
+                # The particle is contracted by what it was dilated by. It was contracted
+                # by a hundredth of the radius the dilation had grown, so every inner
+                # particle ended a ten thousandth of its radius smaller than generated,
+                # and the file, which does not keep the dilation, disagreed with the
+                # microstructure in memory

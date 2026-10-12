@@ -24,7 +24,6 @@ from geommicgen.postproc.plotfuncs.plotting_functions import (
     plot_particles_3d,
     plot_particles_2d,
 )
-import pickle
 from geommicgen.postproc.voronoimetrics.voronoi_analysis import update_indices
 
 

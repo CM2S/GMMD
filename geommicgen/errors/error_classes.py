@@ -4,9 +4,28 @@ This module contains the class for errors.
 Mostly unused at this point.
 """
 
+import functools
+import signal
+
 
 class Error(Exception):
     """Base class for exceptions in this module."""
+
+    def __new__(cls, *args, **kwargs):
+        """Create the error, keeping the arguments it is built with."""
+        error = super().__new__(cls, *args, **kwargs)
+        error.init_args = (args, kwargs)
+        return error
+
+    def __reduce__(self):
+        """Give what rebuilds the error: its class, its arguments and its attributes."""
+        args, kwargs = self.init_args
+        return (functools.partial(type(self), **kwargs), args, self.__dict__)
+        # An exception is pickled as its class and its message, and unpickled by
+        # calling the class with the message, which an error of this module takes for
+        # what it builds its message from: some came back with the message inside a
+        # second one, and the others could not be built at all. An error raised in
+        # another process reaches this one pickled
 
 
 class InputError(Error):
@@ -326,3 +345,110 @@ class UnsupportedPhaseType(Error):
                 self.phase_type, self.phase
             )
         )
+
+
+class MissingOptionalDependency(Error):
+    """Raised when a feature is used whose optional dependency is not installed."""
+
+    def __init__(self, dependency, install_command, reason=None):
+        """Initizalize MissingOptionalDependency instance."""
+        self.dependency = dependency
+        self.install_command = install_command
+        self.reason = reason
+        text = "{0} is required for this feature but {1}. Install it with:" "\n\n    {2}\n".format(
+            dependency,
+            reason if reason is not None else "it is not installed",
+            install_command,
+        )
+        super().__init__(text)
+        # The text is passed to the base class so that the reason is legible wherever
+        # the exception surfaces, and not only when message() is called
+
+    def message(self):
+        """Print message."""
+        print(str(self))
+
+
+class PeriodicityError(Error):
+    """Raised when the discretisation of opposite faces of an RVE does not match."""
+
+    def __init__(self, description):
+        """Initizalize PeriodicityError instance."""
+        self.description = description
+        super().__init__(
+            "The mesh is not periodic: {0}. A solver that infers the periodic node "
+            "pairs from the coordinates will refuse it.".format(description)
+        )
+
+    def message(self):
+        """Print message."""
+        print(str(self))
+
+
+class MeshTooLargeError(Error):
+    """Raised when a structured mesh is too large to be expressed as explicit cells."""
+
+    def __init__(self, n_cells, max_cells):
+        """Initizalize MeshTooLargeError instance."""
+        self.n_cells = n_cells
+        self.max_cells = max_cells
+        super().__init__(
+            "The grid has {0} cells, which exceeds the limit of {1}. Raise the limit "
+            "of the mesh, or use an output that reads the grid of phases directly "
+            "instead of the cells.".format(n_cells, max_cells)
+        )
+
+    def message(self):
+        """Print message."""
+        print(str(self))
+
+
+class UnsupportedParticleShape(Error):
+    """Raised when a mesher is given a particle shape it cannot build."""
+
+    def __init__(self, shape_name):
+        """Initizalize UnsupportedParticleShape instance."""
+        self.shape_name = shape_name
+        super().__init__(
+            "There is no geometry for a particle of shape {0}, so it would be left "
+            "out of the mesh.".format(shape_name)
+        )
+
+    def message(self):
+        """Print message."""
+        print(str(self))
+
+
+class ProcessDied(Error):
+    """Raised when a process of its own a task ran in ends before the task did."""
+
+    def __init__(self, task, exit_code):
+        """Initizalize ProcessDied instance."""
+        self.task = task
+        self.exit_code = exit_code
+        try:
+            ending = "was killed by {0}".format(signal.Signals(-exit_code).name)
+        except (TypeError, ValueError):
+            ending = "ended with exit code {0}".format(exit_code)
+        # A process killed by a signal reports minus the number of the signal
+        super().__init__(
+            "The process {0} ran in {1} before it was done: gmsh, or what it called, "
+            "took the process down rather than raise.".format(task, ending)
+        )
+
+    def message(self):
+        """Print message."""
+        print(str(self))
+
+
+class RaisedInAnotherProcess(Error):
+    """Carries the traceback of an error raised in another process, as its cause."""
+
+    def __init__(self, trace):
+        """Initizalize RaisedInAnotherProcess instance."""
+        self.trace = trace
+        super().__init__("\n\n" + trace)
+
+    def message(self):
+        """Print message."""
+        print(str(self))

@@ -8,7 +8,6 @@ Functions also for the analysis of the Minkowski structure metrics and associate
 # pylint: disable=relative-beyond-top-level
 # pylint: disable=no-name-in-module
 import os
-import pickle
 import numpy as np
 
 from scipy.spatial import Voronoi
@@ -191,16 +190,20 @@ class Set2DVoronoi:
                 )
 
         self.vertices = construction_voronoi.vertices
+        box = np.asarray(rve_dims, dtype=float)
         for i_ind_region, i_region in enumerate(self.regions):
-            for j_ind_pt in i_region:
-                if all(
-                    (0 < coord < 1 for coord in construction_voronoi.vertices[j_ind_pt])
-                ):
-                    self.regions[i_ind_region] = vert_sort(
-                        i_region, self.ridge_vertices
-                    )
-                    break
-                self.regions[i_ind_region] = []
+            reaches_box = -1 not in i_region and any(
+                np.all((0 < self.vertices[j_ind_pt]) & (self.vertices[j_ind_pt] < box))
+                for j_ind_pt in i_region
+            )
+            self.regions[i_ind_region] = (
+                vert_sort(i_region, self.ridge_vertices) if reaches_box else []
+            )
+        # A region is kept when a vertex of it lies in the RVE, and a region that is
+        # not closed is not. The vertices were tested against the unit box whatever the
+        # RVE, and the index -1 of the vertex at infinity was looked up as the last
+        # vertex: an open region passed whenever that one lay in the box, and was left
+        # a set that the results could not be written with
         self.points = np.array(self.points)
         self.point_region = list(range(len(self.points)))
 
@@ -295,6 +298,13 @@ class Set3DVoronoi:
                 )
 
         self.vertices = construction_voronoi.vertices
+        self.regions = [sorted(i_region) for i_region in self.regions]
+        # The vertices of a region in space are a list, as scipy gives them; left as the
+        # sets they were collected in, the results could not be written
+        # TODO: the seeds lie on the surfaces of the particles, so on common spheres,
+        # and Qhull can find a flat simplex and put its centre at the placeholder
+        # (-10.101, -10.101, -10.101); the regions that touch it name it by an ordinary
+        # index rather than -1, and it is written as a vertex of their cells
         self.points = np.array(self.points)
         self.point_region = list(range(len(self.points)))
 
@@ -407,13 +417,15 @@ def compute_2d_irreducible_minkowski_tensors(voronoi, degree=6):
             continue
         if any([vertex == -1 for vertex in i_region]):
             continue
-        # print(region_point[i_ind])
-        pos_center = voronoi.points[region_point[i_ind]]
-        if 0 < pos_center[0] < 1 and 0 < pos_center[1] < 1:
+        if region_point[i_ind] % 9 == 4:
             in_box.append(k_used_region)
         k_used_region += 1
         # Obtaining the indices of the regions associated with particles inside the box,
-        # i.e. excluding periodic images
+        # i.e. excluding periodic images. The seeds are laid down particle by particle,
+        # each with its nine images, and the one not moved is the fifth. It was picked
+        # by its centre lying in the unit box, which in any other RVE picked images, or
+        # nothing
+    angles = []
     for i_ind, i_region in enumerate(voronoi.regions):
         if len(i_region) == 0:
             continue
@@ -465,6 +477,8 @@ def compute_2d_irreducible_minkowski_tensors(voronoi, degree=6):
                 )
             )
 
+    # TODO: the angles are those of the sides of the last cell only, so what is written
+    # under that name depends on which cell came last
     return [imt_region, in_box, angles]
 
 
@@ -509,7 +523,6 @@ def compute_2d_irreducible_minkowski_tensors_polygon(voronoi, degree=6):
                 pass
                 # print(i_side)
         # angles = [np.pi/2 - np.arctan(i_side[1]/i_side[0]) for i_side in sides]
-        print("angles", np.degrees(angles))
         # print('lengths', lengths)
         for j_tensor in range(degree + 1):
             # Computing the 7 first imts
@@ -738,45 +751,6 @@ def compute_2d_set_voronoi(particles, rve_dims, n_surf_points=10):
     return set_voronoi
 
 
-def compute_2d_weigthed_voronoi():  # particles):
-    """
-    Compute the set Voronoi of the *particles*.
-
-    Parameters
-    ----------
-    particles: list(`.Particle`)
-        List of particles in the RVE.
-
-    Returns
-    -------
-    weighted_voronoi: `.WeightedVoronoi`
-        Weighted voronoi of the particles.
-    """
-    # particle_centers = []
-    # # Intializing the list containing the centers of the particles and their images
-    # C = np.max([i_particle.radius for i_particle in particles])
-    # # Obtaining the largest radius
-    # for i_part_ind, i_particle in enumerate(particles):
-    #     for j in range(-1, 2):
-    #         for k in range(-1, 2):
-    #             # Running through all the particles and their periodic images
-    #             particle_centers.append(
-    #                 np.concatenate(
-    #                     (
-    #                         i_particle.position_center + rve_dims * np.array([j, k]),
-    #                         [np.sqrt(C - i_particle.radius)],
-    #                     )
-    #                 )
-    #             )
-    #             # Sampling points on the surface of each eroded particle and collecing
-    # then
-    # auxiliar_voronoi = Voronoi(particle_centers)
-    # # Obraining the auxiliar voronoi for the construction of the set voronoi
-    # # weighted_voronoi = weighted2DVoronoi(auxiliar_voronoi, particles)
-    # # Computing the set voronoi of the particles
-    # # return weighted_voronoi
-
-
 def compute_3d_set_voronoi(particles, rve_dims, n_surf_points=10):
     """
     Compute the set Voronoi of the *particles*.
@@ -943,6 +917,97 @@ def compute_test_stat_chi_squared(array_samples):
     return [chi, used_bins]
 
 
+VORONOI_FILE_NAME = "voronoi_results.npz"
+# File of a sample the Voronoi diagram and its metrics are written into
+
+
+def flatten_ragged(rows):
+    """
+    Lay rows of unequal length end to end, with the index each one starts at.
+
+    Parameters
+    ----------
+    rows: list
+        Lists of integers, such as the vertices of each Voronoi cell.
+
+    Returns
+    -------
+    tuple
+        The values of every row one after another, and the indices at which the rows
+        start, the last of which is the number of values.
+    """
+    offsets = np.cumsum([0] + [len(i_row) for i_row in rows])
+    flat = np.concatenate([np.asarray(i_row, dtype=int) for i_row in rows]) if rows else np.zeros(0, dtype=int)
+
+    return flat, offsets
+    # A region of a diagram has as many vertices as it has, so the regions cannot be
+    # one array; written flat with the offsets they are read back anywhere, where an
+    # array of lists is an array of Python objects that only a pickle carries
+
+
+def voronoi_arrays(voronoi):
+    """
+    Give the arrays a Voronoi diagram is written as.
+
+    Parameters
+    ----------
+    voronoi: `scipy.spatial.Voronoi` or `.SetVoronoi`
+        The diagram.
+
+    Returns
+    -------
+    dict
+        The vertices, the region of every point, and the regions and the vertices of
+        every ridge flattened with their offsets.
+    """
+    regions_flat, regions_offsets = flatten_ragged(list(voronoi.regions))
+    ridges_flat, ridges_offsets = flatten_ragged(list(voronoi.ridge_vertices))
+
+    return {
+        "vertices": np.asarray(voronoi.vertices, dtype=float),
+        "point_region": np.asarray(voronoi.point_region, dtype=int),
+        "regions_flat": regions_flat,
+        "regions_offsets": regions_offsets,
+        "ridge_points": np.asarray(voronoi.ridge_points, dtype=int),
+        "ridge_vertices_flat": ridges_flat,
+        "ridge_vertices_offsets": ridges_offsets,
+    }
+
+
+def save_voronoi_results(results_dir, voronoi, **metrics):
+    """
+    Write a Voronoi diagram and its metrics into the results file of a sample.
+
+    Parameters
+    ----------
+    results_dir: str
+        Directory of the results of the Voronoi analysis.
+
+    voronoi: `scipy.spatial.Voronoi` or `.SetVoronoi`
+        The diagram.
+
+    metrics: dict
+        What was computed from it, each under its own name: *imts* in either
+        dimension, *in_box* and *angles* in two, *phi* in three.
+
+    Returns
+    -------
+    str
+        Path of the file that was written.
+    """
+    path = os.path.join(results_dir, VORONOI_FILE_NAME)
+    arrays = voronoi_arrays(voronoi)
+    arrays.update(
+        {i_name: np.asarray(i_value) for i_name, i_value in metrics.items()}
+    )
+    np.savez(path, **arrays)
+    # An .npz of named arrays, where this was a pickle of a list whose length and
+    # contents depended on the dimension and whose first item was a live scipy object,
+    # so that the file read back only through a compatible scipy
+
+    return path
+
+
 def do_voronoi_analysis(
     particles,
     rve_dims,
@@ -965,7 +1030,7 @@ def do_voronoi_analysis(
     rve_dims: list(float)
         Dimensions of the RVE.
 
-    voronoi_type: {'set', 'standard', 'weighted'}, optional
+    voronoi_type: {'set', 'standard'}, optional
         Type of Voronoi to be computed.
 
     plot_voronoi: bool, optional
@@ -982,7 +1047,7 @@ def do_voronoi_analysis(
 
     """
     voronoi_results_dir = os.path.join(sample_dir, "voronoi_analysis_results")
-    os.makedirs(voronoi_results_dir)
+    os.makedirs(voronoi_results_dir, exist_ok=True)
     # Creating a directory for the results
 
     if particles[0].dim == 2:
@@ -993,9 +1058,6 @@ def do_voronoi_analysis(
         elif voronoi_type == "standard":
             # The required Voronoi is a standard Voronoi
             voronoi = compute_2d_standard_voronoi(particles, rve_dims)
-        elif voronoi_type == "weighted":
-            # The required Voronoi is a weighted Voronoi
-            voronoi = compute_2d_standard_voronoi(particles, rve_dims)
         if plot_voronoi:
             plot_voronoi_2d(
                 particles, rve_dims, voronoi, voronoi_results_dir, voronoi_type
@@ -1004,13 +1066,18 @@ def do_voronoi_analysis(
         # Computing the irreducible Minkowski tensors for the current microsturcture
         if plot_imts:
             plot_voronoi_2d_with_imts(
-                particles, rve_dims, voronoi, imts, voronoi_results_dir, voronoi_type
+                particles,
+                rve_dims,
+                voronoi,
+                imts,
+                in_box,
+                voronoi_results_dir,
+                voronoi_type,
             )
         # Saving the results
         # --------------------------------------------------------------------------------------
-        pickle.dump(
-            [voronoi, imts, angles, in_box],
-            open(os.path.join(voronoi_results_dir, "voronoi_results.vor"), "wb"),
+        save_voronoi_results(
+            voronoi_results_dir, voronoi, imts=imts, angles=angles, in_box=in_box
         )
     elif particles[0].dim == 3:
         # if voronoi_type == 'standard':
@@ -1029,7 +1096,4 @@ def do_voronoi_analysis(
             )
         # Saving the results
         # --------------------------------------------------------------------------------------
-        pickle.dump(
-            [voronoi, imts, phi],
-            open(os.path.join(voronoi_results_dir, "voronoi_results.vor"), "wb"),
-        )
+        save_voronoi_results(voronoi_results_dir, voronoi, imts=imts, phi=phi)

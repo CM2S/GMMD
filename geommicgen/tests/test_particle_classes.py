@@ -14,6 +14,7 @@ from geommicgen.microstructure.particleclasses import (
     Ellipsoid,
     Ellipse,
     Cylinder,
+    CylindricalFiber,
     Particle,
     Disk,
     Sphere,
@@ -43,6 +44,181 @@ class TestParticleClass(unittest.TestCase):
         descriptors = {"major_axis": 0.1, "vf": -0.2, "angle": 0.3, "n": -1}
         with self.assertRaises(ValueError):
             _ = Ellipse("1", descriptors, [1, 1])
+
+
+class TestRescale(unittest.TestCase):
+    """Test class for a particle given in other units by rescaling it."""
+
+    def particles(self):
+        """One particle of every class, each with the lengths of its own shape."""
+        rve_2d, rve_3d = [1.0, 1.0], [1.0, 1.0, 1.0]
+        return [
+            (Disk("1", {"r": 0.1}, rve_2d), ("major_axis", "minor_axis"), 2),
+            (
+                Ellipse(
+                    "1", {"major_axis": 0.2, "minor_axis": 0.1, "angle": 0.3}, rve_2d
+                ),
+                ("major_axis", "minor_axis"),
+                2,
+            ),
+            (Sphere("1", {"r": 0.1}, rve_3d), ("axis_1", "axis_2", "axis_3"), 3),
+            (
+                Ellipsoid(
+                    "1",
+                    {
+                        "axis_1": 0.3,
+                        "axis_2": 0.2,
+                        "axis_3": 0.1,
+                        "angle": 0.3,
+                        "rot_axis_comp_x": 0.0,
+                        "rot_axis_comp_y": 0.0,
+                        "rot_axis_comp_z": 1.0,
+                    },
+                    rve_3d,
+                ),
+                ("axis_1", "axis_2", "axis_3"),
+                3,
+            ),
+            (
+                Cylinder(
+                    "1",
+                    {
+                        "r_cyl": 0.05,
+                        "length": 0.2,
+                        "azimuth_angle": 0.3,
+                        "polar_angle": 0.7,
+                    },
+                    rve_3d,
+                ),
+                ("r_cyl", "length"),
+                3,
+            ),
+            (
+                CylindricalFiber("1", {"r": 0.1, "direction": 2}, rve_3d),
+                ("major_axis", "minor_axis", "length_dir_fibers"),
+                3,
+            ),
+        ]
+
+    def test_every_length_is_scaled_and_nothing_else(self):
+        for i_particle, i_lengths, i_dim in self.particles():
+            with self.subTest(particle=type(i_particle).__name__):
+                i_particle.position_center = np.array([0.3, 0.4, 0.5][:i_dim])
+                if isinstance(i_particle, CylindricalFiber):
+                    i_particle.position_center = np.array([0.3, 0.4])
+                i_particle.dilate(0.01)
+                lengths = set(i_lengths) | {"position_center", "delta"}
+                before = {
+                    i_name: np.array(i_value, dtype=float)
+                    for i_name, i_value in vars(i_particle).items()
+                    if isinstance(i_value, (float, int, np.ndarray))
+                    and not isinstance(i_value, bool)
+                }
+                radius, volume = i_particle.radius, i_particle.volume
+                i_particle.rescale(8.0)
+                for i_name, i_value in before.items():
+                    np.testing.assert_array_equal(
+                        getattr(i_particle, i_name),
+                        i_value * 8.0 if i_name in lengths else i_value,
+                        err_msg=i_name,
+                    )
+                self.assertEqual(i_particle.radius, radius * 8.0)
+                self.assertEqual(i_particle.volume, volume * 8.0**i_dim)
+        # The dilation that keeps the minimum distance was left out by every class, and
+        # the length along the fibres by the fibre, so a simulation normalising its box
+        # kept the gap in the user's units, and weighed a fibre with a length in them
+
+    def test_a_dilated_particle_has_the_volume_of_its_dilated_shape(self):
+        rve_2d, rve_3d = [1.0, 1.0], [1.0, 1.0, 1.0]
+        for i_particle, i_volume in (
+            (Disk("1", {"r": 0.1}, rve_2d), np.pi * 0.11**2),
+            (Sphere("1", {"r": 0.1}, rve_3d), 4 / 3 * np.pi * 0.11**3),
+            (
+                CylindricalFiber("1", {"r": 0.1, "direction": 2}, rve_3d),
+                np.pi * 0.11**2,
+            ),
+        ):
+            with self.subTest(particle=type(i_particle).__name__):
+                i_particle.dilate(0.01)
+                self.assertAlmostEqual(i_particle.volume, i_volume, places=15)
+        # The radius holds the dilation, and the volume added it a second time: the
+        # virtual volume fraction a minimum distance gives was overstated, and so was
+        # the mass of a particle weighed by its volume while it was dilated. The fibre
+        # is as long as the RVE
+
+    def test_an_ellipsoid_from_its_second_axis_has_one_shape_in_any_units(self):
+        for i_scale in (2.0**-10, 1.0, 8.0):
+            with self.subTest(scale=i_scale):
+                ellipsoid = Ellipsoid(
+                    "1",
+                    {
+                        "vf": 0.1,
+                        "axis_2": 0.2 * i_scale,
+                        "ratio_32": 0.5,
+                        "ratio_21": 0.5,
+                        "p_3": 0.3,
+                        "phi_z": 0.2,
+                    },
+                    [i_scale] * 3,
+                )
+                self.assertEqual(
+                    [
+                        ellipsoid.axis_1 / i_scale,
+                        ellipsoid.axis_2 / i_scale,
+                        ellipsoid.axis_3 / i_scale,
+                    ],
+                    [0.4, 0.2, 0.1],
+                )
+        # The second axis was clamped to the length 0.2, which left it alone in a
+        # smaller unit and clamped it in a larger one
+
+    def test_an_ellipsoid_from_its_second_axis_is_the_one_asked_for(self):
+        ellipsoid = Ellipsoid(
+            "1",
+            {
+                "vf": 0.1,
+                "axis_2": 0.3,
+                "ratio_32": 0.3,
+                "ratio_21": 0.8,
+                "p_3": 0.3,
+                "phi_z": 0.2,
+            },
+            [1.0, 1.0, 1.0],
+        )
+        np.testing.assert_allclose(
+            [ellipsoid.axis_1, ellipsoid.axis_2, ellipsoid.axis_3],
+            [0.375, 0.3, 0.09],
+            rtol=1e-15,
+        )
+        # The second axis was clamped to a fifth of the shortest side, and the ratios
+        # to between 0.4 and 1, which gave [0.25, 0.2, 0.08]
+
+    def test_the_axes_the_descriptors_give_are_bounded_as_axes_given(self):
+        rve_dims = [1.0, 1.0, 1.0]
+        for i_descriptors in (
+            {"axis_2": 0.3, "ratio_32": 0.5, "ratio_21": 0.5},
+            {"semi_axis_1": 0.2, "ratio_32": 0.5, "ratio_21": 0.0},
+            {"n": 1, "ratio_12": 1.0, "ratio_13": 1.0},
+        ):
+            with self.subTest(descriptors=i_descriptors):
+                with self.assertRaisesRegex(ValueError, "not an allowable value"):
+                    Ellipsoid(
+                        "1",
+                        dict(
+                            i_descriptors,
+                            vf=0.5,
+                            p_3=0.3,
+                            phi_z=0.2,
+                            rot_axis_comp_x=0.0,
+                            rot_axis_comp_y=0.0,
+                            rot_axis_comp_z=1.0,
+                            angle=0.0,
+                        ),
+                        rve_dims,
+                    )
+        # A first axis of 0.6, a second of none, and a sphere of half the RVE, whose
+        # diameter is 0.98: each longer than half the shortest side, or not there, which
+        # an axis given as a descriptor is refused for
 
 
 class TestEllipsoid(unittest.TestCase):
@@ -887,8 +1063,8 @@ class TestCylinder(unittest.TestCase):
             all(np.abs(furthest_point_2 - np.array([0.6, 0.8, 0.4])) < 1e-4)
         )
 
-    def test_intersection_cylinder_cylinder_non_intersecting(self):
-        """Test for intersection_cylinder_cylinder with non-intersecting cylinder."""
+    def test_intersection_non_intersecting(self):
+        """Test for the intersection of two cylinders that do not intersect."""
         rve_dims = [1, 1, 1]
         phase_1 = "1"
         descriptors_1 = {
@@ -911,11 +1087,11 @@ class TestCylinder(unittest.TestCase):
         }
         cyl_2 = Cylinder(phase_2, descriptors_2, rve_dims)
         cyl_2.position_center = np.array([0.5, 0.9, 0.5])
-        intersection, _ = cyl_1.intersection_cylinder_cylinder(cyl_2, rve_dims)
+        intersection = cyl_1.intersection(cyl_2, rve_dims)
         self.assertTrue(not intersection)
 
-    def test_intersection_cylinder_cylinder_intersecting_cc1_1(self):
-        """Test for intersection_cylinder_cylinder with intersecting cylinder, type cc1."""
+    def test_intersection_intersecting_cc1_1(self):
+        """Test for the intersection of two cylinders that intersect, type cc1."""
         rve_dims = [1, 1, 1]
         phase_1 = "1"
         descriptors_1 = {
@@ -938,13 +1114,11 @@ class TestCylinder(unittest.TestCase):
         }
         cyl_2 = Cylinder(phase_2, descriptors_2, rve_dims)
         cyl_2.position_center = np.array([0.5, 0.6, 0.5])
-        intersection, overlap_length = cyl_1.intersection_cylinder_cylinder(
-            cyl_2, rve_dims
-        )
+        intersection = cyl_1.intersection(cyl_2, rve_dims)
         self.assertTrue(intersection)
 
-    def test_intersection_cylinder_cylinder_intersecting_cc1_2(self):
-        """Test for intersection_cylinder_cylinder with intersecting cylinder, type cc1."""
+    def test_intersection_intersecting_cc1_2(self):
+        """Test for the intersection of two cylinders that intersect, type cc1."""
         rve_dims = [1, 1, 1]
         phase_1 = "1"
         descriptors_1 = {
@@ -967,15 +1141,13 @@ class TestCylinder(unittest.TestCase):
         }
         cyl_2 = Cylinder(phase_2, descriptors_2, rve_dims)
         cyl_2.position_center = np.array([0.65, 0.5, 0.5])
-        intersection, overlap_length = cyl_1.intersection_cylinder_cylinder(
-            cyl_2, rve_dims
-        )
+        intersection = cyl_1.intersection(cyl_2, rve_dims)
         intersection_1 = cyl_1.intersection_gjk(cyl_2, rve_dims)
 
         self.assertTrue(intersection)
 
-    def test_intersection_cylinder_cylinder_intersecting_cd_1(self):
-        """Test for intersection_cylinder_cylinder with intersecting cylinder, type cd."""
+    def test_intersection_intersecting_cd_1(self):
+        """Test for the intersection of two cylinders that intersect, type cd."""
         rve_dims = [1, 1, 1]
         phase_1 = "1"
         descriptors_1 = {
@@ -998,11 +1170,11 @@ class TestCylinder(unittest.TestCase):
         }
         cyl_2 = Cylinder(phase_2, descriptors_2, rve_dims)
         cyl_2.position_center = np.array([0.65, 0.5, 0.65])
-        intersection, _ = cyl_1.intersection_cylinder_cylinder(cyl_2, rve_dims)
+        intersection = cyl_1.intersection(cyl_2, rve_dims)
         self.assertTrue(intersection)
 
     def test_intersection_top_disks(self):
-        """Test for intersection_cylinder_cylinder with intersecting cylinder, type d1."""
+        """Test for the intersection of two cylinders that intersect, type d1."""
         rve_dims = [1, 1, 1]
         phase_1 = "1"
         descriptors_1 = {
@@ -1025,7 +1197,7 @@ class TestCylinder(unittest.TestCase):
         }
         cyl_2 = Cylinder(phase_2, descriptors_2, rve_dims)
         cyl_2.position_center = np.array([0.5, 0.5, 0.65])
-        intersection, _ = cyl_1.intersection_cylinder_cylinder(cyl_2, rve_dims)
+        intersection = cyl_1.intersection(cyl_2, rve_dims)
         self.assertTrue(intersection)
 
 
@@ -1550,104 +1722,110 @@ class TestPointInsideCylinder(unittest.TestCase):
         )
         self.assertTrue(not point_inside)
 
+    def test_every_point_on_the_axis_is_inside(self):
+        rng = np.random.RandomState(0)
+        for i_azimuth, i_polar in rng.uniform(0, np.pi, size=(20, 2)):
+            cylinder = Cylinder(
+                "1",
+                {
+                    "r_cyl": 0.1,
+                    "length": 0.4,
+                    "azimuth_angle": i_azimuth,
+                    "polar_angle": i_polar,
+                },
+                self.rve_dims,
+            )
+            cylinder.position_center = rng.uniform(0.3, 0.7, size=3)
+            points = cylinder.position_center + np.outer(
+                np.linspace(-0.19, 0.19, 20), cylinder.sym_axis_unit_vec
+            )
+            with self.subTest(azimuth=i_azimuth, polar=i_polar):
+                self.assertTrue(
+                    all(
+                        cylinder.point_inside(j_point, self.rve_dims)
+                        for j_point in points
+                    )
+                )
+        # A point on the axis could round the square of its distance to the axis below
+        # zero, and the root of that was less than no radius: about a third of these
+        # were left out
 
-class TestIntegrationCylinder(unittest.TestCase):
-    """Test the Monte Carlo integration for cylinders."""
 
-    @unittest.skip("Not working and currently not used")
-    def test_cylinder_inside(self):
-        """The cylinder is completly inside an ellipsoid.
+class TestGeneratePointInsideCylinder(unittest.TestCase):
+    """Test class for the points drawn inside a cylinder."""
 
-        (Not working, but also currently not used)"""
-        rve_dims = [2.5, 2.5, 2.5]
+    def test_the_points_fill_the_cylinder(self):
+        rve_dims = [1.0, 1.0, 1.0]
+        rng = np.random.RandomState(0)
+        for i_azimuth, i_polar in rng.uniform(0, np.pi, size=(5, 2)):
+            cylinder = Cylinder(
+                "2",
+                {
+                    "r_cyl": 0.1,
+                    "length": 0.4,
+                    "azimuth_angle": i_azimuth,
+                    "polar_angle": i_polar,
+                },
+                rve_dims,
+            )
+            cylinder.position_center = np.array([0.5, 0.5, 0.5])
+            np.random.seed(1)
+            points = np.array([cylinder.generate_point_inside() for _ in range(2000)])
+            to_center = points - cylinder.position_center
+            along = to_center.dot(cylinder.sym_axis_unit_vec)
+            across = np.sqrt(np.maximum(np.sum(to_center**2, axis=1) - along**2, 0.0))
+            with self.subTest(azimuth=i_azimuth, polar=i_polar):
+                self.assertTrue(all(cylinder.points_inside(points, rve_dims)))
+                self.assertAlmostEqual(np.mean(np.abs(along) < 0.1), 0.5, delta=0.05)
+                self.assertAlmostEqual(
+                    np.mean(across < 0.1 / np.sqrt(2)), 0.5, delta=0.05
+                )
+        # Every point is inside, as many in the middle half of the length as outside
+        # it, and as many within the radius over the root of two of the axis as beyond
+        # it, so the points fill the cylinder evenly. They were taken to the global
+        # frame by the rotation rather than by its transpose, and most fell outside
+
+
+class TestIntersectionCylinder(unittest.TestCase):
+    """Test class for telling whether two cylinders intersect."""
+
+    AXES = {"x": (0.0, np.pi / 2), "y": (np.pi / 2, np.pi / 2), "z": (0.0, 0.0)}
+    # The azimuth and the polar angle of a cylinder along each axis
+
+    def cylinder(self, axis, length, center):
+        """Build a cylinder of radius 0.1 along *axis*, of *length*, at *center*."""
         cylinder = Cylinder(
-            "1",
+            "2",
             {
-                "r_cyl": 0.3,
-                "length": 0.8,
-                "azimuth_angle": 0,
-                "polar_angle": np.pi / 2,
-                "n": 1,
+                "r_cyl": 0.1,
+                "length": length,
+                "azimuth_angle": self.AXES[axis][0],
+                "polar_angle": self.AXES[axis][1],
             },
-            rve_dims,
+            [1.0, 1.0, 1.0],
         )
-        cylinder.position_center = np.array([0.5, 0.5, 0.5])
-        ellipsoid = Ellipsoid(
-            "1",
-            {
-                "axis_1": 1,
-                "axis_2": 1,
-                "axis_3": 1,
-                "rot_axis_comp_x": np.sqrt(3) / 3,
-                "rot_axis_comp_y": np.sqrt(3) / 3,
-                "rot_axis_comp_z": np.sqrt(3) / 3,
-                "angle": 0,
-            },
-            rve_dims,
-        )
-        ellipsoid.position_center = np.array([0.5, 0.5, 0.5])
-        intersection_volume, error_estimate = ellipsoid.intersection_area_monte_carlo(
-            cylinder, rve_dims, tol=1e-1
-        )
-        # # print(
-        #     "error_estimate_2",
-        #     error_estimate,
-        #     intersection_volume,
-        #     cylinder.volume,
-        #     ((intersection_volume - cylinder.volume) / cylinder.volume) * 100,
-        # )
-        self.assertTrue(
-            np.abs((intersection_volume - cylinder.volume) / cylinder.volume) * 100 < 1
-        )
+        cylinder.position_center = np.array(center)
+        return cylinder
 
-    @unittest.skip("Test failing, but function no longer used.")
-    def test_cylinder_outside(self):
-        """An Ellipsoid is completly inside the Cylinder."""
-        rve_dims = [1, 1, 1]
-        cylinder = Cylinder(
-            "1",
-            {
-                "r_cyl": 0.5,
-                "length": 0.8,
-                "azimuth_angle": 0,
-                "polar_angle": np.pi / 2,
-                "n": 1,
-            },
-            rve_dims,
-        )
-        cylinder.position_center = np.array([0.5, 0.5, 0.5])
-        ellipsoid = Ellipsoid(
-            "1",
-            {
-                "axis_1": 0.05,
-                "axis_2": 0.2,
-                "axis_3": 0.1,
-                "rot_axis_comp_x": np.sqrt(3) / 3,
-                "rot_axis_comp_y": np.sqrt(3) / 3,
-                "rot_axis_comp_z": np.sqrt(3) / 3,
-                "angle": 0,
-            },
-            rve_dims,
-        )
-        ellipsoid.position_center = np.array([0.5, 0.5, 0.5])
-        intersection_volume, error_estimate = cylinder.intersection_area_monte_carlo(
-            ellipsoid, rve_dims, tol=1e-1
-        )
-        (
-            intersection_volume_2,
-            error_estimate_2,
-        ) = cylinder.intersection_area_monte_carlo(ellipsoid, rve_dims, tol=1)
-        # print("error_estimate_1", error_estimate, intersection_volume, ellipsoid.volume)
-        # print(
-        #     "error_estimate_2",
-        #     error_estimate_2,
-        #     intersection_volume_2,
-        #     ellipsoid.volume,
-        # )
-        self.assertTrue(
-            np.abs((intersection_volume - ellipsoid.volume) / ellipsoid.volume) * 100
-            < 1
-        )
+    def test_pairs_whose_answer_is_known(self):
+        for i_first, i_second, i_intersecting in (
+            (("z", 0.2, [0.5, 0.5, 0.5]), ("z", 0.2, [0.65, 0.5, 0.5]), True),
+            (("z", 0.2, [0.5, 0.5, 0.5]), ("z", 0.2, [0.75, 0.5, 0.5]), False),
+            (("z", 0.2, [0.5, 0.5, 0.5]), ("z", 0.2, [0.5, 0.5, 0.72]), False),
+            (("x", 0.2, [0.5, 0.5, 0.5]), ("y", 0.2, [0.5, 0.5, 0.65]), True),
+            (("x", 0.2, [0.5, 0.5, 0.5]), ("y", 0.2, [0.5, 0.5, 0.75]), False),
+            (("z", 0.24, [0.5, 0.5, 0.5]), ("z", 0.1, [0.5, 0.5, 0.66]), True),
+            (("z", 0.24, [0.5, 0.5, 0.5]), ("z", 0.1, [0.5, 0.5, 0.68]), False),
+        ):
+            first = self.cylinder(*i_first)
+            second = self.cylinder(*i_second)
+            rve_dims = [1.0, 1.0, 1.0]
+            with self.subTest(first=i_first, second=i_second):
+                self.assertEqual(first.intersection(second, rve_dims), i_intersecting)
+                self.assertEqual(second.intersection(first, rve_dims), i_intersecting)
+        # Side by side, end to end, crossed, and of two lengths, each a little closer
+        # and a little further than touching. The test of the caps answered with a
+        # tuple, true whatever it held, and held true for three of the pairs apart
 
 
 class TestParticlePoint(unittest.TestCase):
@@ -2139,3 +2317,144 @@ class ParticleRescaleTest(unittest.TestCase):
         self.assertAlmostEqual(particle.axis_2, axis_2_after)
         self.assertAlmostEqual(particle.axis_3, axis_3_after)
         self.assert_position(particle, position_after)
+
+
+class TestPointsInside(unittest.TestCase):
+    """Test the points a particle is asked about at once against one at a time."""
+
+    def check(self, particle, rve_dims):
+        """Check `points_inside` against `point_inside`, point by point."""
+        np.random.seed(0)
+        points = np.concatenate(
+            [
+                np.random.uniform(-0.5, 1.5, size=(400, len(rve_dims)))
+                * np.array(rve_dims),
+                [particle.generate_point_inside() for _ in range(100)],
+            ]
+        )
+        # Points all over and beyond the RVE, so that the nearest periodic image of a
+        # point is asked for, and points inside the particle, so that both answers
+        # occur whatever share of the RVE the particle takes up
+
+        one_at_a_time = [
+            bool(particle.point_inside(i_point, rve_dims)) for i_point in points
+        ]
+        at_once = list(particle.points_inside(points, rve_dims))
+        self.assertEqual(at_once, one_at_a_time)
+        self.assertGreater(sum(one_at_a_time), 0)
+        self.assertLess(sum(one_at_a_time), len(points))
+
+    def test_disk(self):
+        rve_dims = [1.0, 1.0]
+        particle = Disk("2", {"r": 0.2}, rve_dims)
+        particle.position_center = np.array([0.25, 0.75])
+        self.check(particle, rve_dims)
+
+    def test_ellipse(self):
+        rve_dims = [1.0, 1.0]
+        particle = Ellipse(
+            "2", {"major_axis": 0.4, "minor_axis": 0.2, "angle": 0.4}, rve_dims
+        )
+        particle.position_center = np.array([0.1, 0.2])
+        self.check(particle, rve_dims)
+        # Its centre is near a corner of the RVE, so that it reaches over two faces
+
+    def test_sphere(self):
+        rve_dims = [1.0, 1.0, 1.0]
+        particle = Sphere("2", {"r": 0.2}, rve_dims)
+        particle.position_center = np.array([0.3, 0.4, 0.5])
+        self.check(particle, rve_dims)
+
+    def test_ellipsoid(self):
+        rve_dims = [1.0, 1.0, 1.0]
+        particle = Ellipsoid(
+            "2",
+            {
+                "axis_1": 0.4,
+                "axis_2": 0.3,
+                "axis_3": 0.2,
+                "angle": 0.7,
+                "rot_axis_comp_x": 0.0,
+                "rot_axis_comp_y": 1.0,
+                "rot_axis_comp_z": 1.0,
+            },
+            rve_dims,
+        )
+        particle.position_center = np.array([0.5, 0.5, 0.5])
+        self.check(particle, rve_dims)
+
+    def test_cylinder(self):
+        rve_dims = [1.0, 1.0, 1.0]
+        particle = Cylinder(
+            "2",
+            {
+                "r_cyl": 0.1,
+                "length": 0.4,
+                "azimuth_angle": 0.2,
+                "polar_angle": 0.5,
+            },
+            rve_dims,
+        )
+        particle.position_center = np.array([0.2, 0.3, 0.4])
+        self.check(particle, rve_dims)
+
+    def test_particle_answers_one_point_at_a_time(self):
+        particle = Point(2, "1")
+        points = np.array([[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]])
+        self.assertEqual(
+            list(particle.points_inside(points, [1.0, 1.0])), [False, False, False]
+        )
+        # The point particle is never inside, and answers through the loop over
+        # `point_inside` a class that does not write the test over an array inherits
+
+
+class TestPointInsideSphere(unittest.TestCase):
+    """Test class for the band around a sphere that counts as inside it."""
+
+    def test_the_band_is_a_share_of_the_radius(self):
+        directions = np.random.RandomState(0).normal(size=(50, 3))
+        directions /= np.linalg.norm(directions, axis=1)[:, np.newaxis]
+        for i_radius in (1e-6, 0.1, 1e3):
+            rve_dims = [10 * i_radius] * 3
+            sphere = Sphere("2", {"r": i_radius}, rve_dims)
+            sphere.position_center = np.array(rve_dims) / 2
+            for j_share, j_inside in ((1 - 1e-4, True), (1 + 1e-4, False)):
+                with self.subTest(radius=i_radius, share=j_share):
+                    points = sphere.position_center + j_share * i_radius * directions
+                    one_at_a_time = [
+                        bool(sphere.point_inside(k_point, rve_dims))
+                        for k_point in points
+                    ]
+                    self.assertEqual(one_at_a_time, [j_inside] * len(points))
+                    self.assertEqual(
+                        list(sphere.points_inside(points, rve_dims)),
+                        [j_inside] * len(points),
+                    )
+        # A point a ten thousandth of the radius beyond the surface is outside a sphere
+        # of any size. The band used to be a length of 1e-3, so a sphere of radius 0.1
+        # let such a point in, and one of a millionth of the unit its whole RVE
+
+
+class TestDiskAndEllipse(unittest.TestCase):
+    """Test class for the overlap of a disk and an ellipse."""
+
+    def test_the_overlap_is_the_same_whichever_is_asked(self):
+        rve_dims = [1.0, 1.0]
+        disk = Disk("1", {"r": 0.1}, rve_dims)
+        disk.position_center = np.array([0.5, 0.5])
+        for i_x, i_overlapping in ((0.62, True), (0.68, True), (0.75, False)):
+            ellipse = Ellipse(
+                "2", {"major_axis": 0.2, "minor_axis": 0.1, "angle": 0.3}, rve_dims
+            )
+            ellipse.position_center = np.array([i_x, 0.52])
+            with self.subTest(x=i_x):
+                length, direction = disk.intersection_length(ellipse, rve_dims)
+                other_length, other_direction = ellipse.intersection_length(
+                    disk, rve_dims
+                )
+                self.assertAlmostEqual(length, other_length, places=8)
+                self.assertEqual(length > 0, i_overlapping)
+                if i_overlapping:
+                    np.testing.assert_allclose(direction, -other_direction, atol=1e-4)
+        # A disk asked about an ellipse raised, since it gave the test of intersection
+        # a tolerance that test does not take

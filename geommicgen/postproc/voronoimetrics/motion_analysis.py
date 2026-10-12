@@ -16,7 +16,7 @@ from geommicgen.postproc.plotfuncs.plotting_functions import (
 def do_motion_analysis(particles, rve_dims, sample_dir, **kwargs):
 
     motion_results_dir = os.path.join(sample_dir, "motion_results")
-    os.makedirs(motion_results_dir)
+    os.makedirs(motion_results_dir, exist_ok=True)
     if "position_center_history" in kwargs:
         plot_paths(
             particles, rve_dims, kwargs["position_center_history"], motion_results_dir

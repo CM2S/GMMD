@@ -5,9 +5,10 @@ import numpy as np
 
 import scipy.integrate as integrate
 
+import contextlib
+import copy
 import os
 
-import gmsh
 
 from PIL import Image
 
@@ -21,16 +22,12 @@ from matplotlib import cm
 # Finite element mesh conversor to LINKS
 
 
-from geommicgen.microstructure.particleclasses import (
-    Disk,
-    Ellipse,
-    CylindricalFiber,
-    Sphere,
-    Ellipsoid,
-    Particle,
-)
+from geommicgen.microstructure.particleclasses import Ellipse, Particle
 
-from geommicgen.postproc.mshgen.meshing_interface import FEMMeshGenerator
+from geommicgen._process import in_own_process
+from geommicgen.meshing.gmsh_mesher import GmshMesher, gmsh_session
+from geommicgen.meshing.images import periodic_images
+from geommicgen.microstructure.microstructure import unit_scale
 import geommicgen.iofuncs.printing as print_funcs
 
 latex_textwidth = 5.92  # in = 496pt
@@ -38,7 +35,7 @@ latex_textheigth = 9.63  # in = 674pt
 
 
 def _adjust_bounds(ax, points):
-    ptp_bound = points.ptp(axis=0)
+    ptp_bound = np.ptp(points, axis=0)
     ax.set_xlim(
         points[:, 0].min() - 0.1 * ptp_bound[0], points[:, 0].max() + 0.1 * ptp_bound[0]
     )
@@ -264,153 +261,327 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
         plt.show()
 
 
-def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
+VIEW_ELEMENTS = {2: "tri3", 3: "tetra4"}
+# The element a view is built with, which is only ever a choice of order. A view is a
+# picture: it is written as a surface and looked at, never solved, so a second order
+# element buys nothing and costs about four times the nodes.
 
-    dim = len(rve_dims)
-    mesh_generator = FEMMeshGenerator(
-        particles[0].radius / 5, "tetra4", rve_dims, output_term=True
-    )
+MESH_SIZE_VORONOI = 0.03
+MESH_SIZE_VORONOI_IMTS = 0.1
+# Largest element of the views of the Voronoi cells. The one that carries the Minkowski
+# tensors covers the whole of a three by three block of images, so it is coarser.
 
-    mesh_generator.init_gmsh_model()
 
-    model = gmsh.model
-    factory = model.occ
-    # occ - OpenCASCADE CAD (more advanced)
+def at_unit_scale(particles, rve_dims):
+    """
+    Give copies of particles, and the dimensions of their RVE, brought to unit scale.
 
-    model.add(sample_dir)
+    A view is built from them as the mesher builds its model, so that the tolerances of
+    OpenCASCADE and gmsh, which are lengths, mean the same in any units; `gmsh_view`
+    writes its files back in the user's.
 
-    mesh_generator.box_tag = factory.addBox(
-        0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2]
-    )
+    Parameters
+    ----------
+    particles: list(`.Particle`)
+        Particles of the view. They are copied, not changed.
 
-    mesh_generator.phase_dim_tag = {
-        phase_name: [] for phase_name in {i_particle.phase for i_particle in particles}
-    }
+    rve_dims: list(float)
+        Dimensions of the microstructure in each spatial direction.
 
-    print_funcs.print_to_file(
-        "\t> Adding particles to the model",
-    )
+    Returns
+    -------
+    tuple
+        The copies, the dimensions, and the factor, from `unit_scale`, they were
+        multiplied by.
+    """
+    scale = unit_scale(rve_dims)
+    copies = [copy.deepcopy(i_particle) for i_particle in particles]
+    for i_copy in copies:
+        i_copy.rescale(scale)
+
+    return copies, [i_dim * scale for i_dim in rve_dims], scale
+
+
+@contextlib.contextmanager
+def gmsh_view(name, mesh_size, dim=3, scale=1.0):
+    """
+    Open a gmsh session set up to build a view of the particles, and close it after.
+
+    Parameters
+    ----------
+    name: str
+        Name given to the model.
+
+    mesh_size: float
+        Largest element size, in the units the view is built in.
+
+    dim: {2, 3}
+        Number of spatial dimensions of the microstructure.
+
+    scale: float
+        Factor the view is built at, from `at_unit_scale`. The files the session
+        writes are divided by it, back into the units of the microstructure.
+
+    Yields
+    ------
+    tuple
+        The gmsh module, its model and its geometry kernel.
+    """
+    with gmsh_session() as gmsh:
+        GmshMesher(
+            mesh_size=mesh_size, element_type=VIEW_ELEMENTS[dim]
+        ).set_options(gmsh)
+        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
+        gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_size)
+        # The size the session was asked for reaches gmsh here. The options a mesher
+        # sets are the ones that produce its element; the size is set where that mesher
+        # builds its model, which a view never does, so asking for one used to do
+        # nothing and every view set it again itself
+        gmsh.option.setNumber("Mesh.ScalingFactor", 1 / scale)
+        gmsh.option.setNumber("Mesh.MshFileVersion", 2.2)
+        # The factor is applied to the nodes that are written and not to the model. The
+        # entities a file of version 4 lists beside the nodes were written unscaled, or
+        # scaled about their own centres, in neither unit; version 2.2 lists none, and
+        # a viewer reads the nodes alone. A view was built in the user's units, where
+        # OpenCASCADE refuses an edge shorter than 1e-7 and its booleans lose pieces: a
+        # micrometre RVE gave an empty view, without an error. The session meshes on
+        # one thread, as the mesher does, so a view is the same from one run to the next
+        model = gmsh.model
+        model.add(name)
+
+        yield gmsh, model, model.occ
+    # The session is closed however the block ends. Leaving it open after a failure
+    # would leave the next view building its model inside the failed one
+
+
+def add_particles_to_view(factory, model, particles, rve_dims, add_images=True,
+                          report=None):
+    """
+    Add particles, and the periodic images that reach the RVE, to an open model.
+
+    Parameters
+    ----------
+    factory: module
+        The geometry kernel of the open gmsh session.
+
+    model: module
+        The model of the open gmsh session.
+
+    particles: list
+        Particles to be added.
+
+    rve_dims: list(float)
+        Dimensions of the microstructure in each spatial direction.
+
+    add_images: bool
+        Whether the periodic images are wanted.
+
+    report: callable
+        Called with the index of the particle that was added and the total number.
+
+    Returns
+    -------
+    tuple
+        The tags of everything that was added, and the *(dimension, tag)* pairs of each
+        phase.
+    """
+    particle_tags = []
+    phase_dim_tag = {i_particle.phase: [] for i_particle in particles}
     for i_particle_ind, i_particle in enumerate(particles):
-        mesh_generator.add_particle_pbc_to_model(i_particle, rve_dims)  # [0, 0, 0])
-        print("\t\t- Particle {0} of {1}".format(i_particle_ind + 1, len(particles)))
-        if i_particle_ind + 1 != len(particles):
-            print_funcs.print_to_file(
-                "\033[F\033[K",
-                end="",
-                to_screen=False,
-            )
-    print_funcs.print_to_file("")
+        for j_center in periodic_images(i_particle, rve_dims, add_images):
+            for k_dim_tag in GmshMesher.add_primitive(
+                factory, model, i_particle, j_center
+            ):
+                particle_tags.append(k_dim_tag[1])
+                phase_dim_tag[i_particle.phase].append(k_dim_tag)
+        if report is not None:
+            report(i_particle_ind, len(particles))
+    # The same geometry the mesher builds, so a view shows what would be meshed
 
-    print_funcs.print_to_file("\t> Processing model\n")
+    return particle_tags, phase_dim_tag
+
+
+def keep_what_the_cut_left(factory, dim, box_tag, particle_tags, phase_dim_tag):
+    """
+    Cut the particles against the box, dropping the tags the cut removed.
+
+    Parameters
+    ----------
+    factory: module
+        The geometry kernel of the open gmsh session.
+
+    dim: int
+        Number of spatial dimensions.
+
+    box_tag: int
+        Tag of the box of the RVE.
+
+    particle_tags: list
+        Tags of everything that was added for the particles.
+
+    phase_dim_tag: dict
+        The *(dimension, tag)* pairs of each phase, as they were before the cut.
+
+    Returns
+    -------
+    dict
+        The pairs of each phase that survived the cut.
+    """
     out_dim_tag, _ = factory.intersect(
-        [(dim, mesh_generator.box_tag)],
-        [(dim, particle_tag) for particle_tag in mesh_generator.particle_tags],
+        [(dim, box_tag)],
+        [(dim, i_tag) for i_tag in particle_tags],
         removeObject=True,
         removeTool=True,
     )
-
-    temp = set(out_dim_tag)
-    for i_phase in mesh_generator.phase_dim_tag:
-        mesh_generator.phase_dim_tag[i_phase] = [
-            value for value in mesh_generator.phase_dim_tag[i_phase] if value in temp
-        ]
-
-    # Set the mesh size on the geometry points
-    # Synchronize the CAD engine (always needed before generating the mesh)
-    # It may also be useful for some intermidate operations, like checking the tags of
-    # entities
-    factory.synchronize()
-
-    for i_phase, i_dim_tags in mesh_generator.phase_dim_tag.items():
-        bound_dim_tags = model.getBoundary([(3, tag) for _, tag in i_dim_tags])
-        material_tag = model.addPhysicalGroup(
-            2, [tag for dim, tag in bound_dim_tags if dim == 2]
+    if particle_tags and not out_dim_tag:
+        raise ValueError(
+            "Cutting {0} particles against the RVE left nothing to view.".format(
+                len(particle_tags)
+            )
         )
-        model.setPhysicalName(2, material_tag, "Phase {0}".format(i_phase))
+    # Written as an empty view without a word, which is what OpenCASCADE made of a
+    # micrometre RVE before the views were built at unit scale
+    kept = set(out_dim_tag)
+    factory.synchronize()
+    # Synchronizing here is what lets the model be read below, by getBoundary
 
-    # model.mesh.setSize(points, mesh_size)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", mesh_generator.mesh_size)
-
-    # Generate a 3D mesh
-    print_funcs.print_to_file("\t> Generating mesh\n")
-    model.mesh.generate(2)
-
-    _ = mesh_generator.write_mesh_gmsh(sample_dir, "final_config")
+    return {
+        i_phase: [i_dim_tag for i_dim_tag in i_dim_tags if i_dim_tag in kept]
+        for i_phase, i_dim_tags in phase_dim_tag.items()
+    }
 
 
-def plot_particles_3d_one_by_one(particles, rve_dims, sample_dir, **kwargs):
-    final_config_dir = os.path.join(sample_dir, "final_config")
-    os.makedirs(final_config_dir)
-    for i_ind, i_particle in enumerate(particles):
-        dim = len(rve_dims)
-        if i_particle is Sphere:
-            mesh_generator = FEMMeshGenerator(
-                particles[0].radius / 2, "tetra4", rve_dims, output_term=0
-            )
-        else:
-            mesh_generator = FEMMeshGenerator(
-                particles[0].radius / 2, "tetra10", rve_dims, output_term=0
-            )
+def tag_phase_boundaries(model, phase_dim_tag, entity_dim, group_dim):
+    """
+    Name the boundary of every phase as a physical group, so that a viewer shows it.
 
-        mesh_generator.init_gmsh_model()
+    Parameters
+    ----------
+    model: module
+        The model of the open gmsh session.
 
-        model = gmsh.model
-        factory = model.occ
+    phase_dim_tag: dict
+        The *(dimension, tag)* pairs of each phase.
 
-        # occ - OpenCASCADE CAD (more advanced)
+    entity_dim: int
+        Dimension of the entities whose boundary is wanted.
 
-        model.add(sample_dir)
+    group_dim: int
+        Dimension of the boundary itself.
+    """
+    for i_phase, i_dim_tags in phase_dim_tag.items():
+        bound_dim_tags = model.getBoundary(
+            [(entity_dim, i_tag) for _, i_tag in i_dim_tags]
+        )
+        material_tag = model.addPhysicalGroup(
+            group_dim, [i_tag for i_dim, i_tag in bound_dim_tags if i_dim == group_dim]
+        )
+        model.setPhysicalName(group_dim, material_tag, "Phase {0}".format(i_phase))
 
-        mesh_generator.box_tag = factory.addBox(
+
+def write_gmsh_view(gmsh, results_dir, name):
+    """
+    Write an open gmsh model for viewing.
+
+    Parameters
+    ----------
+    gmsh: module
+        The gmsh module, in an open session.
+
+    results_dir: str
+        Directory the files are written into.
+
+    name: str
+        Name of the files, without an extension.
+
+    Returns
+    -------
+    list
+        Paths of the files that were written.
+    """
+    mesh_path = os.path.join(results_dir, name + ".msh")
+    vtk_path = os.path.join(results_dir, name + ".vtk")
+    gmsh.write(mesh_path)
+    gmsh.write(vtk_path)
+
+    for i_path in (mesh_path, vtk_path):
+        with open(i_path, "rt") as written:
+            contents = written.read()
+        if "," in contents:
+            with open(i_path, "wt") as written:
+                written.write(contents.replace(",", "."))
+
+    return [mesh_path, vtk_path]
+    # Gmsh sometimes writes a comma for a decimal point, depending on the locale. On a
+    # machine where it does not, which is the usual case, the file is left alone rather
+    # than read and written back identical
+
+
+@in_own_process("drawing the particles with gmsh")
+def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
+
+    particles, rve_dims, scale = at_unit_scale(particles, rve_dims)
+    dim = len(rve_dims)
+    mesh_size = particles[0].radius / 5
+    with gmsh_view(sample_dir, mesh_size, scale=scale) as (gmsh, model, factory):
+
+        box_tag = factory.addBox(
             0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2]
         )
 
-        mesh_generator.phase_dim_tag = {
-            phase_name: []
-            for phase_name in {i_particle.phase for i_particle in particles}
-        }
+        print_funcs.print_to_file(
+            "\t> Adding particles to the model",
+        )
+        particle_tags, phase_dim_tag = add_particles_to_view(
+            factory, model, particles, rve_dims,
+            report=print_funcs.print_particle_progress,
+        )
+        print_funcs.print_to_file("")
 
-        mesh_generator.add_particle_pbc_to_model(i_particle, rve_dims)  # [0, 0, 0])
-
-        out_dim_tag, _ = factory.intersect(
-            [(dim, mesh_generator.box_tag)],
-            [(dim, particle_tag) for particle_tag in mesh_generator.particle_tags],
-            removeObject=True,
-            removeTool=True,
+        print_funcs.print_to_file("\t> Processing model\n")
+        phase_dim_tag = keep_what_the_cut_left(
+            factory, dim, box_tag, particle_tags, phase_dim_tag
         )
 
-        temp = set(out_dim_tag)
-        for i_phase in mesh_generator.phase_dim_tag:
-            mesh_generator.phase_dim_tag[i_phase] = [
-                value
-                for value in mesh_generator.phase_dim_tag[i_phase]
-                if value in temp
-            ]
-
-        # Set the mesh size on the geometry points
-        # Synchronize the CAD engine (always needed before generating the mesh)
-        # It may also be useful for some intermidate operations, like checking the tags of
-        # entities
-        factory.synchronize()
-
-        for i_phase, i_dim_tags in mesh_generator.phase_dim_tag.items():
-            bound_dim_tags = model.getBoundary([(3, tag) for _, tag in i_dim_tags])
-            material_tag = model.addPhysicalGroup(
-                2, [tag for dim, tag in bound_dim_tags if dim == 2]
-            )
-            model.setPhysicalName(2, material_tag, "Phase {0}".format(i_phase))
-
-        # model.mesh.setSize(points, mesh_size)
-        gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
-        gmsh.option.setNumber("Mesh.CharacteristicLengthMax", mesh_generator.mesh_size)
+        tag_phase_boundaries(model, phase_dim_tag, 3, 2)
 
         # Generate a 3D mesh
+        print_funcs.print_to_file("\t> Generating mesh\n")
         model.mesh.generate(2)
 
-        _ = mesh_generator.write_mesh_gmsh(
-            final_config_dir, "final_config_{0}".format(i_ind)
-        )
+        write_gmsh_view(gmsh, sample_dir, "final_config")
+
+
+@in_own_process("drawing the particles with gmsh")
+def plot_particles_3d_one_by_one(particles, rve_dims, sample_dir, **kwargs):
+    final_config_dir = os.path.join(sample_dir, "final_config")
+    os.makedirs(final_config_dir)
+    particles, rve_dims, scale = at_unit_scale(particles, rve_dims)
+    for i_ind, i_particle in enumerate(particles):
+        dim = len(rve_dims)
+        mesh_size = particles[0].radius / 2
+        with gmsh_view(sample_dir, mesh_size, scale=scale) as (gmsh, model, factory):
+
+            box_tag = factory.addBox(
+                0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2]
+            )
+
+            particle_tags, phase_dim_tag = add_particles_to_view(
+                factory, model, [i_particle], rve_dims
+            )
+
+            phase_dim_tag = keep_what_the_cut_left(
+                factory, dim, box_tag, particle_tags, phase_dim_tag
+            )
+
+            tag_phase_boundaries(model, phase_dim_tag, 3, 2)
+
+            # Generate a 3D mesh
+            model.mesh.generate(2)
+
+            write_gmsh_view(
+                gmsh, final_config_dir, "final_config_{0}".format(i_ind)
+            )
 
 
 def plot_kinetic_energy_history(
@@ -511,197 +682,60 @@ def plot_overlap_history(
             return graph_overlap_history
 
 
+@in_own_process("drawing the paths of the particles")
 def plot_paths(particles, box, position_center_history, motion_results_dir):
     """Plot particle paths."""
     path_results_dir = os.path.join(motion_results_dir, "paths")
-    os.makedirs(path_results_dir)
+    os.makedirs(path_results_dir, exist_ok=True)
     if particles[0].dim == 2:
+        particles, box, scale = at_unit_scale(particles, box)
         for step in range(len(position_center_history[0])):
             # Updating particle position to current time
             for i_particle_ind, i_particle in enumerate(particles):
-                i_particle.position_center = position_center_history[i_particle_ind][
-                    step
-                ]
+                i_particle.position_center = (
+                    np.asarray(position_center_history[i_particle_ind][step]) * scale
+                )
+            # Copies of the particles are walked along the path, at the scale the
+            # view is built at; the microstructure's own were, and had to be put back
+            # for the analyses that read them afterwards
 
             dim = len(box)
-            mesh_generator = FEMMeshGenerator(particles[0].radius / 5, "tri6", box)
+            mesh_size = particles[0].radius / 5
+            with gmsh_view(path_results_dir, mesh_size, dim, scale=scale) as (
+                gmsh,
+                model,
+                factory,
+            ):
 
-            mesh_generator.init_gmsh_model()
-
-            model = gmsh.model
-            factory = model.occ
-            # occ - OpenCASCADE CAD (more advanced)
-
-            model.add(path_results_dir)
-
-            mesh_generator.box_tag = factory.addRectangle(
-                0,
-                0,
-                0,
-                box[0],
-                box[1],
-            )
-
-            mesh_generator.phase_dim_tag = {
-                phase_name: []
-                for phase_name in {i_particle.phase for i_particle in particles}
-            }
-
-            for i_particle in particles:
-                mesh_generator.add_particle_pbc_to_model(i_particle, box)  # [0, 0, 0])
-
-            out_dim_tag, _ = factory.intersect(
-                [(dim, mesh_generator.box_tag)],
-                [(dim, particle_tag) for particle_tag in mesh_generator.particle_tags],
-                removeObject=True,
-                removeTool=True,
-            )
-
-            temp = set(out_dim_tag)
-            for i_phase in mesh_generator.phase_dim_tag:
-                mesh_generator.phase_dim_tag[i_phase] = [
-                    value
-                    for value in mesh_generator.phase_dim_tag[i_phase]
-                    if value in temp
-                ]
-
-            # Set the mesh size on the geometry points
-            # Synchronize the CAD engine (always needed before generating the mesh)
-            # It may also be useful for some intermidate operations, like checking the tags of
-            # entities
-            factory.synchronize()
-
-            for i_phase, i_dim_tags in mesh_generator.phase_dim_tag.items():
-                bound_dim_tags = model.getBoundary([(1, tag) for _, tag in i_dim_tags])
-                material_tag = model.addPhysicalGroup(
-                    1, [tag for dim, tag in bound_dim_tags if dim == 1]
+                box_tag = factory.addRectangle(
+                    0,
+                    0,
+                    0,
+                    box[0],
+                    box[1],
                 )
-                model.setPhysicalName(1, material_tag, "Phase {0}".format(i_phase))
 
-            # model.mesh.setSize(points, mesh_size)
-            gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
-            gmsh.option.setNumber(
-                "Mesh.CharacteristicLengthMax", mesh_generator.mesh_size
-            )
+                particle_tags, phase_dim_tag = add_particles_to_view(
+                    factory, model, particles, box
+                )
 
-            # Generate a 3D mesh
-            model.mesh.generate(2)
+                phase_dim_tag = keep_what_the_cut_left(
+                    factory, dim, box_tag, particle_tags, phase_dim_tag
+                )
 
-            _ = mesh_generator.write_mesh_gmsh(
-                path_results_dir, "mic_step_{0}".format(step)
-            )
-            # with open(
-            #     os.path.join(path_results_dir, "mic_step_{0}.vtk".format(step)),
-            #     "a",
-            # ) as msh_vtk:
-            #     if particles[0].dim == 2:
-            #         msh_vtk.write("# vtk DataFile Version 2.0")
-            #         msh_vtk.write("\n3D triangulation data")
-            #         msh_vtk.write("\nASCII")
-            #         msh_vtk.write("\n\nDATASET POLYDATA")
-            #         msh_vtk.write(
-            #             "\nPOINTS {0} {1}".format(9 * len(particles), "float")
-            #         )
-            #         for i_particle_index, i_particle in enumerate(particles):
-            #             for j in range(-1, 2):
-            #                 for k in range(-1, 2):
-            #                     position = (
-            #                         position_center_history[i_particle_index][step]
-            #                         + [j, k] * box
-            #                     )
-            #                     msh_vtk.write(
-            #                         "\n{0} {1} 0".format(position[0], position[1])
-            #                     )
-            #         msh_vtk.write("\n\nPOINT_DATA {0}".format(9 * len(particles)))
-            #         msh_vtk.write(
-            #             "\nSCALARS {0} {1} {2}".format("radius", "float", "1")
-            #         )
-            #         msh_vtk.write("\nLOOKUP_TABLE default")
-            #         for i_particle in particles:
-            #             for j in range(-1, 2):
-            #                 for k in range(-1, 2):
-            #                     msh_vtk.write("\n{0}".format(i_particle.radius))
-            #         msh_vtk.write("\nSCALARS {0} {1} {2}".format("phase", "float", "1"))
-            #         msh_vtk.write("\nLOOKUP_TABLE default")
-            #         for i_particle in particles:
-            #             for j in range(-1, 2):
-            #                 for k in range(-1, 2):
-            #                     msh_vtk.write("\n{0}".format(i_particle.phase))
+                tag_phase_boundaries(model, phase_dim_tag, dim, dim - 1)
+
+                # Generate a 3D mesh
+                model.mesh.generate(2)
+
+                write_gmsh_view(gmsh, path_results_dir, "mic_step_{0}".format(step))
 
     elif particles[0].dim == 3:
-        # for step in range(len(position_center_history[0])):
-        #     # Updating particle position to current time
-        #     for i_particle_ind, i_particle in enumerate(particles):
-        #         i_particle.position_center = position_center_history[i_particle_ind][
-        #             step
-        #         ]
-        #
-        #     dim = len(box)
-        #     mesh_generator = FEMMeshGenerator(particles[0].radius / 5, "tetra4", box)
-        #
-        #     mesh_generator.init_gmsh_model()
-        #
-        #     model = gmsh.model
-        #     factory = model.occ
-        #     # occ - OpenCASCADE CAD (more advanced)
-        #
-        #     model.add(path_results_dir)
-        #
-        #     mesh_generator.box_tag = factory.addBox(0, 0, 0, box[0], box[1], box[2])
-        #
-        #     mesh_generator.phase_dim_tag = {
-        #         phase_name: []
-        #         for phase_name in {i_particle.phase for i_particle in particles}
-        #     }
-        #
-        #     for i_particle in particles:
-        #         mesh_generator.add_particle_pbc_to_model(i_particle, box)  # [0, 0, 0])
-        #
-        #     out_dim_tag, _ = factory.intersect(
-        #         [(dim, mesh_generator.box_tag)],
-        #         [(dim, particle_tag) for particle_tag in mesh_generator.particle_tags],
-        #         removeObject=True,
-        #         removeTool=True,
-        #     )
-        #
-        #     temp = set(out_dim_tag)
-        #     for i_phase in mesh_generator.phase_dim_tag:
-        #         mesh_generator.phase_dim_tag[i_phase] = [
-        #             value
-        #             for value in mesh_generator.phase_dim_tag[i_phase]
-        #             if value in temp
-        #         ]
-        #
-        #     # Set the mesh size on the geometry points
-        #     # Synchronize the CAD engine (always needed before generating the mesh)
-        #     # It may also be useful for some intermidate operations, like checking the tags of
-        #     # entities
-        #     factory.synchronize()
-        #
-        #     for i_phase, i_dim_tags in mesh_generator.phase_dim_tag.items():
-        #         bound_dim_tags = model.getBoundary([(2, tag) for _, tag in i_dim_tags])
-        #         material_tag = model.addPhysicalGroup(
-        #             2, [tag for dim, tag in bound_dim_tags if dim == 2]
-        #         )
-        #         model.setPhysicalName(2, material_tag, "Phase {0}".format(i_phase))
-        #
-        #     # model.mesh.setSize(points, mesh_size)
-        #     gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
-        #     gmsh.option.setNumber(
-        #         "Mesh.CharacteristicLengthMax", mesh_generator.mesh_size
-        #     )
-        #
-        #     # Generate a 3D mesh
-        #     model.mesh.generate(3)
-        #
-        #     _ = mesh_generator.write_mesh_gmsh(
-        #         path_results_dir, "mic_step_{0}".format(step)
-        #     )
 
         for step in range(len(position_center_history[0])):
             with open(
                 os.path.join(path_results_dir, "mic_step_{0}.vtk".format(step)),
-                "a",
+                "w",
             ) as msh_vtk:
                 msh_vtk.write("# vtk DataFile Version 2.0")
                 msh_vtk.write("\n3D triangulation data")
@@ -782,92 +816,138 @@ def plot_ratio_new_old_overlap(
     else:
         return graph_overlap
 
+def finish_statistical_plot(kwargs, labels, default_name, legend=False):
+    """
+    Label a plot of a statistical descriptor, and save it unless it was given axes.
+
+    Parameters
+    ----------
+    kwargs: dict
+        What the plotting function was given: *axes* to draw into, *results_dir* to
+        save in, *fig_name* to save under, and *show* to show it.
+
+    labels: tuple
+        The label of the horizontal axis, the label of the vertical one, and the title.
+
+    default_name: str
+        Name of the file when none was given, without an extension.
+
+    legend: bool
+        Whether the lines drawn are named and a legend is to be drawn.
+
+    Returns
+    -------
+    bool
+        Whether the figure was closed, which is to say that it was this function's to
+        save rather than the caller's to go on drawing into.
+    """
+    horizontal, vertical, title = labels
+    axes = kwargs.get("axes", plt.gca())
+    axes.set_xlabel(horizontal)
+    axes.set_ylabel(vertical)
+    axes.set_title(title)
+    if legend:
+        axes.legend()
+    if "axes" in kwargs:
+        return False
+
+    if "results_dir" in kwargs:
+        plt.savefig(
+            os.path.join(
+                kwargs["results_dir"],
+                "{0}.pdf".format(kwargs.get("fig_name", default_name)),
+            ),
+            bbox_inches="tight",
+        )
+    if kwargs.get("show", False):
+        plt.show()
+    plt.close()
+
+    return True
+    # Every plot of a descriptor ends the same way, and the labels are the difference
+    # between a figure that is read and one that has to be explained: the plots used
+    # to carry no axis label, no title and no legend, so the two lines of Ripley's K
+    # function said nothing about which was the measurement
+
 
 def plot_nearest_neighbor_dist(vals, **kwargs):
+    """Plot the distribution of the distance from a particle to its nearest."""
     if "axes" in kwargs:
-        ax = kwargs["axes"]
-        plt.sca(ax)
+        plt.sca(kwargs["axes"])
     else:
         plt.figure()
 
-    graph = plt.hist(vals, histtype="step")
+    graph = plt.hist(vals, bins="auto", histtype="step")
+    closed = finish_statistical_plot(
+        kwargs,
+        (
+            "Distance to the nearest neighbour",
+            "Number of particles",
+            "Nearest neighbour distances",
+        ),
+        "nearest_neighbor_dist",
+    )
 
-    # Save and/or show if no axes was supplied
-    if "axes" not in kwargs:
-        if "results_dir" in kwargs:
-            results_dir = kwargs["results_dir"]
-            plt.savefig(
-                os.path.join(
-                    results_dir,
-                    "{0}.pdf".format(kwargs.get("fig_name", "nearest_neighbor_dist")),
-                )
-            )
-
-        if kwargs.get("show", False):
-            plt.show()
-        plt.close()
-    else:
-        return graph
+    return None if closed else graph
 
 
 def plot_ripleys_k_func(vals, radii_vec, **kwargs):
+    """Plot Ripley's K function against the one of a Poisson point process."""
     if "axes" in kwargs:
-        ax = kwargs["axes"]
-        plt.sca(ax)
+        plt.sca(kwargs["axes"])
     else:
         plt.figure()
 
     artists = []
-    artists += plt.plot(radii_vec, vals)
-    artists += plt.plot(radii_vec, np.pi * radii_vec**2)
-    # artists += plt.plot(list(range(len(vals))))
+    artists += plt.plot(radii_vec, vals, label="Microstructure")
+    artists += plt.plot(
+        radii_vec, np.pi * radii_vec**2, linestyle="--", label="Poisson point process"
+    )
+    # The second is the K function of a process with no interaction between the
+    # points, which is what the first is read against
 
-    # Save and/or show if no axes was supplied
-    if "axes" not in kwargs:
-        if "results_dir" in kwargs:
-            results_dir = kwargs["results_dir"]
-            plt.savefig(
-                os.path.join(
-                    results_dir,
-                    "{0}.pdf".format(kwargs.get("fig_name", "k_ripleys_func")),
-                )
-            )
+    closed = finish_statistical_plot(
+        kwargs,
+        ("Radius", "K(r)", "Ripley's K function"),
+        "k_ripleys_func",
+        legend=True,
+    )
 
-        if kwargs.get("show", False):
-            plt.show()
-        plt.close()
-    else:
-        return artists
+    return None if closed else artists
+
+
+SMOOTHING_WINDOW = 41
+# Points of the two point correlation a smoothing runs over. A run asking for fewer
+# radii than this is smoothed over all of them instead, where the filter used to raise
 
 
 def plot_two_point_correlation(vals, radii_vec, **kwargs):
+    """Plot the two point correlation function, and a smoothing of it."""
     if "axes" in kwargs:
-        ax = kwargs["axes"]
-        plt.sca(ax)
+        plt.sca(kwargs["axes"])
     else:
         plt.figure()
+
     from scipy.signal import savgol_filter
 
     artists = []
-    artists += plt.plot(radii_vec, vals, lw=0, marker="+")
-    artists += plt.plot(radii_vec, savgol_filter(vals, 41, 2))
+    artists += plt.plot(radii_vec, vals, lw=0, marker="+", label="Estimate")
+    window = min(SMOOTHING_WINDOW, len(vals) - (1 - len(vals) % 2))
+    if window > 2:
+        artists += plt.plot(
+            radii_vec, savgol_filter(vals, window, 2), label="Smoothed"
+        )
+    # The estimate is a Monte Carlo one, so it is drawn as the points it is and the
+    # line through them is said to be a smoothing
 
-    # Save and/or show if no axes was supplied
-    if "axes" not in kwargs:
-        if "results_dir" in kwargs:
-            results_dir = kwargs["results_dir"]
-            plt.savefig(
-                os.path.join(
-                    results_dir,
-                    "{0}.pdf".format(kwargs.get("fig_name", "two_pt_corr")),
-                )
-            )
+    closed = finish_statistical_plot(
+        kwargs,
+        ("Distance", "Two point correlation", "Two point correlation function"),
+        "two_pt_corr",
+        legend=True,
+    )
 
-        if kwargs.get("show", False):
-            plt.show()
-        plt.close()
-    else:
-        return artists
+    return None if closed else artists
 
 
 def plot_pixels(pixel_grid, dir, show=False, save=True):
@@ -1052,7 +1132,7 @@ def set_voronoi_plot_2d(vor, ax=None, **kw):
     )
     lc.set_alpha(line_alpha)
     ax.add_collection(lc)
-    ptp_bound = vor.points.ptp(axis=0)
+    ptp_bound = np.ptp(vor.points, axis=0)
     #
     # line_segments = []
     # center = vor.points.mean(axis=0)
@@ -1084,9 +1164,17 @@ def set_voronoi_plot_2d(vor, ax=None, **kw):
 
 
 def plot_voronoi_2d_with_imts(
-    particles, rve_dims, voronoi, imts, dir, voronoi_type, save=True, show=False
+    particles, rve_dims, voronoi, imts, in_box, dir, voronoi_type, save=True, show=False
 ):
-    """Plot the Voronoi for circular particles."""
+    """
+    Plot the Voronoi for circular particles.
+
+    Parameters
+    ----------
+    in_box: list(int)
+        Indices, among the cells the tensors were computed for, of the cells of the
+        particles themselves rather than of their periodic images.
+    """
     import matplotlib.pyplot as plt
     import matplotlib.patches as mpatches
     import matplotlib
@@ -1150,6 +1238,15 @@ def plot_voronoi_2d_with_imts(
 
         # cmap = matplotlib.cm.get_cmap("jet")
         cmap = matplotlib.cm.get_cmap("Blues")
+        perimeters = np.abs(np.array(imts)[in_box, 0])
+        perimeter_scale = matplotlib.colors.Normalize(
+            vmin=perimeters.min(), vmax=perimeters.max()
+        )
+        # The perimeters are lengths, so they are coloured over the range the cells of
+        # the particles span; the cells of the images, far larger at the edges of the
+        # diagram, would take the range up. They were handed to the colour map as they
+        # were, which takes a number between zero and one: every cell of an RVE of unit
+        # side came out one saturated colour
         # Initializing the list containing the list of imts for each Voronoi cell
         k_cell = 0
         for ind, i_region in enumerate(voronoi.regions):
@@ -1167,7 +1264,7 @@ def plot_voronoi_2d_with_imts(
                     / 10
                 )
             else:
-                color = cmap(np.abs(imts[k_cell][0]))
+                color = cmap(perimeter_scale(np.abs(imts[k_cell][0])))
             x = [voronoi.vertices[i_vertex][0] for i_vertex in i_region]
             y = [voronoi.vertices[i_vertex][1] for i_vertex in i_region]
             current_cell = plt.fill(x, y, edgecolor=None, linewidth=0)
@@ -1186,13 +1283,20 @@ def plot_voronoi_2d_with_imts(
         plt.yticks([])
 
         if i_order == 0:
-            plt.colorbar(matplotlib.cm.ScalarMappable(cmap=cmap), label=r"Perimeter")
+            plt.colorbar(
+                matplotlib.cm.ScalarMappable(norm=perimeter_scale, cmap=cmap),
+                ax=ax,
+                label=r"Perimeter",
+            )
         else:
             plt.colorbar(
                 matplotlib.cm.ScalarMappable(cmap=cmap),
+                ax=ax,
                 label=r"$q_{0}$".format(str(i_order)),
                 boundaries=np.linspace(0, 1, 11),
             )
+        # The axes are named: a colour bar for a mappable drawn on none is refused by
+        # the matplotlib installed, so the plot of the tensors never got written
         if save:
             plt.savefig(
                 os.path.join(dir, "voronoi_{0}.pdf".format(i_order)),
@@ -1201,23 +1305,6 @@ def plot_voronoi_2d_with_imts(
 
         if show:
             plt.show()
-
-    region_point = np.zeros((len(voronoi.regions)), dtype=int)
-    in_box = []
-    for point_ind, region_ind in enumerate(voronoi.point_region):
-        if point_ind == -1:
-            continue
-        region_point[region_ind] = int(point_ind)
-    k_used_region = 0
-    for ind, i_region in enumerate(voronoi.regions):
-        if len(i_region) == 0:
-            continue
-        if any([vertex == -1 for vertex in i_region]):
-            continue
-        pos_center = voronoi.points[region_point[ind]]
-        if 0 < pos_center[0] < 1 and 0 < pos_center[1] < 1:
-            in_box.append(k_used_region)
-        k_used_region += 1
 
     for i_order in range(7):
 
@@ -1266,984 +1353,237 @@ def plot_voronoi_2d_with_imts(
         plt.close()
 
 
-def plotVoronoi3Dpbc(
-    particles, voronoi, rve_dims, dir, voronoi_type, save=True, show=True
-):
-    """Plot the Voronoi for circular particles."""
-    # ======================================================================================
-    # Set up GMSH in Python
-    # ======================================================================================
-    # Select the geometry engine
-    # occ - OpenCASCADE CAD (more advanced)
-    # geo - built-in CAD kernel (less sophisticated)
-    model = gmsh.model
-    factory = model.occ
-
-    # Initialise GMSH
-    gmsh.initialize()
-
-    # Output to terminal
-    gmsh.option.setNumber("General.Terminal", 1)
-
-    # 2D Meshing algorithm
-    # --------------------
-    # 1 - Mesh Adapt
-    # 2 - Automatic
-    # 5 - Delaunay (default)
-    # 6 - Frontal-Delaunay
-    # 7 - BAMG
-    # 8 - Frontal-Delaunay for Quads
-    # 9 - Packing of Parallelograms
-    gmsh.option.setNumber("Mesh.Algorithm", 5)
-
-    # 3D Meshing algorithm
-    # --------------------
-    # 1 - Delaunay (default)
-    # 2 - Frontal
-    # 7 - MMG3D
-    # 9 - R-tree
-    # 10 - HXT
-    gmsh.option.setNumber("Mesh.Algorithm3D", 1)
-
-    # Characteristic mesh length factor (applied acroos all mesh)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthFactor", 1)
-
-    # Multi-threading
-    gmsh.option.setNumber("Mesh.MaxNumThreads1D", 0)
-    gmsh.option.setNumber("Mesh.MaxNumThreads2D", 0)
-    gmsh.option.setNumber("Mesh.MaxNumThreads3D", 0)
-
-    # MSH file version
-    gmsh.option.setNumber("Mesh.MshFileVersion", 4.1)
-
-    # Quad/Hex recombination algorithms
-    # ---------------------------------
-    # 0 - simple
-    # 1 - blossom (default)
-    # 2 - simple full-quad
-    # 3 - blosson full-quad
-    gmsh.option.setNumber("Mesh.RecombinationAlgorithm", 0)
-
-    # Force recombination in all surfaces
-    gmsh.option.setNumber("Mesh.RecombineAll", 0)
-
-    # Number of topological optimization passes of recombined surface meshes (5 by default)
-    gmsh.option.setNumber("Mesh.RecombineOptimizeTopology", 5)
-
-    # Force recombination in all volumes
-    gmsh.option.setNumber("Mesh.Recombine3DAll", 0)
-
-    # Recombination level in 3D
-    # -------------------------
-    # 0 - hex (default)
-    # 1 - hex + prisms
-    # 2 - hex + prisms + pyramids
-    gmsh.option.setNumber("Mesh.Recombine3DLevel", 0)
-
-    # Recombination conformity type in 3D meshes
-    # ------------------------------------------
-    # 0 - nonconforming (default)
-    # 1 - trihedra
-    # 2 - pyramids + trihedra
-    # 2 - pyramids + hexSplit + trihedra
-    # 4 - hexSplit + trihedra
-    gmsh.option.setNumber("Mesh.Recombine3DConformity", 1)
-
-    # Renumber nodes and elements after mesh generation
-    gmsh.option.setNumber("Mesh.Renumber", 1)
-
-    # Save all elements even if they do not belong to physical groups
-    gmsh.option.setNumber("Mesh.SaveAll", 0)
-
-    # Number of smoothing step applied to the final mesh
-    gmsh.option.setNumber("Mesh.Smoothing", 1)
-
-    # Element order
-    gmsh.option.setNumber("Mesh.ElementOrder", 1)
-
-    # Crete second-order nodes by linear interpolation
-    gmsh.option.setNumber("Mesh.SecondOrderLinear", 0)
-
-    # Second-order incomplete elements
-    gmsh.option.setNumber("Mesh.SecondOrderIncomplete", 0)
-
-    # ==========================================================================================
-    # Generate the finite element mesh
-    # ==========================================================================================
-    # Define model name
-
-    title = Particle.file_path
-    model.add(title)
-
-    boxTag = factory.addBox(0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2])
-    # RVE
-
-    particle_tags = []
-    k_particle_image = 0
-    phase_dim_tag = {phase: [] for phase in Particle.list_phases}
-    for i_particle in particles:
-        # Running through all the particles
-        class_name_i_particle = i_particle.__class__.__name__
-        # Saving the class name of the particle as a string
-        for j in range(1):
-            # Periodic images in the x direction
-            for p in range(1):
-                # Periodic images in the y direction
-                for l in range(1):
-                    # Periodic images in the z direction
-                    if "CylindricalFiber" == class_name_i_particle:
-                        if l != 0:
-                            continue
-                        xc = i_particle.position_center[0] + rve_dims[0] * j
-                        yc = i_particle.position_center[1] + rve_dims[1] * p
-                        zc = 0
-                        rx = i_particle.radius
-                        ry = i_particle.radius
-                        # Speciying the position and the radius of the fibers face
-                        face_tag = factory.addDisk(xc, yc, zc, rx, ry)
-                        # Saving the properties of the particles
-                        if i_particle.direction_fibers == 0:
-                            # The fibers run in the x direction
-                            factory.rotate(
-                                [(2, face_tag)], 0, 0, 0, 0, 1, 0, 3 * np.pi / 2
-                            )
-                            # Rotating the fiber face to the yz plane as it was ploted
-                            # in the xy plane
-                            extrusion_tags = factory.extrude(
-                                [(2, face_tag)], i_particle.length_dir_fibers, 0, 0
-                            )
-                            # Extruding the fiber from the fiber face in the yz plane in the
-                            # x direction
-                        elif i_particle.direction_fibers == 1:
-                            # The fibers run in the y direction
-                            factory.rotate([(2, face_tag)], 0, 0, 0, 1, 0, 0, np.pi / 2)
-                            # Rotating the fiber faces to the xz plane as it was ploted
-                            # in the xy plane
-                            extrusion_tags = factory.extrude(
-                                [(2, face_tag)], 0, i_particle.length_dir_fibers, 0
-                            )
-                            # Extruding the fiber from the fiber face in the xz plane in the
-                            # y direction
-                        elif i_particle.direction_fibers == 2:
-                            # The fibers run in the z direction
-                            extrusion_tags = factory.extrude(
-                                [(2, face_tag)], 0, 0, i_particle.length_dir_fibers
-                            )
-                            # Extruding the fiber from the fiber face in the xy plane in the
-                            # z direction
-
-                        for i_dim_tag in extrusion_tags:
-                            if i_dim_tag[0] == 3:
-                                particle_tags.append(i_dim_tag[1])
-                                break
-
-                        phase_dim_tag[str(i_particle.phase)].append(
-                            (3, particle_tags[-1])
-                        )
-
-                        factory.synchronize()
-                        k_particle_image += 1
-                    if "Sphere" == class_name_i_particle:
-                        # Particle is a Sphere
-                        xc = i_particle.position_center[0] + rve_dims[0] * j
-                        yc = i_particle.position_center[1] + rve_dims[1] * p
-                        zc = i_particle.position_center[2] + rve_dims[2] * l
-                        r = i_particle.radius
-                        # Saving the properties of the particles
-                        sphereTag = factory.addSphere(xc, yc, zc, r)
-
-                        factory.synchronize()
-                        particle_tags.append(
-                            gmsh.model.getBoundary((3, sphereTag))[0][1]
-                        )
-                        gmsh.model.removeEntities((3, sphereTag))
-                        phase_dim_tag[str(i_particle.phase)].append(
-                            (2, particle_tags[k_particle_image])
-                        )
-
-                        factory.synchronize()
-                        k_particle_image += 1
-                    elif "Ellipsoid" == class_name_i_particle:
-                        # Particle is an Ellipsoid
-                        xc = i_particle.position_center[0] + rve_dims[0] * j
-                        yc = i_particle.position_center[1] + rve_dims[1] * p
-                        zc = i_particle.position_center[2] + rve_dims[2] * l
-                        r = 1
-                        # Saving the properties of the particles
-                        particle_tags.append(factory.addSphere(xc, yc, zc, r))
-                        # Creating a sphere without rotation
-                        # Rotate the disk
-                        factory.synchronize()
-                        affine_tags = [(3, particle_tags[k_particle_image])]
-                        # affine_tags.extend(
-                        #     model.getBoundary([(3, particle_tags[k_particle_image])]))
-                        factory.dilate(
-                            affine_tags,
-                            xc,
-                            yc,
-                            zc,
-                            i_particle.semi_axis_1,
-                            i_particle.semi_axis_2,
-                            i_particle.semi_axis_3,
-                        )
-                        factory.rotate(
-                            affine_tags,
-                            xc,
-                            yc,
-                            zc,
-                            i_particle.rotation_axis[0],
-                            i_particle.rotation_axis[1],
-                            i_particle.rotation_axis[2],
-                            i_particle.angle,
-                        )
-
-                        phase_dim_tag[str(i_particle.phase)].append(
-                            (3, particle_tags[k_particle_image])
-                        )
-
-                        factory.synchronize()
-                        k_particle_image += 1
-
-    verticesTags = np.array(
-        [
-            factory.addPoint(vertex[0], vertex[1], vertex[2])
-            for vertex in voronoi.vertices
-        ]
-    )
-    planeSurfaceTags = []
-    edgeTags = {}
-    for ridge in voronoi.ridge_vertices:
-        edgeFaceTags = []
-        if -1 in ridge:
-            continue
-        ridge_out_phase = ridge[-1:] + ridge[0:-1]
-        for vertex_1, vertex_2 in zip(ridge, ridge_out_phase):
-            if (vertex_1, vertex_2) not in edgeTags or (
-                vertex_2,
-                vertex_1,
-            ) not in edgeTags:
-                edgeTags[(vertex_1, vertex_2)] = factory.addLine(
-                    verticesTags[vertex_1], verticesTags[vertex_2]
-                )
-            edgeFaceTags.append(
-                edgeTags.get((vertex_1, vertex_2), edgeTags.get((vertex_2, vertex_1)))
-            )
-        curveLoopTag = factory.addCurveLoop(edgeFaceTags)
-
-        planeSurfaceTags.append(factory.addPlaneSurface([curveLoopTag]))
-
-    factory.synchronize
-    # box_surface = gmsh.model.getBoundary([(3, boxTag)])
-    out_dim_tag_3, _ = factory.intersect(
-        [(2, planeSurface) for planeSurface in planeSurfaceTags],
-        [(3, boxTag)],
-        removeObject=True,
-        removeTool=False,
-    )
-
-    # out_dim_tag4, _ = factory.intersect(
-    #     [(3, boxTag)], [(1, edgeTag) for edgeTag in list(edgeTags.values())],
-    #     removeObject=False, removeTool=True)
-
-    # print(out_dim_tag_3)
-    factory.synchronize()
-    voronoi_lines = gmsh.model.getBoundary(out_dim_tag_3, combined=False)
-    gmsh.model.removeEntities(out_dim_tag_3)
-
-    # all_voronoi_lines = list(set([voronoi_line[1] for voronoi_line in voronoi_lines] + [edgeTag[1] for edgeTag in out_dim_tag4]))
-    voronoiWires = model.addPhysicalGroup(
-        1, [lineTag[1] for lineTag in voronoi_lines]
-    )  # [(1, all_voronoi_line) for all_voronoi_line in all_voronoi_lines])
-    model.setPhysicalName(1, voronoiWires, "Voronoi")
-    # voronoiWires = model.addPhysicalGroup(1, [tag[1] for tag in out_dim_tag_3]) #[(1, all_voronoi_line) for all_voronoi_line in all_voronoi_lines])
-    # model.setPhysicalName(1, voronoiWires, "Voronoi")
-
-    out_dim_tag, out_dim_tag_map = factory.intersect(
-        [(3, boxTag)],
-        [(2, particleTag) for particleTag in particle_tags],
-        removeObject=False,
-        removeTool=True,
-    )
-
-    temp = set(out_dim_tag)
-    for i_phase in Particle.list_phases:
-        phase_dim_tag[i_phase] = [
-            value for value in phase_dim_tag[i_phase] if value in temp
-        ]
-
-    # factory.synchronize()
-    #
-    # out_dim_tag_2, out_dim_tag_map2 = factory.fragment(
-    #     [(3, boxTag)], out_dim_tag, removeObject=True, removeTool=True)
-
-    # phase_dim_tag[Particle.matrix_phase] = out_dim_tag_2[len(out_dim_tag):]
-    # gmsh.model.removeEntities(out_dim_tag_2[len(out_dim_tag):], True)
-    materials = []
-    for i_phase in Particle.list_phases:
-        temp = set(phase_dim_tag[i_phase])
-        materials.append([value[1] for value in out_dim_tag if value in temp])
-
-    # Set the mesh size on the geometry points
-    # Synchronize the CAD engine (always needed before generating the mesh)
-    # It may also be useful for some intermidate operations, like checking the tags of
-    # entities
-    factory.synchronize()
-
-    for i_phase in range(len(Particle.list_phases)):
-        material_tag = model.addPhysicalGroup(2, materials[i_phase])
-        model.setPhysicalName(2, material_tag, "Phase " + Particle.list_phases[i_phase])
-
-    points = model.getEntities(0)
-
-    # model.mesh.setSize(points, mesh_size)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.03)
-
-    # Generate a 3D mesh
-    model.mesh.generate(2)
-
-    # Write the mesh to the .msh file
-    meshfile_temp = title + "_temp.vtk"
-    meshfile = title + ".vtk"
-    gmsh.write(meshfile_temp)
-
-    # Close GMSH
-    gmsh.finalize()
-    # ==========================================================================================
-    # Convert it to LINKS format and write the respective input file
-    # ==========================================================================================
-
-    fin = open(meshfile_temp, "rt")
-    fout = open(meshfile, "wt")
-
-    for line in fin:
-        fout.write(line.replace(",", "."))
-
-    fin.close()
-    fout.close()
-    os.remove(meshfile_temp)
-
-
+@in_own_process("drawing the Voronoi cells with gmsh")
 def plot_voronoi_3d(particles, voronoi, rve_dims, sample_dir, save=True, show=False):
     """Plot the Voronoi for circular particles."""
+    particles, rve_dims, scale = at_unit_scale(particles, rve_dims)
+    vertices = np.asarray(voronoi.vertices) * scale
     dim = len(rve_dims)
-    mesh_generator = FEMMeshGenerator(particles[0].radius / 5, "tetra4", rve_dims)
+    with gmsh_view(sample_dir, MESH_SIZE_VORONOI, scale=scale) as (
+        gmsh,
+        model,
+        factory,
+    ):
 
-    mesh_generator.init_gmsh_model()
-
-    model = gmsh.model
-    factory = model.occ
-    # occ - OpenCASCADE CAD (more advanced)
-
-    model.add(sample_dir)
-
-    mesh_generator.box_tag = factory.addBox(
-        0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2]
-    )
-
-    mesh_generator.phase_dim_tag = {
-        phase_name: [] for phase_name in {i_particle.phase for i_particle in particles}
-    }
-
-    for i_particle in particles:
-        mesh_generator.add_particle_pbc_to_model(
-            i_particle, rve_dims, add_pbc_images=False
-        )  # [0, 0, 0])
-
-    # Set the mesh size on the geometry points
-    # Synchronize the CAD engine (always needed before generating the mesh)
-    # It may also be useful for some intermidate operations, like checking the tags of
-    # entities
-    factory.synchronize()
-
-    verticesTags = np.array(
-        [
-            factory.addPoint(vertex[0], vertex[1], vertex[2])
-            for vertex in voronoi.vertices
-        ]
-    )
-    edgeTags = {}
-    edge_point = {}
-    points = set()
-    for ridge_ind, (ridge_pt_1, ridge_pt_2) in enumerate(voronoi.ridge_points):
-
-        ridge = voronoi.ridge_vertices[ridge_ind]
-        if -1 in ridge or (
-            ridge_pt_1 not in range(13, 3**3 * len(particles), 27)
-            and ridge_pt_2 not in range(13, 3**3 * len(particles), 27)
-        ):
-            continue
-        points.add(ridge_pt_1)
-        points.add(ridge_pt_2)
-        ridge_out_phase = ridge[-1:] + ridge[0:-1]
-        for vertex_1, vertex_2 in zip(ridge, ridge_out_phase):
-            if (vertex_1, vertex_2) not in edgeTags and (
-                vertex_2,
-                vertex_1,
-            ) not in edgeTags:
-                edgeTags[(vertex_1, vertex_2)] = factory.addLine(
-                    verticesTags[vertex_1], verticesTags[vertex_2]
-                )
-                edge_point[(vertex_1, vertex_2)] = {ridge_pt_1, ridge_pt_2}
-            elif (vertex_1, vertex_2) in edgeTags:
-                if edge_point[(vertex_1, vertex_2)] == {
-                    ridge_pt_1,
-                    ridge_pt_2,
-                }:
-                    del edgeTags[(vertex_1, vertex_2)]
-            elif (vertex_2, vertex_1) in edgeTags:
-                if edge_point[(vertex_2, vertex_1)] == {
-                    ridge_pt_1,
-                    ridge_pt_2,
-                }:
-                    del edgeTags[(vertex_2, vertex_1)]
-
-    factory.synchronize()
-    # all_voronoi_lines = list(set([voronoi_line[1] for voronoi_line in voronoi_lines] + [edgeTag[1] for edgeTag in out_dim_tag4]))
-    voronoiWires = model.addPhysicalGroup(
-        1, list(edgeTags.values())
-    )  # [(1, all_voronoi_line) for all_voronoi_line in all_voronoi_lines])
-    model.setPhysicalName(2, voronoiWires, "Voronoi")
-    # voronoiWires = model.addPhysicalGroup(1, [tag[1] for tag in out_dim_tag_3]) #[(1, all_voronoi_line) for all_voronoi_line in all_voronoi_lines])
-    # model.setPhysicalName(1, voronoiWires, "Voronoi")
-
-    for i_phase, i_dim_tags in mesh_generator.phase_dim_tag.items():
-        bound_dim_tags = model.getBoundary([(3, tag) for _, tag in i_dim_tags])
-        material_tag = model.addPhysicalGroup(
-            2, [tag for dim, tag in bound_dim_tags if dim == 2]
+        box_tag = factory.addBox(
+            0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2]
         )
-        model.setPhysicalName(2, material_tag, "Phase {0}".format(i_phase))
 
-    # model.mesh.setSize(points, mesh_size)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.03)
-
-    # Generate a 3D mesh
-    model.mesh.generate(2)
-
-    _ = mesh_generator.write_mesh_gmsh(sample_dir, "voronoi")
-
-
-def plotVoronoi3DwithIMTspbc(
-    particles, voronoi, rve_dims, dir, voronoi_type, save=True, show=True
-):
-    """Plot the Voronoi for circular particles."""
-    # ======================================================================================
-    # Set up GMSH in Python
-    # ======================================================================================
-    # Select the geometry engine
-    # occ - OpenCASCADE CAD (more advanced)
-    # geo - built-in CAD kernel (less sophisticated)
-    model = gmsh.model
-    factory = model.occ
-
-    # Initialise GMSH
-    gmsh.initialize()
-
-    # Output to terminal
-    gmsh.option.setNumber("General.Terminal", 1)
-
-    # 2D Meshing algorithm
-    # --------------------
-    # 1 - Mesh Adapt
-    # 2 - Automatic
-    # 5 - Delaunay (default)
-    # 6 - Frontal-Delaunay
-    # 7 - BAMG
-    # 8 - Frontal-Delaunay for Quads
-    # 9 - Packing of Parallelograms
-    gmsh.option.setNumber("Mesh.Algorithm", 5)
-
-    # 3D Meshing algorithm
-    # --------------------
-    # 1 - Delaunay (default)
-    # 2 - Frontal
-    # 7 - MMG3D
-    # 9 - R-tree
-    # 10 - HXT
-    gmsh.option.setNumber("Mesh.Algorithm3D", 1)
-
-    # Characteristic mesh length factor (applied acroos all mesh)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthFactor", 1)
-
-    # Multi-threading
-    gmsh.option.setNumber("Mesh.MaxNumThreads1D", 0)
-    gmsh.option.setNumber("Mesh.MaxNumThreads2D", 0)
-    gmsh.option.setNumber("Mesh.MaxNumThreads3D", 0)
-
-    # MSH file version
-    gmsh.option.setNumber("Mesh.MshFileVersion", 4.1)
-
-    # Quad/Hex recombination algorithms
-    # ---------------------------------
-    # 0 - simple
-    # 1 - blossom (default)
-    # 2 - simple full-quad
-    # 3 - blosson full-quad
-    gmsh.option.setNumber("Mesh.RecombinationAlgorithm", 0)
-
-    # Force recombination in all surfaces
-    gmsh.option.setNumber("Mesh.RecombineAll", 0)
-
-    # Number of topological optimization passes of recombined surface meshes (5 by default)
-    gmsh.option.setNumber("Mesh.RecombineOptimizeTopology", 5)
-
-    # Force recombination in all volumes
-    gmsh.option.setNumber("Mesh.Recombine3DAll", 0)
-
-    # Recombination level in 3D
-    # -------------------------
-    # 0 - hex (default)
-    # 1 - hex + prisms
-    # 2 - hex + prisms + pyramids
-    gmsh.option.setNumber("Mesh.Recombine3DLevel", 0)
-
-    # Recombination conformity type in 3D meshes
-    # ------------------------------------------
-    # 0 - nonconforming (default)
-    # 1 - trihedra
-    # 2 - pyramids + trihedra
-    # 2 - pyramids + hexSplit + trihedra
-    # 4 - hexSplit + trihedra
-    gmsh.option.setNumber("Mesh.Recombine3DConformity", 1)
-
-    # Renumber nodes and elements after mesh generation
-    gmsh.option.setNumber("Mesh.Renumber", 1)
-
-    # Save all elements even if they do not belong to physical groups
-    gmsh.option.setNumber("Mesh.SaveAll", 0)
-
-    # Number of smoothing step applied to the final mesh
-    gmsh.option.setNumber("Mesh.Smoothing", 1)
-
-    # Element order
-    gmsh.option.setNumber("Mesh.ElementOrder", 1)
-
-    # Crete second-order nodes by linear interpolation
-    gmsh.option.setNumber("Mesh.SecondOrderLinear", 0)
-
-    # Second-order incomplete elements
-    gmsh.option.setNumber("Mesh.SecondOrderIncomplete", 0)
-
-    # ==========================================================================================
-    # Generate the finite element mesh
-    # ==========================================================================================
-    # Define model name
-
-    title = Particle.file_path
-    model.add(title)
-
-    boxTag = factory.addBox(0, 0, 0, rve_dims[0], rve_dims[1], rve_dims[2])
-    # RVE
-
-    verticesTags = np.array(
-        [
-            factory.addPoint(vertex[0], vertex[1], vertex[2])
-            for vertex in voronoi.vertices
-        ]
-    )
-    planeSurfaceTags = []
-    planeSurfaceDictTags = {}
-    edgeTags = {}
-    for ridge in voronoi.ridge_vertices:
-        edgeFaceTags = []
-        if -1 in ridge:
-            continue
-
-        vertices = voronoi.vertices[ridge]
-        center_gravity = 1 / len(ridge) * np.sum(vertices, axis=0)
-        # Computing the center of the polygon
-        ref_vec_x = vertices[0] - center_gravity
-        ref_vec_y = (vertices[1] - center_gravity) - np.dot(
-            vertices[1] - center_gravity, ref_vec_x
-        ) / np.dot(ref_vec_x, ref_vec_x) * ref_vec_x
-        angles = []
-        for i_vertex in vertices:
-            i_ref_vec = i_vertex - center_gravity
-            angles.append(
-                np.arctan2(i_ref_vec.dot(ref_vec_y), i_ref_vec.dot(ref_vec_x))
-            )
-
-        sorted_ridge = vertices[np.argsort(angles)]
-
-        ridge_out_phase = sorted_ridge[-1:] + sorted_ridge[0:-1]
-        for vertex_1, vertex_2 in zip(sorted_ridge, ridge_out_phase):
-            if (vertex_1, vertex_2) not in edgeTags or (
-                vertex_2,
-                vertex_1,
-            ) not in edgeTags:
-                edgeTags[(vertex_1, vertex_2)] = factory.addLine(
-                    verticesTags[vertex_1], verticesTags[vertex_2]
-                )
-            edgeFaceTags.append(
-                edgeTags.get((vertex_1, vertex_2), edgeTags.get((vertex_2, vertex_1)))
-            )
-
-        curveLoopTag = factory.addCurveLoop(edgeFaceTags)
-
-        planeSurfaceTags.append(factory.addPlaneSurface([curveLoopTag]))
-        planeSurfaceDictTags[tuple(ridge)] = planeSurfaceTags[-1]
-
-    factory.synchronize()
-    # box_surface = gmsh.model.getBoundary([(3, boxTag)])
-    out_dim_tag_3, _ = factory.fragment(
-        [(2, planeSurface) for planeSurface in planeSurfaceTags],
-        [(3, boxTag)],
-        removeObject=True,
-        removeTool=True,
-    )
-
-    factory.synchronize()
-    number_cells = 0
-    for index, i_voronoi_cell in enumerate(out_dim_tag_3):
-        if i_voronoi_cell[0] == 3:
-            number_cells += 1
-            material_tag = model.addPhysicalGroup(3, [i_voronoi_cell[1]])
-            model.setPhysicalName(3, material_tag, "Cell " + str(number_cells))
-
-    # model.mesh.setSize(points, mesh_size)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.03)
-
-    # Generate a 3D mesh
-    model.mesh.generate(3)
-
-    # Write the mesh to the .msh file
-    meshfile_temp = title + "_temp.msh"
-    meshfile = title + ".msh"
-    vtk_file_temp = title + "_temp.msh"
-    vtk_file = title + ".vtk"
-    gmsh.write(meshfile_temp)
-    gmsh.write(vtk_file_temp)
-
-    # Close GMSH
-    gmsh.finalize()
-    # ==========================================================================================
-    # Convert it to LINKS format and write the respective input file
-    # ==========================================================================================
-
-    fin = open(meshfile_temp, "rt")
-    fout = open(meshfile, "wt")
-
-    for line in fin:
-        fout.write(line.replace(",", "."))
-
-    fin.close()
-    fout.close()
-
-    os.remove(meshfile_temp)
-
-    fin = open(vtk_file_temp, "rt")
-    fout = open(vtk_file, "wt")
-
-    for line in fin:
-        fout.write(line.replace(",", "."))
-
-    fin.close()
-    fout.close()
-
-    os.remove(vtk_file_temp)
-
-    dataName = "test"
-    dataType = "float"
-    numComp = "1"
-
-    fin = open(vtk_file, "rt")
-
-    element_cell = []
-    save = 0
-    for line in fin:
-        if line.startswith("CELL_DATA"):
-            save = True
-            continue
-        if save:
-            element_cell.append(line.rstrip("\n"))
-
-    fin.close()
-
-    colors = np.arange(number_cells)
-    np.random.shuffle(colors)
-
-    with open(vtk_file, "a") as msh_vtk:
-        msh_vtk.write("\n\nSCALARS {0} {1} {2}".format(dataName, dataType, numComp))
-        msh_vtk.write("\nLOOKUP_TABLE default")
-        for cell_id in element_cell[2:]:
-            msh_vtk.write("\n{0}".format(colors[int(cell_id) - 1]))
-
-
-def plot_voronoi_3d_with_imts(
-    particles, voronoi, rve_dims, imts, dir, save=True, show=False
-):
-    """Plot the Voronoi for circular particles."""
-    # ======================================================================================
-    # Set up GMSH in Python
-    # ======================================================================================
-    # Select the geometry engine
-    # occ - OpenCASCADE CAD (more advanced)
-    # geo - built-in CAD kernel (less sophisticated)
-    model = gmsh.model
-    factory = model.occ
-
-    # Initialise GMSH
-    gmsh.initialize()
-
-    # Output to terminal
-    gmsh.option.setNumber("General.Terminal", 1)
-
-    # 2D Meshing algorithm
-    # --------------------
-    # 1 - Mesh Adapt
-    # 2 - Automatic
-    # 5 - Delaunay (default)
-    # 6 - Frontal-Delaunay
-    # 7 - BAMG
-    # 8 - Frontal-Delaunay for Quads
-    # 9 - Packing of Parallelograms
-    gmsh.option.setNumber("Mesh.Algorithm", 5)
-
-    # 3D Meshing algorithm
-    # --------------------
-    # 1 - Delaunay (default)
-    # 2 - Frontal
-    # 7 - MMG3D
-    # 9 - R-tree
-    # 10 - HXT
-    gmsh.option.setNumber("Mesh.Algorithm3D", 2)
-
-    # Characteristic mesh length factor (applied acroos all mesh)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthFactor", 1)
-
-    # Multi-threading
-    gmsh.option.setNumber("Mesh.MaxNumThreads1D", 0)
-    gmsh.option.setNumber("Mesh.MaxNumThreads2D", 0)
-    gmsh.option.setNumber("Mesh.MaxNumThreads3D", 0)
-
-    # MSH file version
-    gmsh.option.setNumber("Mesh.MshFileVersion", 4.1)
-
-    # Quad/Hex recombination algorithms
-    # ---------------------------------
-    # 0 - simple
-    # 1 - blossom (default)
-    # 2 - simple full-quad
-    # 3 - blosson full-quad
-    gmsh.option.setNumber("Mesh.RecombinationAlgorithm", 1)
-
-    # Force recombination in all surfaces
-    gmsh.option.setNumber("Mesh.RecombineAll", 0)
-
-    # Number of topological optimization passes of recombined surface meshes (5 by default)
-    gmsh.option.setNumber("Mesh.RecombineOptimizeTopology", 5)
-
-    # Force recombination in all volumes
-    gmsh.option.setNumber("Mesh.Recombine3DAll", 0)
-
-    # Recombination level in 3D
-    # -------------------------
-    # 0 - hex (default)
-    # 1 - hex + prisms
-    # 2 - hex + prisms + pyramids
-    gmsh.option.setNumber("Mesh.Recombine3DLevel", 0)
-
-    # Recombination conformity type in 3D meshes
-    # ------------------------------------------
-    # 0 - nonconforming (default)
-    # 1 - trihedra
-    # 2 - pyramids + trihedra
-    # 2 - pyramids + hexSplit + trihedra
-    # 4 - hexSplit + trihedra
-    gmsh.option.setNumber("Mesh.Recombine3DConformity", 0)
-
-    # Renumber nodes and elements after mesh generation
-    gmsh.option.setNumber("Mesh.Renumber", 1)
-
-    # Save all elements even if they do not belong to physical groups
-    gmsh.option.setNumber("Mesh.SaveAll", 0)
-
-    # Number of smoothing step applied to the final mesh
-    gmsh.option.setNumber("Mesh.Smoothing", 1)
-
-    # Element order
-    gmsh.option.setNumber("Mesh.ElementOrder", 1)
-
-    # Crete second-order nodes by linear interpolation
-    gmsh.option.setNumber("Mesh.SecondOrderLinear", 0)
-
-    # Second-order incomplete elements
-    gmsh.option.setNumber("Mesh.SecondOrderIncomplete", 0)
-
-    # ==========================================================================================
-    # Generate the finite element mesh
-    # ==========================================================================================
-    # Define model name
-
-    title = os.path.join(dir, "voronoi_wIMTs")
-    model.add(title)
-
-    boxTag = factory.addBox(
-        -rve_dims[0],
-        -rve_dims[1],
-        -rve_dims[2],
-        3 * rve_dims[0],
-        3 * rve_dims[1],
-        3 * rve_dims[2],
-    )
-    # RVE
-
-    verticesTags = np.array(
-        [
-            factory.addPoint(vertex[0], vertex[1], vertex[2])
-            for vertex in voronoi.vertices
-        ]
-    )
-    planeSurfaceTags = []
-    planeSurfaceDictTags = {}
-    edgeTags = {}
-    for i_particle in range(13, len(voronoi.point_region), 27):
-        particle_region = voronoi.regions[voronoi.point_region[i_particle]]
-        for ridge in voronoi.ridge_vertices:
-            edgeFaceTags = []
-            if -1 in ridge or any([vertex not in particle_region for vertex in ridge]):
+        particle_tags, phase_dim_tag = add_particles_to_view(
+            factory, model, particles, rve_dims, add_images=False
+        )
+
+        # Set the mesh size on the geometry points
+        # Synchronize the CAD engine (always needed before generating the mesh)
+        # It may also be useful for some intermidate operations, like checking the tags of
+        # entities
+        factory.synchronize()
+
+        verticesTags = np.array(
+            [factory.addPoint(vertex[0], vertex[1], vertex[2]) for vertex in vertices]
+        )
+        edgeTags = {}
+        edge_point = {}
+        points = set()
+        for ridge_ind, (ridge_pt_1, ridge_pt_2) in enumerate(voronoi.ridge_points):
+
+            ridge = voronoi.ridge_vertices[ridge_ind]
+            if -1 in ridge or (
+                ridge_pt_1 not in range(13, 3**3 * len(particles), 27)
+                and ridge_pt_2 not in range(13, 3**3 * len(particles), 27)
+            ):
                 continue
-
-            vertices = voronoi.vertices[ridge]
-            center_gravity = 1 / len(ridge) * np.sum(vertices, axis=0)
-            # Computing the center of the polygon
-            ref_vec_x = vertices[0] - center_gravity
-            ref_vec_y = (vertices[1] - center_gravity) - np.dot(
-                vertices[1] - center_gravity, ref_vec_x
-            ) / np.dot(ref_vec_x, ref_vec_x) * ref_vec_x
-            angles = []
-            for i_vertex in vertices:
-                i_ref_vec = i_vertex - center_gravity
-                angles.append(
-                    np.arctan2(i_ref_vec.dot(ref_vec_y), i_ref_vec.dot(ref_vec_x))
-                )
-
-            sorted_ridge = [ridge[i_vert] for i_vert in np.argsort(angles)]
-
-            ridge_out_phase = sorted_ridge[-1:] + sorted_ridge[0:-1]
-            for vertex_1, vertex_2 in zip(sorted_ridge, ridge_out_phase):
-                if (vertex_1, vertex_2) not in edgeTags or (
+            points.add(ridge_pt_1)
+            points.add(ridge_pt_2)
+            ridge_out_phase = ridge[-1:] + ridge[0:-1]
+            for vertex_1, vertex_2 in zip(ridge, ridge_out_phase):
+                if (vertex_1, vertex_2) not in edgeTags and (
                     vertex_2,
                     vertex_1,
                 ) not in edgeTags:
                     edgeTags[(vertex_1, vertex_2)] = factory.addLine(
                         verticesTags[vertex_1], verticesTags[vertex_2]
                     )
-                edgeFaceTags.append(
-                    edgeTags.get(
-                        (vertex_1, vertex_2), edgeTags.get((vertex_2, vertex_1))
+                    edge_point[(vertex_1, vertex_2)] = {ridge_pt_1, ridge_pt_2}
+                elif (vertex_1, vertex_2) in edgeTags:
+                    if edge_point[(vertex_1, vertex_2)] == {
+                        ridge_pt_1,
+                        ridge_pt_2,
+                    }:
+                        del edgeTags[(vertex_1, vertex_2)]
+                elif (vertex_2, vertex_1) in edgeTags:
+                    if edge_point[(vertex_2, vertex_1)] == {
+                        ridge_pt_1,
+                        ridge_pt_2,
+                    }:
+                        del edgeTags[(vertex_2, vertex_1)]
+
+        factory.synchronize()
+        # all_voronoi_lines = list(set([voronoi_line[1] for voronoi_line in voronoi_lines] + [edgeTag[1] for edgeTag in out_dim_tag4]))
+        voronoiWires = model.addPhysicalGroup(
+            1, list(edgeTags.values())
+        )  # [(1, all_voronoi_line) for all_voronoi_line in all_voronoi_lines])
+        model.setPhysicalName(1, voronoiWires, "Voronoi")
+        # Named in the dimension of the group, the lines; named in two, it was not
+        # voronoiWires = model.addPhysicalGroup(1, [tag[1] for tag in out_dim_tag_3]) #[(1, all_voronoi_line) for all_voronoi_line in all_voronoi_lines])
+        # model.setPhysicalName(1, voronoiWires, "Voronoi")
+
+        tag_phase_boundaries(model, phase_dim_tag, 3, 2)
+
+        # Generate a 3D mesh
+        model.mesh.generate(2)
+
+        write_gmsh_view(gmsh, sample_dir, "voronoi")
+
+
+@in_own_process("drawing the Voronoi cells with gmsh")
+def plot_voronoi_3d_with_imts(
+    particles, voronoi, rve_dims, imts, dir, save=True, show=False
+):
+    """Plot the Voronoi for circular particles."""
+    title = os.path.join(dir, "voronoi_wIMTs")
+    scale = unit_scale(rve_dims)
+    rve_dims = [i_dim * scale for i_dim in rve_dims]
+    vertices = np.asarray(voronoi.vertices) * scale
+    # Built at unit scale, as every view is. The element size, and the margin the
+    # volumes of a cell are found within below, are lengths: at a millionth of the unit
+    # the margin took in every cell, and every cell was painted with the first's values
+    with gmsh_view(title, MESH_SIZE_VORONOI_IMTS, scale=scale) as (
+        gmsh,
+        model,
+        factory,
+    ):
+
+        boxTag = factory.addBox(
+            -rve_dims[0],
+            -rve_dims[1],
+            -rve_dims[2],
+            3 * rve_dims[0],
+            3 * rve_dims[1],
+            3 * rve_dims[2],
+        )
+        # RVE
+
+        verticesTags = np.array(
+            [factory.addPoint(vertex[0], vertex[1], vertex[2]) for vertex in vertices]
+        )
+        planeSurfaceTags = []
+        planeSurfaceDictTags = {}
+        edgeTags = {}
+        for i_particle in range(13, len(voronoi.point_region), 27):
+            particle_region = voronoi.regions[voronoi.point_region[i_particle]]
+            for ridge in voronoi.ridge_vertices:
+                edgeFaceTags = []
+                if -1 in ridge or any([vertex not in particle_region for vertex in ridge]):
+                    continue
+
+                ridge_vertices = vertices[ridge]
+                center_gravity = 1 / len(ridge) * np.sum(ridge_vertices, axis=0)
+                # Computing the center of the polygon
+                ref_vec_x = ridge_vertices[0] - center_gravity
+                ref_vec_y = (ridge_vertices[1] - center_gravity) - np.dot(
+                    ridge_vertices[1] - center_gravity, ref_vec_x
+                ) / np.dot(ref_vec_x, ref_vec_x) * ref_vec_x
+                angles = []
+                for i_vertex in ridge_vertices:
+                    i_ref_vec = i_vertex - center_gravity
+                    angles.append(
+                        np.arctan2(i_ref_vec.dot(ref_vec_y), i_ref_vec.dot(ref_vec_x))
                     )
-                )
-            curveLoopTag = factory.addCurveLoop(edgeFaceTags)
 
-            planeSurfaceTags.append(factory.addPlaneSurface([curveLoopTag]))
-            planeSurfaceDictTags[tuple(ridge)] = planeSurfaceTags[-1]
+                sorted_ridge = [ridge[i_vert] for i_vert in np.argsort(angles)]
 
-    factory.synchronize()
-    # box_surface = gmsh.model.getBoundary([(3, boxTag)])
-    _, _ = factory.fragment(
-        [(2, planeSurface) for planeSurface in planeSurfaceTags],
-        [(3, boxTag)],
-        removeObject=False,
-        removeTool=True,
-    )
+                ridge_out_phase = sorted_ridge[-1:] + sorted_ridge[0:-1]
+                for vertex_1, vertex_2 in zip(sorted_ridge, ridge_out_phase):
+                    if (vertex_1, vertex_2) not in edgeTags or (
+                        vertex_2,
+                        vertex_1,
+                    ) not in edgeTags:
+                        edgeTags[(vertex_1, vertex_2)] = factory.addLine(
+                            verticesTags[vertex_1], verticesTags[vertex_2]
+                        )
+                    edgeFaceTags.append(
+                        edgeTags.get(
+                            (vertex_1, vertex_2), edgeTags.get((vertex_2, vertex_1))
+                        )
+                    )
+                curveLoopTag = factory.addCurveLoop(edgeFaceTags)
 
-    gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
-    eps = 1e-2
-    number_cells = 0
-    cellCheckTags = []
-    for i_particle in range(13, len(voronoi.point_region), 27):
-        region = voronoi.regions[voronoi.point_region[i_particle]]
-        voronoiSurfaceTags = []
-        if -1 in region:
-            continue
-        for ridge in voronoi.ridge_vertices:
-            if all([vertex in region for vertex in ridge]):
-                voronoiSurfaceTags.append(planeSurfaceDictTags[tuple(ridge)])
-        surfaceLoop = factory.addSurfaceLoop(voronoiSurfaceTags)
-        volumeCell = factory.addVolume([surfaceLoop])
+                planeSurfaceTags.append(factory.addPlaneSurface([curveLoopTag]))
+                planeSurfaceDictTags[tuple(ridge)] = planeSurfaceTags[-1]
+
         factory.synchronize()
-        xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(3, volumeCell)
-        cellCheckTags.append(volumeCell)
-        i_voronoi_cell = gmsh.model.getEntitiesInBoundingBox(
-            xmin - eps,
-            ymin - eps,
-            zmin - eps,
-            xmax + eps,
-            ymax + eps,
-            zmax + eps,
-            dim=3,
+        # box_surface = gmsh.model.getBoundary([(3, boxTag)])
+        _, _ = factory.fragment(
+            [(2, planeSurface) for planeSurface in planeSurfaceTags],
+            [(3, boxTag)],
+            removeObject=False,
+            removeTool=True,
         )
-        factory.synchronize()
-        material_tag = model.addPhysicalGroup(
-            3, [cell[1] for cell in i_voronoi_cell if cell[0] == 3]
-        )
-        model.setPhysicalName(3, material_tag, "Cell " + str(number_cells))
-        number_cells += 1
-    gmsh.model.removeEntities([(3, tag) for tag in cellCheckTags])
 
-    # factory.synchronize()
-    # # box_surface = gmsh.model.getBoundary([(3, boxTag)])
-    # out_dim_tag_3, _ = factory.fragment(
-    #     [(2, planeSurface) for planeSurface in planeSurfaceTags], [(3, boxTag)],
-    #     removeObject=True, removeTool=True)
-    #
-    # factory.synchronize()
-    # number_cells = 0
-    # particle_centers = np.array([voronoi.points[point] for point in range(13, len(voronoi.point_region), 27)])
-    # for index, i_voronoi_cell in enumerate(out_dim_tag_3):
-    #     if i_voronoi_cell[0] == 3:
-    #         xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(3, i_voronoi_cell[1])
-    #         number_cells += 1
-    #         material_tag = model.addPhysicalGroup(3, [i_voronoi_cell[1]])
-    #         model.setPhysicalName(3, material_tag, "Cell " + str(number_cells))
-    #
-    #
-    # getElementByCoordinates
-    # model.mesh.setSize(points, mesh_size)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 1)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.1)
+        gmsh.option.setNumber("Geometry.OCCBoundsUseStl", 1)
+        eps = 1e-2
+        number_cells = 0
+        cellCheckTags = []
+        for i_particle in range(13, len(voronoi.point_region), 27):
+            region = voronoi.regions[voronoi.point_region[i_particle]]
+            voronoiSurfaceTags = []
+            if -1 in region:
+                continue
+            for ridge in voronoi.ridge_vertices:
+                if all([vertex in region for vertex in ridge]):
+                    voronoiSurfaceTags.append(planeSurfaceDictTags[tuple(ridge)])
+            surfaceLoop = factory.addSurfaceLoop(voronoiSurfaceTags)
+            volumeCell = factory.addVolume([surfaceLoop])
+            factory.synchronize()
+            xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(3, volumeCell)
+            cellCheckTags.append(volumeCell)
+            i_voronoi_cell = gmsh.model.getEntitiesInBoundingBox(
+                xmin - eps,
+                ymin - eps,
+                zmin - eps,
+                xmax + eps,
+                ymax + eps,
+                zmax + eps,
+                dim=3,
+            )
+            factory.synchronize()
+            material_tag = model.addPhysicalGroup(
+                3, [cell[1] for cell in i_voronoi_cell if cell[0] == 3]
+            )
+            model.setPhysicalName(3, material_tag, "Cell " + str(number_cells))
+            number_cells += 1
+        gmsh.model.removeEntities([(3, tag) for tag in cellCheckTags])
 
-    # Generate a 3D mesh
-    model.mesh.generate(3)
+        # factory.synchronize()
+        # # box_surface = gmsh.model.getBoundary([(3, boxTag)])
+        # out_dim_tag_3, _ = factory.fragment(
+        #     [(2, planeSurface) for planeSurface in planeSurfaceTags], [(3, boxTag)],
+        #     removeObject=True, removeTool=True)
+        #
+        # factory.synchronize()
+        # number_cells = 0
+        # particle_centers = np.array([voronoi.points[point] for point in range(13, len(voronoi.point_region), 27)])
+        # for index, i_voronoi_cell in enumerate(out_dim_tag_3):
+        #     if i_voronoi_cell[0] == 3:
+        #         xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(3, i_voronoi_cell[1])
+        #         number_cells += 1
+        #         material_tag = model.addPhysicalGroup(3, [i_voronoi_cell[1]])
+        #         model.setPhysicalName(3, material_tag, "Cell " + str(number_cells))
+        #
+        #
+        # getElementByCoordinates
+        gmsh.option.setNumber("Mesh.Algorithm3D", 2)
+        # Frontal, which is what this view has always been built with. The element the
+        # session is set up for settles the algorithm for a mesh that goes to a solver,
+        # and this is the one view that fills a volume rather than covering a surface
 
-    # Write the mesh to the .msh file
-    meshfile_temp = title + "_temp.msh"
-    meshfile = title + ".msh"
-    vtk_file_temp = title + "_temp.vtk"
-    vtk_file = title + ".vtk"
-    gmsh.write(meshfile_temp)
-    gmsh.write(vtk_file_temp)
+        # Generate a 3D mesh
+        model.mesh.generate(3)
 
-    # Close GMSH
-    gmsh.finalize()
-    # ==========================================================================================
-    # Convert it to LINKS format and write the respective input file
-    # ==========================================================================================
-
-    fin = open(meshfile_temp, "rt")
-    fout = open(meshfile, "wt")
-
-    for line in fin:
-        fout.write(line.replace(",", "."))
-
-    fin.close()
-    fout.close()
-
-    os.remove(meshfile_temp)
-
-    fin = open(vtk_file_temp, "rt")
-    fout = open(vtk_file, "wt")
-
-    for line in fin:
-        fout.write(line.replace(",", "."))
-
-    fin.close()
-    fout.close()
-
-    os.remove(vtk_file_temp)
+        _, vtk_file = write_gmsh_view(gmsh, dir, "voronoi_wIMTs")
+    # The session is closed by the block; what follows reads back the file it wrote, so
+    # it has to happen after and not inside
 
     dataType = "float"
     numComp = "1"
@@ -2251,13 +1591,15 @@ def plot_voronoi_3d_with_imts(
     fin = open(vtk_file, "rt")
 
     element_cell = []
-    save = 0
+    in_cell_data = False
     for line in fin:
         if line.startswith("CELL_DATA"):
-            save = True
+            in_cell_data = True
             continue
-        if save:
+        if in_cell_data:
             element_cell.append(line.rstrip("\n"))
+    # Reading the cells back used to be flagged with the name of the parameter that says
+    # whether to save the histograms, so asking not to save them saved them anyway
 
     fin.close()
 
@@ -2304,6 +1646,8 @@ def plot_voronoi_3d_with_imts(
             plt.savefig(
                 dir + "_" + str(i_order) + "_hist" + ".pdf", bbox_inches="tight"
             )
+            # TODO: the name is the results directory with a suffix, so the histograms
+            # are written beside that directory rather than in it
 
         if show:
             plt.show()
