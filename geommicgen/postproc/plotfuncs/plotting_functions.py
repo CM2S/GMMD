@@ -39,7 +39,7 @@ latex_textheigth = 9.63  # in = 674pt
 
 
 def _adjust_bounds(ax, points):
-    ptp_bound = points.ptp(axis=0)
+    ptp_bound = np.ptp(points, axis=0)
     ax.set_xlim(
         points[:, 0].min() - 0.1 * ptp_bound[0], points[:, 0].max() + 0.1 * ptp_bound[0]
     )
@@ -1100,7 +1100,7 @@ def set_voronoi_plot_2d(vor, ax=None, **kw):
     )
     lc.set_alpha(line_alpha)
     ax.add_collection(lc)
-    ptp_bound = vor.points.ptp(axis=0)
+    ptp_bound = np.ptp(vor.points, axis=0)
     #
     # line_segments = []
     # center = vor.points.mean(axis=0)
