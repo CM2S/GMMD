@@ -47,7 +47,16 @@ The microstructure contains 100 ellipses with a volume fraction of 0.5. The rati
 Generation Method
 =================
 
-This example uses a molecular dynamics simulation to generate the microstructure. The maximum number of iterations is 100 and the speed up scheme used is Verlet, with a Verlet factor of 1.1.
+This example uses a molecular dynamics simulation to generate the microstructure.
+
+In a nutshell, the molecular dynamics simulation starts by placing all the particles randomly in the simulation box. Then, in each step, it computes the repulsion forces between particles based on their overlap and solves the equations of motion to obtain the particles' velocities. The process continues until a legal configuration is reached, that is, a configuration where there is no overlap.
+
+
+In each step, the program checks for intersection for every particle pair. This process can be rather time consuming, expecially for a large number of particles, resulting in O(N²) complexity, where N is the number of particles. Thus, speed up schemes were introduced. In a simplified manner, the speed up scheme allows for the program to not check intersection of a pair of particles that can be shown to not intersect apriori, achieving O(N) complexity.
+In this example, Verlet speed up scheme is used, with a Verlet factor of 1.1.
+
+The maximum number of iterations is 100.
+
 
 
 Output files
