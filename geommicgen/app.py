@@ -324,3 +324,7 @@ def run_program():
                 )
                 if top_level_reader.all_options["save_min"]:
                     fileio.delete_screen(print_funcs.SCREEN_DIR)
+
+
+if __name__ == "__main__":
+    run_program()
