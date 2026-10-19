@@ -75,6 +75,7 @@ def create_design_point_results_directory(
     results_folder: str
         Directory created to stored the results with same name as the input file.
     """
+    
     results_folder = os.path.join(input_file_dir, input_file_name)
     # Creating a tentative path for the results folder
     results_folder_old = results_folder

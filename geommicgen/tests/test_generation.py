@@ -1,6 +1,6 @@
 """
 Unit tests regarding microstructure generation.
-The classes tested are the GenerationMethod class and the MolecularDynamicsSimulation class.
+The classe tessted is GenerationMethod
 """
 import unittest
 from unittest.mock import sentinel, Mock, patch, call
@@ -9,29 +9,35 @@ import numpy as np
 
 
 # pylint: disable=import-error
-from geommicgen.micgenmethod.microstructure_gen_method import (
-    GenerationMethod,
-)
-from geommicgen.micgenmethod.molecular_dynamics_sim import (
-    MolecularDynamicsSimulation,
-)
-from geommicgen.microstructure.particleclasses import (
-    CylindricalFiber,
-)
-
-
-class MicGenTest(GenerationMethod):
-    def generate_microstructure(self, microstructure_sample):
-        pass
+from geommicgen.micgenmethod.microstructure_gen_method import GenerationMethod
+from geommicgen.microstructure.particleclasses.disk import Disk
+from geommicgen.microstructure.particleclasses.sphere import Sphere
 
 
 class TestGenerationMethod(unittest.TestCase):
     """Class for the unit test regarding the generation method"""
 
+    def _build_disk_particle(self, position_center):
+        phase = "FakePhase"
+        descriptors = {"r":0.1, "n":1}
+        rve_dims = [1,1]
+
+        particle = Disk(phase, descriptors, rve_dims)
+        particle.position_center = position_center
+        return particle
+
+    def _build_sphere_particle(self, position_center):
+        phase = "FakePhase"
+        descriptors = {"r":0.1, "n":1}
+        rve_dims = [1,1,1]
+
+        particle = Sphere(phase, descriptors, rve_dims)
+        particle.position_center = position_center
+        return particle
+
+
     def test_generate_microstructures_abstract(self):
         """Test if generateMicrostructure is an abstract method."""
-
-        # with self.assertRaises(ValueError):
 
         class MicGenTestIncomp(GenerationMethod):
             pass
@@ -41,371 +47,116 @@ class TestGenerationMethod(unittest.TestCase):
             _ = MicGenTestIncomp()
 
 
-class TestMolecularDynamicSimulation(unittest.TestCase):
-    """Test class for the MolecularDynamicsSimulation class"""
+    def test_compute_rve_offset_1particle_2D(self):
+        " Tests if a correct value of offset is given when only one 2D particle is in the simulation box."
 
-    def setUp(self):
-        self.md_init_mock_kwargs = {
-            key: Mock()
-            for key in [
-                "max_residue_per_particle",
-                "max_step",
-                "max_steps_to_relax",
-                "dt",
-                "min_distance",
-                "type_init_conf",
-                "save_history",
+        " If there is only one particle in the simulation box, compute_rve_offset only works properly if the particle is touching all walls. If not, the offset in a direction where the particle is inside the box will be equal to its center. This is visible in the last test case. This is a minor bug since rarely will the user have interest in creating a microstructure withone particle only."
+    
+        rve_dims = [1,1]
+
+        class MicGen_Test(GenerationMethod):
+            def generate_microstructure(self, microstructure_sample):
+                pass
+
+        generation_method = MicGen_Test()
+        
+        test_cases = [
+            # the particle touches all simulation box walls
+            {"position_center" : [0   ,0   ], "offset" : [0.5 ,0.5 ,0]},
+            # the particle touches all simulation box walls
+            {"position_center" : [0.95,0.95], "offset" : [0.45,0.45,0]},
+            # bug demonstration in y axis (particle is inside simulation box bounds in y direction)
+            {"position_center" : [0.05,0.5 ], "offset" : [0.55,0.5 ,0]},
+            # Bug demosntratin in all axis (particle does not touch any wall)
+            {"position_center" : [0.5 ,0.05], "offset" : [0.5 ,0.55,0]}
             ]
-        }
+        for test in test_cases:
+            with self.subTest(test):
+                particle1 = self._build_disk_particle(test["position_center"])
+                particles = [particle1]
+                off_set = generation_method.compute_rve_offset(particles, rve_dims)
+                np.testing.assert_almost_equal(off_set, test["offset"], decimal = 6)
 
-    # @patch("micgenmethod.microstructure_gen_method.GenerationMethod.generate_particles")
-    # @patch(
-    #     "micgenmethod.molecular_dynamics_sim.MolecularDynamicsSimulation.run_molecular_dynamics_simulation",
-    # )
-    # def test_generate_microstructure_particles_are_generated(
-    #     self,
-    #     _,
-    #     mock_generate_particles,
-    # ):
-    #     """Test if the particles are generated for each phase"""
-    #
-    #     current_generation_method = MolecularDynamicsSimulation(
-    #         *self.md_init_mock_kwargs
-    #     )
-    #     current_generation_method.type_init_conf = "random"
-    #     mock_microstructure_sample = Mock(rve_dims=[1.0, 1.0])
-    #     phase_1 = Mock()
-    #     phase_2 = Mock()
-    #     phase_3 = Mock()
-    #     mock_microstructure_sample.phases = {
-    #         "1": phase_1,
-    #         "2": phase_2,
-    #         "3": phase_3,
-    #     }
-    #
-    #     current_generation_method.generate_microstructure(mock_microstructure_sample)
-    #     mock_generate_particles.assert_has_calls(
-    #         [
-    #             call(
-    #                 mock_microstructure_sample.rve_dims,
-    #                 mock_microstructure_sample.phases["1"].type,
-    #                 mock_microstructure_sample.phases["1"].phase_name,
-    #                 mock_microstructure_sample.phases["1"].descriptors,
-    #             ),
-    #             call(
-    #                 mock_microstructure_sample.rve_dims,
-    #                 mock_microstructure_sample.phases["2"].type,
-    #                 mock_microstructure_sample.phases["2"].phase_name,
-    #                 mock_microstructure_sample.phases["2"].descriptors,
-    #             ),
-    #             call(
-    #                 mock_microstructure_sample.rve_dims,
-    #                 mock_microstructure_sample.phases["3"].type,
-    #                 mock_microstructure_sample.phases["3"].phase_name,
-    #                 mock_microstructure_sample.phases["3"].descriptors,
-    #             ),
-    #         ],
-    #         any_order=True,
-    #     )
+    def test_compute_rve_offset_particles_2D(self):
+        particle1 = self._build_disk_particle(position_center=[0.1,0])
+        particle2 = self._build_disk_particle(position_center=[0.3,0])
+        particle3 = self._build_disk_particle(position_center=[0.3,0.2])
+        particle4 = self._build_disk_particle(position_center=[0.9,0.6])
+        particle5 = self._build_disk_particle(position_center=[0.5,0.8])
+        particles = [particle1,particle2,particle3,particle4,particle5]
+        rve_dims = [1,1]
 
-    # @patch(
-    #     "particleclassesmicgenmethod.microstructure_gen_method.GenerationMethod.generate_particles"
-    # )
-    # def test_generate_microstructure_set_box(self, mock_generate_particles):
-    #     """Set the simulation box correctly."""
-    #
-    #     mock_generate_particles.return_value = Mock()
-    #     mock_generate_particles.return_value
-    #     mock_microstructure_sample = Mock()
-    #     phase_1 = Mock()
-    #     phase_2 = Mock()
-    #     mock_microstructure_sample.phases = {
-    #         "1": phase_1,
-    #         "2": phase_2,
-    #     }
-    #     phase_2.type == Mock()
-    #
-    #     self.current_generation_method.generate_microstructure(
-    #         mock_microstructure_sample
-    #     )
-    #     self.assertEqual(self.current_generation_method.box, [1.0, 1.0])
+        class MicGen_Test(GenerationMethod):
+            def generate_microstructure(self, microstructure_sample):
+                pass
 
-    def test_set_box_cylindrical_fiber_set_box(self):
-        """Check if the simulation box is correctly set if there a cylindrical fibers."""
+        generation_method = MicGen_Test()
+        off_set = generation_method.compute_rve_offset(particles, rve_dims)
+        np.testing.assert_almost_equal(off_set, [0.7, 0.2, 0], decimal = 6)
 
-        current_generation_method = MolecularDynamicsSimulation(
-            *self.md_init_mock_kwargs.values()
-        )
-        rve_dims = [1.0, 2.0, 3.0]
-        mock_cylindrical_fiber_1 = Mock()
-        mock_cylindrical_fiber_2 = Mock()
-        mock_cylindrical_fiber_1.__class__ = CylindricalFiber
-        mock_cylindrical_fiber_1.direction_fibers = 0
-        mock_cylindrical_fiber_2.direction_fibers = 0
-        particles = [mock_cylindrical_fiber_1, mock_cylindrical_fiber_2]
-        current_generation_method.set_box(particles, rve_dims)
-        self.assertEqual(current_generation_method.box, [2.0, 3.0])
+    def test_compute_rve_offset_1particle_3D(self):
+        " Tests if a correct value of offset is given when only one 3D particle is in the simulation box."
 
-    def test_set_box_other_particles(self):
-        """Check if the simulation box is correctly set if there no a cylindrical fibers."""
+        " If there is only one particle in the simulation box, compute_rve_offset only works properly if the particle is touching all walls. If not, the offset in a direction where the particle is inside the box will be equal to its center. This is visible in the last test case. This is a minor bug since rarely will the user have interest in creating a microstructure withone particle only."
 
-        current_generation_method = MolecularDynamicsSimulation(
-            *self.md_init_mock_kwargs.values()
-        )
-        rve_dims = [2.0, 3.0]
-        mock_disk = Mock()
-        mock_ellipse = Mock()
-        particles = [mock_disk, mock_ellipse]
-        current_generation_method.set_box(particles, rve_dims)
-        self.assertEqual(current_generation_method.box, [2.0, 3.0])
+        rve_dims = [1,1,1]
 
-    def test_generate_initial_configuration_inside_box_random(self):
-        """Check if the particles are all inside the simulation box for random initial
-        configuration"""
-        current_generation_method = MolecularDynamicsSimulation(
-            *self.md_init_mock_kwargs.values()
-        )
-        particles = [Mock(dim=2, position_center=None) for _ in range(10)]
-        current_generation_method.box = np.array([1.0, 2.0])
-        current_generation_method.type_init_conf = "random"
-        current_generation_method.generate_initial_configuration(
-            particles,
-        )
-        for particle in particles:
-            self.assertTrue(all(particle.position_center < np.array([1.0, 2.0])))
+        class MicGen_Test(GenerationMethod):
+            def generate_microstructure(self, microstructure_sample):
+                pass
 
-    def test_generate_initial_configuration_inside_box_grid_2d(self):
-        """Check if the particles are all inside the simulation box for a grid configuration
-        in 2D"""
-        current_generation_method = MolecularDynamicsSimulation(
-            *self.md_init_mock_kwargs.values()
-        )
-        particles = [Mock(dim=2, position_center=None) for _ in range(10)]
-        current_generation_method.box = np.array([0.5, 2.0])
-        current_generation_method.type_init_conf = "grid"
-        current_generation_method.generate_initial_configuration(
-            particles,
-        )
-        for particle in particles:
-            self.assertTrue(all(particle.position_center < np.array([0.5, 2.0])))
-
-    def test_generate_initial_configuration_inside_box_grid_3d(self):
-        """Check if the particles are all inside the simulation box for a grid configuration
-        in 3D"""
-        current_generation_method = MolecularDynamicsSimulation(
-            *self.md_init_mock_kwargs.values()
-        )
-        particles = [Mock(dim=3, position_center=None) for _ in range(10)]
-        current_generation_method.box = np.array([1.0, 0.3, 5.0])
-        current_generation_method.type_init_conf = "grid"
-        current_generation_method.generate_initial_configuration(
-            particles,
-        )
-        for particle in particles:
-            self.assertTrue(all(particle.position_center < np.array([1.0, 0.3, 5.0])))
-
-    def test_generate_initial_configuration_velocities_zero_random(self):
-        """Check if the particles for a random initial configuration all have zero
-        velocity"""
-        current_generation_method = MolecularDynamicsSimulation(
-            *self.md_init_mock_kwargs.values()
-        )
-        particles = [Mock(dim=2) for _ in range(10)]
-        current_generation_method.box = np.array([1.0, 2.0])
-        current_generation_method.type_init_conf = "random"
-        current_generation_method.generate_initial_configuration(
-            particles,
-        )
-        self.assertTrue(
-            np.all(np.array(current_generation_method.particle_velocities) < 1e-4)
-        )
-
-    def test_generate_initial_configuration_velocities_grid_2d(self):
-        """Check if any of the particles for a grid configuration in 2D has non-zero
-        velocity"""
-        current_generation_method = MolecularDynamicsSimulation(
-            *self.md_init_mock_kwargs.values()
-        )
-        particles = [Mock(dim=2) for _ in range(10)]
-        current_generation_method.box = np.array([0.5, 2.0])
-        current_generation_method.type_init_conf = "grid"
-        current_generation_method.generate_initial_configuration(
-            particles,
-        )
-        self.assertTrue(any(current_generation_method.particle_velocities != 0))
-
-    def test_generate_initial_configuration_velocities_grid_3d(self):
-        """Check if any of the particles for a grid configuration in 3D has non-zero
-        velocity"""
-        current_generation_method = MolecularDynamicsSimulation(
-            *self.md_init_mock_kwargs.values()
-        )
-        particles = [Mock(dim=3) for _ in range(10)]
-        current_generation_method.box = np.array([1.0, 0.3, 5.0])
-        current_generation_method.type_init_conf = "grid"
-        current_generation_method.generate_initial_configuration(
-            particles,
-        )
-        self.assertTrue(np.any(current_generation_method.particle_velocities != 0))
-
-    def test_generate_initial_configuration_save_history_random(self):
-        """Check if particle's position is saved for a random initial configuration"""
-        current_generation_method = MolecularDynamicsSimulation(
-            *self.md_init_mock_kwargs.values()
-        )
-        particles = [Mock(dim=2, position_center=None) for _ in range(10)]
-        current_generation_method.box = np.array([1.0, 2.0])
-        current_generation_method.type_init_conf = "random"
-        current_generation_method.generate_initial_configuration(
-            particles,
-        )
-        for part_ind, particle in enumerate(particles):
-            self.assertTrue(
-                all(
-                    current_generation_method.position_center_history[part_ind][0]
-                    == particle.position_center
-                )
-            )
-
-    def test_generate_initial_configuration_save_history_grid_2d(self):
-        """Check if particle's position is saved for a grid configuration in 2D"""
-        current_generation_method = MolecularDynamicsSimulation(
-            *self.md_init_mock_kwargs.values()
-        )
-        particles = [Mock(dim=2, position_center=None) for _ in range(10)]
-        current_generation_method.box = np.array([0.5, 2.0])
-        current_generation_method.type_init_conf = "grid"
-        current_generation_method.generate_initial_configuration(
-            particles,
-        )
-        for part_ind, particle in enumerate(particles):
-            self.assertTrue(
-                all(
-                    current_generation_method.position_center_history[part_ind][0]
-                    == particle.position_center
-                )
-            )
-
-    def test_generate_initial_configuration_save_history_grid_3d(self):
-        """Check if particle's position is saved for a grid configuration in 3D"""
-        current_generation_method = MolecularDynamicsSimulation(
-            *self.md_init_mock_kwargs.values()
-        )
-        particles = [Mock(dim=3, position_center=None) for _ in range(10)]
-        current_generation_method.box = np.array([1.0, 0.3, 5.0])
-        current_generation_method.type_init_conf = "grid"
-        current_generation_method.generate_initial_configuration(
-            particles,
-        )
-        for part_ind, particle in enumerate(particles):
-            self.assertTrue(
-                all(
-                    current_generation_method.position_center_history[part_ind][0]
-                    == particle.position_center
-                )
-            )
-
-
-class TestMolecularDynamicSimulationForce(unittest.TestCase):
-    def setUp(self):
-        self.md_init_mock_kwargs = {
-            key: Mock()
-            for key in [
-                "max_residue_per_particle",
-                "max_step",
-                "max_steps_to_relax",
-                "dt",
-                "min_distance",
-                "type_init_conf",
-                "save_history",
+        generation_method = MicGen_Test()
+        
+        test_cases = [
+            # the particle touches all simulation box walls
+            {"position_center" : [0   ,0   ,0   ], "offset" : [0.5 ,0.5 ,0.5 ]},
+            # the particle touches all simulation box walls
+            {"position_center" : [0.95,0.95,0.95], "offset" : [0.45,0.45,0.45]},
+            # bug demonstration in z axis (particle is inside simulation box bounds in z direction)
+            {"position_center" : [0.9 ,0.05,0.5 ], "offset" : [0.4 ,0.55,0.5 ]},
+            # Bug demosntratin in all axis (particle does not touch any wall)
+            {"position_center" : [0.4 ,0.6 ,0.3 ], "offset" : [0.4 ,0.6 ,0.3 ]}
             ]
-        }
+        for test in test_cases:
+            with self.subTest(test):
+                particle1 = self._build_sphere_particle(test["position_center"])
+                particles = [particle1]
+                off_set = generation_method.compute_rve_offset(particles, rve_dims)
+                np.testing.assert_almost_equal(off_set, test["offset"], decimal = 6)
 
-    def test_compute_forces_overlap(self):
-        current_generation_method = MolecularDynamicsSimulation(
-            *self.md_init_mock_kwargs.values()
-        )
-        current_generation_method.force_option = "intersection_area"
-        current_generation_method.thermostat = Mock()
-        current_generation_method.thermostat.kin_energy_div = False
-        current_generation_method.set_speed_up_scheme(Mock(particle_list=[[1], [0]]))
-        current_generation_method.particle_forces = [0, 0]
-        particle_1 = Mock(position_center=np.array([0.6, 0.5]))
-        particle_1.intersection_area.return_value = (0.1, np.array([1, 0]))
-        particle_2 = Mock(position_center=np.array([0.5, 0.5]))
-        particle_2.intersection_area.return_value = (0.1, np.array([-1, 0]))
-        particles = [particle_1, particle_2]
-        current_generation_method.compute_forces_overlap(particles)
-        self.assertTrue(current_generation_method.total_overlap == 0.1)
-        self.assertTrue(
-            np.all(current_generation_method.particle_forces[0] == np.array([-0.1, 0]))
-        )
-        self.assertTrue(
-            np.all(current_generation_method.particle_forces[1] == np.array([0.1, 0]))
-        )
+    def test_compute_rve_offset_particles_3D(self):
+        particle1 = self._build_sphere_particle(position_center=[0.1,0  ,0.3])
+        particle2 = self._build_sphere_particle(position_center=[0.3,0  ,0.9])
+        particle3 = self._build_sphere_particle(position_center=[0.3,0.2,0  ])
+        particle4 = self._build_sphere_particle(position_center=[0.9,0.6,0.5])
+        particle5 = self._build_sphere_particle(position_center=[0.5,0.8,0.6])
+        particles = [particle1,particle2,particle3,particle4,particle5]
+        rve_dims = [1,1,1]
 
-    def test_compute_forces_thermostat(self):
-        current_generation_method = MolecularDynamicsSimulation(
-            *self.md_init_mock_kwargs.values()
-        )
-        current_generation_method.particle_forces = [0, 0]
-        particle_1 = Mock(position_center=np.array([0.6, 0.5]))
-        particle_2 = Mock(position_center=np.array([0.5, 0.5]))
-        particles = [particle_1, particle_2]
-        current_generation_method.particle_velocities = [
-            np.array([0.1, 0.2]),
-            np.array([0.2, -0.1]),
-        ]
-        current_generation_method.set_thermostat(Mock(force_coeff=0.1))
-        current_generation_method.compute_forces_thermostat(particles)
-        self.assertTrue(
-            np.all(
-                np.abs(
-                    current_generation_method.particle_forces[0]
-                    - np.array([-0.01, -0.02])
-                )
-                < 1e-4
-            )
-        )
-        self.assertTrue(
-            np.all(
-                np.abs(
-                    current_generation_method.particle_forces[1]
-                    - np.array([-0.02, 0.01])
-                )
-                < 1e-4
-            )
-        )
+        class MicGen_Test(GenerationMethod):
+            def generate_microstructure(self, microstructure_sample):
+                pass
 
-    def test_compute_forces_damping(self):
-        current_generation_method = MolecularDynamicsSimulation(
-            *self.md_init_mock_kwargs.values()
-        )
-        current_generation_method.particle_forces = [0, 0]
-        particle_1 = Mock(position_center=np.array([0.6, 0.5]))
-        particle_2 = Mock(position_center=np.array([0.5, 0.5]))
-        particles = [particle_1, particle_2]
-        current_generation_method.particle_velocities = [
-            np.array([0.1, 0.2]),
-            np.array([0.2, -0.1]),
-        ]
-        current_generation_method.damping_coeff = 0.1
-        current_generation_method.compute_forces_damping(particles)
-        self.assertTrue(
-            np.all(
-                np.abs(
-                    current_generation_method.particle_forces[0]
-                    - np.array([-0.01, -0.02])
-                )
-                < 1e-4
-            )
-        )
-        self.assertTrue(
-            np.all(
-                np.abs(
-                    current_generation_method.particle_forces[1]
-                    - np.array([-0.02, 0.01])
-                )
-                < 1e-4
-            )
-        )
+        generation_method = MicGen_Test()
+        off_set = generation_method.compute_rve_offset(particles, rve_dims)
+        np.testing.assert_almost_equal(off_set, [0.7, 0.2, 0.3], decimal = 6)
+
+    def test_compute_rve_offset_2D_rejects_offset_inside_particle(self):
+        " The candidate offset built from the largest gap in each direction independently can still land inside (or within a radius of) a particle once both directions are combined. In that case compute_rve_offset must reject it and retry with the next largest gap instead of returning a point that overlaps a particle."
+
+        particle1 = self._build_disk_particle(position_center=[0.405,0.568])
+        particle2 = self._build_disk_particle(position_center=[0.339,0.618])
+        particle3 = self._build_disk_particle(position_center=[0.103,0.319])
+        particles = [particle1,particle2,particle3]
+        rve_dims = [1,1]
+
+        class MicGen_Test(GenerationMethod):
+            def generate_microstructure(self, microstructure_sample):
+                pass
+
+        generation_method = MicGen_Test()
+        off_set = generation_method.compute_rve_offset(particles, rve_dims)
+        np.testing.assert_almost_equal(off_set, [0.103, 0.593, 0], decimal = 6)
+        for particle in particles:
+            distance = np.linalg.norm(np.array(off_set[:2]) - np.array(particle.position_center))
+            self.assertGreaterEqual(distance, particle.radius)

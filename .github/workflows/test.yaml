@@ -45,6 +45,10 @@ jobs:
       - name: Test with pytest
         run: |
           pytest --cov=geommicgen/ --cov-report=xml geommicgen/tests
+      # - name: Test with unittest
+      #   run: |
+      #     python -m unittest discover -s geommicgen/tests -t .
+
       # - name: Upload coverage reports to Codecov
       #   uses: codecov/codecov-action@v4.0.1
       #   with:
