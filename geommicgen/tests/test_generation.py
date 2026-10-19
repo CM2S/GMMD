@@ -92,7 +92,9 @@ class TestGenerationMethod(unittest.TestCase):
 
         generation_method = MicGen_Test()
         off_set = generation_method.compute_rve_offset(particles, rve_dims)
-        np.testing.assert_almost_equal(off_set, [0.7, 0.2, 0], decimal = 6)
+        np.testing.assert_almost_equal(off_set, [0.7, 0.4, 0], decimal = 6)
+        # y = 0.4 is the middle of the one stretch along y no disk spans; the gap between
+        # the limits at 0.1 and 0.3 is the disk at y = 0.2
 
     def test_compute_rve_offset_1particle_3D(self):
         " Tests if a correct value of offset is given when only one 3D particle is in the simulation box."
@@ -139,7 +141,9 @@ class TestGenerationMethod(unittest.TestCase):
 
         generation_method = MicGen_Test()
         off_set = generation_method.compute_rve_offset(particles, rve_dims)
-        np.testing.assert_almost_equal(off_set, [0.7, 0.2, 0.3], decimal = 6)
+        np.testing.assert_almost_equal(off_set, [0.7, 0.4, 0.75], decimal = 6)
+        # Each face in the middle of a stretch no sphere spans: z = 0.3 went through the
+        # sphere centred there
 
     def test_compute_rve_offset_2D_no_face_cuts_a_particle(self):
         " Each face is put in the widest gap along its axis, so when there is a gap no face cuts a particle."

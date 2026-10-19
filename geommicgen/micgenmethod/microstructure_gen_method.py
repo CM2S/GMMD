@@ -72,14 +72,35 @@ class GenerationMethod(abc.ABC):
             sort_max[i_dim] = np.argsort(dist[i_dim])
             # Getting the indices sorting the distances from smallest to largest
         for i_dim in range(particles[0].dim):
-            i_gap = sort_max[i_dim][-1]
-            offset[i_dim] = (
-                all_lim_sort[i_dim][i_gap] + dist[i_dim][i_gap] / 2
-            ) % rve_dims[i_dim]
-            # offset is the midpoint of the widest gap, taken on the circle, which puts
-            # the RVE face as far as it can be from the nearest particle extreme along
-            # this direction. Taken on the circle it is in [0, rve_dims[i_dim]) already,
-            # and 0 is an offset like any other, the box left where it is: refusing it
-            # for the next gap put the face through the middle of a lone particle
+            dir_axis = np.array([0, 0, 0])
+            dir_axis[i_dim] = 1
+            extents = [
+                (
+                    i_particle.support_function(-dir_axis)[i_dim],
+                    i_particle.support_function(dir_axis)[i_dim],
+                )
+                for i_particle in particles
+            ]
+            midpoints = all_lim_sort[i_dim] + dist[i_dim] / 2
+            free = [
+                not any(
+                    j_upper - j_lower >= rve_dims[i_dim]
+                    or (i_midpoint - j_lower) % rve_dims[i_dim] < j_upper - j_lower
+                    for j_lower, j_upper in extents
+                )
+                for i_midpoint in midpoints
+            ]
+            # A gap between two consecutive limits can lie inside a third particle,
+            # so a gap is free only when no particle spans its midpoint on the circle
+            candidates = [i_gap for i_gap in sort_max[i_dim] if free[i_gap]]
+            i_gap = candidates[-1] if candidates else sort_max[i_dim][-1]
+            offset[i_dim] = midpoints[i_gap] % rve_dims[i_dim]
+            # offset is the midpoint of the widest free gap, taken on the circle, which
+            # puts the RVE face as far as it can be from the nearest particle extreme
+            # along this direction. When the particles leave no free gap, the widest
+            # gap is taken all the same. Taken on the circle the offset is in
+            # [0, rve_dims[i_dim]) already, and 0 is an offset like any other, the box
+            # left where it is: refusing it for the next gap put the face through the
+            # middle of a lone particle
 
         return offset
