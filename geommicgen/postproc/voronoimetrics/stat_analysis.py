@@ -513,13 +513,6 @@ def do_stat_analysis(microstructure, sample_dir, stat_options):
             nearest_neighbor_dist_vals, results_dir=stat_anal_results_dir
         )
 
-    if "stat_ripleys_k" in stat_options:
-        k_ripleys_func_vals, radii_vec = ripleys_k_func(microstructure)
-        stat_results["stat_ripleys_k"] = [k_ripleys_func_vals, radii_vec]
-        plot_ripleys_k_func(
-            k_ripleys_func_vals, radii_vec, results_dir=stat_anal_results_dir
-        )
-
     if "stat_two_pt_corr" in stat_options:
         two_point_correlation_vals, radii_vec = two_point_correlation(
             microstructure, max_radius=2, n_points=100
@@ -527,6 +520,14 @@ def do_stat_analysis(microstructure, sample_dir, stat_options):
         stat_results["stat_two_pt_corr"] = [two_point_correlation_vals, radii_vec]
         plot_two_point_correlation(
             two_point_correlation_vals, radii_vec, results_dir=stat_anal_results_dir
+        )
+
+    # Note: ripleys_k_function shifts the position of the particles. Thus, it is the last step performed in the statistical analysis so that no error occurs.
+    if "stat_ripleys_k" in stat_options:
+        k_ripleys_func_vals, radii_vec = ripleys_k_func(microstructure)
+        stat_results["stat_ripleys_k"] = [k_ripleys_func_vals, radii_vec]
+        plot_ripleys_k_func(
+            k_ripleys_func_vals, radii_vec, results_dir=stat_anal_results_dir
         )
 
     # Saving the results
