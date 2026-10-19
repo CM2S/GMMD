@@ -105,11 +105,53 @@ class Square(Particle):
         """Radius of the circumscribed circle to the square."""
         radius = ( (self.side)**2 * 2)**0.5 / 2
         return radius
+
+    # @property
+    # def major_axis(self):
+    #     """Major axis of the square"""
     
 
-    def generate_points_on_surface(self):
-        """Generate *n_points* on the surface of the square."""
-        raise NotImplementedError("generate_points_on_surface method not implemented for Square class.")
+    def generate_points_on_surface(
+        self, n_points: int, erosion_thick: float = 0
+    ) -> list(np.array):
+        """Generate *n_points* on the surface of the square.
+
+        The points are distributed among the four edges, each edge starting at a vertex, so
+        that the vertices are always included when *n_points* >= 4.
+
+        Parameters
+        ----------
+        n_points: int
+            Numbers of points to generated on the boundary of the square.
+
+        erosion_thick: optional, float
+            Erosion to be applied to the square, i.e., perpendicular distance to the
+            boundary by which the square will be shrinked. The eroded square has side
+            *side* - 2 * *erosion_thick*.
+
+        Returns
+        -------
+        points_glob: list(np.array), len (n_points)
+            List of the points on the boundary of the square.
+        """
+        half_side = self.side / 2 - erosion_thick
+        # Half side of the (eroded) square
+        vertices = half_side * np.array([[-1, -1], [1, -1], [1, 1], [-1, 1]])
+        # Vertices in local coordinates, counterclockwise from the bottom left
+        n_points_edge = [
+            n_points // 4 + (1 if i_edge < n_points % 4 else 0) for i_edge in range(4)
+        ]
+        # Number of points on each edge, distributing the remainder by the first edges
+        points_loc = []
+        for i_edge in range(4):
+            start_vertex = vertices[i_edge]
+            end_vertex = vertices[(i_edge + 1) % 4]
+            for t in np.linspace(0, 1, n_points_edge[i_edge], endpoint=False):
+                points_loc.append(start_vertex + t * (end_vertex - start_vertex))
+        # Generating the points along each edge in the square's local coordinates
+        points_glob = np.array(points_loc) + self.position_center
+        # Transforming local in global coordinates
+        return points_glob
 
     def intersection_area(self, other_particle: Particle, box: list) -> float:
         """
@@ -221,8 +263,18 @@ class Square(Particle):
 
     def compute_critical_erosion_thickness(self):
         """Compute the critical erosion thickness for a square."""
-        raise NotImplementedError("To be implemented later.")
-        erosion_thickness = self.side/2
+        # The set Voronoi diagram is only unchanged by an erosion t if the particle is
+        # recovered by dilating the eroded particle by t, i.e., t must not exceed the
+        # smallest radius of curvature of the surface. The corners of a square have a
+        # radius of curvature of 0, so any erosion t > 0 yields the set Voronoi diagram of
+        # a square with corners rounded by a radius t instead of the square itself.
+        # Despite this, a nonzero erosion can be used as an approximation: the eroded
+        # surface points are closer together and further from the neighboring particles,
+        # improving the discrete approximation of the set Voronoi diagram for the same
+        # number of surface points. Since the global erosion thickness is the minimum over
+        # all particles, a zero value also prevents the erosion of every other particle
+        # in the microstructure.
+        erosion_thickness = self.side/8
         return erosion_thickness
 
     def support_function(self, direction):

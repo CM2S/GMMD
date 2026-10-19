@@ -994,17 +994,31 @@ def plot_voronoi_2d(
         for (j_dim, k_dim) in [
             (j_dim, k_dim) for j_dim in range(-1, 2) for k_dim in range(-1, 2)
         ]:
-            ellip = mpatches.Ellipse(
-                i_particle.position_center
-                + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),
-                i_particle.major_axis,
-                i_particle.minor_axis,
-                angle=180 / np.pi * i_particle.angle,
-                alpha=0.8,
-                edgecolor=None,
-                facecolor=phase_colors[i_particle.phase],
-            )
-            ax.add_artist(ellip)
+            if isinstance(i_particle, Square):
+                square = mpatches.Rectangle(
+                    i_particle.position_center
+                    - np.array([i_particle.side, i_particle.side]) / 2
+                    + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),
+                    i_particle.side,
+                    i_particle.side,
+                    angle=0,
+                    alpha=0.8,
+                    edgecolor=None,
+                    facecolor=phase_colors[i_particle.phase],
+                )
+                ax.add_artist(square)
+            else:  # particle is a disk or an ellipse
+                ellip = mpatches.Ellipse(
+                    i_particle.position_center
+                    + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),
+                    i_particle.major_axis,
+                    i_particle.minor_axis,
+                    angle=180 / np.pi * i_particle.angle,
+                    alpha=0.8,
+                    edgecolor=None,
+                    facecolor=phase_colors[i_particle.phase],
+                )
+                ax.add_artist(ellip)
             # plt.annotate(str(k), tuple(i_particle.position_center))
 
     if voronoi_type == "set":
@@ -1170,19 +1184,35 @@ def plot_voronoi_2d_with_imts(
             for (j_dim, k_dim) in [
                 (j_dim, k_dim) for j_dim in range(-1, 2) for k_dim in range(-1, 2)
             ]:
-                ellip = mpatches.Ellipse(
-                    i_particle.position_center
-                    + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),
-                    i_particle.major_axis,
-                    i_particle.minor_axis,
-                    angle=180 / np.pi * i_particle.angle,
-                    alpha=0.5,
-                    edgecolor="k",
-                    linewidth=0.1,
-                    linestyle="-.",
-                    facecolor="None",  # phase_colors[i_particle.phase],
-                )
-                ax.add_artist(ellip)
+                if isinstance(i_particle, Square):
+                    square = mpatches.Rectangle(
+                        i_particle.position_center
+                        - np.array([i_particle.side, i_particle.side]) / 2
+                        + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),
+                        i_particle.side,
+                        i_particle.side,
+                        angle=0,
+                        alpha=0.5,
+                        edgecolor="k",
+                        linewidth=0.1,
+                        linestyle="-.",
+                        facecolor="None",  # phase_colors[i_particle.phase],
+                    )
+                    ax.add_artist(square)
+                else:  # particle is a disk or an ellipse
+                    ellip = mpatches.Ellipse(
+                        i_particle.position_center
+                        + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),
+                        i_particle.major_axis,
+                        i_particle.minor_axis,
+                        angle=180 / np.pi * i_particle.angle,
+                        alpha=0.5,
+                        edgecolor="k",
+                        linewidth=0.1,
+                        linestyle="-.",
+                        facecolor="None",  # phase_colors[i_particle.phase],
+                    )
+                    ax.add_artist(ellip)
                 # plt.annotate(str(k), tuple(i_particle.position_center))
 
         if voronoi_type == "set":
