@@ -180,8 +180,12 @@ class Ellipse(Particle):
         """
         Amount *t* added to both semi-axes to account for the dilation *self.delta*.
 
-        *t* is the positive root of 2s*t^3 + 4ab*t^2 - 2s*delta^2*t - s^2*delta^2 = 0,
-        with s = a + b and a, b the undilated semi-axes, taken with the sign of *self.delta*.
+        *t* is a root of 2s*t^3 + 4ab*t^2 - 2s*delta^2*t - s^2*delta^2 = 0, with s = a + b
+        and a, b the undilated semi-axes. For a dilation (delta > 0) it is the positive root.
+        For a contraction (delta < 0) the same equation written with the shrunk semi-axes
+        a + t, b + t reduces to this cubic, and *t* is its negative root closest to zero.
+        A contraction has no such root when the ellipse is too slender for its inner offset
+        curve at distance |delta| to be an ellipse with equally shrunk semi-axes.
         """
         key = (self.major_axis, self.minor_axis, self.delta)
         if getattr(self, "_inflation_cache", (None,))[0] != key:
@@ -194,9 +198,18 @@ class Ellipse(Particle):
                 roots = np.roots(
                     [2 * s, 4 * a * b, -2 * s * self.delta ** 2, -(s ** 2) * self.delta ** 2]
                 )
-                # Descartes' rule of signs guarantees exactly one positive real root
-                positive_root = max(roots[np.abs(roots.imag) < 1e-12].real)
-                inflation = np.sign(self.delta) * positive_root
+                real_roots = roots[np.abs(roots.imag) < 1e-12].real
+                if self.delta > 0:
+                    # Descartes' rule of signs guarantees exactly one positive real root
+                    inflation = max(real_roots)
+                else:
+                    negative_roots = real_roots[real_roots < 0]
+                    if len(negative_roots) == 0:
+                        raise ValueError(
+                            "Ellipse with semi-axes {0} and {1} cannot be contracted by "
+                            "{2}".format(a, b, -self.delta)
+                        )
+                    inflation = max(negative_roots)
             self._inflation_cache = (key, inflation)
 
         return self._inflation_cache[1]
