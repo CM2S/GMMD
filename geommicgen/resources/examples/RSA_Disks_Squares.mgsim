@@ -13,10 +13,12 @@ RVE_Dimensions [1.9, 1]
 Mic_Gen_Descriptors
 Phase 0
 Phase_Type 1
+
 Phase 1
 Phase_Type 2
 r 0.05
 vf 0.2
+
 Phase 2
 Phase_Type 8
 vf 0.2
