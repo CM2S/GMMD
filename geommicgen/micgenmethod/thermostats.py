@@ -107,6 +107,7 @@ class IsokineticThermostat(Thermostat):
             * self.reference_temp
             / (kin_energy + 1e-15)
         )
+        # the constant 1e-15 in the denominator is only here to prevent divide by zero errors when kin_energy is null.
         for i_particle_index in range(number_particles):
             # Running through all the particles
             particle_velocities[i_particle_index] *= lambda_vel
@@ -342,6 +343,7 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
                     )
                     > 0
                 )
+
                 if equilibrium_flag:
                     self.min_eq_steps_at_temp += (
                         self.molecular_dynamics_sim.step - self._next_temp_change - 1

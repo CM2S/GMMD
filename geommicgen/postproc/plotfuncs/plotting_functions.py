@@ -244,8 +244,8 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
             ellip = mpatches.Ellipse(
                 i_particle.position_center
                 + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),
-                i_particle.major_axis,
-                i_particle.minor_axis,
+                i_particle.semi_major_axis*2,
+                i_particle.semi_minor_axis*2,
                 angle=180 / np.pi * i_particle.angle,
                 alpha=0.8,
                 edgecolor=None,
