@@ -11,8 +11,6 @@ The file for this tutorial is located in the ``geommicgen/resources/examples/`` 
 
     python3 -m geommicgen 'geommicgen/resources/examples/MD_Disks.mgsim'
 
-In order for you to run any other file of your making, you just need to run the command with the location of your input file.
-
 The full text of the input file is:
 
 .. literalinclude:: ../../../../geommicgen/resources/examples/MD_Disks.mgsim

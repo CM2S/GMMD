@@ -9,7 +9,7 @@ The file for this tutorial is named ``MD_Ellipsoids.mgsim``. The input file can 
 
 .. code-block:: console
 
-    python3 -m geommicgen '../geommicgen/resources/examples/MD_Ellipsoids.mgsim'
+    python3 -m geommicgen 'geommicgen/resources/examples/MD_Ellipsoids.mgsim'
 
 Replacing with the path to the input file according to the location of the GMMD repository in your computer.
 
@@ -69,7 +69,7 @@ A .vtk file of the final microstructure is created with the line ``final_config 
 Since ``Motion_Analysis True`` is set in the input file, a motion analysis of the molecular dynamics simulation is also performed. During the simulation, GMMD keeps track, at every iteration, of the adaptive time step used by the Verlet speed-up scheme, the kinetic energy of the system of particles together with the target thermal energy imposed by the thermostat, and the total overlap between particles, which is the quantity driving the repulsive forces between them. These quantities are plotted as a function of the iteration step and give insight into the convergence and stability of the simulation: the time step history shows how the integration step is adapted throughout the run, the kinetic energy history shows how the agitation of the particles evolves relative to the thermostat's target, and the relative energy history shows the total overlap between particles decreasing towards the imposed maximum residue as the microstructure approaches a valid, non-overlapping configuration.
 
 .. figure:: final_config.svg
-    :width: 500px
+    :width: 400px
     :alt: Final microstructure configuration
 
     Final configuration of the microstructure.

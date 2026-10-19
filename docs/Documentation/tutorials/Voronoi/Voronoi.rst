@@ -14,7 +14,7 @@ To run this example, open a termial inside the ``GMMD`` repository and run the f
 
 .. code-block:: console
 
-    python3 -m geommicgen '../geommicgen/resources/examples/MD_Ellipses_voronoi.mgsim'
+    python3 -m geommicgen 'geommicgen/resources/examples/MD_Ellipses_voronoi.mgsim'
 
 
 

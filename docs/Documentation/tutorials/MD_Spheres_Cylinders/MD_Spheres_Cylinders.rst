@@ -59,7 +59,7 @@ A .vtk file of the final microstructure is created with the line ``final_config 
 .. Since ``Save_History True`` is set in the input file, the positions of all particles throughout the complete motion are saved, instead of only the initial and final configurations (see :ref:`md_motion_analysis`).
 
 .. figure:: final_config.svg
-    :width: 700px
+    :width: 400px
     :alt: Final microstructure configuration
 
     Final configuration of the microstructure.

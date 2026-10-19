@@ -16,9 +16,9 @@ The input files for the tutorials are located in the ``geommicgen/resources/exam
 
     MD_Ellipses/MD_Ellipses
     MD_Disks/MD_Disks
-    RSA_Disks_Squares/RSA_Disks_Squares
     RSA_Fibers/RSA_Fibers
     MD_Ellipsoids/MD_Ellipsoids
     MD_Spheres_Cylinders/MD_Spheres_Cylinders
+    RSA_Disks_Squares/RSA_Disks_Squares
     Voronoi/Voronoi
     
