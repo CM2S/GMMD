@@ -52,6 +52,9 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.dynamic]
 version = {attr = "geommicgen.__version__"}
 
+[tool.setuptools.packages.find]
+include = ["geommicgen*"]
+
 [tool.setuptools.package-data]
 geommicgen = ["tests/fixtures/*.npy"]
 

@@ -182,7 +182,7 @@ class KeywordTypeA(Keyword):
 
     def __init__(self, name, keyword_group, **kwargs):
         """
-        Instanciate a `.KeywordTypeB` object.
+        Instanciate a `.KeywordTypeA` object.
 
         Parameters
         ----------
