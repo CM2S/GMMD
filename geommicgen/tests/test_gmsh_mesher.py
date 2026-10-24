@@ -1,4 +1,5 @@
 import os
+import signal
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
@@ -17,6 +18,7 @@ from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.microstructure.phase import Phase
 from geommicgen.microstructure.particleclasses import Disk, Point, Sphere
 from geommicgen.tests.helpers import (
+    ENDING_SIGNAL,
     FailingMesher,
     ProcessEndingMesher,
     build_microstructure,
@@ -543,7 +545,12 @@ class TestMeshingInAProcessOfItsOwn(unittest.TestCase):
     """Test class for the process a mesh is made in."""
 
     def test_a_process_that_ends_is_reported(self):
-        with self.assertRaisesRegex(ProcessDied, "killed by SIGKILL"):
+        ending = (
+            "killed by SIGKILL"
+            if hasattr(signal, "SIGKILL")
+            else "ended with exit code {0}".format(int(ENDING_SIGNAL))
+        )
+        with self.assertRaisesRegex(ProcessDied, ending):
             ProcessEndingMesher(mesh_size=0.1, element_type="tri3").mesh(
                 disk_microstructure()
             )

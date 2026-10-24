@@ -14,12 +14,17 @@ from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.microstructure.phase import Phase
 
 
+ENDING_SIGNAL = getattr(signal, "SIGKILL", signal.SIGTERM)
+# Windows has no SIGKILL. There, os.kill ends the process with the number of the signal
+# as its exit code
+
+
 class ProcessEndingMesher(GmshMesher):
     """Gmsh mesher that ends the process it meshes in, as gmsh can, giving nothing."""
 
     def mesh_in_this_process(self, microstructure, report=None):
         """End the process, which is the one `mesh` starts for it."""
-        os.kill(os.getpid(), signal.SIGKILL)
+        os.kill(os.getpid(), ENDING_SIGNAL)
 
 
 class FailingMesher(GmshMesher):
