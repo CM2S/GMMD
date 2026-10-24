@@ -79,7 +79,10 @@ Some software must be installed to successfully run GMMD:
   > In Linux/UNIX operative systems, ParaView can be installed by placing the tarball in the installation directory and extracting it by executing the following command:  
   `sudo tar -xvf ParaView-< version >.tar.gz`
 
-* Gmsh 4.5.5 SDK and gmsh2links (see [here](https://github.com/CM2S/Utilities/tree/master/gmsh)) - Required to produce finite element meshes of the microstructures to be used in FEM analysis through LINKS. The Gmsh SDK must be downloaded from [gmsh.info](https://gmsh.info/bin/Linux/) (version 4.5.5) and installed manually — it is not included in the pip dependencies. After extracting the SDK, add the Gmsh Python API to your `PYTHONPATH`:
+* Gmsh and gmsh2links (see [here](https://github.com/CM2S/Utilities/tree/master/gmsh)) - Required to produce finite element meshes of the microstructures to be used in FEM analysis through LINKS. The Gmsh Python API is one of the pip dependencies, installed with `GMMD` (see [Installation](#installation)); gmsh2links is installed from its repository.
+  `GMMD` requires **Gmsh 4.15 or newer**, the version it is tested against.
+  If you instead install the SDK tarball by hand from
+  [gmsh.info](https://gmsh.info/bin/Linux/), add its Python API to your `PYTHONPATH`:
   ```bash
   export PYTHONPATH=$PYTHONPATH:/path/to/gmsh/lib
   ```

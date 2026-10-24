@@ -124,7 +124,7 @@ class TestMultiTemperatureIsokineticThermostat(unittest.TestCase):
             thermostat = make_thermostat()
             thermostat.molecular_dynamics_sim = Mock(
                 total_overlap=2, max_residue=1, step=5,
-                kinetic_energy=10.0, thermic_energy_history=[1.0],
+                kinetic_energy=10.0, thermic_energy=1.0, thermic_energy_history=[1.0],
             )
             thermostat.reached_equilibrium = Mock(return_value=True)
             particle_velocities = make_velocities()
@@ -141,7 +141,7 @@ class TestMultiTemperatureIsokineticThermostat(unittest.TestCase):
             thermostat = make_thermostat()
             thermostat.molecular_dynamics_sim = Mock(
                 total_overlap=2, max_residue=1, step=5,
-                kinetic_energy=1.5, thermic_energy_history=[1.0],
+                kinetic_energy=1.5, thermic_energy=1.0, thermic_energy_history=[1.0],
             )
             thermostat.reached_equilibrium = Mock(return_value=True)
             particle_velocities = make_velocities()
