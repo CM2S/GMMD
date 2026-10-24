@@ -12,10 +12,8 @@ from it is the fact of how LINKS numbers the nodes of each element, verified aga
 LINKS, and no code, so the two licences do not meet.
 """
 
-# TODO: decide how to credit A. M. Couto Carneiro beyond this docstring, before the
-# JOSS submission: an Acknowledgements section in the readme naming gmsh2links; the
-# Acknowledgements of paper.md; a CITATION.cff for GMMD; or co-authorship of the paper,
-# which is his and the authors' to decide on the size of the LINKS-side contribution.
+# TODO: before the JOSS submission, credit A. M. Couto Carneiro in the Acknowledgements
+# of paper.md and in a CITATION.cff for GMMD, as the readme does.
 
 LINKS_ELEMENT_NAMES = {
     "triangle": "TRI3",

@@ -24,10 +24,19 @@ GMMD is designed and implemented in Python (Python 3 release), making it easily 
 
 ### Authors
 
-This program initial version was documented and fully coded by José Luís P. Vila-Chã<sup>[1](#f1)</sup> ([jvc@fe.up.pt](mailto:jvc@fe.up.pt)) and developed in colaboration with Bernardo P. Ferreira<sup>[1](#f1)</sup> ([bpferreira@fe.up.pt](mailto:bpferreira@fe.up.pt)) and Francisco M. Andrade Pires<sup>[2](#f2)</sup> ([fpires@fe.up.pt](mailto:fpires@fe.up.pt)).
+José Luís P. Vila-Chã ([jvc@fe.up.pt](mailto:jvc@fe.up.pt)), CM2S research group, Department of Mechanical Engineering, Faculty of Engineering, University of Porto.
 
-<sup id="f1">1</sup> Member of CM2S research group, Department of Mechanical Engineering, Faculty of Engineering, University of Porto  
-<sup id="f2">2</sup> Leader of CM2S research group, Department of Mechanical Engineering, Faculty of Engineering, University of Porto
+### Contributors
+
+Bernardo P. Ferreira, Francisco M. Andrade Pires, Rui Coelho, João Morais.
+
+### Acknowledgements
+
+António M. Couto Carneiro, whose gmsh2links package gives the order in which LINKS numbers the nodes of each element, which the LINKS format of GMMD follows.
+
+### Use of AI
+
+AI coding assistants are used in developing GMMD. The person committing reviews every change and is responsible for it. A commit made with an assistant says so in an `Assisted-by:` trailer naming the tool and model (`Co-authored-by:` in earlier commits). Code completion in the editor is not marked.
 
 ## Main features
 
