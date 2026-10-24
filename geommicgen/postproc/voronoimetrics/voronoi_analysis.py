@@ -556,9 +556,11 @@ def compute_3d_irreducible_minkowski_tensors(voronoi):
                             ] += area_ridge * sph_harm_y(
                                 degree,
                                 order,
-                                angles_normal_ridge[0],
                                 angles_normal_ridge[1],
+                                angles_normal_ridge[0],
                             )
+                            # sph_harm_y takes the polar angle first, where the
+                            # sph_harm it replaced took the azimuthal one first
 
         p += 1
     all_phi = [all_phi[i] for i in particle_inds]
@@ -601,9 +603,10 @@ def compute_3d_irreducible_minkowski_tensors_polyhedron(unormals, area):
                         * sph_harm_y(
                             degree,
                             order,
-                            angles_normal[k_face][0],
                             angles_normal[k_face][1],
+                            angles_normal[k_face][0],
                         )
+                        # sph_harm_y takes the polar angle first
                         for k_face in range(len(area))
                     ]
                 )
@@ -675,7 +678,7 @@ def out_normal_face(vertices, center_point):
 
 
 def unit_vector_to_sph_coord(unit_vector):
-    """Convert unit vector to spherical coordinates."""
+    """Convert unit vector to spherical coordinates, [azimuthal, polar]."""
     theta = np.arctan2(unit_vector[1], unit_vector[0])
     if theta < 0:
         theta += 2 * np.pi
