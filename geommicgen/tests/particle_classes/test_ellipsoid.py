@@ -276,6 +276,10 @@ class EllipsoidIntersection(unittest.TestCase):
 
     def setUp(self):
         "Creates a ellipsoid with position_center assigned."
+        np.random.seed(0)
+        # The intersection volumes are Monte Carlo estimates, and the intersection
+        # length starts from a random direction. Both draw from numpy's global
+        # random state, so the tests failed now and then without a seed
         self.rve_dims = [1, 1, 1]
         self.rotation_descriptors = {
             "rot_axis_comp_x": 0,
