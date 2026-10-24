@@ -158,7 +158,10 @@ class TestScreenLog(ScreenLogTest):
             print_to_file("second")
             with open(other_path) as other:
                 self.assertEqual(other.read(), "second\n")
+            screen_to(self.directory.name)
         self.assertEqual(self.screen(), "first\n")
+        # The screen file elsewhere is closed before its directory goes, which Windows
+        # refuses to delete while the file is open
 
     def test_the_terminal_is_attached_once(self):
         print_funcs.log_to_terminal()

@@ -153,10 +153,10 @@ class TestStatResultsFile(unittest.TestCase):
             )
             path = os.path.join(directory, "stat_analysis_results", STAT_FILE_NAME)
             self.assertTrue(os.path.exists(path))
-            read = np.load(path)
-            self.assertEqual(set(read), set(written))
-            for i_name, i_values in written.items():
-                np.testing.assert_allclose(read[i_name], i_values)
+            with np.load(path) as read:
+                self.assertEqual(set(read), set(written))
+                for i_name, i_values in written.items():
+                    np.testing.assert_allclose(read[i_name], i_values)
         # Read back with numpy alone, where the descriptors used to be a pickle of a
         # dictionary that only Python could open
 
@@ -177,22 +177,24 @@ class TestVoronoiResultsFile(unittest.TestCase):
                 disk_microstructure().particles, [1.0, 1.0], directory
             )
             path = os.path.join(directory, "voronoi_analysis_results", VORONOI_FILE_NAME)
-            read = np.load(path)
-            for i_name in (
-                "vertices",
-                "point_region",
-                "regions_flat",
-                "regions_offsets",
-                "ridge_points",
-                "ridge_vertices_flat",
-                "ridge_vertices_offsets",
-                "imts",
-                "angles",
-                "in_box",
-            ):
-                self.assertIn(i_name, read)
-            self.assertEqual(read["vertices"].shape[1], 2)
-            self.assertEqual(len(read["regions_offsets"]), read["point_region"].max() + 2)
+            with np.load(path) as read:
+                for i_name in (
+                    "vertices",
+                    "point_region",
+                    "regions_flat",
+                    "regions_offsets",
+                    "ridge_points",
+                    "ridge_vertices_flat",
+                    "ridge_vertices_offsets",
+                    "imts",
+                    "angles",
+                    "in_box",
+                ):
+                    self.assertIn(i_name, read)
+                self.assertEqual(read["vertices"].shape[1], 2)
+                self.assertEqual(
+                    len(read["regions_offsets"]), read["point_region"].max() + 2
+                )
         # Read back with numpy alone, where this was a pickle of a list whose length
         # depended on the dimension and which held a live scipy object
 
