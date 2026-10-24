@@ -16,7 +16,8 @@ each phase holds, and the average of the stress along x over the cell, as JSON.
     python fenics_elasticity.py mesh.xdmf --young 1=1e3 2=1e4 --poisson 0.3
 
 It runs with dolfinx, installed from conda-forge (the package fenics-dolfinx) or from
-the dolfinx container images; GMMD itself is not needed to run it.
+the dolfinx container images, and was tested with dolfinx 0.11; GMMD itself is not
+needed to run it.
 
 A two dimensional mesh is analysed in plane strain. With one material the solution is
 the homogeneous one, which linear elements represent exactly, so the average stress is
