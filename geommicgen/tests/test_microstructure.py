@@ -9,7 +9,8 @@ import numpy as np
 import numpy as np
 
 from geommicgen.microstructure.microstructure import Microstructure, unit_scale
-from geommicgen.microstructure.particleclasses import Disk
+from geommicgen.microstructure.particleclasses import CylindricalFiber, Disk, Sphere
+from geommicgen.microstructure.phase import Phase
 from geommicgen.tests.helpers import (
     build_microstructure,
     disk_microstructure,
@@ -121,6 +122,20 @@ class TestMicrostructure(unittest.TestCase):
         self.microstructure_3D.add_phase(spheres_mock)
         with self.assertRaises(ValueError):
             self.microstructure_3D.add_phase(cylindricalfiber_mock)
+
+    def test_fibres_are_refused_beside_other_particles_in_either_order(self):
+        for i_first, i_second in (
+            (Sphere, CylindricalFiber),
+            (CylindricalFiber, Sphere),
+        ):
+            with self.subTest(first=i_first.__name__):
+                microstructure = Microstructure([1.0, 1.0, 1.0])
+                microstructure.add_phase(Phase.from_type("2", i_first))
+                with self.assertRaisesRegex(ValueError, "only compatible with each"):
+                    microstructure.add_phase(Phase.from_type("3", i_second))
+                self.assertEqual(list(microstructure.phases), ["2"])
+        # Fibres were refused only when they came after the other particles, and the
+        # phase refused was added all the same
 
     def test_particles_property(self):
         """Check that particles aggregates the particles of every phase."""

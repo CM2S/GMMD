@@ -168,27 +168,34 @@ class Microstructure:
         ----------
         phase: `.Phase`
         """
-        self.phases[phase.name] = phase
-        phase.microstructure = self
-        if self.phases[phase.name].type.__name__ == "Matrix":
+        if phase.type.__name__ == "Matrix":
             if self.matrix_phase is not None:
                 raise ValueError(
                     "The matrix for Phase {0} was specified twice.".format(phase.name)
                 )
-            self.matrix_phase = phase.name
         else:
-            if self.dim != self.phases[phase.name].type.dim:
+            if self.dim != phase.type.dim:
                 raise ValueError(
                     "The particle type chosen is not compatible "
                     + "with the dimensions of the microstructure."
                 )
-            if self.phases[phase.name].type.__name__ == "CylindricalFiber":
-                for i_phase in self.phases.values():
-                    if i_phase.type.__name__ not in ("CylindricalFiber", "Matrix"):
-                        raise ValueError(
-                            "The CylindricalFiber particles are only compatible with"
-                            + " each other."
-                        )
+            fibres = {
+                i_phase.type.__name__ == "CylindricalFiber"
+                for i_phase in self.phases.values()
+                if i_phase.type.__name__ != "Matrix"
+            }
+            if fibres - {phase.type.__name__ == "CylindricalFiber"}:
+                raise ValueError(
+                    "The CylindricalFiber particles are only compatible with"
+                    + " each other."
+                )
+        # Fibres were refused beside other particles only when they came after them,
+        # and a phase refused was added all the same; it is checked before it is added
+
+        self.phases[phase.name] = phase
+        phase.microstructure = self
+        if phase.type.__name__ == "Matrix":
+            self.matrix_phase = phase.name
 
     def inside_particle_phase(self, pts):
         """
