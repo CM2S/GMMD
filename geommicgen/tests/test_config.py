@@ -37,6 +37,7 @@ from geommicgen.micgenmethod.molecular_dynamics_sim import (
 )
 from geommicgen.microstructure.phase import Phase
 from geommicgen.pipeline import build_mesh_jobs
+from geommicgen.translators.base import writer_options
 
 
 class Cell(ConfigModel):
@@ -371,6 +372,31 @@ DECK_FIXTURES = os.path.join(
 # The decks of the examples, as they were written before the input files were
 
 
+def with_declared_defaults(options):
+    """
+    Give what a deck gives, with each option it leaves out that declares a default at
+    that default, as the model of the input file states it.
+
+    Parameters
+    ----------
+    options: dict
+        What the reader of decks gave.
+
+    Returns
+    -------
+    dict
+        The same, each discretisation with the declared defaults it was not given.
+    """
+    options = copy.deepcopy(options)
+    for i_mesher in options.get("mesh_options", {}).values():
+        for i_name, i_description in writer_options().items():
+            if "default" in i_description:
+                i_mesher.setdefault(i_name.lower(), i_description["default"])
+
+    return options
+    # The writer applies the same default when the option is not given
+
+
 def assert_same_options(test, options, expected, path="options"):
     """Check two sets of options are the same, arrays and the type of every value."""
     if isinstance(expected, dict):
@@ -428,7 +454,9 @@ class TestRun(unittest.TestCase):
                 assert_same_options(
                     self,
                     read_config(os.path.join(EXAMPLES, i_name + ".yaml")).to_options(),
-                    read_legacy_deck(os.path.join(DECK_FIXTURES, i_name + ".mdsim")),
+                    with_declared_defaults(
+                        read_legacy_deck(os.path.join(DECK_FIXTURES, i_name + ".mdsim"))
+                    ),
                 )
         # Whatever reads the options is then the same for either file
 

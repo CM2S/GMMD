@@ -55,14 +55,16 @@ def mesher_model(mesher_class):
     Returns
     -------
     class
-        The model, a `.ConfigModel` with an optional field for each option, described
-        by its help.
+        The model, a `.ConfigModel` with an optional field for each option, at the
+        default declared for it, if any, and described by its help.
     """
     declared = {**mesher_class.options, **writer_options(), **JOB_OPTIONS}
     fields = {
         i_name.lower(): (
             Optional[OPTION_TYPES[i_description["type"]]],
-            pydantic.Field(None, description=i_description["help"]),
+            pydantic.Field(
+                i_description.get("default"), description=i_description["help"]
+            ),
         )
         for i_name, i_description in declared.items()
     }
@@ -70,8 +72,9 @@ def mesher_model(mesher_class):
     return pydantic.create_model(
         mesher_class.__name__ + "Options", __base__=ConfigModel, **fields
     )
-    # An option not given is left to the default of the mesher or of the writer, which
-    # the input data file left it to as well
+    # An option not given is at the default its mesher or writer declares, which the
+    # resolved file then states; one that declares none is left to the initializer, as
+    # the input data file left it
 
 
 def to_mesh_options(section):

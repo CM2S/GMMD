@@ -1,0 +1,45 @@
+# What the deck 2D_example_ellipses_vf_50_n_10.mdsim is converted into, with every default written out.
+
+samples: 1
+rve_dimensions: [1.0, 1.0]
+save_min: false
+phases:
+  0: {type: matrix}
+  1:
+    type: ellipse
+    angle: {distribution: normal, mean: 0.0, sigma: 0.2}
+    ratio: {distribution: fixed, value: 1.2}
+    n: {distribution: fixed, value: 100}
+    vf: {distribution: fixed, value: 0.5}
+generation:
+  min_distance: 0.0
+  offset: true
+  molecular_dynamics:
+    max_residue_per_particle: 0.0
+    max_step: 150
+    max_steps_to_relax: 0
+    dt: 0.05
+    dt_adapt: true
+    save_history: true
+    type_initial_configuration: random
+    initial_vel_coeff: 0.1
+    final_overlap_check: false
+    damping_coeff: 0.0
+    particle_mass_opt: radius
+    speed_up: {name: verlet, factor: 1.1}
+    thermostat:
+      name: multi_temperature
+      criterion: {name: ratio_in_out, max_ratio_osc: 2}
+      temp_low_ratio: 0.25
+meshes:
+  gmsh:
+    mesh_size: 0.1
+    element_type: tri3
+    periodic_constraints: true
+    boundary_type: Periodic_Condition
+  voxel:
+    n_voxels_dims: [1000, 1000]
+    periodic_constraints: true
+    boundary_type: Periodic_Condition
+analyses:
+  final_config: {}

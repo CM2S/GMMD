@@ -58,7 +58,11 @@ version = {attr = "geommicgen.__version__"}
 include = ["geommicgen*"]
 
 [tool.setuptools.package-data]
-geommicgen = ["tests/fixtures/*.npy", "tests/fixtures/decks/*.mdsim"]
+geommicgen = [
+    "tests/fixtures/*.npy",
+    "tests/fixtures/decks/*.mdsim",
+    "tests/fixtures/converted/*.yaml",
+]
 
 
 [tool.coverage.run]

@@ -28,7 +28,11 @@ from geommicgen.iofuncs.legacy_deck import (
     read_legacy_deck,
 )
 from geommicgen.tests.test__main__ import SEEDED_DECK
-from geommicgen.tests.test_config import DECK_FIXTURES, assert_same_options
+from geommicgen.tests.test_config import (
+    DECK_FIXTURES,
+    assert_same_options,
+    with_declared_defaults,
+)
 
 KITCHEN_SINK_2D = """
     Problem_Type 1
@@ -239,7 +243,8 @@ def canonical(options):
         The same, with the parameters of the thermostats the deck does not use at
         their defaults, and without a Verlet factor it does not use, the problem type,
         a fixed distribution named, or an inner phase that is not one; a grid given as
-        a bare row of numbers is the one resolution it is.
+        a bare row of numbers is the one resolution it is, and an option a writer
+        declares a default for is at that default.
     """
     options = copy.deepcopy(options)
     options.pop("problem_type", None)
@@ -264,8 +269,14 @@ def canonical(options):
         if resolutions and isinstance(resolutions[0], int):
             i_mesher["n_voxels_dims"] = [resolutions]
 
-    return options
+    return with_declared_defaults(options)
 
+
+
+CONVERTED = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "fixtures", "converted"
+)
+# What each deck here is converted into, with every default written out
 
 class DeckTest(unittest.TestCase):
     """Base class for tests that write decks."""
@@ -310,6 +321,17 @@ class TestEquivalence(DeckTest):
                 )
         # Read back from the file written, so that what is written is what is held;
         # whatever reads the options is then the same for either file
+
+    def test_a_deck_is_converted_into_the_run_its_fixture_holds(self):
+        for i_name, i_path in self.decks().items():
+            name = os.path.splitext(i_name)[0]
+            with self.subTest(deck=name):
+                _, run, _ = convert_deck(i_path)
+                self.assertEqual(
+                    run, read_config(os.path.join(CONVERTED, name + ".yaml"))
+                )
+        # Each fixture is the run a deck was converted into, with every default written
+        # out, so that a converted deck means what it did whatever the defaults become
 
     def test_the_decks_give_every_keyword(self):
         given = set()
