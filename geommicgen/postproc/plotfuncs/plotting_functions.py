@@ -68,9 +68,7 @@ def create_figure(
     plt.rc("font", family="serif")
     plt.rc("mathtext", fontset="cm")
     # A serif face, and the Computer Modern of TeX for the mathematics, which matplotlib
-    # draws itself. The text was set by TeX, so a plot needed a TeX installation, which
-    # nothing declared, and failed without one -- and every plot after it too, the
-    # setting being matplotlib's for the whole process
+    # draws itself, so that no TeX installation is needed
     if "w" not in kwargs:
         w = (latex_textwidth - 0.2 * (ncols - 1)) / ncols
     else:
@@ -132,10 +130,9 @@ def histogram_bins(values, bins):
     half = 0.05 * abs(values.max()) if values.max() != 0 else 0.5
 
     return 1, (values.min() - half, values.max() + half)
-    # Values that differ in their last digits alone, as the cells of a regular
-    # arrangement do, left numpy no room for the bins between them, and the histogram
-    # failed; bins it sizes from the spread of the values would have been a width of
-    # the last digit over a range of any width
+    # Values that agree to nine digits, as the cells of a regular arrangement do, are
+    # one bin: numpy finds no room for bins between them, and sizes "auto" bins from
+    # their spread, a width of the last digit
 
 
 def create_legend(artists, labels, axes, to_fig=False, fig_h=4, ncols=3):

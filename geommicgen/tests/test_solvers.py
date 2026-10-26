@@ -2,17 +2,20 @@
 Integration tests that run the files GMMD writes through the solvers that read them.
 
 These are the tests that say whether a file works, rather than whether it is well
-formed: each one hands a mesh GMMD wrote to the solver and checks that the solver ran
-it to completion. A solver that is not installed skips its tests, so the module says
-nothing about a format it could not run.
+formed: each one hands a mesh GMMD wrote to the solver and checks that the solver ran it
+to completion, and some check its answer against one known in closed form. A solver that
+is not installed skips its tests, so the module says nothing about a format it could not
+run.
 
 LINKS is found through the environment variable GEOMMICGEN_LINKS, holding the path of
 the executable, or as LINKS on the PATH; Abaqus through GEOMMICGEN_ABAQUS, or as abaqus
-on the PATH. FEniCS is a library rather than a program, so what is run is the example
-script shipped beside the decks, with the Python that has dolfinx, whose path is given
-in GEOMMICGEN_DOLFINX_PYTHON. CRATE is a Python package whose pinned requirements this
-one cannot share an environment with, so it is run with the Python that has it, given
-in GEOMMICGEN_CRATE_PYTHON.
+on the PATH. The Abaqus tests were run with the Abaqus 2026 Learning Edition, which
+limits a model to 1000 nodes, so every mesh they write stays under that. FEniCS is a
+library rather than a program, so what is run is the example script shipped beside the
+decks, with the Python that has dolfinx, whose path is given in
+GEOMMICGEN_DOLFINX_PYTHON. CRATE is a Python package whose pinned requirements this one
+cannot share an environment with, so it is run with the Python that has it, given in
+GEOMMICGEN_CRATE_PYTHON.
 """
 
 import json
