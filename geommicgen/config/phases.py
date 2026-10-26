@@ -281,6 +281,24 @@ class PhaseConfig(ConfigModel):
                 problems.append(((i_name,), "has to be a whole number"))
         # The number of particles and the volume fraction are read as the one value
         # they are, which a distribution does not have
+        number = self.descriptors.get("n")
+        for i_name, i_descriptor in self.descriptors.items():
+            if (
+                isinstance(i_descriptor, Specified)
+                and isinstance(number, Fixed)
+                and len(i_descriptor.values) != number.value
+            ):
+                problems.append(
+                    (
+                        (i_name, "values"),
+                        "gives {0} values, one for each particle, and the phase has "
+                        "{1} particles".format(
+                            len(i_descriptor.values), int(number.value)
+                        ),
+                    )
+                )
+        # A phase given by its volume fraction has as many particles as it takes, which
+        # is found out as they are drawn
         if problems:
             raise Problems(problems)
 

@@ -204,6 +204,19 @@ class TestPhases(unittest.TestCase):
             ["  - phases.1.direction: has to be a whole number"],
         )
 
+    def test_values_specified_are_one_for_each_particle(self):
+        specified = {"distribution": "specified", "values": [0.1, 0.1, 0.1]}
+        read_phases({1: {"type": "disk", "r": specified, "n": 3}})
+        read_phases({1: {"type": "disk", "r": specified, "vf": 0.1}})
+        self.assertEqual(
+            refused_phases(self, {1: {"type": "disk", "r": specified, "n": 4}}),
+            [
+                "  - phases.1.r.values: gives 3 values, one for each particle, and the "
+                "phase has 4 particles"
+            ],
+        )
+        # Drawing the fourth particle went past them, and stopped the run
+
     def test_a_phase_is_named_by_a_whole_number(self):
         self.assertEqual(
             list(read_phases({0: {"type": "matrix"}, "1": {"type": "matrix"}})),
@@ -291,9 +304,11 @@ class TestDescriptors(unittest.TestCase):
                     [type(i_value) for i_value in options.values()],
                     [type(i_value) for i_value in i_options.values()],
                 )
-        specified = self.options({"distribution": "specified", "values": [0.1, 0.2]})
+        specified = self.options(
+            {"distribution": "specified", "values": [0.1, 0.2, 0.3]}
+        )
         self.assertEqual(specified["r_distribution"], "specified")
-        np.testing.assert_array_equal(specified["r"], [0.1, 0.2])
+        np.testing.assert_array_equal(specified["r"], [0.1, 0.2, 0.3])
         # Floats where the deck reads floats, and an array for values given particle by
         # particle, as the deck reads a list of them
 
