@@ -32,7 +32,7 @@ from geommicgen.config.run import RunConfig
 from geommicgen.iofuncs.legacy_deck import read_legacy_deck
 from geommicgen.micgenmethod.speed_up_schemes import SPEED_UP_SCHEMES
 from geommicgen.microstructure.phase import PHASE_KEYS, Phase, gives_parameter
-from geommicgen.postproc.options import ANALYSIS_OPTIONS
+from geommicgen.postproc.options import ANALYSES, DESCRIPTORS, VORONOI_OPTION_NAMES
 
 THERMOSTAT_PARAMETERS = {
     "multi_temperature": {"initial_temp", "lowering_temp_criterion", "temp_low_ratio"},
@@ -297,6 +297,66 @@ def legacy_generation(parameters, notes):
     return generation
 
 
+def legacy_analyses(post_proc, notes):
+    """
+    Lay out the analyses of a deck as the analyses section of the file.
+
+    Parameters
+    ----------
+    post_proc: dict
+        The analyses the deck gives, each keyword at its default when the deck does not
+        give it.
+
+    notes: list
+        List an option of an analysis the deck does not ask for, given other than at
+        its default, is appended to.
+
+    Returns
+    -------
+    dict
+        The section: each analysis the deck asks for under its name, with the options
+        the deck gave other than at their default, or true when it gave none.
+    """
+    analyses = {}
+    if post_proc.get("final_config"):
+        analyses["final_config"] = True
+    if post_proc.get("motion_analysis"):
+        analyses["motion"] = True
+
+    voronoi = {
+        i_option: plain(post_proc[i_keyword])
+        for i_option, i_keyword in VORONOI_OPTION_NAMES.items()
+        if i_keyword in post_proc
+        and post_proc[i_keyword]
+        != ANALYSES["voronoi"]["options"][i_option]["default"]
+    }
+    if post_proc.get("voronoi_analysis"):
+        analyses["voronoi"] = voronoi or True
+    else:
+        for i_option, i_value in voronoi.items():
+            notes.append(
+                "{0} {1}, which configures the Voronoi analysis the deck does not ask "
+                "for, is left out".format(VORONOI_OPTION_NAMES[i_option], i_value)
+            )
+
+    descriptors = [i_name for i_name in DESCRIPTORS if post_proc.get("stat_" + i_name)]
+    seed = post_proc.get("stat_seed")
+    if descriptors:
+        statistics = {}
+        if descriptors != list(DESCRIPTORS):
+            statistics["descriptors"] = descriptors
+        if seed is not None:
+            statistics["seed"] = seed
+        analyses["statistics"] = statistics or True
+    elif seed is not None:
+        notes.append(
+            "stat_seed {0}, which seeds the statistics the deck does not ask for, is "
+            "left out".format(seed)
+        )
+
+    return analyses
+
+
 def legacy_to_config(options):
     """
     Lay out what the reader of decks gave as the sections of an input file.
@@ -344,11 +404,7 @@ def legacy_to_config(options):
             meshes[i_name][j_name] = j_value
     if meshes:
         config["meshes"] = meshes
-    analyses = {
-        i_name: plain(i_value)
-        for i_name, i_value in options.get("post_proc", {}).items()
-        if i_value != ANALYSIS_OPTIONS[i_name]["default"]
-    }
+    analyses = legacy_analyses(options.get("post_proc", {}), notes)
     if analyses:
         config["analyses"] = analyses
 

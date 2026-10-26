@@ -15,7 +15,11 @@ from geommicgen.config.base import ConfigError, write_config
 from geommicgen.config.generation import thermostat_defaults
 from geommicgen.config.meshes import MeshesConfig
 from geommicgen.config.run import read_config
-from geommicgen.iofuncs.convert_deck import convert_deck, convert_deck_command
+from geommicgen.iofuncs.convert_deck import (
+    convert_deck,
+    convert_deck_command,
+    legacy_analyses,
+)
 from geommicgen.iofuncs.legacy_deck import (
     ANALYSIS_KEYWORDS,
     DISCRETISATION_KEYWORDS,
@@ -337,16 +341,15 @@ class TestConversion(DeckTest):
                 self.assertLessEqual(
                     {i_name.lower() for i_name in keywords}, set(model.model_fields)
                 )
-        self.assertEqual(
-            {i_name: i_default for i_name, (_, i_default) in ANALYSIS_KEYWORDS.items()},
-            {
-                i_name: i_field.default
-                for i_name, i_field in AnalysesConfig.model_fields.items()
-            },
-        )
+        defaults = {
+            i_name: i_default for i_name, (_, i_default) in ANALYSIS_KEYWORDS.items()
+        }
+        self.assertEqual(defaults, AnalysesConfig().to_options())
+        self.assertEqual(legacy_analyses(defaults, []), {})
         # The keywords a deck gives are frozen as they were when the input file replaced
-        # the format; each is converted into the key of its name, which the input file
-        # has to go on taking, at the same default
+        # the format. A mesh keyword is converted into the key of its name, which the
+        # input file has to go on taking; an analysis keyword into the analysis it asks
+        # for, or the option of it it configures, at the same default
 
     def test_what_nothing_read_is_left_out_and_said(self):
         _, _, notes = convert_deck(self.write(KITCHEN_SINK_2D))

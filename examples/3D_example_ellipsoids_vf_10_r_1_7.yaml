@@ -32,4 +32,4 @@ meshes:
 
 analyses:
   final_config: true
-  motion_analysis: true
+  motion: true

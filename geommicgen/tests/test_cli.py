@@ -10,18 +10,23 @@ import numpy as np
 
 from geommicgen._optional import has_gmsh
 from geommicgen.cli import (
-    add_declared_arguments,
+    add_analysis_arguments,
     analyze_command,
-    declared_options,
+    asked_analyses,
     mesh_command,
     translate_command,
 )
-from geommicgen.postproc.options import ANALYSES, ANALYSIS_OPTIONS, with_defaults
+from geommicgen.config.analyses import AnalysesConfig
+from geommicgen.postproc.options import post_proc_options
 from geommicgen.iofuncs.legacy_deck import build_reader
 from geommicgen.iofuncs.md_state import save_md_state
 from geommicgen.iofuncs.microstructure_file import write_microstructure_file
 from geommicgen.tests.helpers import a_generation_run, disk_microstructure
 
+
+
+NEAREST_NEIGHBOR = ("--statistics", "--statistics-descriptors", "nearest_neighbor")
+# The arguments that ask for the cheapest analysis
 
 class TestMeshCommand(unittest.TestCase):
     """Test class for the command that discretises a microstructure."""
@@ -379,7 +384,7 @@ class TestAnalyzeCommand(unittest.TestCase):
         save_md_state(self.sample_dir, run)
 
     def test_a_statistical_analysis_without_gmsh(self):
-        status, _ = self.run_command("--stat-nearest-neighbor")
+        status, _ = self.run_command(*NEAREST_NEIGHBOR)
         self.assertEqual(status, 0)
         self.assertTrue(self.written("stat_analysis_results", "stat_results.npz"))
         self.assertFalse(self.written("mic.screen"))
@@ -405,7 +410,7 @@ class TestAnalyzeCommand(unittest.TestCase):
             side_effect=RuntimeError("drawn wrong"),
         ):
             status, printed = self.run_command(
-                "--final-config", "--stat-nearest-neighbor"
+                "--final-config", *NEAREST_NEIGHBOR
             )
         self.assertEqual(status, 1)
         self.assertIn("failed: RuntimeError: drawn wrong", printed)
@@ -413,7 +418,7 @@ class TestAnalyzeCommand(unittest.TestCase):
         self.assertIn("stat_results.npz", printed)
 
     def test_the_motion_analysis_needs_the_state(self):
-        status, printed = self.run_command("--final-config", "--motion-analysis")
+        status, printed = self.run_command("--final-config", "--motion")
         self.assertEqual(status, 1)
         self.assertIn("ValueError", printed)
         self.assertIn("md_state.npz", printed)
@@ -421,15 +426,15 @@ class TestAnalyzeCommand(unittest.TestCase):
         # Refused before anything is written, the final configuration included
 
     def test_running_twice_writes_over_the_first_time(self):
-        first, _ = self.run_command("--stat-nearest-neighbor")
-        second, _ = self.run_command("--stat-nearest-neighbor")
+        first, _ = self.run_command(*NEAREST_NEIGHBOR)
+        second, _ = self.run_command(*NEAREST_NEIGHBOR)
         self.assertEqual((first, second), (0, 0))
 
     def test_a_run_that_recorded_no_positions(self):
         run = a_generation_run()
         run.position_center_history = None
         self.save_state(run)
-        status, printed = self.run_command("--motion-analysis")
+        status, printed = self.run_command("--motion")
         self.assertEqual(status, 0)
         self.assertTrue(self.written("motion_results", "relative_energy.pdf"))
         self.assertFalse(self.written("motion_results", "paths"))
@@ -444,7 +449,7 @@ class TestAnalyzeCommand(unittest.TestCase):
             for i_center in (i.position_center for i in self.microstructure.particles)
         ]
         self.save_state(run)
-        status, _ = self.run_command("--motion-analysis")
+        status, _ = self.run_command("--motion")
         self.assertEqual(status, 0)
         self.assertTrue(os.listdir(os.path.join(self.output_dir, "motion_results", "paths")))
 
@@ -488,7 +493,7 @@ class TestCommandReports(unittest.TestCase):
     def test_the_analysis_command_is_framed_and_lists_what_it_wrote(self):
         printed = self.run_command(
             analyze_command,
-            [self.microstructure_path, "--stat-nearest-neighbor", "-o", self.output_dir],
+            [self.microstructure_path, *NEAREST_NEIGHBOR, "-o", self.output_dir],
         )
         self.assert_framed(printed, "Microstructure")
         self.assertIn("Statistical analysis", printed)
@@ -513,31 +518,63 @@ class TestCommandReports(unittest.TestCase):
 
 
 class TestAnalysisOptions(unittest.TestCase):
-    """Test class for the analyses being asked for the same way from a deck and here."""
+    """Test class for the analyses being asked for the same way from a file and here."""
 
-    def test_the_deck_reads_the_analyses_declared(self):
+    def parse(self, *argv):
+        """Give the analyses the arguments ask for, as the post processing reads
+        them."""
+        parser = argparse.ArgumentParser()
+        add_analysis_arguments(parser)
+        with contextlib.redirect_stderr(io.StringIO()):
+            return post_proc_options(asked_analyses(parser, parser.parse_args(argv)))
+
+    def test_the_deck_reads_what_the_post_processing_reads(self):
         keywords = {
             i_keyword.name.lower(): i_keyword
             for i_keyword in build_reader().top_level_keywords
             if getattr(i_keyword, "keyword_group", None) == "post_proc"
         }
-        self.assertEqual(set(keywords), set(ANALYSIS_OPTIONS))
-        for i_name, i_description in ANALYSIS_OPTIONS.items():
+        defaults = post_proc_options({})
+        self.assertEqual(set(keywords), set(defaults))
+        for i_name, i_default in defaults.items():
             with self.subTest(option=i_name):
-                self.assertEqual(keywords[i_name].default_value, i_description["default"])
-                self.assertEqual(keywords[i_name].type_str, i_description["type"])
-        # Built from the one declaration, so this is a test of the wiring rather than
-        # of two lists kept alike by hand, which is what it used to be
+                self.assertEqual(keywords[i_name].default_value, i_default)
 
-    def test_a_bare_command_asks_for_what_a_bare_deck_asks_for(self):
-        parser = argparse.ArgumentParser()
-        add_declared_arguments(parser, ANALYSIS_OPTIONS)
-        options = with_defaults(declared_options(parser.parse_args([]), ANALYSIS_OPTIONS))
+    def test_a_bare_command_asks_for_what_a_bare_file_asks_for(self):
+        self.assertEqual(self.parse(), AnalysesConfig().to_options())
+        self.assertEqual(self.parse(), post_proc_options({}))
+
+    def test_an_analysis_is_asked_for_as_a_file_asks_for_it(self):
         self.assertEqual(
-            options,
-            {i_name: i_description["default"] for i_name, i_description in ANALYSIS_OPTIONS.items()},
+            self.parse(
+                "--voronoi",
+                "--voronoi-type",
+                "set",
+                "--statistics",
+                "--statistics-descriptors",
+                "ripleys_k,two_pt_corr",
+                "--statistics-seed",
+                "3",
+            ),
+            AnalysesConfig.model_validate(
+                {
+                    "voronoi": {"type": "set"},
+                    "statistics": {
+                        "descriptors": ["ripleys_k", "two_pt_corr"],
+                        "seed": 3,
+                    },
+                }
+            ).to_options(),
         )
-        self.assertFalse(any(options[i_name] for i_name in ANALYSES))
+
+    def test_an_option_of_an_analysis_not_asked_for_is_refused(self):
+        with self.assertRaises(SystemExit):
+            self.parse("--final-config", "--voronoi-type", "set")
+        # It would go unread
+
+    def test_a_descriptor_there_is_not_is_refused(self):
+        with self.assertRaises(SystemExit):
+            self.parse("--statistics", "--statistics-descriptors", "ripley")
 
 
 if __name__ == "__main__":

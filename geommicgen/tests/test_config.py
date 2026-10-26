@@ -18,6 +18,7 @@ from geommicgen.config.base import (
     read_model,
 )
 from geommicgen.config import generation
+from geommicgen.config.analyses import ANALYSIS_MODELS
 from geommicgen.config.phases import (
     PHASE_MODELS,
     Descriptor,
@@ -624,6 +625,7 @@ def model_fields():
         *generation.CRITERIA,
         RunConfig.model_fields["meshes"].annotation,
         RunConfig.model_fields["analyses"].annotation,
+        *ANALYSIS_MODELS.values(),
         *PHASE_MODELS.values(),
         *[
             i_type

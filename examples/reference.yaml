@@ -307,34 +307,40 @@ meshes:
 # ------------------------------------------------------------------------------------------
 # Analyses
 # ------------------------------------------------------------------------------------------
-# The analyses to carry out on each sample, the same geommicgen-analyze takes as flags.
-# None by default. The paths, the Voronoi diagram and the statistics describe the
-# particles the simulation packed: the particles of a phase inside another, placed
-# once the packing is done, are left out of them, and drawn in the final configuration.
+# The analyses to carry out on each sample, each under its name with its options, as
+# geommicgen-analyze asks for them with --name and --name-option. None by default. An
+# analysis is carried out when it is given; true stands for it with its options at their
+# defaults. The paths, the Voronoi diagram and the statistics describe the particles the
+# simulation packed: the particles of a phase inside another, placed once the packing is
+# done, are left out of them, and drawn in the final configuration.
 analyses:
   # Draw the final configuration of the particles.
   final_config: true
-  # Draw what the run recorded: the overlap, the energies, the time step and, with
+  # Plot what the run recorded: the overlap, the energies, the time step and, with
   # save_history, the paths of the particles.
-  motion_analysis: false
-  # Work out the Voronoi diagram of the particles and the Minkowski tensors of its cells.
-  voronoi_analysis: false
-  # Kind of Voronoi diagram: standard, of the centres, or set, of points on the surfaces
-  # of the particles. standard by default.
-  voronoi_type: standard
-  # Points on the surface of each particle of a set Voronoi diagram. 10 by default.
-  n_surf_points: 10
-  # Draw the Voronoi diagram.
-  plot_voronoi: false
-  # Draw the cells of the Voronoi diagram coloured by their Minkowski tensors.
-  plot_imts: false
-  # The distribution of the distance from each particle to its nearest neighbour.
-  stat_nearest_neighbor: false
-  # Ripley's K function.
-  stat_ripleys_k: false
-  # The two point correlation function.
-  stat_two_pt_corr: false
-  # Seed of the draws Ripley's K function and the two point correlation function are
-  # estimated with, so that an analysis gives the same numbers every time. No seed by
-  # default.
-  stat_seed: 7
+  motion: true
+  # Work out the Voronoi diagram of the particles and the Minkowski tensors of its
+  # cells.
+  voronoi:
+    # Kind of Voronoi diagram: standard, of the centres, or set, of points on the
+    # surfaces of the particles. standard by default.
+    type: standard
+    # Points on the surface of each particle of a set Voronoi diagram. 10 by default.
+    n_surf_points: 10
+    # Draw the Voronoi diagram. False by default.
+    plot: false
+    # Draw the cells of the Voronoi diagram coloured by their Minkowski tensors. False
+    # by default.
+    plot_imts: false
+  # Work out statistical descriptors of the arrangement of the particles.
+  statistics:
+    # The descriptors to work out, all three by default:
+    #   nearest_neighbor  the distribution of the distance from each particle to its
+    #                     nearest neighbour
+    #   ripleys_k         Ripley's K function
+    #   two_pt_corr       the two point correlation function
+    descriptors: [nearest_neighbor, ripleys_k, two_pt_corr]
+    # Seed of the draws Ripley's K function and the two point correlation function are
+    # estimated with, so that an analysis gives the same numbers every time. No seed by
+    # default.
+    seed: 7

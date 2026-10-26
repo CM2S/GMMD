@@ -20,7 +20,7 @@ import geommicgen.iofuncs.printing as print_funcs
 from geommicgen._optional import require_gmsh
 from geommicgen.iofuncs.md_state import STATE_FILE_NAME
 from geommicgen.pipeline import MESH_DIRECTORY
-from geommicgen.postproc.options import ANALYSES, VORONOI_OPTION_NAMES, VORONOI_TYPES
+from geommicgen.postproc.options import STAT_FLAGS, VORONOI_OPTION_NAMES, VORONOI_TYPES
 import geommicgen.postproc.voronoimetrics.motion_analysis as motion_analysis
 import geommicgen.postproc.voronoimetrics.stat_analysis as stat_analysis
 import geommicgen.postproc.voronoimetrics.voronoi_analysis as voronoi_analysis
@@ -72,10 +72,10 @@ def announced(step, times, failures):
     # Every analysis opens with its name and closes with its time, where only the
     # final configuration did and the others went unreported
 
-VORONOI_OPTIONS = VORONOI_OPTION_NAMES
+VORONOI_OPTIONS = tuple(VORONOI_OPTION_NAMES.values())
 # The options handed on to the Voronoi analysis, when they are given
 
-STAT_OPTIONS = tuple(i_name for i_name in ANALYSES if i_name.startswith("stat_"))
+STAT_OPTIONS = STAT_FLAGS
 # The statistical analyses, each asked for by its own option
 
 ANALYSIS_DIRECTORIES = {

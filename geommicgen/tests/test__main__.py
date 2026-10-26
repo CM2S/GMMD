@@ -313,7 +313,9 @@ class TestFailedAnalysis(DeckRunTest):
             TestFailedSample.OVERLAPPING_RUN.replace("vf: 0.5", "vf: 0.1").replace(
                 "max_step: 2", "max_step: 200"
             )
-            + "analyses: {final_config: true, stat_nearest_neighbor: true}\n"
+            + "analyses:\n"
+            + "  final_config: true\n"
+            + "  statistics: {descriptors: [nearest_neighbor]}\n"
         )
         self.assertEqual(status, 1, stderr)
         self.assertNotIn("Traceback", stderr)
