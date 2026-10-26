@@ -10,10 +10,14 @@ from geommicgen.iofuncs.file_handling import delete_screen
 from geommicgen.iofuncs.printing import (
     print_failed_jobs,
     print_final_message,
+    print_microstructure_info,
     step_times,
     print_to_file,
     screen_to,
 )
+from geommicgen.microstructure.microstructure import Microstructure
+from geommicgen.microstructure.particleclasses import Disk
+from geommicgen.microstructure.phase import FixedValue, NormalDistribution, Phase
 from geommicgen.pipeline import MeshJob
 from geommicgen.meshing.gmsh_mesher import GmshMesher
 from geommicgen.meshing.voxel_mesher import VoxelMesher
@@ -174,6 +178,28 @@ class TestScreenLog(ScreenLogTest):
         self.assertFalse(os.path.exists(self.screen_path))
         # The handler holds the file open; delete_screen lets go of it first, which is
         # what a removal on Windows needs
+
+
+class TestPrintMicrostructureInfo(ScreenLogTest):
+    """Test class for the report of the phases of a microstructure."""
+
+    def test_the_parameters_of_a_distribution_come_in_their_order(self):
+        microstructure = Microstructure([1.0, 1.0])
+        microstructure.add_phase(
+            Phase.from_type(
+                "1",
+                Disk,
+                descriptors={
+                    "n": FixedValue("n", 4),
+                    "r": NormalDistribution("r", 0.1, 0.01),
+                },
+            )
+        )
+        print_microstructure_info(microstructure)
+        screen = self.screen()
+        self.assertLess(screen.index("- Mean: 0.1"), screen.index("- Sigma: 0.01"))
+        # The parameters were a set, so the order changed with the hash seed, from one
+        # run to the next
 
 
 class TestPrintFailedJobs(ScreenLogTest):

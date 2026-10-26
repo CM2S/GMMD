@@ -418,11 +418,11 @@ class SpecifiedValue(PhaseDescriptor):
 
     Class Attributes
     ----------------
-    parameters: set
+    parameters: tuple
         Parameters of the statistical distribution.
     """
 
-    parameters = {"mean", "sigma"}
+    parameters = ("mean", "sigma")
 
     def __init__(self, name, vals):
         """
@@ -487,11 +487,11 @@ class FixedValue(PhaseDescriptor):
 
     Class Attributes
     ----------------
-    parameters: set
+    parameters: tuple
         Parameters of the statistical distribution.
     """
 
-    parameters = {"value"}
+    parameters = ("value",)
 
     def __init__(self, name, value):
         """
@@ -528,11 +528,11 @@ class NormalDistribution(PhaseDescriptor):
 
     Class Attributes
     ----------------
-    parameters: set
+    parameters: tuple
         Parameters of the statistical distribution.
     """
 
-    parameters = {"mean", "sigma"}
+    parameters = ("mean", "sigma")
 
     def __init__(self, name, mean, sigma):
         """
@@ -573,11 +573,11 @@ class LogNormalDistribution(PhaseDescriptor):
 
     Class Attributes
     ----------------
-    parameters: set
+    parameters: tuple
         Parameters of the statistical distribution.
     """
 
-    parameters = {"mean", "sigma"}
+    parameters = ("mean", "sigma")
 
     def __init__(self, name, mean, sigma):
         """
@@ -619,11 +619,11 @@ class UniformDistribution(PhaseDescriptor):
 
     Class Attributes
     ----------------
-    parameters: set
+    parameters: tuple
         Parameters of the statistical distribution.
     """
 
-    parameters = {"low", "high"}
+    parameters = ("low", "high")
 
     def __init__(self, name, low, high):
         """
@@ -675,11 +675,11 @@ class VonMisesDistribution(PhaseDescriptor):
 
     Class Attributes
     ----------------
-    parameters: set
+    parameters: tuple
         Parameters of the statistical distribution.
     """
 
-    parameters = {"kappa", "loc", "scale"}
+    parameters = ("kappa", "loc", "scale")
 
     def __init__(self, name, kappa, loc, scale):
         """
@@ -726,12 +726,14 @@ class DiscreteDistribution(PhaseDescriptor):
 
     Class Attributes
     ----------------
-    parameters: set
+    parameters: tuple
         Parameters of the statistical distribution.
     """
 
-    parameters = {"value_" + str(i) for i in range(1, 11)}.union(
-        {"prob_" + str(i) for i in range(1, 11)}
+    parameters = tuple(
+        "{0}_{1}".format(j_name, i)
+        for i in range(1, 11)
+        for j_name in ("value", "prob")
     )
 
     def __init__(self, name, values, probabilities):
