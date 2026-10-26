@@ -488,7 +488,7 @@ class GmshMesher(Mesher):
             raise ValueError(
                 "Either mesh_size or elements_per_particle must be specified."
             )
-        if mesh_size is not None and mesh_size < 0:
+        if mesh_size is not None and mesh_size <= 0:
             raise ValueError("The mesh size must be a positive number.")
         if elements_per_particle is not None and elements_per_particle <= 0:
             raise ValueError("elements_per_particle must be a positive number.")

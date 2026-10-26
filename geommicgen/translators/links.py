@@ -140,6 +140,8 @@ class LinksWriter(SolverWriter):
                 "{1}.".format(boundary_type, ", ".join(BOUNDARY_TYPES))
             )
         self.gauss_points = dict(gauss_points) if gauss_points else {}
+        if any(i_points < 1 for i_points in self.gauss_points.values()):
+            raise ValueError("An element is integrated at one Gauss point at least.")
         self.boundary_type = boundary_type
         self.requires_periodic = BOUNDARY_TYPES[boundary_type]
         self.write_example = write_example
@@ -166,10 +168,11 @@ class LinksWriter(SolverWriter):
 
         return cls(
             gauss_points=(
-                uniform_gauss_points(gauss_points) if gauss_points else None
+                None if gauss_points is None else uniform_gauss_points(gauss_points)
             ),
             boundary_type=options.get("boundary_type") or DEFAULT_BOUNDARY_TYPE,
         )
+        # Zero points was taken for none given, and the defaults written instead
 
     def _write(self, mesh, file_path):
         """
