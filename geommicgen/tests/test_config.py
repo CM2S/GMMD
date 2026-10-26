@@ -36,6 +36,7 @@ from geommicgen.micgenmethod.molecular_dynamics_sim import (
     REQUIRED_OPTIONS,
 )
 from geommicgen.microstructure.phase import Phase
+from geommicgen.pipeline import build_mesh_jobs
 
 
 class Cell(ConfigModel):
@@ -567,6 +568,46 @@ class TestRun(unittest.TestCase):
                 self.assertTrue(lines[0].startswith(i_line), lines[0])
         # Built from the options before anything is generated, which is where a deck
         # found them too
+
+    def test_several_sizes_and_elements_are_a_mesh_each(self):
+        run = read_model(
+            RunConfig,
+            dict(
+                MINIMAL_RUN,
+                meshes={
+                    "gmsh": {
+                        "elements_per_particle": [4, 8],
+                        "element_type": ["tri3", "tri6"],
+                    }
+                },
+            ),
+        )
+        self.assertEqual(
+            [
+                i_job.base_name
+                for i_job in build_mesh_jobs(
+                    run.to_options()["mesh_options"], "deck.yaml"
+                )
+            ],
+            ["deck_tri3_epp4", "deck_tri3_epp8", "deck_tri6_epp4", "deck_tri6_epp8"],
+        )
+        # As a grid at each of several resolutions, and named so that none is written
+        # over another
+
+    def test_a_name_for_several_meshes_is_refused(self):
+        lines = self.refused(
+            lambda d: d.update(
+                meshes={"gmsh": {"elements_per_particle": [4, 8], "file_name": "x"}}
+            )
+        )
+        self.assertEqual(len(lines), 1)
+        self.assertTrue(
+            lines[0].startswith(
+                "  - meshes.gmsh: File_Name x would be given to each of the 2 "
+                "discretisations"
+            ),
+            lines[0],
+        )
 
     def test_the_simulation_is_refused_what_it_would_stop_on(self):
         for i_generation, i_line in (
