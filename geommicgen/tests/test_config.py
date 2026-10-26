@@ -9,6 +9,7 @@ from typing import Annotated, Literal, Union
 
 import numpy as np
 import pydantic
+import yaml
 
 from geommicgen.config.base import (
     ConfigError,
@@ -18,7 +19,7 @@ from geommicgen.config.base import (
     read_model,
 )
 from geommicgen.config import generation
-from geommicgen.config.analyses import ANALYSIS_MODELS
+from geommicgen.config.analyses import ANALYSIS_MODELS, AnalysesConfig
 from geommicgen.config.phases import (
     PHASE_MODELS,
     Descriptor,
@@ -673,7 +674,11 @@ class TestReferenceFile(unittest.TestCase):
 
     def test_the_keys_without_a_default_are_the_ones_marked_required(self):
         lines = self.text.splitlines()
-        for i_model in (RunConfig, generation.Generation, generation.MolecularDynamics):
+        for i_model in (
+            RunConfig,
+            generation.Generation,
+            generation.MolecularDynamics,
+        ):
             for i_name, i_required in model_fields()[i_model].items():
                 with self.subTest(key=i_name):
                     index = next(
@@ -686,15 +691,48 @@ class TestReferenceFile(unittest.TestCase):
                         index -= 1
                         comment.append(lines[index])
                     marked = any(
-                        re.match(r"\s*# \S.*\[required\]", j_line) for j_line in comment
+                        re.fullmatch(r"\s*# (Required\.|.* \(required\))", j_line)
+                        for j_line in comment
                     ) or (
                         not comment
-                        and "# {0} [required]".format(i_name.capitalize()) in self.text
+                        and "# {0} (required)".format(i_name.capitalize()) in self.text
                     )
                     self.assertEqual(marked, i_required)
-        # A key is documented in the comment right above it, where the lines indented
-        # further document the keys of its section; a section set apart by a blank line
-        # is documented under its heading
+        # A key is documented in the comment right above it, which ends in its default
+        # or in Required., and where the lines indented further document the keys of
+        # its section; a section is documented under its heading
+
+    def test_the_defaults_stated_are_the_ones_the_keys_have(self):
+        lines = self.text.splitlines()
+        for i_model, i_section, i_indent in (
+            (RunConfig, None, ""),
+            (generation.Generation, "generation:", "  "),
+            (generation.MolecularDynamics, "  molecular_dynamics:", "    "),
+            (AnalysesConfig, "analyses:", "  "),
+            (ANALYSIS_MODELS["voronoi"], "  voronoi:", "    "),
+            (ANALYSIS_MODELS["statistics"], "  statistics:", "    "),
+        ):
+            start = lines.index(i_section) if i_section else 0
+            for i_name, i_field in i_model.model_fields.items():
+                if i_field.is_required() or i_name in ("phases", "meshes", "analyses"):
+                    continue
+                with self.subTest(key=i_name):
+                    index = next(
+                        j_index
+                        for j_index in range(start, len(lines))
+                        if lines[j_index].startswith("{0}{1}:".format(i_indent, i_name))
+                    )
+                    stated = None
+                    while lines[index - 1].strip().startswith("#"):
+                        index -= 1
+                        match = re.fullmatch(r"\s*# Default: (.*)", lines[index])
+                        if match:
+                            stated = yaml.safe_load(match.group(1))
+                    default = getattr(i_field.default, "name", i_field.default)
+                    self.assertEqual(stated if stated != "none" else None, default)
+        # The default each key is documented with, in the Default: line of the comment
+        # above it, looked for below the key of its section; a section chosen by its
+        # name by the name
 
     def test_each_type_is_shown_with_its_parameters_and_descriptions(self):
         types = [i_name for i_name in PHASE_MODELS if i_name != "matrix"]
@@ -712,12 +750,15 @@ class TestReferenceFile(unittest.TestCase):
                     set(re.findall(r"^#     ([a-z_0-9]+):", block, re.M)),
                     set(particle_class.possible_parameters) - {"n", "vf"},
                 )
-                sets = block[block.index("described by one of:") :].split(":", 1)[1]
-                sets = re.sub(r"\n#\s*", " ", sets)
+                listing = block[block.index("described by one of:") :].split(":", 1)[1]
+                sets = [
+                    re.sub(r"\n#\s*", " ", j_set)
+                    for j_set in re.split(r"\n#\s+- ", listing)[1:]
+                ]
                 self.assertEqual(
                     {
                         frozenset(j_name.strip() for j_name in j_set.split(","))
-                        for j_set in sets.split("|")
+                        for j_set in sets
                     },
                     {
                         frozenset(j_description)

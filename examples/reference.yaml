@@ -1,58 +1,82 @@
-# GMMD - Reference input file
-# ==========================================================================================
-# Every key an input file takes, with what it means, the values it takes and the value
-# it has when it is not given. The keys that have no default are marked [required]. The
-# file runs as it is written: a two dimensional microstructure of disks. The other
-# choices of a key are written below it as comments, and a key of such a choice is
-# written as the file would give it, commented out.
+# GMMD reference input file
+# ======================================================================================
+# Every key an input file takes: what it means, the values it takes, and its default,
+# or "Required." for a key that has none. The file runs as it is written: a two
+# dimensional microstructure of disks. The other choices of a key are written below it,
+# commented out, as the file would give them.
 #
 # An input file is YAML. A key that is not one of these is refused, and so is a key
 # given twice; a file that is refused is refused with every problem in it, each at its
 # path in the file, before anything is generated or written. A deck of the keyword
 # format (.mdsim) is converted into an input file by geommicgen-convert-deck.
-# ==========================================================================================
+# ======================================================================================
 
-# Number of microstructures to generate, each a sample of the same description. [required]
+# Number of microstructures to generate, each a sample of the same description.
+# Required.
 samples: 2
 
-# Sides of the RVE, a rectangle in two dimensions or a box in three. [required]
+# Sides of the RVE: a rectangle in two dimensions, a box in three.
+# Required.
 rve_dimensions: [1, 1]
 
 # Seed of the first sample, each sample after it taking the next, so that a run gives
-# the same microstructures every time. No seed by default: every run gives others.
+# the same microstructures every time; without one, every run gives others.
+# Default: none
 seed: 3
 
 # Whether to keep the least of what a sample leaves behind, the microstructure file and
-# the status, for data-driven frameworks. False by default.
+# the status, for data-driven frameworks.
+# Default: false
 save_min: false
 
-# ------------------------------------------------------------------------------------------
-# Phases [required]
-# ------------------------------------------------------------------------------------------
-# Each phase is keyed by its name, a whole number, which the meshes label the phase with.
-# Exactly one phase is the matrix. A phase gives the type of its particles and a
+
+# --------------------------------------------------------------------------------------
+# Phases (required)
+# --------------------------------------------------------------------------------------
+# Each phase is keyed by its name, a whole number, which the meshes label the phase
+# with. Exactly one phase is the matrix. A phase gives the type of its particles, and a
 # descriptor for each parameter of one of the descriptions its type accepts.
 #
-# type: the type of the particles.
-#   matrix             the phase the particles are in; it takes no descriptors
-#   disk               in two dimensions
+# type: the type of the particles, with the parameters it takes and the sets of them
+#   that describe it.
+#
+#   matrix               the phase the particles are in; it takes no descriptors
+#
+#   disk                 in two dimensions
 #     r:                 radius
 #     area:              area of a disk
-#     described by one of: n, r | r, vf | n, vf | area, vf | area, n
-#   ellipse            in two dimensions
+#     described by one of:
+#       - r, n
+#       - r, vf
+#       - n, vf
+#       - area, vf
+#       - area, n
+#
+#   ellipse              in two dimensions
 #     major_axis:        major axis
 #     minor_axis:        minor axis
 #     angle:             angle between the major axis and the x axis
 #     ratio:             ratio of the major axis to the minor one
-#     described by one of: major_axis, minor_axis, angle, n
-#                        | major_axis, minor_axis, angle, vf | major_axis, angle, n, vf
-#                        | minor_axis, angle, n, vf | angle, ratio, n, vf
-#                        | major_axis, angle, ratio, vf | major_axis, angle, ratio, n
-#   sphere             in three dimensions
+#     described by one of:
+#       - major_axis, minor_axis, angle, n
+#       - major_axis, minor_axis, angle, vf
+#       - major_axis, angle, n, vf
+#       - minor_axis, angle, n, vf
+#       - angle, ratio, n, vf
+#       - major_axis, angle, ratio, vf
+#       - major_axis, angle, ratio, n
+#
+#   sphere               in three dimensions
 #     r:                 radius
 #     volume:            volume of a sphere
-#     described by one of: n, r | r, vf | n, vf | volume, vf | volume, n
-#   ellipsoid          in three dimensions
+#     described by one of:
+#       - r, n
+#       - r, vf
+#       - n, vf
+#       - volume, vf
+#       - volume, n
+#
+#   ellipsoid            in three dimensions
 #     axis_1:            axis along x before the rotation
 #     semi_axis_1:       half of axis 1
 #     axis_2:            axis along y before the rotation
@@ -69,61 +93,76 @@ save_min: false
 #     p_3:               angle between axis 1 and the xy plane
 #     phi_z:             angle between the projection of axis 1 on xy and y
 #     described by one of:
-#       axis_1, axis_2, axis_3, rot_axis_comp_x, rot_axis_comp_y, rot_axis_comp_z, angle, n
-#       | axis_1, axis_2, axis_3, rot_axis_comp_x, rot_axis_comp_y, rot_axis_comp_z, angle,
-#       vf | axis_1, rot_axis_comp_x, rot_axis_comp_y, rot_axis_comp_z, angle, ratio_12,
-#       ratio_13, vf | rot_axis_comp_x, rot_axis_comp_y, rot_axis_comp_z, angle, ratio_12,
-#       ratio_13, n, vf | semi_axis_1, ratio_321, p_3, phi_z, vf
-#       | semi_axis_1, ratio_21, ratio_32, p_3, phi_z, vf
-#       | axis_2, ratio_21, ratio_32, p_3, phi_z, vf | axis_1, ratio_321, p_3, phi_z, vf
-#       | axis_1, axis_2, axis_3, p_3, phi_z, vf
-#   cylindrical_fiber  in three dimensions, as long as the RVE; fibres go with no other
-#                      particles, and all run in one direction
+#       - axis_1, axis_2, axis_3, rot_axis_comp_x, rot_axis_comp_y, rot_axis_comp_z,
+#         angle, n
+#       - axis_1, axis_2, axis_3, rot_axis_comp_x, rot_axis_comp_y, rot_axis_comp_z,
+#         angle, vf
+#       - axis_1, rot_axis_comp_x, rot_axis_comp_y, rot_axis_comp_z, angle, ratio_12,
+#         ratio_13, vf
+#       - rot_axis_comp_x, rot_axis_comp_y, rot_axis_comp_z, angle, ratio_12, ratio_13,
+#         n, vf
+#       - semi_axis_1, ratio_321, p_3, phi_z, vf
+#       - semi_axis_1, ratio_21, ratio_32, p_3, phi_z, vf
+#       - axis_2, ratio_21, ratio_32, p_3, phi_z, vf
+#       - axis_1, ratio_321, p_3, phi_z, vf
+#       - axis_1, axis_2, axis_3, p_3, phi_z, vf
+#
+#   cylindrical_fiber    in three dimensions, as long as the RVE; fibres go with no
+#                        other particles, and all run in one direction
 #     r:                 radius
 #     area:              area of the section
-#     direction:         direction of the fibres, 0, 1 or 2 (a whole number)
-#     described by one of: direction, n, r | direction, r, vf | direction, n, vf
-#                        | area, direction, vf | area, direction, n
-#   cylinder           in three dimensions
+#     direction:         direction of the fibres, 0, 1 or 2
+#     described by one of:
+#       - r, direction, n
+#       - r, direction, vf
+#       - direction, n, vf
+#       - area, direction, vf
+#       - area, direction, n
+#
+#   cylinder             in three dimensions
 #     r_cyl:             radius
 #     length:            length
 #     azimuth_angle:     azimuthal angle of the axis
 #     polar_angle:       polar angle of the axis
 #     ratio:             ratio of the length to the radius
-#     described by one of: azimuth_angle, length, n, polar_angle, r_cyl
-#                        | azimuth_angle, length, polar_angle, r_cyl, vf
-#                        | azimuth_angle, n, polar_angle, r_cyl, ratio
-#                        | azimuth_angle, length, polar_angle, ratio, vf
-#                        | azimuth_angle, length, n, polar_angle, vf
+#     described by one of:
+#       - r_cyl, length, azimuth_angle, polar_angle, n
+#       - r_cyl, length, azimuth_angle, polar_angle, vf
+#       - r_cyl, azimuth_angle, polar_angle, ratio, n
+#       - length, azimuth_angle, polar_angle, ratio, vf
+#       - length, azimuth_angle, polar_angle, n, vf
 #
 # Every type takes
 #     n:                 number of particles, a whole number
 #     vf:                volume fraction, between 0 and 1
-# which are fixed values; any other parameter is a fixed value, the same for every
+# which are fixed values. Any other parameter is a fixed value, the same for every
 # particle, or a distribution each particle's value is drawn from:
-#     r: 0.05                                                    a fixed value
-#     r: {distribution: fixed, value: 0.05}                      the same, written out
-#     r: {distribution: specified, values: [0.04, 0.05, 0.06]}   one value per particle,
-#                                                                in the order given, as
-#                                                                many as n
-#     r: {distribution: normal, mean: 0.05, sigma: 0.005}        sigma not below zero
-#     r: {distribution: lognormal, mean: 0.05, sigma: 0.1}       the logarithm is normal,
-#                                                                with deviation sigma;
-#                                                                mean is the median, and
-#                                                                both are above zero
-#     r: {distribution: uniform, low: 0.04, high: 0.06}          low not above high
-#     r: {distribution: vonmises, kappa: 4, loc: 0, scale: 1}    for an angle, centred on
-#                                                                loc, narrower the larger
-#                                                                kappa; kappa and scale
-#                                                                above zero
-#     r: {distribution: discrete, values: [0.04, 0.06], probabilities: [0.25, 0.75]}
-#                                                                a probability for each
-#                                                                value, adding up to one
+#
+#   r: 0.05
+#       a fixed value
+#   r: {distribution: fixed, value: 0.05}
+#       the same, written out
+#   r: {distribution: specified, values: [0.04, 0.05, 0.06]}
+#       one value per particle, in the order given, as many as n
+#   r: {distribution: normal, mean: 0.05, sigma: 0.005}
+#       sigma not below zero
+#   r: {distribution: lognormal, mean: 0.05, sigma: 0.1}
+#       the logarithm is normal, with deviation sigma; mean is the median, and both are
+#       above zero
+#   r: {distribution: uniform, low: 0.04, high: 0.06}
+#       low not above high
+#   r: {distribution: vonmises, kappa: 4, loc: 0, scale: 1}
+#       for an angle: centred on loc, narrower the larger kappa; kappa and scale above
+#       zero
+#   r: {distribution: discrete, values: [0.04, 0.06], probabilities: [0.25, 0.75]}
+#       a probability for each value, adding up to one
+#
 # A fixed value is held to the bounds of its parameter when the file is read; a value
 # drawn is held to them as each particle is drawn.
 #
 # inside: the name of a phase of particles this phase is placed inside, once those are
-#   generated. Not inside any by default.
+#   generated.
+#   Default: none, inside no phase
 
 phases:
   0: {type: matrix}
@@ -137,108 +176,139 @@ phases:
     r: 0.01
     inside: 1
 
-# ------------------------------------------------------------------------------------------
-# Generation [required]
-# ------------------------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------------------
+# Generation (required)
+# --------------------------------------------------------------------------------------
+# The options every method of generation takes, and the options of the method the
+# microstructure is generated by, under the name of the method, as a mesh is asked for
+# under the name of its mesher. One method is named.
 generation:
-  # Least distance between two particles, a length in the units of the RVE. 0 by
-  # default.
+  # Least distance between two particles, a length in the units of the RVE.
+  # Default: 0
   min_distance: 0.002
 
   # Whether the origin of the RVE is moved to where its sides pass furthest from the
-  # particles, which gives a mesh the least distorted elements. True by default.
+  # particles, which gives a mesh the least distorted elements.
+  # Default: true
   offset: true
 
   # The generation by a molecular dynamics simulation, the one method there is: the
   # particles move, pushed apart where they overlap and kept at a temperature by a
-  # thermostat, until they overlap by no more than max_residue_per_particle. [required]
+  # thermostat, until they overlap by no more than max_residue_per_particle.
+  # Required.
   molecular_dynamics:
     # Overlap per particle a configuration may keep and be accepted: the total overlap
     # divided by the number of particles. The overlap of two particles is the depth they
-    # overlap by, a length in the units of the RVE. [required]
+    # overlap by, a length in the units of the RVE.
+    # Required.
     max_residue_per_particle: 0
 
-    # Most steps the simulation takes. [required]
+    # Most steps the simulation takes.
+    # Required.
     max_step: 2000
 
-    # Steps the particles may still move once the configuration is accepted. 0 by
-    # default.
+    # Steps the particles may still move once the configuration is accepted.
+    # Default: 0
     max_steps_to_relax: 0
 
-    # Time step of the integration of the equations of motion. 0.05 by default.
+    # Time step of the integration of the equations of motion.
+    # Default: 0.05
     dt: 0.05
 
-    # Whether the time step is worked out anew at every step. True by default.
+    # Whether the time step is worked out anew at every step.
+    # Default: true
     dt_adapt: true
 
     # Whether the position of every particle at every step is kept, for the motion
-    # analysis to draw their paths; only the first and the last are otherwise. False by
-    # default.
+    # analysis to draw their paths; only the first and the last are otherwise.
+    # Default: false
     save_history: false
 
-    # Where the particles start. random by default.
-    #   random  each coordinate of each centre uniform along its side of the RVE
-    #   grid    the centres on the smallest square or cubic grid with a cell per
-    #           particle, the empty cells spread over it at random
-    #   bcc     exactly 128 particles, in three dimensions, on a body centred cubic
-    #           lattice
-    #   fcc     exactly 256 particles, in three dimensions, on a face centred cubic
-    #           lattice
+    # Where the particles start:
+    #   random   each coordinate of each centre uniform along its side of the RVE
+    #   grid     the centres on the smallest square or cubic grid with a cell per
+    #            particle, the empty cells spread over it at random
+    #   bcc      exactly 128 particles, in three dimensions, on a body centred cubic
+    #            lattice
+    #   fcc      exactly 256 particles, in three dimensions, on a face centred cubic
+    #            lattice
+    # Default: random
     type_initial_configuration: random
 
     # Speed a particle of the mean radius starts at, as the fraction of its radius it
-    # travels in a step. 0.1 by default.
+    # travels in a step.
+    # Default: 0.1
     initial_vel_coeff: 0.1
 
     # Whether the overlap is measured again at the end, between every pair of particles.
-    # False by default.
+    # Default: false
     final_overlap_check: false
 
-    # Coefficient of the viscous damping. 0 by default.
+    # Coefficient of the viscous damping.
+    # Default: 0
     damping_coeff: 0
 
-    # What a particle weighs. radius by default.
-    #   volume  its volume, or its area in two dimensions
-    #   radius  the radius of its circumscribed sphere or disk
-    #   unit    one, whatever the particle
+    # What a particle weighs:
+    #   volume   its volume, or its area in two dimensions
+    #   radius   the radius of its circumscribed sphere or disk
+    #   unit     one, whatever the particle
+    # Default: radius
     particle_mass_opt: radius
 
-    # How the pairs of particles that may overlap are found. cell by default. A name
-    # alone stands for the section of that name, with its defaults.
-    #   naive   every pair is checked
-    #   cell    only the particles in neighbouring cells are checked
-    #   verlet  each particle keeps the neighbours within its size enlarged by a factor,
-    #           and the lists are worked out again only once a particle has moved far
-    #           enough; a larger factor works them out less often, each one longer
-    #     factor: the factor, above 1 [required]
+    # How the pairs of particles that may overlap are found. A name alone stands for the
+    # section of that name, with its defaults:
+    #   naive    every pair is checked
+    #   cell     only the particles in neighbouring cells are checked
+    #   verlet   each particle keeps the neighbours within its size enlarged by a
+    #            factor, and the lists are worked out again only once a particle has
+    #            moved far enough; a larger factor works them out less often, each one
+    #            longer
+    #       factor:
+    #           the factor, above 1. Required.
+    # Default: cell
     speed_up: {name: verlet, factor: 1.1}
     # speed_up: cell
     # speed_up: naive
 
-    # The thermostat, which keeps the temperature of the particles. multi_temperature by
-    # default. The temperature is not in kelvin, but that of the equipartition theorem.
-    #   multi_temperature  the particles are kept at a temperature, which is lowered
-    #                      stage by stage as they settle
-    #     initial_temp:      temperature of the first stage, not below zero; by default
-    #                        the one at which a particle of the mean radius travels
-    #                        initial_vel_coeff of its radius in a step
-    #     criterion:         when the temperature is lowered. ratio_in_out by default.
-    #       ratio_in_out       when the overlap each pair of particles gains and loses
-    #                          has oscillated a number of times
-    #         max_ratio_osc:     the number, 2 by default
-    #       rolling_ave        when a rolling average of the overlap has settled
-    #         average_window:    steps it is averaged over, 25 by default
-    #       original           after a number of steps at the temperature
-    #         min_eq_steps_at_temp: the number, 25 by default
-    #     temp_low_ratio:    ratio of a temperature to the one before, 0.25 by default
-    #   isokinetic         the particles are kept at one temperature
-    #     initial_temp:      the temperature, not below zero; by default the one at
-    #                        which a particle of the mean radius travels
-    #                        initial_vel_coeff of its radius in a step
-    #   micro_canonical    no thermostat: the energy is left to the damping
-    #   berendsen          the temperature is pushed towards one
-    #     initial_temp:      the temperature, not below zero [required]
-    #     coeff:             how hard it is pushed, 0.01 by default
+    # The thermostat, which keeps the temperature of the particles; the temperature is
+    # not in kelvin, but that of the equipartition theorem. A name alone stands for the
+    # section of that name, with its defaults:
+    #   multi_temperature
+    #       the particles are kept at a temperature, which is lowered stage by stage as
+    #       they settle
+    #       initial_temp:
+    #           temperature of the first stage, not below zero. Default: the one at
+    #           which a particle of the mean radius travels initial_vel_coeff of its
+    #           radius in a step
+    #       criterion:
+    #           when the temperature is lowered. Default: ratio_in_out
+    #             ratio_in_out   when the overlap each pair of particles gains and loses
+    #                            has oscillated a number of times
+    #                 max_ratio_osc:
+    #                     the number. Default: 2
+    #             rolling_ave    when a rolling average of the overlap has settled
+    #                 average_window:
+    #                     steps it is averaged over. Default: 25
+    #             original       after a number of steps at the temperature
+    #                 min_eq_steps_at_temp:
+    #                     the number. Default: 25
+    #       temp_low_ratio:
+    #           ratio of a temperature to the one before. Default: 0.25
+    #   isokinetic
+    #       the particles are kept at one temperature
+    #       initial_temp:
+    #           the temperature, not below zero. Default: the one at which a particle of
+    #           the mean radius travels initial_vel_coeff of its radius in a step
+    #   micro_canonical
+    #       no thermostat: the energy is left to the damping
+    #   berendsen
+    #       the temperature is pushed towards one
+    #       initial_temp:
+    #           the temperature, not below zero. Required.
+    #       coeff:
+    #           how hard it is pushed. Default: 0.01
+    # Default: multi_temperature
     thermostat:
       name: multi_temperature
       criterion: {name: ratio_in_out, max_ratio_osc: 2}
@@ -253,45 +323,57 @@ generation:
     # thermostat: micro_canonical
     # thermostat: {name: berendsen, initial_temp: 1.0e+5, coeff: 0.01}
 
-# ------------------------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------------------
 # Meshes
-# ------------------------------------------------------------------------------------------
-# The meshes to make of each sample, each under the name of the mesher that makes it:
-# the same names geommicgen-mesh takes with --mesher. None by default.
-#   gmsh   a finite element mesh conforming to the particles
-#     mesh_size:             largest element size, which the curvature of the particles
-#                            refines; it stops controlling the mesh once it is above the
-#                            smallest radius, so elements_per_particle is preferred
-#     elements_per_particle: elements across the smallest particle, from which the size
-#                            is worked out; the smaller of the two if both are given.
-#                            One of the two is required.
-#     element_type:          tri3, tri6, quad4 or quad8 in two dimensions, tetra4 or
-#                            tetra10 in three; tri3 by default
-#   voxel  a regular grid, each voxel of the phase its centre is in
-#     n_voxels_dims:         voxels along each side [required], or several such lists for
-#                            a grid at each of several resolutions
+# --------------------------------------------------------------------------------------
+# The meshes to make of each sample, each under the name of the mesher that makes it,
+# the names geommicgen-mesh takes with --mesher:
+#   gmsh    a finite element mesh conforming to the particles
+#       mesh_size:
+#           largest element size, which the curvature of the particles refines; it
+#           stops controlling the mesh once it is above the smallest radius, so
+#           elements_per_particle is preferred
+#       elements_per_particle:
+#           elements across the smallest particle, from which the size is worked out;
+#           the smaller of the two if both are given. One of the two is required.
+#       element_type:
+#           tri3, tri6, quad4 or quad8 in two dimensions, tetra4 or tetra10 in three.
+#           Default: tri3
+#       Each of the three takes a list as well, and there is a mesh for every
+#       combination, named after its element and resolution: element_type [tri3, tri6]
+#       with elements_per_particle [4, 8] is four meshes, tri3_epp4, tri3_epp8,
+#       tri6_epp4 and tri6_epp8.
+#   voxel   a regular grid, each voxel of the phase its centre is in
+#       n_voxels_dims:
+#           voxels along each side, or several such lists for a grid at each of
+#           several resolutions. Required.
 # and, under either,
-#     formats:               formats the mesh is written in, beside the VTK file that is
-#                            always written: links for a mesh and crate for a grid by
-#                            default. An empty list writes the VTK file alone, from which
-#                            geommicgen-translate writes the others later;
-#                            geommicgen-translate --list-formats names them
-#     file_name:             name of the files, without an extension: the name of this
-#                            file and what discretises it by default. It is refused for
-#                            a grid at several resolutions, and for two meshes that would
-#                            write a file in common
-#     gauss_points:          Gauss points written for each element of the LINKS mesh
-#                            that takes such a line; what LINKS uses for the element by
-#                            default
-#     boundary_type:         constraint of the RVE the example LINKS input file asks for:
-#                            Periodic_Condition by default, or another LINKS accepts,
-#                            such as Taylor_Condition, Linear_Condition or
-#                            Mortar_Periodic_Condition. One that does not tie the nodes
-#                            of opposite faces is how a mesh whose faces do not match is
-#                            written on purpose
-#     periodic_constraints:  whether the Abaqus input file carries the equations that
-#                            make the cell periodic; true by default
-# The last three belong to the formats, and a format takes the ones it understands.
+#       formats:
+#           formats the mesh is written in, beside the VTK file that is always
+#           written; an empty list writes the VTK file alone, from which
+#           geommicgen-translate writes the others later, and
+#           geommicgen-translate --list-formats names them. Default: links for a mesh,
+#           crate for a grid
+#       file_name:
+#           name of the files, without an extension. It is refused for several
+#           meshes or grids under one mesher, and for two that would write a file in
+#           common.
+#           Default: the name of this file and what discretises it
+# and the options of the formats, each of which takes the ones it understands:
+#       gauss_points:
+#           Gauss points written for each element of the LINKS mesh that takes such a
+#           line. Default: what LINKS uses for the element
+#       boundary_type:
+#           constraint of the RVE the example LINKS input file asks for, one LINKS
+#           accepts, such as Taylor_Condition, Linear_Condition or
+#           Mortar_Periodic_Condition; one that does not tie the nodes of opposite
+#           faces is how a mesh whose faces do not match is written on purpose.
+#           Default: Periodic_Condition
+#       periodic_constraints:
+#           whether the Abaqus input file carries the equations that make the cell
+#           periodic. Default: true
+# Default: none
 meshes:
   gmsh: {elements_per_particle: 4, element_type: tri3}
   voxel:
@@ -303,44 +385,61 @@ meshes:
     # periodic_constraints: true
   # voxel: {n_voxels_dims: [[32, 32], [64, 64]]}
   # gmsh: {mesh_size: 0.02, element_type: tri6, formats: []}
+  # gmsh: {elements_per_particle: [4, 8], element_type: [tri3, tri6]}
 
-# ------------------------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------------------
 # Analyses
-# ------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------
 # The analyses to carry out on each sample, each under its name with its options, as
-# geommicgen-analyze asks for them with --name and --name-option. None by default. An
-# analysis is carried out when it is given; true stands for it with its options at their
-# defaults. The paths, the Voronoi diagram and the statistics describe the particles the
-# simulation packed: the particles of a phase inside another, placed once the packing is
-# done, are left out of them, and drawn in the final configuration.
+# geommicgen-analyze asks for them with --name and --name-option. An analysis is
+# carried out when it is given; true stands for it with its options at their defaults.
+# The paths, the Voronoi diagram and the statistics describe the particles the
+# simulation packed: the particles of a phase inside another, placed once the packing
+# is done, are left out of them, and drawn in the final configuration.
 analyses:
   # Draw the final configuration of the particles.
+  # Default: none
   final_config: true
+
   # Plot what the run recorded: the overlap, the energies, the time step and, with
   # save_history, the paths of the particles.
+  # Default: none
   motion: true
+
   # Work out the Voronoi diagram of the particles and the Minkowski tensors of its
   # cells.
+  # Default: none
   voronoi:
     # Kind of Voronoi diagram: standard, of the centres, or set, of points on the
-    # surfaces of the particles. standard by default.
+    # surfaces of the particles.
+    # Default: standard
     type: standard
-    # Points on the surface of each particle of a set Voronoi diagram. 10 by default.
+
+    # Points on the surface of each particle of a set Voronoi diagram.
+    # Default: 10
     n_surf_points: 10
-    # Draw the Voronoi diagram. False by default.
+
+    # Draw the Voronoi diagram.
+    # Default: false
     plot: false
-    # Draw the cells of the Voronoi diagram coloured by their Minkowski tensors. False
-    # by default.
+
+    # Draw the cells of the Voronoi diagram coloured by their Minkowski tensors.
+    # Default: false
     plot_imts: false
+
   # Work out statistical descriptors of the arrangement of the particles.
+  # Default: none
   statistics:
-    # The descriptors to work out, all three by default:
-    #   nearest_neighbor  the distribution of the distance from each particle to its
-    #                     nearest neighbour
-    #   ripleys_k         Ripley's K function
-    #   two_pt_corr       the two point correlation function
+    # The descriptors to work out:
+    #   nearest_neighbor   the distribution of the distance from each particle to its
+    #                      nearest neighbour
+    #   ripleys_k          Ripley's K function
+    #   two_pt_corr        the two point correlation function
+    # Default: [nearest_neighbor, ripleys_k, two_pt_corr]
     descriptors: [nearest_neighbor, ripleys_k, two_pt_corr]
+
     # Seed of the draws Ripley's K function and the two point correlation function are
-    # estimated with, so that an analysis gives the same numbers every time. No seed by
-    # default.
+    # estimated with, so that an analysis gives the same numbers every time.
+    # Default: none
     seed: 7
