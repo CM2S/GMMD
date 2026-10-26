@@ -141,113 +141,117 @@ phases:
 # Generation [required]
 # ------------------------------------------------------------------------------------------
 generation:
-  # Method of generation. molecular_dynamics, the one there is, by default.
-  method: molecular_dynamics
-
-  # Overlap per particle a configuration may keep and be accepted: the total overlap
-  # divided by the number of particles. The overlap of two particles is the depth they
-  # overlap by, a length in the units of the RVE. [required]
-  max_residue_per_particle: 0
-
-  # Most steps the simulation takes. [required]
-  max_step: 2000
-
-  # Steps the particles may still move once the configuration is accepted. 0 by default.
-  max_steps_to_relax: 0
-
-  # Time step of the integration of the equations of motion. 0.05 by default.
-  dt: 0.05
-
-  # Whether the time step is worked out anew at every step. True by default.
-  dt_adapt: true
-
-  # Whether the position of every particle at every step is kept, for the motion
-  # analysis to draw their paths; only the first and the last are otherwise. False by
-  # default.
-  save_history: false
-
-  # Where the particles start. random by default.
-  #   random  each coordinate of each centre uniform along its side of the RVE
-  #   grid    the centres on the smallest square or cubic grid with a cell per particle,
-  #           the empty cells spread over it at random
-  #   bcc     exactly 128 particles, in three dimensions, on a body centred cubic lattice
-  #   fcc     exactly 256 particles, in three dimensions, on a face centred cubic lattice
-  type_initial_configuration: random
-
   # Least distance between two particles, a length in the units of the RVE. 0 by
   # default.
   min_distance: 0.002
-
-  # Speed a particle of the mean radius starts at, as the fraction of its radius it
-  # travels in a step. 0.1 by default.
-  initial_vel_coeff: 0.1
-
-  # Whether the overlap is measured again at the end, between every pair of particles.
-  # False by default.
-  final_overlap_check: false
-
-  # Coefficient of the viscous damping. 0 by default.
-  damping_coeff: 0
-
-  # What a particle weighs. radius by default.
-  #   volume  its volume, or its area in two dimensions
-  #   radius  the radius of its circumscribed sphere or disk
-  #   unit    one, whatever the particle
-  particle_mass_opt: radius
 
   # Whether the origin of the RVE is moved to where its sides pass furthest from the
   # particles, which gives a mesh the least distorted elements. True by default.
   offset: true
 
-  # How the pairs of particles that may overlap are found. cell by default. A name alone
-  # stands for the section of that name, with its defaults.
-  #   naive   every pair is checked
-  #   cell    only the particles in neighbouring cells are checked
-  #   verlet  each particle keeps the neighbours within its size enlarged by a factor,
-  #           and the lists are worked out again only once a particle has moved far
-  #           enough; a larger factor works them out less often, each one longer
-  #     factor: the factor, above 1 [required]
-  speed_up: {name: verlet, factor: 1.1}
-  # speed_up: cell
-  # speed_up: naive
+  # The generation by a molecular dynamics simulation, the one method there is: the
+  # particles move, pushed apart where they overlap and kept at a temperature by a
+  # thermostat, until they overlap by no more than max_residue_per_particle. [required]
+  molecular_dynamics:
+    # Overlap per particle a configuration may keep and be accepted: the total overlap
+    # divided by the number of particles. The overlap of two particles is the depth they
+    # overlap by, a length in the units of the RVE. [required]
+    max_residue_per_particle: 0
 
-  # The thermostat, which keeps the temperature of the particles. multi_temperature by
-  # default. The temperature is not in kelvin, but that of the equipartition theorem.
-  #   multi_temperature  the particles are kept at a temperature, which is lowered
-  #                      stage by stage as they settle
-  #     initial_temp:      temperature of the first stage, not below zero; by default
-  #                        the one at which a particle of the mean radius travels
-  #                        initial_vel_coeff of its radius in a step
-  #     criterion:         when the temperature is lowered. ratio_in_out by default.
-  #       ratio_in_out       when the overlap each pair of particles gains and loses has
-  #                          oscillated a number of times
-  #         max_ratio_osc:     the number, 2 by default
-  #       rolling_ave        when a rolling average of the overlap has settled
-  #         average_window:    steps it is averaged over, 25 by default
-  #       original           after a number of steps at the temperature
-  #         min_eq_steps_at_temp: the number, 25 by default
-  #     temp_low_ratio:    ratio of a temperature to the one before, 0.25 by default
-  #   isokinetic         the particles are kept at one temperature
-  #     initial_temp:      the temperature, not below zero; by default the one at
-  #                        which a particle of the mean radius travels initial_vel_coeff
-  #                        of its radius in a step
-  #   micro_canonical    no thermostat: the energy is left to the damping
-  #   berendsen          the temperature is pushed towards one
-  #     initial_temp:      the temperature, not below zero [required]
-  #     coeff:             how hard it is pushed, 0.01 by default
-  thermostat:
-    name: multi_temperature
-    criterion: {name: ratio_in_out, max_ratio_osc: 2}
-    temp_low_ratio: 0.25
-  # thermostat:
-  #   name: multi_temperature
-  #   criterion: {name: rolling_ave, average_window: 25}
-  # thermostat:
-  #   name: multi_temperature
-  #   criterion: {name: original, min_eq_steps_at_temp: 25}
-  # thermostat: {name: isokinetic, initial_temp: 1.0e+5}
-  # thermostat: micro_canonical
-  # thermostat: {name: berendsen, initial_temp: 1.0e+5, coeff: 0.01}
+    # Most steps the simulation takes. [required]
+    max_step: 2000
+
+    # Steps the particles may still move once the configuration is accepted. 0 by
+    # default.
+    max_steps_to_relax: 0
+
+    # Time step of the integration of the equations of motion. 0.05 by default.
+    dt: 0.05
+
+    # Whether the time step is worked out anew at every step. True by default.
+    dt_adapt: true
+
+    # Whether the position of every particle at every step is kept, for the motion
+    # analysis to draw their paths; only the first and the last are otherwise. False by
+    # default.
+    save_history: false
+
+    # Where the particles start. random by default.
+    #   random  each coordinate of each centre uniform along its side of the RVE
+    #   grid    the centres on the smallest square or cubic grid with a cell per
+    #           particle, the empty cells spread over it at random
+    #   bcc     exactly 128 particles, in three dimensions, on a body centred cubic
+    #           lattice
+    #   fcc     exactly 256 particles, in three dimensions, on a face centred cubic
+    #           lattice
+    type_initial_configuration: random
+
+    # Speed a particle of the mean radius starts at, as the fraction of its radius it
+    # travels in a step. 0.1 by default.
+    initial_vel_coeff: 0.1
+
+    # Whether the overlap is measured again at the end, between every pair of particles.
+    # False by default.
+    final_overlap_check: false
+
+    # Coefficient of the viscous damping. 0 by default.
+    damping_coeff: 0
+
+    # What a particle weighs. radius by default.
+    #   volume  its volume, or its area in two dimensions
+    #   radius  the radius of its circumscribed sphere or disk
+    #   unit    one, whatever the particle
+    particle_mass_opt: radius
+
+    # How the pairs of particles that may overlap are found. cell by default. A name
+    # alone stands for the section of that name, with its defaults.
+    #   naive   every pair is checked
+    #   cell    only the particles in neighbouring cells are checked
+    #   verlet  each particle keeps the neighbours within its size enlarged by a factor,
+    #           and the lists are worked out again only once a particle has moved far
+    #           enough; a larger factor works them out less often, each one longer
+    #     factor: the factor, above 1 [required]
+    speed_up: {name: verlet, factor: 1.1}
+    # speed_up: cell
+    # speed_up: naive
+
+    # The thermostat, which keeps the temperature of the particles. multi_temperature by
+    # default. The temperature is not in kelvin, but that of the equipartition theorem.
+    #   multi_temperature  the particles are kept at a temperature, which is lowered
+    #                      stage by stage as they settle
+    #     initial_temp:      temperature of the first stage, not below zero; by default
+    #                        the one at which a particle of the mean radius travels
+    #                        initial_vel_coeff of its radius in a step
+    #     criterion:         when the temperature is lowered. ratio_in_out by default.
+    #       ratio_in_out       when the overlap each pair of particles gains and loses
+    #                          has oscillated a number of times
+    #         max_ratio_osc:     the number, 2 by default
+    #       rolling_ave        when a rolling average of the overlap has settled
+    #         average_window:    steps it is averaged over, 25 by default
+    #       original           after a number of steps at the temperature
+    #         min_eq_steps_at_temp: the number, 25 by default
+    #     temp_low_ratio:    ratio of a temperature to the one before, 0.25 by default
+    #   isokinetic         the particles are kept at one temperature
+    #     initial_temp:      the temperature, not below zero; by default the one at
+    #                        which a particle of the mean radius travels
+    #                        initial_vel_coeff of its radius in a step
+    #   micro_canonical    no thermostat: the energy is left to the damping
+    #   berendsen          the temperature is pushed towards one
+    #     initial_temp:      the temperature, not below zero [required]
+    #     coeff:             how hard it is pushed, 0.01 by default
+    thermostat:
+      name: multi_temperature
+      criterion: {name: ratio_in_out, max_ratio_osc: 2}
+      temp_low_ratio: 0.25
+    # thermostat:
+    #   name: multi_temperature
+    #   criterion: {name: rolling_ave, average_window: 25}
+    # thermostat:
+    #   name: multi_temperature
+    #   criterion: {name: original, min_eq_steps_at_temp: 25}
+    # thermostat: {name: isokinetic, initial_temp: 1.0e+5}
+    # thermostat: micro_canonical
+    # thermostat: {name: berendsen, initial_temp: 1.0e+5, coeff: 0.01}
 
 # ------------------------------------------------------------------------------------------
 # Meshes

@@ -90,7 +90,7 @@ class TestExamples(unittest.TestCase):
             {
                 ("samples",): 1,
                 ("phases", 1, "vf"): 0.03,
-                ("generation", "max_step"): 300,
+                ("generation", "molecular_dynamics", "max_step"): 300,
                 ("meshes", "voxel", "n_voxels_dims"): [16, 16, 16],
             },
         )

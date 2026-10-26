@@ -1,8 +1,8 @@
 """
 Module holding the model of the generation section of the input file.
 
-The generation is done by a method, named in the section, whose parameters the rest of
-the section gives. The thermostat and the speed up scheme of the molecular dynamics
+The generation is done by a method, whose options the section gives under its name,
+beside the options every method takes. The thermostat and the speed up scheme of the molecular dynamics
 simulation are sections of their own, each chosen by its name and taking only its own
 parameters, where the input data file gave every parameter of every one of them side by
 side.
@@ -183,7 +183,6 @@ def thermostat_defaults():
 class MolecularDynamics(ConfigModel):
     """Model of the generation by a molecular dynamics simulation."""
 
-    method: Literal["molecular_dynamics"] = "molecular_dynamics"
     max_residue_per_particle: float = pydantic.Field(
         ge=0,
         description="overlap per particle a configuration may keep and be accepted, a "
@@ -195,26 +194,24 @@ class MolecularDynamics(ConfigModel):
     dt_adapt: bool = True
     save_history: bool = False
     type_initial_configuration: Literal[INITIAL_CONFIGURATIONS] = "random"
-    min_distance: float = pydantic.Field(0, ge=0)
     initial_vel_coeff: float = 0.1
     final_overlap_check: bool = False
     damping_coeff: float = 0
     particle_mass_opt: Literal["volume", "radius", "unit"] = "radius"
-    offset: bool = True
     speed_up: SpeedUp = CellList(name="cell")
     thermostat: Thermostat = MultiTemperature(name="multi_temperature")
 
     def to_options(self):
         """
-        Give the generation parameters as the input data file keys them.
+        Give the parameters of the simulation as the input data file keys them.
 
         Returns
         -------
         dict
-            Every parameter the input data file gives, whether the file names it or
-            not, as it gives them.
+            Every parameter of the simulation the input data file gives, whether the
+            file names it or not, as it gives them.
         """
-        options = self.model_dump(exclude={"method", "speed_up", "thermostat"})
+        options = self.model_dump(exclude={"speed_up", "thermostat"})
         options.update(
             {
                 "force_option": "intersection_length",
@@ -229,3 +226,46 @@ class MolecularDynamics(ConfigModel):
         # and are not asked for
 
         return options
+
+
+class Generation(ConfigModel):
+    """
+    Model of the generation section: the options every method takes, and the options
+    of the method under its name, as the meshes section gives each mesher's.
+    """
+
+    min_distance: float = pydantic.Field(
+        0,
+        ge=0,
+        description="least distance between two particles, a length in the units of "
+        "the RVE",
+    )
+    offset: bool = True
+    molecular_dynamics: MolecularDynamics = pydantic.Field(
+        description="the generation by a molecular dynamics simulation, the one "
+        "method there is"
+    )
+    # A field for each method, which a section names by giving its options; with one
+    # method, a section that names none is refused as missing it
+
+    @property
+    def method(self):
+        """Name of the method the section names."""
+        return "molecular_dynamics"
+
+    def to_options(self):
+        """
+        Give the generation parameters as the input data file keys them.
+
+        Returns
+        -------
+        dict
+            Every parameter the input data file gives, whether the file names it or
+            not, as it gives them: the options every method takes beside those of the
+            method.
+        """
+        return {
+            "min_distance": self.min_distance,
+            "offset": self.offset,
+            **self.molecular_dynamics.to_options(),
+        }

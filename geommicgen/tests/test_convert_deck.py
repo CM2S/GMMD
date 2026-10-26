@@ -376,7 +376,7 @@ class TestConversion(DeckTest):
             "\n    r: {distribution: normal, mean: 0.1, sigma: 0.01}\n", text
         )
         self.assertIn(
-            "\n  thermostat: {name: berendsen, initial_temp: 5.0, coeff: 0.02}\n", text
+            "\n    thermostat: {name: berendsen, initial_temp: 5.0, coeff: 0.02}\n", text
         )
         self.assertIn("\n  voxel: {n_voxels_dims: [8, 8, 8]}\n", text)
 
@@ -386,7 +386,8 @@ class TestConversion(DeckTest):
                 self.write(SEEDED_DECK.replace("Max_Step 3", "Max_Step 3 # few"))
             )
         self.assertIn(
-            "generation.max_step: Input should be a valid integer (given [])",
+            "generation.molecular_dynamics.max_step: Input should be a valid integer "
+            "(given [])",
             str(context.exception),
         )
         # A whole number followed by a comment was read as no number at all

@@ -92,9 +92,10 @@ phases:
   0: {type: matrix}
   1: {type: disk, vf: 0.2, n: 4}
 generation:
-  max_residue_per_particle: 0
-  max_step: 3
-  speed_up: naive
+  molecular_dynamics:
+    max_residue_per_particle: 0
+    max_step: 3
+    speed_up: naive
 """
 # The seeded deck, as an input file
 
@@ -200,7 +201,8 @@ class TestInputFile(DeckRunTest):
         self.assertEqual(
             resolved, read_config(os.path.join(self.temp_dir.name, "deck.yaml"))
         )
-        self.assertEqual(resolved.generation.thermostat.criterion.max_ratio_osc, 2)
+        thermostat = resolved.generation.molecular_dynamics.thermostat
+        self.assertEqual(thermostat.criterion.max_ratio_osc, 2)
         # Every default is written into the resolved run, which reads back as the run
 
     def test_a_deck_is_said_to_be_of_the_old_format(self):
@@ -237,9 +239,11 @@ class TestInputFile(DeckRunTest):
         )
         self.assertEqual(status, 2)
         self.assertIn("deck.yaml has 3 problems:", stderr)
-        self.assertIn("  - generation.max_step: is missing", stderr)
+        self.assertIn("  - generation.molecular_dynamics.max_step: is missing", stderr)
         self.assertIn(
-            "  - generation.max_steps: is not a key this section takes", stderr
+            "  - generation.molecular_dynamics.max_steps: is not a key this section "
+            "takes",
+            stderr,
         )
         self.assertIn("  - phases.1.r.sigma: Input should be greater than", stderr)
         self.assertFalse(os.path.exists(os.path.join(self.temp_dir.name, "deck")))

@@ -389,7 +389,9 @@ MINIMAL_RUN = {
     "samples": 1,
     "rve_dimensions": [1, 1],
     "phases": {0: {"type": "matrix"}, 1: {"type": "disk", "r": 0.1, "n": 4}},
-    "generation": {"max_residue_per_particle": 0, "max_step": 10},
+    "generation": {
+        "molecular_dynamics": {"max_residue_per_particle": 0, "max_step": 10}
+    },
 }
 # A run that gives what has no default, and nothing else
 
@@ -568,31 +570,34 @@ class TestRun(unittest.TestCase):
         for i_generation, i_line in (
             (
                 {"thermostat": "berendsen"},
-                "  - generation.thermostat.initial_temp: is missing",
+                "thermostat.initial_temp: is missing",
             ),
             (
                 {"thermostat": {"name": "isokinetic", "criterion": "original"}},
-                "  - generation.thermostat.criterion: is not a key this section takes",
+                "thermostat.criterion: is not a key this section takes",
             ),
             (
                 {"speed_up": {"name": "verlet", "factor": 1}},
-                "  - generation.speed_up.factor: Input should be greater than 1 "
-                "(given 1)",
+                "speed_up.factor: Input should be greater than 1 (given 1)",
             ),
             (
                 {"type_initial_configuration": "hexagonal"},
-                "  - generation.type_initial_configuration: Input should be 'random', "
-                "'grid', 'bcc' or 'fcc' (given 'hexagonal')",
+                "type_initial_configuration: Input should be 'random', 'grid', 'bcc' "
+                "or 'fcc' (given 'hexagonal')",
             ),
             (
                 {"force_option": "intersection_area"},
-                "  - generation.force_option: is not a key this section takes",
+                "force_option: is not a key this section takes",
             ),
         ):
             with self.subTest(generation=i_generation):
                 self.assertEqual(
-                    self.refused(lambda d: d["generation"].update(i_generation)),
-                    [i_line],
+                    self.refused(
+                        lambda d: d["generation"]["molecular_dynamics"].update(
+                            i_generation
+                        )
+                    ),
+                    ["  - generation.molecular_dynamics." + i_line],
                 )
 
     def test_a_file_of_no_sections_is_refused(self):
@@ -612,6 +617,7 @@ def model_fields():
     has no default, keyed by the section's model."""
     models = [
         RunConfig,
+        generation.Generation,
         generation.MolecularDynamics,
         *generation.SPEED_UP_SCHEMES,
         *generation.THERMOSTATS,
@@ -665,7 +671,7 @@ class TestReferenceFile(unittest.TestCase):
 
     def test_the_keys_without_a_default_are_the_ones_marked_required(self):
         lines = self.text.splitlines()
-        for i_model in (RunConfig, generation.MolecularDynamics):
+        for i_model in (RunConfig, generation.Generation, generation.MolecularDynamics):
             for i_name, i_required in model_fields()[i_model].items():
                 with self.subTest(key=i_name):
                     index = next(

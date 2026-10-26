@@ -22,6 +22,7 @@ import numpy as np
 from geommicgen.config.base import read_model, write_config
 from geommicgen.config.generation import (
     CRITERIA,
+    Generation,
     MolecularDynamics,
     MultiTemperature,
     thermostat_defaults,
@@ -260,29 +261,38 @@ def legacy_generation(parameters, notes):
     Returns
     -------
     dict
-        The section, with the parameters that have no default and those the deck gave
-        other than at their default.
+        The section: the options every method takes and those of the molecular
+        dynamics simulation under its name, which a deck asked for by its parameters,
+        each with no default or given other than at its default.
     """
     generation = {}
-    for i_name, i_field in MolecularDynamics.model_fields.items():
-        if i_name in ("method", "speed_up", "thermostat") or i_name not in parameters:
-            continue
-        value = plain(parameters[i_name])
-        if i_field.is_required() or value != i_field.default:
-            generation[i_name] = value
+    simulation = {}
+    for i_model, i_section in (
+        (Generation, generation),
+        (MolecularDynamics, simulation),
+    ):
+        for i_name, i_field in i_model.model_fields.items():
+            if i_name in ("molecular_dynamics", "speed_up", "thermostat"):
+                continue
+            if i_name not in parameters:
+                continue
+            value = plain(parameters[i_name])
+            if i_field.is_required() or value != i_field.default:
+                i_section[i_name] = value
     for i_name, i_default in (
         ("force_option", "intersection_length"),
         ("force_rescale", False),
     ):
         if parameters.get(i_name, i_default) != i_default:
-            generation[i_name] = parameters[i_name]
+            simulation[i_name] = parameters[i_name]
     # Kept, for the validation to refuse: each has one value now
     for i_name, i_section in (
         ("thermostat", legacy_thermostat(parameters, notes)),
         ("speed_up", legacy_speed_up(parameters, notes)),
     ):
         if i_section is not None:
-            generation[i_name] = i_section
+            simulation[i_name] = i_section
+    generation["molecular_dynamics"] = simulation
 
     return generation
 

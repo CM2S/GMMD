@@ -20,11 +20,12 @@ phases:
     angle: {distribution: normal, mean: 0.1, sigma: 0.2}
 
 generation:
-  max_residue_per_particle: 0
-  max_step: 20000
   min_distance: 0.002
-  speed_up: {name: verlet, factor: 1.1}
-  save_history: true
+  molecular_dynamics:
+    max_residue_per_particle: 0
+    max_step: 20000
+    speed_up: {name: verlet, factor: 1.1}
+    save_history: true
 
 meshes:
   voxel: {n_voxels_dims: [70, 70, 70]}

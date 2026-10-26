@@ -15,10 +15,11 @@ phases:
     ratio: 1.2
 
 generation:
-  max_residue_per_particle: 0
-  max_step: 150
-  speed_up: {name: verlet, factor: 1.1}
-  save_history: true
+  molecular_dynamics:
+    max_residue_per_particle: 0
+    max_step: 150
+    speed_up: {name: verlet, factor: 1.1}
+    save_history: true
 
 meshes:
   gmsh: {mesh_size: 0.1, element_type: tri3}

@@ -23,7 +23,7 @@ from geommicgen.config.base import (
     load_yaml,
     read_model,
 )
-from geommicgen.config.generation import MolecularDynamics
+from geommicgen.config.generation import Generation
 from geommicgen.config.meshes import MeshesConfig
 from geommicgen.config.phases import Fixed, PhaseModel, PhaseName
 from geommicgen.microstructure.particleclasses import CylindricalFiber, Matrix
@@ -54,7 +54,7 @@ class RunConfig(ConfigModel):
         False, description="keep the least of what a sample leaves behind"
     )
     phases: dict[PhaseName, PhaseModel] = pydantic.Field(min_length=1)
-    generation: MolecularDynamics
+    generation: Generation
     meshes: MeshesConfig = MeshesConfig()
     analyses: AnalysesConfig = AnalysesConfig()
 
