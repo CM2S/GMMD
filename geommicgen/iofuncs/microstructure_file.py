@@ -16,6 +16,7 @@ YAML 1.1 reads 1e-3 as a string.
 
 import datetime
 import json
+import math
 import os
 
 import numpy as np
@@ -522,6 +523,65 @@ def read_microstructure_file(file_path):
     return microstructure
 
 
+PROBABILITY_TOLERANCE = 1e-8
+# How far the probabilities of a discrete distribution may add up from one, which is
+# what the drawing takes
+
+
+def record_problems(record):
+    """
+    Give what keeps the values of a descriptor from being drawn from its record.
+
+    Parameters
+    ----------
+    record: dict
+        The record of the descriptor, as the microstructure file writes it.
+
+    Returns
+    -------
+    list
+        A line for each problem; none for a record that can be drawn from.
+    """
+    distribution = record.get("distribution", "fixed")
+    problems = []
+    positive = {
+        "lognormal": ("mean", "sigma"),
+        "vonmises": ("kappa", "scale"),
+    }.get(distribution, ())
+    for i_name in positive:
+        if record[i_name] <= 0:
+            problems.append("{0} is {1}, not above zero".format(i_name, record[i_name]))
+    if distribution == "normal" and record["sigma"] < 0:
+        problems.append("sigma is {0}, below zero".format(record["sigma"]))
+    if distribution == "uniform" and record["low"] > record["high"]:
+        problems.append(
+            "the lower bound, {0}, is above the upper one, {1}".format(
+                record["low"], record["high"]
+            )
+        )
+    if distribution == "discrete":
+        values, probabilities = record["values"], record["probabilities"]
+        if len(values) != len(probabilities):
+            problems.append(
+                "there are {0} values and {1} probabilities".format(
+                    len(values), len(probabilities)
+                )
+            )
+        if any(i_probability < 0 for i_probability in probabilities):
+            problems.append("a probability is below zero")
+        if abs(math.fsum(probabilities) - 1) > PROBABILITY_TOLERANCE:
+            problems.append(
+                "the probabilities add up to {0!r}, not to one".format(
+                    math.fsum(probabilities)
+                )
+            )
+
+    return problems
+    # The rules an input file holds a distribution to. The descriptors checked only some
+    # of them, the sum of the probabilities to a hundredth, so a record the drawing then
+    # failed on was read
+
+
 def _descriptors_from_records(records):
     """
     Rebuild the descriptors of a phase from their records.
@@ -563,6 +623,13 @@ def _descriptors_from_records(records):
             raise ValueError(
                 "The distribution {0} of descriptor {1} is not supported.".format(
                     distribution, i_name
+                )
+            )
+        problems = record_problems(i_record)
+        if problems:
+            raise ValueError(
+                "The descriptor {0} cannot be drawn from: {1}.".format(
+                    i_name, "; ".join(problems)
                 )
             )
         descriptors[i_name] = builders[distribution](i_name, i_record)

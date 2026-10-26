@@ -341,6 +341,34 @@ class TestMicrostructureFileDescriptors(unittest.TestCase):
         self.assertEqual(descriptors["angle"].high, 3.14)
         self.assertEqual(descriptors["n"].value, 3)
 
+    def test_a_record_that_cannot_be_drawn_from_is_refused(self):
+        microstructure = Microstructure([1.0, 1.0])
+        microstructure.add_phase(Phase("1", {"phase_type": 1}))
+        microstructure.add_phase(
+            Phase("2", {"phase_type": 2, "r_distribution": "normal", "r_mean": 0.1,
+                        "r_sigma": 0.01, "n": 3})
+        )
+        write_microstructure_file(microstructure, self.file_path)
+        with open(self.file_path) as json_file:
+            document = json.load(json_file)
+        for i_record, i_problem in (
+            ({"distribution": "normal", "mean": 0.1, "sigma": -0.01}, "sigma is -0.01"),
+            ({"distribution": "uniform", "low": 0.2, "high": 0.1}, "the lower bound"),
+            (
+                {"distribution": "discrete", "values": [0.1, 0.2],
+                 "probabilities": [0.5, 0.495]},
+                "the probabilities add up to 0.995",
+            ),
+        ):
+            with self.subTest(i_record["distribution"]):
+                document["phases"]["2"]["descriptors"]["r"] = i_record
+                with open(self.file_path, "w") as json_file:
+                    json.dump(document, json_file)
+                with self.assertRaisesRegex(ValueError, i_problem):
+                    read_microstructure_file(self.file_path)
+        # Each was read, and the drawing failed on it, or drew between the bounds the
+        # wrong way round
+
 
 if __name__ == "__main__":
     unittest.main()
