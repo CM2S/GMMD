@@ -17,6 +17,7 @@ in GEOMMICGEN_CRATE_PYTHON.
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -34,7 +35,7 @@ from geommicgen.tests.helpers import (
     sphere_microstructure,
     structured_mesh,
 )
-from geommicgen.translators.abaqus import AbaqusWriter
+from geommicgen.translators.abaqus import REFERENCE_NODE_NAMES, AbaqusWriter
 from geommicgen.translators.base import (
     PLACEHOLDER_ELASTIC,
     PLACEHOLDER_STRAIN,
@@ -112,6 +113,35 @@ def abaqus_executable():
     return os.environ.get("GEOMMICGEN_ABAQUS") or shutil.which("abaqus")
 
 
+def reaction_forces(dat):
+    """
+    Read the reaction forces Abaqus printed for the node sets of the reference nodes.
+
+    Parameters
+    ----------
+    dat: str
+        Text of the printed output of the run, the .dat file.
+
+    Returns
+    -------
+    dict
+        Reaction force on the node of each set, by the name of the set.
+    """
+    forces = {}
+    name = None
+    for i_line in dat.splitlines():
+        words = i_line.split()
+        if "PRINTED FOR NODES BELONGING TO NODE SET" in i_line:
+            name = words[-1]
+        elif name and words and words[0].isdigit():
+            forces[name] = np.array([float(i_word) for i_word in words[1:]])
+            name = None
+    # Each table is headed by the set it is printed for, and the first row that starts
+    # with a node number is the one node of a reference set
+
+    return forces
+
+
 @unittest.skipUnless(abaqus_executable(), "Abaqus is not available")
 class TestAbaqusRunsTheDeck(unittest.TestCase):
     """Test class for running the Abaqus input files through Abaqus itself."""
@@ -121,11 +151,38 @@ class TestAbaqusRunsTheDeck(unittest.TestCase):
         self.run_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.run_dir.cleanup)
 
-    def run_abaqus(self, mesher, microstructure):
-        """Mesh a microstructure, write the Abaqus deck and run its step."""
-        job = MeshJob(mesher, [AbaqusWriter()], "m")
-        job.run(microstructure, self.run_dir.name)
-        self.assertIsNone(job.error, job.trace)
+    def run_deck(self, run_dir, young=None):
+        """
+        Run the deck of a directory through Abaqus and read the reactions it printed.
+
+        Parameters
+        ----------
+        run_dir: str
+            Directory holding the deck m.inp, which Abaqus fills with its outputs.
+
+        young: dict
+            Young modulus to give each phase in place of the placeholder one.
+
+        Returns
+        -------
+        dict
+            Reaction force on each reference node, by the name of its set.
+        """
+        deck_path = os.path.join(run_dir, "m.inp")
+        if young:
+            with open(deck_path) as deck:
+                text = deck.read()
+            material = "*Material, name=MATERIAL_{0}\n*Elastic\n {1}, {2}\n"
+            for i_phase, i_value in young.items():
+                block = material.format(i_phase, *PLACEHOLDER_ELASTIC)
+                self.assertIn(block, text)
+                text = text.replace(
+                    block, material.format(i_phase, i_value, PLACEHOLDER_ELASTIC[1])
+                )
+            with open(deck_path, "w") as deck:
+                deck.write(text)
+        # A material is changed where a user would change it, in the deck as written
+
         completed = subprocess.run(
             [
                 abaqus_executable(),
@@ -134,24 +191,67 @@ class TestAbaqusRunsTheDeck(unittest.TestCase):
                 "interactive",
                 "ask_delete=OFF",
             ],
-            cwd=self.run_dir.name,
+            cwd=run_dir,
             capture_output=True,
             text=True,
             timeout=600,
             check=False,
         )
-        status_path = os.path.join(self.run_dir.name, "m.sta")
-        status = ""
-        if os.path.exists(status_path):
-            with open(status_path) as status_file:
-                status = status_file.read()
-        log = completed.stdout + completed.stderr + status
-        self.assertIn("THE ANALYSIS HAS COMPLETED SUCCESSFULLY", status, log[-3000:])
+        outputs = {}
+        for i_extension in ("sta", "msg", "dat"):
+            path = os.path.join(run_dir, "m." + i_extension)
+            outputs[i_extension] = ""
+            if os.path.exists(path):
+                with open(path, errors="replace") as output:
+                    outputs[i_extension] = output.read()
+        log = completed.stdout + completed.stderr + outputs["sta"]
+        self.assertIn(
+            "THE ANALYSIS HAS COMPLETED SUCCESSFULLY", outputs["sta"], log[-3000:]
+        )
         # The status file is where Abaqus says whether the step finished, which the
-        # exit status of the command does not always carry. The placeholder step is a
-        # linear one, so its finishing is Abaqus having read the elements and the sets,
-        # accepted the equations without a degree of freedom constrained twice, and
-        # solved a cell whose only free motion the held corner removed
+        # exit status of the command does not always carry
+
+        counts = re.findall(
+            r"^\s*(\d+)\s+(?:WARNING|ERROR) MESSAGES", outputs["msg"], re.MULTILINE
+        )
+        messages = "\n".join(
+            i_line
+            for i_line in (outputs["dat"] + outputs["msg"]).splitlines()
+            if "***WARNING" in i_line or "***ERROR" in i_line
+        )
+        self.assertTrue(counts, outputs["msg"][-3000:])
+        self.assertEqual(set(counts), {"0"}, messages[-3000:] or outputs["msg"][-3000:])
+        # Abaqus finishes a step it had to repair: a degree of freedom constrained twice
+        # it drops with a warning, and a singular system it solves after one about its
+        # zero pivots. The step finishing says neither was absent, the counts of the
+        # message file do
+
+        return reaction_forces(outputs["dat"])
+
+    def run_abaqus(self, mesher, microstructure):
+        """Mesh a microstructure, write the Abaqus deck, run it and check the stress."""
+        job = MeshJob(mesher, [AbaqusWriter()], "m")
+        job.run(microstructure, self.run_dir.name)
+        self.assertIsNone(job.error, job.trace)
+        forces = self.run_deck(self.run_dir.name)
+
+        along, _, lame = uniaxial_strain(PLACEHOLDER_ELASTIC[0])
+        rve_dims = np.asarray(microstructure.rve_dims, dtype=float)
+        dim = len(rve_dims)
+        stress = np.diag([along] + [lame * PLACEHOLDER_STRAIN] * (dim - 1))
+        for i_axis in range(dim):
+            area = np.prod(rve_dims) / rve_dims[i_axis]
+            np.testing.assert_allclose(
+                forces[REFERENCE_NODE_NAMES[i_axis]] / area,
+                stress[:, i_axis],
+                rtol=1e-6,
+                atol=1e-6 * along,
+            )
+        # One material stretched along x and held across it, whose stresses are known in
+        # closed form. The reaction on the reference node of an axis is the force on the
+        # face across that axis, the column of the stress times the area of the face, so
+        # equations pairing the wrong nodes or offset by the wrong cell show here, where
+        # Abaqus would have run them all the same. It prints eight significant digits
 
     def test_two_dimensional_grid(self):
         self.run_abaqus(VoxelMesher([8, 8]), disk_microstructure())
@@ -170,6 +270,27 @@ class TestAbaqusRunsTheDeck(unittest.TestCase):
         self.run_abaqus(
             GmshMesher(mesh_size=0.2, element_type="tetra4"), sphere_microstructure()
         )
+
+    def test_the_grid_is_read_along_the_axes_it_was_written_along(self):
+        young = {1: PLACEHOLDER_ELASTIC[0], 2: 10 * PLACEHOLDER_ELASTIC[0]}
+        across, along = laminate_stresses(young)
+        phase_grid = np.ones((16, 16), dtype=int)
+        phase_grid[:8] = 2
+        for i_grid, i_expected in ((phase_grid, across), (phase_grid.T.copy(), along)):
+            with self.subTest(layered_along="x" if i_expected is across else "y"):
+                run_dir = tempfile.mkdtemp(dir=self.run_dir.name)
+                AbaqusWriter().write(
+                    structured_mesh((16, 16), [1.0, 1.0], i_grid),
+                    os.path.join(run_dir, "m.inp"),
+                )
+                forces = self.run_deck(run_dir, young)
+                self.assertAlmostEqual(
+                    forces[REFERENCE_NODE_NAMES[0]][0] / i_expected, 1.0, places=6
+                )
+        # Each phase reached a material of its own, the stiffer one making the cell
+        # stiffer than the placeholder alone, and x is the first axis of the grid in the
+        # deck as it was in the mesh: had the grid been transposed on its way, the two
+        # laminates would have swapped answers, which differ by more than half
     # Every mesh here stays under a thousand nodes, the reference nodes included, which
     # is what the learning edition of Abaqus runs
 
@@ -322,6 +443,41 @@ def uniaxial_strain(young):
     return modulus * PLACEHOLDER_STRAIN, modulus, lame
 
 
+def laminate_stresses(young):
+    """
+    Stresses along x of a laminate of two layers of equal thickness, stretched along x.
+
+    Parameters
+    ----------
+    young: dict
+        Young modulus of each of the two phases; the Poisson ratio is the placeholder
+        one.
+
+    Returns
+    -------
+    tuple
+        The stress along x of the cell layered along x, and of the cell layered along y.
+    """
+    moduli = {
+        i_phase: uniaxial_strain(i_value)[1:] for i_phase, i_value in young.items()
+    }
+    compliance = sum(0.5 / i_modulus for i_modulus, _ in moduli.values())
+    across = PLACEHOLDER_STRAIN / compliance
+    normal = PLACEHOLDER_STRAIN * sum(
+        0.5 * i_lame / i_modulus for i_modulus, i_lame in moduli.values()
+    ) / compliance
+    along = sum(
+        0.5 * (i_modulus * PLACEHOLDER_STRAIN
+               + i_lame * (normal - i_lame * PLACEHOLDER_STRAIN) / i_modulus)
+        for i_modulus, i_lame in moduli.values()
+    )
+    # Layered along x, the stress along x is the same in both layers and the modulus is
+    # their harmonic mean; layered along y, the strain along x is, and the layers differ
+    # in the stress across them
+
+    return across, along
+
+
 @unittest.skipUnless(crate_python(), "no Python with CRATE was given")
 class TestCrateRunsTheDeck(unittest.TestCase):
     """Test class for running the example CRATE input files through CRATE itself."""
@@ -395,22 +551,8 @@ class TestCrateRunsTheDeck(unittest.TestCase):
 
     def test_the_grid_is_read_along_the_axes_it_was_written_along(self):
         young = {1: PLACEHOLDER_ELASTIC[0], 2: 10 * PLACEHOLDER_ELASTIC[0]}
-        moduli = {
-            i_phase: uniaxial_strain(i_value)[1:] for i_phase, i_value in young.items()
-        }
-        compliance = sum(0.5 / i_modulus for i_modulus, _ in moduli.values())
-        across = PLACEHOLDER_STRAIN / compliance
-        normal = PLACEHOLDER_STRAIN * sum(
-            0.5 * i_lame / i_modulus for i_modulus, i_lame in moduli.values()
-        ) / compliance
-        along = sum(
-            0.5 * (i_modulus * PLACEHOLDER_STRAIN
-                   + i_lame * (normal - i_lame * PLACEHOLDER_STRAIN) / i_modulus)
-            for i_modulus, i_lame in moduli.values()
-        )
-        # A laminate of two layers of equal thickness. Layered along x, the stress along
-        # x is the same in both and the modulus is their harmonic mean; layered along y,
-        # the strain along x is, and the layers differ in the stress across them
+        across, along = laminate_stresses(young)
+        # A laminate of two layers of equal thickness
 
         phase_grid = np.ones((16, 16), dtype=int)
         phase_grid[:8] = 2
