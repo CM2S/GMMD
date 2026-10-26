@@ -73,6 +73,18 @@ class TestMeshCommand(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertEqual(self.written(), ["mic_8_8.mesh.json", "mic_8_8.vti"])
 
+    def test_an_option_of_another_mesher_is_refused(self):
+        with contextlib.redirect_stderr(io.StringIO()) as errors:
+            with self.assertRaises(SystemExit):
+                self.run_command(
+                    [self.microstructure_path, "--mesher", "voxel",
+                     "--n-voxels-dims", "8", "8", "--mesh-size", "0.1",
+                     "-o", self.output_dir]
+                )
+        self.assertIn("--mesh-size is not an option of the voxel mesher", errors.getvalue())
+        self.assertFalse(os.path.exists(self.output_dir))
+        # It was read and then ignored, which is the same as not giving it
+
     def test_the_files_can_be_named(self):
         self.run_command(
             [self.microstructure_path, "--mesher", "voxel", "--n-voxels-dims", "8", "8",
