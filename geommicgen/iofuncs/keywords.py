@@ -274,9 +274,12 @@ class KeywordTypeC(Keyword):
 
     all_sub_keys: set(`.Keyword`)
         Every sub keyword, whichever header it is read under.
+
+    renamed_headers: dict
+        The header each old name is read as, by the old name.
     """
 
-    def __init__(self, name, header_keys, sub_keys, **kwargs):
+    def __init__(self, name, header_keys, sub_keys, renamed_headers=None, **kwargs):
         """
         Instanciate a `.KeywordTypeC` object.
 
@@ -290,9 +293,15 @@ class KeywordTypeC(Keyword):
 
         sub_keys: set(`.Keyword`)
             Set containing the acceptable sub keywords.
+
+        renamed_headers: dict, optional
+            The header each old name is read as, by the old name.
         """
         super().__init__(name, **kwargs)
-        self.header_keys = header_keys
+        self.renamed_headers = renamed_headers or {}
+        self.header_keys = header_keys | {
+            Keyword(i_old, type_str="none") for i_old in self.renamed_headers
+        }
         self.sub_keys = sub_keys
         self.all_sub_keys = set().union(*sub_keys.values())
         # Which header a line is under is known while it is being read, so the sub
@@ -306,22 +315,41 @@ class KeywordTypeC(Keyword):
         # Moving over the line containing top level keyword
         Keyword.input_reader.ignore_comments()
         # Ignore comments
+        current_header = None
         while Keyword.input_reader.i_line < len(Keyword.input_reader.input):
             line = Keyword.input_reader.input[Keyword.input_reader.i_line]
             # Current line
-            if all(
-                [
-                    not keyword.is_in(line)
-                    for keyword in self.header_keys.union(self.all_sub_keys)
-                ]
-            ):
-                # If the current line doesn't contain a known keyword, exit the block
-                break
+            readable = self.header_keys
+            if current_header is not None:
+                readable = readable | self.all_sub_keys
+            if not any(i_keyword.is_in(line) for i_keyword in readable):
+                if any(
+                    i_keyword.is_in(line)
+                    for i_keyword in Keyword.input_reader.top_level_keywords
+                ):
+                    break
+                # Another keyword ends the block
+                raise ValueError(
+                    "Line {0} of input file: {1} is not read under {2}, whose "
+                    "headers are {3}.".format(
+                        Keyword.input_reader.i_line + 1,
+                        line.split()[0],
+                        self.name,
+                        ", ".join(sorted(self.sub_keys)),
+                    )
+                )
+                # Any other line is a mistake in the block, rather than the end of it
             for header_keyword in self.header_keys:
                 if header_keyword.is_in(line):
                     keyword_already_supplied = set()
-                    current_sub_keys = self.sub_keys[header_keyword.name]
+                    name = self.renamed_headers.get(
+                        header_keyword.name, header_keyword.name
+                    )
+                    current_sub_keys = self.sub_keys[name]
                     current_header = header_keyword.read_value()
+                    if name != header_keyword.name:
+                        current_header = name
+                    # A header given under its old name is read as the one it names
                     if current_header in options:
                         raise ValueError(
                             "The {0} group {1} was specified twice.".format(
@@ -433,7 +461,7 @@ class TopLevelReader:
             # No keyword was found in the current line
             raise ValueError(
                 "Line {0} of input file does not contain a keyword: {1}".format(
-                    self.i_line, line
+                    self.i_line + 1, line
                 )
             )
 
@@ -720,6 +748,10 @@ def mesher_keywords(mesher_name):
     }
 
 
+OLD_MESHER_NAMES = {"femsh": "gmsh", "rgmsh": "voxel"}
+# The names the meshers were asked for by before they were asked for by their own, which
+# a deck written then still gives
+
 top_level_reader.add_top_level_keyword(
     KeywordTypeC(
         "Mesh_Options",
@@ -728,9 +760,9 @@ top_level_reader.add_top_level_keyword(
             i_name: mesher_keywords(i_name) | FORMAT_KEYWORDS | JOB_KEYWORDS
             for i_name in available_meshers()
         },
+        renamed_headers=OLD_MESHER_NAMES,
     )
 )
 # One header per registered mesher, under its own name, each reading the options that
 # mesher declares: a mesher that is registered is asked for here without this module
-# naming it, as a format is. The finite element mesh used to be asked for as femsh and
-# the grid as rgmsh, names this module had to map onto the meshers
+# naming it, as a format is. A mesher given under its old name is read under its own

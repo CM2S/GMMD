@@ -190,8 +190,8 @@ class TestBuildMeshJobs(unittest.TestCase):
                 with self.assertRaises(ValueError) as context:
                     build_mesh_jobs({i_name: {}})
                 self.assertIn(i_name, str(context.exception))
-        # A deck names the mesher; the names a discretisation had of its own, which
-        # this module mapped onto the meshers, are refused with the names there are
+        # The jobs are built from the meshers' own names; a deck that gives an old one
+        # has it read as the mesher's own where the deck is read
 
     def test_unknown_format_is_refused_before_anything_is_meshed(self):
         with self.assertRaises(ValueError) as context:

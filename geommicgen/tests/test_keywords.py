@@ -14,6 +14,7 @@ import unittest
 import geommicgen
 from geommicgen.iofuncs.keywords import (
     FORMAT_KEYWORDS,
+    OLD_MESHER_NAMES,
     mesher_keywords,
     top_level_reader,
 )
@@ -86,7 +87,7 @@ class MeshOptionsTest(unittest.TestCase):
             i_keyword.name
             for i_keyword in top_level_reader.all_keywords["Mesh_Options"].header_keys
         }
-        self.assertEqual(headers, set(available_meshers()))
+        self.assertEqual(headers, set(available_meshers()) | set(OLD_MESHER_NAMES))
         for i_name in available_meshers():
             declared = set(get_mesher(i_name).options)
             read_here = {i_keyword.name for i_keyword in mesher_keywords(i_name)}
@@ -98,6 +99,39 @@ class MeshOptionsTest(unittest.TestCase):
             self.assertTrue(declared <= read_under)
         # A deck names a mesher under the mesher's own name, and whatever the mesher
         # declares is read under it, without this module naming either
+
+    def test_a_mesher_given_under_its_old_name_is_read_under_its_own(self):
+        old = self.read(
+            "femsh\nmesh_size 0.1\nelement_type tri3\nrgmsh\nn_voxels_dims [8, 8]\n"
+        )
+        new = self.read(
+            "gmsh\nmesh_size 0.1\nelement_type tri3\nvoxel\nn_voxels_dims [8, 8]\n"
+        )
+
+        self.assertEqual(old, new)
+        # A deck written before the meshers were asked for by their own names
+
+    def test_a_mesher_given_under_both_names_is_refused(self):
+        with self.assertRaises(ValueError) as context:
+            self.read("femsh\nmesh_size 0.1\ngmsh\nmesh_size 0.2\n")
+
+        self.assertIn("gmsh", str(context.exception))
+
+    def test_a_mesher_that_does_not_exist_is_named_with_the_line(self):
+        with self.assertRaises(ValueError) as context:
+            self.read("# comment\nnosuchmesher\nmesh_size 0.1\n")
+
+        self.assertIn("Line 3", str(context.exception))
+        self.assertIn("nosuchmesher", str(context.exception))
+        self.assertIn(", ".join(available_meshers()), str(context.exception))
+        # It used to end the block, and be reported as a line with no keyword
+
+    def test_an_option_that_does_not_exist_is_named_with_the_line(self):
+        with self.assertRaises(ValueError) as context:
+            self.read("gmsh\nmesh_sise 0.1\n")
+
+        self.assertIn("Line 3", str(context.exception))
+        self.assertIn("mesh_sise", str(context.exception))
 
     def test_an_option_of_a_format_is_read_under_either(self):
         options = self.read(

@@ -245,8 +245,9 @@ class TestKeywordTypeC(unittest.TestCase):
             {"1": {"phase_type": 2, "n": 10}, "2": {"phase_type": 3}},
         )
 
-    def test_read_value_stops_at_unknown_line(self):
-        """Check that reading stops once a line has no known keyword."""
+    def test_read_value_stops_at_another_keyword(self):
+        """Check that reading stops at a line holding another top level keyword."""
+        self.reader.add_top_level_keyword(KeywordTypeB("Some_Other_Keyword"))
         self.reader.input = [
             "Mic_Gen_Descriptors",
             "Phase 1",
@@ -256,6 +257,18 @@ class TestKeywordTypeC(unittest.TestCase):
         self.reader.i_line = 0
         self.keyword.read_value()
         self.assertEqual(self.reader.i_line, 3)
+
+    def test_read_value_sub_key_before_any_header_raises(self):
+        """Check that a block opening with a sub key names the headers it takes."""
+        self.reader.input = [
+            "Mic_Gen_Descriptors",
+            "Phase_Type 2",
+        ]
+        self.reader.i_line = 0
+        with self.assertRaises(ValueError) as context:
+            self.keyword.read_value()
+        self.assertIn("Line 2", str(context.exception))
+        self.assertIn("Phase", str(context.exception))
 
     def test_read_value_duplicate_header_raises(self):
         """Check that specifying the same header value twice raises a ValueError."""
@@ -350,8 +363,9 @@ class TestTopLevelReaderCheckTopLevelKeywords(unittest.TestCase):
         """Check that an unrecognized keyword raises a ValueError."""
         self.reader.input = ["unknown_keyword 0.05"]
         self.reader.i_line = 0
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as context:
             self.reader.check_top_level_keywords()
+        self.assertIn("Line 1", str(context.exception))
 
 
 class TestTopLevelReaderMoveAlong(unittest.TestCase):
