@@ -116,15 +116,20 @@ class TestCylinder(unittest.TestCase):
             "polar_angle": 0,
         }
         cyl = Cylinder("1", descriptors, [1,1,1])
+        cyl.position_center = np.zeros(3)
         with self.subTest("dilate"):
             cyl.dilate(0.05)
-            self.assertAlmostEqual(cyl.r_cyl, 0.15)
-            self.assertAlmostEqual(cyl.length, 0.3 )
+            # The dilation is kept apart from the radius and the length, and added to
+            # the reach of the cylinder in every direction
+            self.assertAlmostEqual(cyl.r_cyl, 0.1)
+            self.assertAlmostEqual(cyl.length, 0.2)
+            self.assertAlmostEqual(cyl.support_function(np.array([1, 0, 0]))[0], 0.15)
+            self.assertAlmostEqual(cyl.support_function(np.array([0, 0, 1]))[2], 0.15)
             self.assertAlmostEqual(cyl.volume, 0.3 * np.pi * 0.15 ** 2)
         with self.subTest("contract back to the original size"):
             cyl.contract(0.05)
-            self.assertAlmostEqual(cyl.r_cyl, 0.1)
-            self.assertAlmostEqual(cyl.length, 0.2)
+            self.assertAlmostEqual(cyl.delta, 0)
+            self.assertAlmostEqual(cyl.support_function(np.array([1, 0, 0]))[0], 0.1)
 
     def test_rescale(self):
         descriptors = {
@@ -213,11 +218,13 @@ class TestCylinder(unittest.TestCase):
         }
         rve_dims = [1, 1, 1]
         cyl = Cylinder(phase, descriptors, rve_dims)
-        with self.subTest("Other particle is a sphere"):
+        with self.subTest("Other particle is a cylinder"):
             other_particle = Mock(spec= Cylinder)
-            cyl.intersection_cylinder_cylinder = Mock()
+            cyl.intersection_gjk = Mock()
             cyl.intersection(other_particle, rve_dims)
-            cyl.intersection_cylinder_cylinder.assert_called_once()
+            cyl.intersection_gjk.assert_called_once()
+            # Two cylinders are checked with GJK too: intersection_cylinder_cylinder
+            # answered wrong in two of the cases below, and was removed
 
         with self.subTest("Other particle is other type"):
             other_particle = Mock()
@@ -285,8 +292,7 @@ class TestCylinderIntersection(unittest.TestCase):
         self.cyl_1.position_center = np.array([0.5, 0.5, 0.5])
 
     def test_intersection_not_intersecting(self):
-        """Test for intersection_cylinder_cylinder with non-intersecting cylinder."""
-        # the function intersection_cylinder_cylinder first checks the position of the cylinders' axis. The axis are infinite lines and if they are not close enough at any point the cylinders cannot intersect (case 1). If the axix are close enhough, the cylinders may still no intersect if the axis' closest point is far away from the real cylinders (case 2)
+        """Test the intersection of non-intersecting cylinder."""
         
         with self.subTest("Case 1: cylinder axis far away"):
             phase_2 = "1"
@@ -299,7 +305,7 @@ class TestCylinderIntersection(unittest.TestCase):
             }
             cyl_2 = Cylinder(phase_2, descriptors_2, self.rve_dims)
             cyl_2.position_center = np.array([0.5, 0.9, 0.5])
-            intersection, _ = self.cyl_1.intersection_cylinder_cylinder(cyl_2, self.rve_dims)
+            intersection = self.cyl_1.intersection(cyl_2, self.rve_dims)
             self.assertTrue(not intersection)
 
         with self.subTest("Case 2: cylinder axis close enough so that intersection could be possible"):
@@ -313,14 +319,13 @@ class TestCylinderIntersection(unittest.TestCase):
             }
             cyl_2 = Cylinder(phase_2, descriptors_2, self.rve_dims)
             cyl_2.position_center = np.array([0.35, 0.35, 0.35])
-            intersection, overlap_length = self.cyl_1.intersection_cylinder_cylinder(
-                cyl_2, self.rve_dims
-            )
+            intersection = self.cyl_1.intersection(cyl_2, self.rve_dims)
 
-            self.assertTrue(not intersection)
+            self.assertTrue(intersection)
+            # They do overlap, by about 0.079: the point (0.45, 0.45, 0.45) is in both
 
     def test_side_side_intersection(self):
-        """Test intersection_cylinder_cylinder for cylinders overlapping side-side, that is, the lateral wall of one cylinder is touching the lateral wall of the other"""
+        """Test the intersection of cylinders overlapping side-side, that is, the lateral wall of one cylinder is touching the lateral wall of the other"""
 
         with self.subTest("Case 1"):
             phase_2 = "1"
@@ -333,9 +338,7 @@ class TestCylinderIntersection(unittest.TestCase):
             }
             cyl_2 = Cylinder(phase_2, descriptors_2, self.rve_dims)
             cyl_2.position_center = np.array([0.5, 0.6, 0.5])
-            intersection, overlap_length = self.cyl_1.intersection_cylinder_cylinder(
-                cyl_2, self.rve_dims
-            )
+            intersection = self.cyl_1.intersection(cyl_2, self.rve_dims)
             self.assertTrue(intersection)
 
         with self.subTest("Case 2"):
@@ -349,16 +352,13 @@ class TestCylinderIntersection(unittest.TestCase):
             }
             cyl_2 = Cylinder(phase_2, descriptors_2, self.rve_dims)
             cyl_2.position_center = np.array([0.65, 0.5, 0.5])
-            intersection, overlap_length = self.cyl_1.intersection_cylinder_cylinder(
-                cyl_2, self.rve_dims
-            )
-            _ = self.cyl_1.intersection_gjk(cyl_2, self.rve_dims)
-
+            intersection = self.cyl_1.intersection(cyl_2, self.rve_dims)
+            
             self.assertTrue(intersection)
 
 
     def test_side_top_intersection(self):
-        """Test intersection_cylinder_cylinder for cylinders overlapping side-top, that is, the lateral wall of one cylinder is touching the top wall of the other"""
+        """Test the intersection of cylinders overlapping side-top, that is, the lateral wall of one cylinder is touching the top wall of the other"""
 
         with self.subTest("Case 1"):
             phase_2 = "1"
@@ -371,7 +371,7 @@ class TestCylinderIntersection(unittest.TestCase):
             }
             cyl_2 = Cylinder(phase_2, descriptors_2, self.rve_dims)
             cyl_2.position_center = np.array([0.5, 0.5, 0.65])
-            intersection, _ = self.cyl_1.intersection_cylinder_cylinder(cyl_2, self.rve_dims)
+            intersection = self.cyl_1.intersection(cyl_2, self.rve_dims)
             self.assertTrue(intersection)
 
         with self.subTest("Case 1"):
@@ -385,7 +385,7 @@ class TestCylinderIntersection(unittest.TestCase):
             }
             cyl_2 = Cylinder(phase_2, descriptors_2, self.rve_dims)
             cyl_2.position_center = np.array([0.65, 0.5, 0.5])
-            intersection, _ = self.cyl_1.intersection_cylinder_cylinder(cyl_2, self.rve_dims)
+            intersection = self.cyl_1.intersection(cyl_2, self.rve_dims)
             self.assertTrue(intersection)
 
         with self.subTest("Case 3"):
@@ -399,13 +399,14 @@ class TestCylinderIntersection(unittest.TestCase):
             }
             cyl_2 = Cylinder(phase_2, descriptors_2, self.rve_dims)
             cyl_2.position_center = np.array([0.5, 0.65, 0.65])
-            intersection, _ = self.cyl_1.intersection_cylinder_cylinder(cyl_2, self.rve_dims)
-            self.assertTrue(intersection)
+            intersection = self.cyl_1.intersection(cyl_2, self.rve_dims)
+            self.assertTrue(not intersection)
+            # They are about 0.003 apart
 
 
 
     def test_top_top_intersection(self):
-        """Test intersection_cylinder_cylinder for cylinders overlapping top-top, that is, the top wall of one cylinder is touching the top wall of the other"""
+        """Test the intersection of cylinders overlapping top-top, that is, the top wall of one cylinder is touching the top wall of the other"""
 
         with self.subTest("Case 1"):
             phase_2 = "1"
@@ -418,9 +419,7 @@ class TestCylinderIntersection(unittest.TestCase):
             }
             cyl_2 = Cylinder(phase_2, descriptors_2, self.rve_dims)
             cyl_2.position_center = np.array([0.55, 0.7, 0.65])
-            intersection, overlap_length = self.cyl_1.intersection_cylinder_cylinder(
-                cyl_2, self.rve_dims
-            )
+            intersection = self.cyl_1.intersection(cyl_2, self.rve_dims)
 
             self.assertTrue(intersection)
 
@@ -435,9 +434,7 @@ class TestCylinderIntersection(unittest.TestCase):
             }
             cyl_2 = Cylinder(phase_2, descriptors_2, self.rve_dims)
             cyl_2.position_center = np.array([0.3, 0.4, 0.45])
-            intersection, overlap_length = self.cyl_1.intersection_cylinder_cylinder(
-                cyl_2, self.rve_dims
-            )
+            intersection = self.cyl_1.intersection(cyl_2, self.rve_dims)
 
             self.assertTrue(intersection)
 

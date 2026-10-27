@@ -52,13 +52,15 @@ class TestEllipsoid(unittest.TestCase):
                 {
                     "ratio_12": ratio_12,
                     "ratio_13": ratio_13,
-                    "n": 10,
+                    "n": 20,
                     "vf": 0.1,
                     **self.rotation_descriptors,
                 },
                 self.rve_dims,
             )
-            volume_part = 0.1 * self.rve_dims[0] * self.rve_dims[1] * self.rve_dims[2] / 10
+            volume_part = 0.1 * self.rve_dims[0] * self.rve_dims[1] * self.rve_dims[2] / 20
+            # Twenty particles: ten gave an axis of 0.53, longer than half the RVE, which
+            # the descriptors refuse
             expected_axis_1 = np.cbrt(
                 volume_part * ratio_12 * ratio_13 * 8 / (np.pi * 4 / 3)
             )

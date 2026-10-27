@@ -128,6 +128,11 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Results of a run: the folder GMMD names after the input data file, beside it, and
+# the files an analysis or a discretisation writes when one is run in place
+examples/*/
+*.mdsim/
+mic.screen
 # Results folder
 geommicgen/resources/examples/Results
 Result_analysis

@@ -193,7 +193,8 @@ class Sphere(Ellipsoid):
     @property
     def volume(self):
         """Volume of the sphere."""
-        volume = 4 * np.pi / 3 * self.radius ** 3
+        volume = 4 * np.pi / 3 * self.radius**3
+        # The radius holds the dilation already, and it was added a second time
 
         return volume
 
@@ -425,16 +426,40 @@ class Sphere(Ellipsoid):
 
     def point_inside(self, point: np.array, box: list, **kwargs) -> bool:
         """Check if point is inside the particle."""
-        tol = kwargs.get("tol", 1e-3)
+        tol = kwargs.get("tol", 1e-6)
         point_nearest_pbc = Particle.nearest_periodic_image(
             point, self.position_center, box
         )
         point_in = (
-            np.linalg.norm(self.position_center - point_nearest_pbc) - self.radius
+            np.linalg.norm(self.position_center - point_nearest_pbc) ** 2
+            / self.radius**2
+            - 1
             <= tol
         )
+        # The tolerance is on the square of the distance over the radius, as the
+        # ellipsoid's is, so it lets in the same share of any sphere. It was a length
+        # of 1e-3, which grew a sphere of radius 0.1 by a hundredth, and its stamped
+        # volume by three per cent, even at the unit scale the stages work at
 
         return point_in
+
+    def points_inside(self, points: np.array, box: list, tol: float = 1e-6) -> np.array:
+        """
+        Say which of *points* are inside the Sphere; see `.Particle.points_inside`.
+
+        Parameters
+        ----------
+        tol: float
+            Tolerance
+        """
+        points_nearest_pbc = self.nearest_periodic_images(points, box)
+
+        return (
+            np.linalg.norm(points_nearest_pbc - self.position_center, axis=1) ** 2
+            / self.radius**2
+            - 1
+            <= tol
+        )
 
     def generate_points_on_surface(
         self, n_points: int, erosion_thick: float = 0

@@ -1,11 +1,34 @@
-""" Unit test regarding the Phase class"""
+"""Unit tests regarding the Phase class."""
 
-import numpy as np
 import unittest
 from unittest.mock import Mock, patch
+
+import numpy as np
+
+from geommicgen.microstructure import phase as phase_module
 from geommicgen.microstructure.phase import Phase
 from geommicgen.microstructure.particleclasses.particle import Particle
 from geommicgen.microstructure.particleclasses.disk import Disk
+
+
+class TestParticlesForAVolumeFraction(unittest.TestCase):
+    """Test class for the particles of a phase given by its volume fraction."""
+
+    def test_they_fill_the_fraction(self):
+        phase = Phase("1", {"phase_type": 2, "r": 0.1, "vf": 0.3})
+        phase.generate_particles([1.0, 1.0])
+        filled = sum(i_particle.volume for i_particle in phase.particles)
+        self.assertGreaterEqual(filled, 0.3)
+        self.assertLess(filled - phase.particles[-1].volume, 0.3)
+
+    @patch.object(phase_module, "MAX_PARTICLES", 50)
+    def test_particles_too_small_for_it_are_refused(self):
+        phase = Phase("1", {"phase_type": 2, "r": 0.001, "vf": 0.5})
+        with self.assertRaisesRegex(ValueError, "Phase 1 has 50 particles"):
+            phase.generate_particles([1.0, 1.0])
+        # A hundred and sixty thousand disks would fill it; with no bound, a
+        # description asking for far more built particles until the memory ran out
+
 
 class PhaseInit(unittest.TestCase):
     from geommicgen.microstructure.particleclasses import Matrix, Disk
@@ -245,4 +268,5 @@ class DistributionTests(unittest.TestCase):
             distribution = self.DiscreteDistribution("name", [1,2,3], [0.2,0.9])  # Probabilities do not sum to 1
 
 
-
+if __name__ == "__main__":
+    unittest.main()

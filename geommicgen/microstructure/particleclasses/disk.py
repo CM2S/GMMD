@@ -216,6 +216,15 @@ class Disk(Ellipse):
 
         return point_in
 
+    def points_inside(self, points: np.array, box: list) -> np.array:
+        """Say which of *points* are inside the Disk; see `.Particle.points_inside`."""
+        points_nearest_pbc = self.nearest_periodic_images(points, box)
+
+        return (
+            np.linalg.norm(points_nearest_pbc - self.position_center, axis=1)
+            <= self.radius
+        )
+
     def intersection_disk_disk(self, other_disk: Disk, box: list, inside=True) -> bool:
         """Check if two Disks intersect."""
         diff_center = self.position_center - other_disk.position_center
@@ -238,7 +247,10 @@ class Disk(Ellipse):
     @property
     def volume(self):
         """Volume/area of the disk."""
-        volume = np.pi * self.radius ** 2
+        volume = np.pi * self.radius**2
+        # The radius holds the dilation already; it was added a second time, so a
+        # dilated disk weighed, and filled the virtual volume fraction, as one dilated
+        # by twice as much
 
         return volume
 
@@ -254,7 +266,7 @@ class Disk(Ellipse):
         # GJK algorithm is written for 3D
 
     def intersection_length(
-        self, other_particle: Particle, box: list, tol: float = 1e-8, **kwargs
+        self, other_particle: Particle, box: list, **kwargs
     ) -> Union[float, np.array]:
         """
         Compute the intersection length between the Disk and the other particle.
@@ -289,7 +301,9 @@ class Disk(Ellipse):
             )
             unit_vector = self.intersection_vector(other_particle, box)
         else:
-            intersection = self.intersection_gjk(other_particle, box, tol=tol)
+            intersection = self.intersection_gjk(other_particle, box)
+            # `intersection_gjk` takes no tolerance, and was given one, so a disk asked
+            # about any other shape raised
             overlap_length, unit_vector = self.intersection_length_mink_diff(
                 other_particle, box, dist_met=dist_met
             )

@@ -109,7 +109,7 @@ class Ellipsoid(Particle):
             ),
             "ratio_21": (
                 "Ratio a2/a1",
-                lambda ratio_21, rve_dims: ratio_21 <= 1,
+                lambda ratio_21, rve_dims: 0 < ratio_21 <= 1,
                 "float",
             ),
             "ratio_13": (
@@ -119,12 +119,12 @@ class Ellipsoid(Particle):
             ),
             "ratio_32": (
                 "Ratio a3/a2",
-                lambda ratio_31, rve_dims: ratio_31 <= 1,
+                lambda ratio_32, rve_dims: 0 < ratio_32 <= 1,
                 "float",
             ),
             "ratio_321": (
                 "Ratio a3/a1 and a2/a1",
-                lambda ratio_321, rve_dims: ratio_321 <= 1,
+                lambda ratio_321, rve_dims: 0 < ratio_321 <= 1,
                 "float",
             ),
             "p_3": (
@@ -263,9 +263,9 @@ class Ellipsoid(Particle):
             and "ratio_21" in descriptors
             and "axis_2" in descriptors
         ):
-            axis_2 = min(descriptors["axis_2"], 0.2)
-            axis_1 = axis_2 / max(min(descriptors["ratio_21"], 1), 0.4)
-            axis_3 = max(min(descriptors["ratio_32"], 1), 0.4) * axis_2
+            axis_2 = descriptors["axis_2"]
+            axis_1 = axis_2 / descriptors["ratio_21"]
+            axis_3 = descriptors["ratio_32"] * axis_2
         if "angle" in descriptors:
             angle = descriptors["angle"]
         if (
@@ -280,7 +280,6 @@ class Ellipsoid(Particle):
         if "p_3" in descriptors and "phi_z" in descriptors:
             p_3 = descriptors["p_3"]
             phi_z = descriptors["phi_z"]
-            # phi_z = angles[ind]
 
             rot_mat_y = np.array(
                 [
@@ -302,6 +301,19 @@ class Ellipsoid(Particle):
             rot_axis_comp_z = complete_rot_mat[1, 0] - complete_rot_mat[0, 1]
             angle = np.arccos((np.trace(complete_rot_mat) - 1) / 2)
 
+        axes = {"axis_1": axis_1, "axis_2": axis_2, "axis_3": axis_3}
+        for i_name, i_axis in axes.items():
+            if not Ellipsoid.possible_parameters[i_name][1](i_axis, rve_dims):
+                raise ValueError(
+                    "{0} is not an allowable value for {1}, which the descriptors "
+                    "give.".format(i_axis, i_name)
+                )
+        # The bounds of an axis given as a descriptor hold for one the descriptors give
+        # through a ratio or a volume. The second axis and its ratios were clamped
+        # instead, the axis to a fifth of the shortest side and the ratios to between
+        # 0.4 and 1, which bounded the first axis; the particle asked for was changed
+        # into another without a word, and a ratio outside the clamp could not be asked
+        # for at all
         self.axis_1 = np.abs(axis_1)
         self.axis_2 = np.abs(axis_2)
         self.axis_3 = np.abs(axis_3)
@@ -528,6 +540,28 @@ class Ellipsoid(Particle):
             # ellipse
         return point_in
 
+    def points_inside(self, points, box, tol=1e-6):
+        """
+        Say which of *points* are inside the Ellipsoid; see `.Particle.points_inside`.
+
+        Parameters
+        ----------
+        tol: float
+            Tolerance
+        """
+        points_nearest_pbc = self.nearest_periodic_images(points, box)
+        points_loc = (points_nearest_pbc - self.position_center).dot(self.rotation_mat)
+        # The points in local coordinates, a row to a point: the rotation from local to
+        # global transposed onto each of them at once
+
+        return (
+            points_loc[:, 0] ** 2 / self.semi_axis_1**2
+            + points_loc[:, 1] ** 2 / self.semi_axis_2**2
+            + points_loc[:, 2] ** 2 / self.semi_axis_3**2
+            - 1
+            <= tol
+        )
+
     def intersection_volume_ellipsoid_other(
         self, other_particle, box, alg_type="random", tol=1, max_it=1000, seq_size=50
     ):
@@ -701,6 +735,21 @@ class Ellipsoid(Particle):
 
     def intersection_ellipsoid_ellipsoid(self, other_ellipsoid, box):
         """Check if the current and the other ellipsoid intersect."""
+        # TODO: the answer is wrong for 23 of 400 random pairs, mostly separated pairs
+        # called overlapping, some overlaps missed, and not only near tangency: 7 of the
+        # 344 pairs that would have to be scaled about their centres by more than 20% to
+        # touch were wrong, as are two concentric ellipsoids crossed like a plus sign.
+        # The coefficients of det(lambda*A_i + A_j) are right, to 1e-12 of the quartic
+        # fitted to the determinant; the conditions on the eta coefficients are what
+        # fail, 23 wrong again on the exact coefficients, some of them asking a float to
+        # be == 0. Counting the distinct positive real roots of the quartic, which
+        # separate the pair (Wang, Wang and Kim), got all 400 right, with a tolerance
+        # left to find for the double root at tangency. The truth was the Perram-Wertheim
+        # contact function, under which GJK got all 400 right too. The semi-axes it reads
+        # also leave out `delta`, which the support function adds. It decides nothing in
+        # a run, `intersection` and `intersection_length` going to GJK and its one
+        # caller, `intersection_area`, being called by tests alone; the pairs it gets
+        # wrong are in TestEllipsoidAlgebraicIntersection
 
         def coefficients_characteristic_equation(M_i, axis_lengths, A_j):
             """
@@ -967,5 +1016,4 @@ class Ellipsoid(Particle):
         self.axis_1 *= rescale_parameter
         self.axis_2 *= rescale_parameter
         self.axis_3 *= rescale_parameter
-        self.delta *= rescale_parameter
-        self.position_center *= rescale_parameter
+        super().rescale(rescale_parameter)

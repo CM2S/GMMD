@@ -21,12 +21,15 @@ dependencies = [
     "pyparsing>=2.4.7",
     "python-dateutil>=2.8.1",
     "scipy>=1.15.0",
+    "pyyaml>=5.4",
+    "meshio>=5.3",
     "six>=1.16.0",
     "tabulate>=0.8.9",
-    "gmsh>=4.15",
 ]
 
 [project.optional-dependencies]
+gmsh = ["gmsh>=4.15"]
+xdmf = ["h5py"]
 docs = ["sphinx", "myst-parser", "sphinx-rtd-theme", "sphinx-favicon"]
 test = ["pytest", "pytest-cov", "coverage"]
 
@@ -37,6 +40,10 @@ test = ["pytest", "pytest-cov", "coverage"]
 
 [project.scripts]
 geommicgen = "geommicgen.app:run_program"
+geommicgen-mesh = "geommicgen.cli:mesh_command"
+geommicgen-translate = "geommicgen.cli:translate_command"
+geommicgen-analyze = "geommicgen.cli:analyze_command"
+geommicgen-convert-mic = "geommicgen.iofuncs.convert_mic:convert_mic_command"
 
 [build-system]
 requires = ["setuptools>=61.0.0", "wheel"]
@@ -47,3 +54,13 @@ version = {attr = "geommicgen.__version__"}
 
 [tool.setuptools.packages.find]
 include = ["geommicgen*"]
+
+[tool.setuptools.package-data]
+geommicgen = ["tests/fixtures/*.npy"]
+
+
+[tool.coverage.run]
+patch = ["subprocess"]
+# The meshes and the views drawn with gmsh are made in interpreters of their own, which
+# coverage measures only when told to, and saves one file for each, combined after the
+# run

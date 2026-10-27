@@ -24,7 +24,6 @@ from geommicgen.postproc.plotfuncs.plotting_functions import (
     plot_particles_3d,
     plot_particles_2d,
 )
-import pickle
 from scipy.spatial import Voronoi
 from geommicgen.postproc.voronoimetrics.voronoi_analysis import (
     compute_3d_irreducible_minkowski_tensors,

@@ -13,6 +13,9 @@ import numpy as np
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 import geommicgen.microstructure.particleclasses as part_cls
+from geommicgen.meshing.mesher import available_meshers, get_mesher
+from geommicgen.postproc.options import ANALYSIS_OPTIONS
+from geommicgen.translators import writer_options
 import geommicgen.microstructure.phase as phase
 
 
@@ -24,7 +27,8 @@ class Keyword:
     name: str
         Name of the keyword.
 
-    type_str: optional, {'float', 'int', 'bool', 'str', 'none'}
+    type_str: optional, {'float', 'int', 'bool', 'str', 'int_list', 'float_list',
+        'str_list', 'none'}
         Type of the value corresponding to the keyword. 'none' will set the value of the
         keyword as its name.
 
@@ -100,6 +104,45 @@ class Keyword:
             elif self.type_str == "str":
                 value_str = line.split()[1]
                 final_val = value_str
+            elif self.type_str == "int_list":
+                value_str = " ".join(line.split()[1:])
+                if "[" in value_str:
+                    final_val = [
+                        [
+                            int(i_value)
+                            for i_value in i_group.replace("[", " ").split(",")
+                            if i_value.strip()
+                        ]
+                        for i_group in value_str.split("]")[:-1]
+                    ]
+                else:
+                    final_val = [
+                        int(i_value) for i_value in value_str.replace(",", " ").split()
+                    ]
+                # Written as [a, b], or as [a, b] [c, d] for several lists at once, in
+                # which case each is read as a list of its own. A bare row of numbers
+                # is read as one list
+            elif self.type_str == "float_list":
+                value_str = " ".join(line.split()[1:]).strip()
+                if value_str.startswith("[") and value_str.endswith("]"):
+                    value_str = value_str[1:-1]
+                final_val = [
+                    float(i_value) for i_value in value_str.replace(",", " ").split()
+                ]
+                # Written as [a, b] like every other list in the input file, or as a
+                # single value, which is a list of one
+            elif self.type_str == "str_list":
+                value_str = " ".join(line.split()[1:]).strip()
+                if value_str.startswith("[") and value_str.endswith("]"):
+                    value_str = value_str[1:-1]
+                final_val = [
+                    i_value.strip()
+                    for i_value in value_str.split(",")
+                    if i_value.strip()
+                ]
+                # Written as [a, b] like every other list in the input file. A single
+                # value and a comma separated list without the brackets are read too,
+                # since the whole line is taken rather than the first word of it
             elif self.type_str == "none":
                 final_val = self.name
             else:
@@ -224,11 +267,19 @@ class KeywordTypeC(Keyword):
     header_keys: set(`.Keyword`)
         Set containing the acceptable header keywords.
 
-    sub_keys: set(`.Keyword`)
-        Set containing the acceptable sub keywords.
+    sub_keys: dict
+        Dictionary whose keys are the names of the header keywords and whose values are
+        the sub keywords read under each of them. A sub keyword given under a header
+        that does not take it is refused rather than ignored.
+
+    all_sub_keys: set(`.Keyword`)
+        Every sub keyword, whichever header it is read under.
+
+    renamed_headers: dict
+        The header each old name is read as, by the old name.
     """
 
-    def __init__(self, name, header_keys, sub_keys, **kwargs):
+    def __init__(self, name, header_keys, sub_keys, renamed_headers=None, **kwargs):
         """
         Instanciate a `.KeywordTypeC` object.
 
@@ -242,10 +293,20 @@ class KeywordTypeC(Keyword):
 
         sub_keys: set(`.Keyword`)
             Set containing the acceptable sub keywords.
+
+        renamed_headers: dict, optional
+            The header each old name is read as, by the old name.
         """
         super().__init__(name, **kwargs)
-        self.header_keys = header_keys
+        self.renamed_headers = renamed_headers or {}
+        self.header_keys = header_keys | {
+            Keyword(i_old, type_str="none") for i_old in self.renamed_headers
+        }
         self.sub_keys = sub_keys
+        self.all_sub_keys = set().union(*sub_keys.values())
+        # Which header a line is under is known while it is being read, so the sub
+        # keywords of that header are taken then; this is for recognising that a line
+        # is still inside the block at all
 
     def read_value(self):
         """Read the values of the *self* keyword."""
@@ -254,21 +315,41 @@ class KeywordTypeC(Keyword):
         # Moving over the line containing top level keyword
         Keyword.input_reader.ignore_comments()
         # Ignore comments
+        current_header = None
         while Keyword.input_reader.i_line < len(Keyword.input_reader.input):
             line = Keyword.input_reader.input[Keyword.input_reader.i_line]
             # Current line
-            if all(
-                [
-                    not keyword.is_in(line)
-                    for keyword in self.header_keys.union(self.sub_keys)
-                ]
-            ):
-                # If the current line doesn't contain a known keyword, exit the block
-                break
+            readable = self.header_keys
+            if current_header is not None:
+                readable = readable | self.all_sub_keys
+            if not any(i_keyword.is_in(line) for i_keyword in readable):
+                if any(
+                    i_keyword.is_in(line)
+                    for i_keyword in Keyword.input_reader.top_level_keywords
+                ):
+                    break
+                # Another keyword ends the block
+                raise ValueError(
+                    "Line {0} of input file: {1} is not read under {2}, whose "
+                    "headers are {3}.".format(
+                        Keyword.input_reader.i_line + 1,
+                        line.split()[0],
+                        self.name,
+                        ", ".join(sorted(self.sub_keys)),
+                    )
+                )
+                # Any other line is a mistake in the block, rather than the end of it
             for header_keyword in self.header_keys:
                 if header_keyword.is_in(line):
                     keyword_already_supplied = set()
+                    name = self.renamed_headers.get(
+                        header_keyword.name, header_keyword.name
+                    )
+                    current_sub_keys = self.sub_keys[name]
                     current_header = header_keyword.read_value()
+                    if name != header_keyword.name:
+                        current_header = name
+                    # A header given under its old name is read as the one it names
                     if current_header in options:
                         raise ValueError(
                             "The {0} group {1} was specified twice.".format(
@@ -277,8 +358,16 @@ class KeywordTypeC(Keyword):
                         )
                     options[current_header] = {}
                     break
-            for sub_keyword in self.sub_keys:
+            for sub_keyword in self.all_sub_keys:
                 if sub_keyword.is_in(line):
+                    if sub_keyword not in current_sub_keys:
+                        raise ValueError(
+                            "The keyword {0} is not read under {1}.".format(
+                                sub_keyword.name, current_header
+                            )
+                        )
+                    # Refused rather than ignored: a keyword under the wrong header used
+                    # to parse and then do nothing at all
                     if sub_keyword in keyword_already_supplied:
                         raise ValueError(
                             "The keyword {0} is supplied twice.".format(
@@ -372,7 +461,7 @@ class TopLevelReader:
             # No keyword was found in the current line
             raise ValueError(
                 "Line {0} of input file does not contain a keyword: {1}".format(
-                    self.i_line, line
+                    self.i_line + 1, line
                 )
             )
 
@@ -595,67 +684,18 @@ top_level_reader.add_top_level_keyword(
 # Post Processing
 # ------------------------------------------------------------------------------------------
 top_level_reader.add_top_level_keyword(
-    KeywordTypeA(
-        "Motion_Analysis",
-        "post_proc",
-        default_value=False,
-        type_str="bool",
-    ),
-    KeywordTypeA(
-        "final_config",
-        "post_proc",
-        default_value=False,
-        type_str="bool",
-    ),
-    KeywordTypeA(
-        "stat_nearest_neighbor",
-        "post_proc",
-        default_value=False,
-        type_str="bool",
-    ),
-    KeywordTypeA(
-        "stat_ripleys_k",
-        "post_proc",
-        default_value=False,
-        type_str="bool",
-    ),
-    KeywordTypeA(
-        "stat_two_pt_corr",
-        "post_proc",
-        default_value=False,
-        type_str="bool",
-    ),
-    KeywordTypeA(
-        "voronoi_analysis",
-        "post_proc",
-        default_value=False,
-        type_str="bool",
-    ),
-    KeywordTypeA(
-        "voronoi_type",
-        "post_proc",
-        default_value="standard",
-        type_str="str",
-    ),
-    KeywordTypeA(
-        "n_surf_points",
-        "post_proc",
-        default_value=10,
-        type_str="int",
-    ),
-    KeywordTypeA(
-        "plot_voronoi",
-        "post_proc",
-        default_value=False,
-        type_str="bool",
-    ),
-    KeywordTypeA(
-        "plot_imts",
-        "post_proc",
-        default_value=False,
-        type_str="bool",
-    ),
+    *(
+        KeywordTypeA(
+            i_name,
+            "post_proc",
+            default_value=i_description["default"],
+            type_str=i_description["type"],
+        )
+        for i_name, i_description in ANALYSIS_OPTIONS.items()
+    )
 )
+# One keyword per analysis option, from the declaration the analysis command is built
+# from as well, so that a deck and the command ask for an analysis the same way
 
 # General keywords
 # ------------------------------------------------------------------------------------------
@@ -672,29 +712,57 @@ top_level_reader.add_top_level_keyword(
         "Mic_Gen_Descriptors",
         header_keys={Keyword("Phase")},
         sub_keys={
-            Keyword("Phase_Type", type_str="int"),
-            Keyword("inner_phase", type_str="bool"),
-            Keyword("outer_phase", type_str="int"),
-            *generate_all_possible_keywords_from_particle_attributes(),
+            "Phase": {
+                Keyword("Phase_Type", type_str="int"),
+                Keyword("inner_phase", type_str="bool"),
+                Keyword("outer_phase", type_str="int"),
+                *generate_all_possible_keywords_from_particle_attributes(),
+            }
         },
     )
 )
 
 # Mesh generation parameters
 # ------------------------------------------------------------------------------------------
+JOB_KEYWORDS = {Keyword("File_Name", type_str="str")}
+# The options of a discretisation that belong to neither what discretises it nor the
+# formats it is written in, but to the files as such
+
+FORMAT_KEYWORDS = {
+    Keyword("Formats", type_str="str_list"),
+} | {
+    Keyword(i_name, type_str=i_description["type"])
+    for i_name, i_description in writer_options().items()
+}
+# The options of a discretisation that belong to the formats it is written in, rather
+# than to what discretises it. The ones a format declares are read here without this
+# module knowing which format declared them, so writing a new one that takes an option
+# is a change to that writer alone
+
+
+def mesher_keywords(mesher_name):
+    """Keywords for the options a mesher declares, the way the formats declare theirs."""
+    return {
+        Keyword(i_name, type_str=i_description["type"])
+        for i_name, i_description in get_mesher(mesher_name).options.items()
+    }
+
+
+OLD_MESHER_NAMES = {"femsh": "gmsh", "rgmsh": "voxel"}
+# The names the meshers were asked for by before they were asked for by their own, which
+# a deck written then still gives
+
 top_level_reader.add_top_level_keyword(
     KeywordTypeC(
         "Mesh_Options",
-        header_keys={
-            Keyword("femsh", type_str="none"),
-            Keyword("rgmsh", type_str="none"),
-        },
+        header_keys={Keyword(i_name, type_str="none") for i_name in available_meshers()},
         sub_keys={
-            Keyword("Element_Type", type_str="str"),
-            Keyword("Mesh_Size", type_str="float"),
-            Keyword("Elements_Per_Particle", type_str="float"),
-            Keyword("N_Voxels_Dims", type_str="int"),
-            Keyword("Slice_Dir", type_str="int"),
+            i_name: mesher_keywords(i_name) | FORMAT_KEYWORDS | JOB_KEYWORDS
+            for i_name in available_meshers()
         },
+        renamed_headers=OLD_MESHER_NAMES,
     )
 )
+# One header per registered mesher, under its own name, each reading the options that
+# mesher declares: a mesher that is registered is asked for here without this module
+# naming it, as a format is. A mesher given under its old name is read under its own

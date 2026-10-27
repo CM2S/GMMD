@@ -6,8 +6,15 @@ import numpy as np
 # from microstructure.phase import Phase
 
 
-from geommicgen.microstructure.microstructure import Microstructure
-from geommicgen.microstructure.particleclasses.disk import Disk
+import numpy as np
+
+from geommicgen.microstructure.microstructure import Microstructure, unit_scale
+from geommicgen.microstructure.particleclasses import Disk
+from geommicgen.tests.helpers import (
+    build_microstructure,
+    disk_microstructure,
+    sphere_microstructure,
+)
 
 
 class TestMicrostructure(unittest.TestCase):
@@ -159,6 +166,140 @@ class TestMicrostructure(unittest.TestCase):
 
         pts = [[0.5, 0.5], [0.9, 0.9]]
         self.assertEqual(self.microstructure_2D.inside_particle_phase(pts), [1, 0])
+
+
+class TestFromDescriptors(unittest.TestCase):
+    """Test class for the microstructure built from the descriptors of a deck."""
+
+    DESCRIPTORS = {"0": {"phase_type": 1}, "1": {"phase_type": 2, "vf": 0.2, "n": 4}}
+    # A matrix and a phase of disks, as the input data file reader hands them over
+
+    def test_the_phases_are_declared(self):
+        microstructure = Microstructure.from_descriptors([1.0, 1.0], self.DESCRIPTORS)
+        self.assertEqual(list(microstructure.phases), ["0", "1"])
+        self.assertEqual(microstructure.matrix_phase, "0")
+        self.assertEqual(microstructure.phases["1"].type.__name__, "Disk")
+        self.assertEqual(microstructure.phases["1"].descriptors["n"].value, 4)
+        self.assertEqual(microstructure.particles, [])
+        for i_phase in microstructure.phases.values():
+            self.assertIs(i_phase.microstructure, microstructure)
+
+    def test_a_deck_without_a_matrix_is_refused(self):
+        with self.assertRaises(ValueError) as context:
+            Microstructure.from_descriptors([1.0, 1.0], {"1": self.DESCRIPTORS["1"]})
+        self.assertIn("matrix", str(context.exception))
+
+    def test_a_deck_with_two_matrices_is_refused(self):
+        with self.assertRaises(ValueError):
+            Microstructure.from_descriptors(
+                [1.0, 1.0], {"0": {"phase_type": 1}, "2": {"phase_type": 1}}
+            )
+
+    def test_each_call_builds_a_microstructure_of_its_own(self):
+        first = Microstructure.from_descriptors([1.0, 1.0], self.DESCRIPTORS)
+        second = Microstructure.from_descriptors([1.0, 1.0], self.DESCRIPTORS)
+        self.assertIsNot(first.phases["1"], second.phases["1"])
+        # Each sample of a run is generated into a microstructure of its own
+
+
+class TestUnitScale(unittest.TestCase):
+    """Test class for the factor a stage scales a microstructure by."""
+
+    def test_the_shortest_side_is_brought_to_one(self):
+        for i_dims in (
+            [1.0, 1.0],
+            [2.0, 1.0, 3.0],
+            [3.0, 3.0],
+            [0.75, 4.0],
+            [1e-6, 2e-6],
+        ):
+            with self.subTest(rve_dims=i_dims):
+                self.assertAlmostEqual(min(i_dims) * unit_scale(i_dims), 1.0, places=15)
+        self.assertEqual(unit_scale([1.0, 1.0]), 1.0)
+        self.assertEqual(unit_scale([2.0**-20, 1.0]), 2.0**20)
+        # A unit RVE is left as it is, and a side that is a power of two gives a factor
+        # that is one too, which is multiplied out exactly
+
+
+class TestScaled(unittest.TestCase):
+    """Test class for a microstructure given in other units."""
+
+    def test_every_length_is_multiplied(self):
+        microstructure = sphere_microstructure()
+        microstructure.particles[0].dilate(0.01)
+        scaled = microstructure.scaled(2.0**-3)
+        self.assertEqual(
+            scaled.rve_dims, [i_dim * 2.0**-3 for i_dim in microstructure.rve_dims]
+        )
+        self.assertEqual(scaled.volume, microstructure.volume * 2.0**-9)
+        for i_original, i_scaled in zip(microstructure.particles, scaled.particles):
+            np.testing.assert_array_equal(
+                i_scaled.position_center, i_original.position_center * 2.0**-3
+            )
+            self.assertEqual(i_scaled.radius, i_original.radius * 2.0**-3)
+            self.assertEqual(i_scaled.delta, i_original.delta * 2.0**-3)
+        self.assertEqual(scaled.volume_fraction, microstructure.volume_fraction)
+        # The volume follows the dimensions, where it used to be kept from the
+        # construction and would have been that of the microstructure copied
+
+    def test_the_original_is_left_alone(self):
+        microstructure = disk_microstructure()
+        centers = [
+            i_particle.position_center for i_particle in microstructure.particles
+        ]
+        rve_dims = list(microstructure.rve_dims)
+        microstructure.scaled(8.0)
+        self.assertEqual(microstructure.rve_dims, rve_dims)
+        for i_particle, i_center in zip(microstructure.particles, centers):
+            np.testing.assert_array_equal(i_particle.position_center, i_center)
+
+
+class TestInsideParticlePhase(unittest.TestCase):
+    """Test class for telling the points inside a particle from the ones outside."""
+
+    def brute_force(self, microstructure, points):
+        """Test every point against every particle, with no cell list in between."""
+        return [
+            int(
+                any(
+                    i_particle.point_inside(i_point, microstructure.rve_dims)
+                    for i_particle in microstructure.particles
+                )
+            )
+            for i_point in points
+        ]
+
+    def check(self, microstructure):
+        """Check the lookup against the brute force on points all over and beyond."""
+        rng = np.random.RandomState(0)
+        dim = microstructure.dim
+        points = rng.uniform(-0.5, 1.5, size=(2000, dim))
+        # Beyond the RVE on both sides, so that the wrapping of the points is exercised
+        inside = microstructure.inside_particle_phase(list(points))
+        self.assertEqual(inside, self.brute_force(microstructure, points))
+        self.assertGreater(sum(inside), 0)
+        self.assertLess(sum(inside), len(inside))
+        # Both answers occur, so the equality is not two lists of the same constant
+
+    def test_two_dimensional(self):
+        self.check(disk_microstructure())
+        # One of the disks crosses a face of the RVE
+
+    def test_three_dimensional(self):
+        self.check(sphere_microstructure())
+        # One of the spheres crosses two faces
+
+    def test_centres_outside_the_rve(self):
+        rve_dims = [1.0, 1.0]
+        particles = []
+        for i_center in ([1.3, 0.3], [-0.4, 0.6], [0.2, 0.8]):
+            particle = Disk("2", {"r": 0.05}, rve_dims)
+            particle.position_center = np.array(i_center)
+            particles.append(particle)
+        self.check(build_microstructure(rve_dims, Disk, particles))
+        # The first two lie a period away from the RVE, which is ten cells across. They
+        # were put in the last cell along the first direction and in the cell a row
+        # below theirs, so the points around them were not tested against them
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ Submodules
    geommicgen.tests.test_generation
    geommicgen.tests.test_microstructure
    geommicgen.tests.test_molecular_dynamics_sim
-   geommicgen.tests.test_particleclasses
+   geommicgen.tests.test_particle_classes
    geommicgen.tests.test_phase
    geommicgen.tests.test_speed_up_schemes
    geommicgen.tests.test_thermostats

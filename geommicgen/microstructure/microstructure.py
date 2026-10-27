@@ -5,12 +5,43 @@ Each instance of the Microstructure class is a microstructure sample, composed o
 of the Phase class, in turn described by the adequate phase descriptors.
 """
 
+import copy
+
 import numpy as np
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 from geommicgen.micgenmethod.speed_up_schemes import CellList
-from geommicgen.microstructure.particleclasses import Point
+from geommicgen.microstructure.phase import Phase
+
+
+def unit_scale(lengths):
+    """
+    Give the factor that brings the shortest of some lengths to one.
+
+    The stages that work with tolerances, gmsh's and the particles' own among them,
+    work on the microstructure multiplied by it, so that a tolerance means the same
+    thing whatever the units of the RVE are, and the same microstructure written in
+    other units is treated alike. When the shortest length is a power of two the
+    factor is one as well, and it is multiplied out exactly, so a microstructure in
+    units a power of two apart is treated alike to the last bit; otherwise what comes
+    back is rounded in its last digit.
+
+    Parameters
+    ----------
+    lengths: list(float)
+        Positive lengths, the dimensions of an RVE.
+
+    Returns
+    -------
+    float
+        The factor, 1 for a unit RVE.
+    """
+    return 1 / min(lengths)
+    # The shortest side itself, and not the power of two nearest it, which kept the
+    # mantissa of the side: the simulation, whose time step and constants are not
+    # scaled with the box, then ran a deck in millimetres and the same deck in
+    # micrometres in boxes of sides 1.95 and 1.05, and gave two microstructures
 
 
 class Microstructure:
@@ -55,9 +86,79 @@ class Microstructure:
             raise ValueError(
                 "The dimensions of the microstructure must be positive values."
             )
-        self.volume = np.prod(rve_dims)
         self.phases = {}
         self.total_overlap = None
+
+    @property
+    def volume(self):
+        """Volume/area of the microstructure."""
+        return np.prod(self.rve_dims)
+        # Worked out from the dimensions rather than kept beside them, so that a copy
+        # given other dimensions cannot carry the volume of the one it was copied from
+
+    def scaled(self, factor):
+        """
+        Give a copy of the microstructure with every length multiplied by a factor.
+
+        The copy is the same microstructure in other units: its dimensions, the
+        positions and the sizes of its particles are multiplied, and nothing else is.
+        The descriptors of its phases are not, so particles are not to be generated
+        for it.
+
+        Parameters
+        ----------
+        factor: float
+            Factor every length is multiplied by.
+
+        Returns
+        -------
+        `.Microstructure`
+            The copy.
+        """
+        scaled = copy.deepcopy(self)
+        scaled.rve_dims = [i_dim * factor for i_dim in self.rve_dims]
+        for i_particle in scaled.particles:
+            i_particle.rescale(factor)
+
+        # TODO: the overlap is left as it is: a length, or an area or a volume,
+        # depending on how the simulation measured it, which the microstructure does
+        # not know
+
+        return scaled
+
+    @classmethod
+    def from_descriptors(cls, rve_dims, descriptors):
+        """
+        Build the microstructure an input data file describes, with its phases.
+
+        Parameters
+        ----------
+        rve_dims: array
+            Dimensions of the microstructure in each spatial direction.
+
+        descriptors: dict
+            Descriptors of each phase, keyed by the name of the phase, as the input data
+            file gives them.
+
+        Returns
+        -------
+        `.Microstructure`
+            The microstructure, with no particles yet.
+
+        Raises
+        ------
+        ValueError:
+            If no phase is a matrix, or if two are.
+        """
+        microstructure = cls(rve_dims)
+        for i_name, i_descriptors in descriptors.items():
+            microstructure.add_phase(Phase(i_name, i_descriptors))
+        if microstructure.matrix_phase is None:
+            raise ValueError("No matrix phase was specified.")
+        # Refused here, where the phases are declared, rather than by whichever
+        # mesher first fills the RVE and finds nothing to fill it with
+
+        return microstructure
 
     def add_phase(self, phase):
         """
@@ -90,32 +191,80 @@ class Microstructure:
                         )
 
     def inside_particle_phase(self, pts):
-        """Check if a point is inside the particle phase."""
-        pts_particle = [Point(len(i_pt), "1") for i_pt in pts]
-        for i_pt_ind, (i_pt, i_pt_center) in enumerate(zip(pts_particle, pts)):
-            pts_particle[i_pt_ind].position_center = np.array(
-                i_pt_center
-            ) - self.rve_dims * np.floor(np.array(i_pt_center) / self.rve_dims)
-        # Creating a point particle corresponding to the point at the same positions
+        """
+        Say, for each of a set of points, whether it lies inside a particle.
 
+        Parameters
+        ----------
+        pts: list(array)
+            Positions of the points, which may lie outside the RVE and are wrapped
+            into it.
+
+        Returns
+        -------
+        list(int)
+            1 for a point inside a particle, 0 otherwise, in the order given.
+        """
+        dim = len(pts[0])
+        box = np.asarray(self.rve_dims, dtype=float)[:dim]
+        particles = self.particles
         cell_list = CellList()
-        cell_list.box = np.array(self.rve_dims)[: len(pts[0])]
-        points_and_particles = pts_particle + self.particles
-        cell_list.new_list(points_and_particles)
-        # Computing the cell list
+        cell_list.box = box
+        cell_list.max_radius = np.max([i_particle.radius for i_particle in particles])
+        centers = np.array(
+            [i_particle.position_center[:dim] for i_particle in particles], dtype=float
+        )
+        particle_cells = cell_list.cells_of(centers - box * np.floor(centers / box))
+        # The cells are sized by the largest particle, so a point inside one lies in the
+        # cell of its centre or in a neighbour of it: the guarantee the simulation relies
+        # on for two particles overlapping, with a point in place of the second. The
+        # points themselves are only looked up in the list; putting them in it, as used
+        # to be done, tested every point against every other point in its cell. The
+        # centres are wrapped into the RVE, as the points are. They were put in the
+        # cells as they were, so a centre outside the RVE, which a microstructure read
+        # from a file may have, was counted in the last cell along a direction, or in a
+        # wrong one, and the points around it were not tested against it
 
-        inside = [0 for _ in pts]
-        for i_pt_ind, i_pt in enumerate(pts_particle):
-            for j_particle_ind in cell_list.particle_list[i_pt_ind]:
-                if points_and_particles[j_particle_ind].point_inside(
-                    i_pt.position_center, self.rve_dims
-                ):
-                    inside[i_pt_ind] = 1
-                    break
-        # Obtaining an array of 0s and 1s according to the positions of the points relative
-        # to the particle phase
+        # TODO: the cell list is built anew on every call, and the `cells_around` of
+        # every cell with it, although the particles have not moved between the calls:
+        # the two point correlation function asks 401 times over one microstructure and
+        # spends from a third to four fifths of its time on the rebuilds, the more the
+        # smaller the particles and so the cells, of which there are more to work the
+        # neighbours of: four fifths with 625 cells, for 200 disks of radius 0.02. The
+        # index belongs to the microstructure, held until the particles move, or to a
+        # grid of its own that `CellList` and this both read -- which would also give
+        # the analyses a point index that does not carry the force computation
+        # machinery of a speed up scheme, and let `cells_around` be worked out once per
+        # grid rather than once per instance
+        positions = np.asarray(pts, dtype=float)
+        positions = positions - box * np.floor(positions / box)
+        cells = cell_list.cells_of(positions)
+        order = np.argsort(cells, kind="stable")
+        n_cells = int(np.prod(cell_list.n_cell_dim))
+        starts = np.concatenate([[0], np.cumsum(np.bincount(cells, minlength=n_cells))])
+        # The points in the order of the cell they fall in, and where the points of
+        # each cell begin, since the cell of a particle is what says which points can
+        # be inside it
 
-        return inside
+        inside = np.zeros(len(positions), dtype=bool)
+        for i_particle, i_cell in zip(particles, particle_cells):
+            neighborhood = np.concatenate(
+                [
+                    order[starts[j_cell]:starts[j_cell + 1]]
+                    for j_cell in cell_list.cells_around[i_cell]
+                ]
+            )
+            if neighborhood.size > 0:
+                inside[neighborhood] |= i_particle.points_inside(
+                    positions[neighborhood], self.rve_dims
+                )
+        # Every point that can be inside a particle is tested against it in one array
+        # operation, where the test used to be a call into a particle for each point
+        # and each particle around it -- which is the whole of what the two point
+        # correlation function costs. The size is asked for so that a particle with no
+        # point near it is not called at all
+
+        return inside.astype(int).tolist()
 
     @property
     def particles(self):

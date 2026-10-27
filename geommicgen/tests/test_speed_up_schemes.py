@@ -5,18 +5,15 @@ The classes tested are the GenerationMethod class and the MolecularDynamicsSimul
 import unittest
 from unittest.mock import sentinel, Mock, patch, call
 
-from geommicgen.postproc.plotfuncs.plotting_functions import (
-    plot_particles_3d,
-    plot_particles_2d,
-)
-import pickle
 import numpy as np
 
 from geommicgen.micgenmethod.speed_up_schemes import (
-    SpeedUpScheme,
+    SPEED_UP_SCHEMES,
     CellList,
+    Naive,
+    SpeedUpScheme,
     VerletList,
-    Naive
+    speed_up_scheme_from_options,
 )
 from geommicgen.microstructure.particleclasses import Ellipse, Disk
 
@@ -28,6 +25,42 @@ from geommicgen.micgenmethod.molecular_dynamics_sim import (
 )
 
 import numpy as np
+
+
+class TestSpeedUpSchemeFromOptions(unittest.TestCase):
+    """Test class for the scheme built from the generation parameters of a deck."""
+
+    def test_each_scheme_is_built_under_its_name(self):
+        expected = {"Cell": CellList, "Naive": Naive, "Verlet": VerletList}
+        self.assertEqual(set(expected), set(SPEED_UP_SCHEMES))
+        for i_name, i_class in expected.items():
+            with self.subTest(scheme=i_name):
+                scheme = speed_up_scheme_from_options(
+                    {"speed_up_scheme": i_name, "verlet_factor": 1.1}
+                )
+                self.assertIsInstance(scheme, i_class)
+
+    def test_the_cell_list_is_the_default(self):
+        self.assertIsInstance(speed_up_scheme_from_options({}), CellList)
+
+    def test_a_verlet_list_needs_its_factor(self):
+        with self.assertRaises(ValueError) as context:
+            speed_up_scheme_from_options({"speed_up_scheme": "Verlet"})
+        self.assertIn("verlet_factor", str(context.exception))
+
+    def test_an_unknown_scheme_is_refused(self):
+        with self.assertRaises(ValueError) as context:
+            speed_up_scheme_from_options({"speed_up_scheme": "cell"})
+        self.assertIn("cell", str(context.exception))
+        self.assertIn("Verlet", str(context.exception))
+        # It used to be given the cell list without a word, which a lower case name
+        # is at least as likely to have been as a choice
+
+    def test_the_partial_update_is_no_longer_offered(self):
+        with self.assertRaises(ValueError):
+            speed_up_scheme_from_options({"speed_up_scheme": "Verlet2", "verlet_factor": 1.1})
+        # It was accepted and failed on the first force computation, calling a method
+        # that did not exist
 
 
 class TestSpeedUpScheme(unittest.TestCase):
@@ -57,6 +90,20 @@ class TestCellList(unittest.TestCase):
         current_cell_list.max_radius = 0.3
         current_cell_list.molecular_dynamics_sim = mock_molecular_dynamics_sim
         self.assertTrue(all(current_cell_list.n_cell_dim == np.array([1, 3])))
+
+    def test_a_particle_wider_than_the_box_leaves_one_cell(self):
+        """A particle wider than the box leaves one cell, holding every particle."""
+        particles = [
+            Mock(radius=0.8, position_center=i_position, dim=2)
+            for i_position in (np.array([0.1, 0.2]), np.array([0.9, 1.8]))
+        ]
+        current_cell_list = CellList()
+        current_cell_list.molecular_dynamics_sim = Mock(box=[1.0, 2.0])
+        current_cell_list.new_list(particles)
+        self.assertEqual(current_cell_list.n_cell_dim, [1, 1])
+        self.assertEqual(current_cell_list.particle_list, [{0, 1}, {0, 1}])
+        # There was room for no cell of the particle's width across the first side, and
+        # that side was divided by the zero cells across it
 
     def test_cell_list_max_radius(self):
         """Test the attribute max_radius of cell lists"""
@@ -346,6 +393,115 @@ class TestCellList(unittest.TestCase):
         self.assertEqual(8, current_cell_list.neighbor_cell(26, 22, 3, [3, 3, 3]))
 
 
+class TestSchemesAgree(unittest.TestCase):
+    """Test class for the schemes computing the same forces as checking every pair."""
+
+    def overlap_history(self, scheme, n_particles=150, n_steps=5):
+        """Run a seeded generation of disks with a scheme, giving the overlap history."""
+        from geommicgen.micgenmethod.thermostats import MultiTemperatureIsokineticThermostat
+        from geommicgen.microstructure.microstructure import Microstructure
+
+        microstructure = Microstructure.from_descriptors(
+            [1.0, 1.0],
+            {"0": {"phase_type": 1}, "1": {"phase_type": 2, "vf": 0.5, "n": n_particles}},
+        )
+        generator = MolecularDynamicsSimulation(
+            0.0, n_steps, 1, 1e-3, 0.0, "random", False, fixed_seed=1
+        )
+        generator.set_thermostat(
+            MultiTemperatureIsokineticThermostat(
+                None, criterion="ratio_in_out", max_ratio_osc=2, temp_low_ratio=1 / 4
+            )
+        )
+        generator.set_speed_up_scheme(scheme)
+        generator.generate_microstructure(microstructure)
+
+        return np.array(generator.total_overlap_history)
+
+    def test_every_scheme_gives_the_history_of_checking_every_pair(self):
+        reference = self.overlap_history(Naive())
+        self.assertEqual(len(reference), 6)
+        for i_name, i_scheme in (
+            ("Cell", CellList()),
+            ("Verlet 1.05", VerletList(1.05)),
+            ("Verlet 1.1", VerletList(1.1)),
+            ("Verlet 2.0", VerletList(2.0)),
+        ):
+            with self.subTest(scheme=i_name):
+                np.testing.assert_allclose(self.overlap_history(i_scheme), reference, rtol=1e-9)
+        # The lists only decide which pairs are checked, so a list that is complete
+        # gives the forces of checking every pair up to the order the pairs are summed
+        # in; a missed pair shows in the second digit. The Verlet list
+        # with a small factor did not: its cell list was built before the
+        # neighbourhoods were moved onto the particles, and a neighbourhood that had
+        # crossed into another cell was looked for in the old one
+
+
+class TestPartialUpdate(unittest.TestCase):
+    """Test class for the Verlet lists kept up to date one leaver at a time."""
+
+    def test_the_lists_are_those_of_a_full_build_after_every_step(self):
+        from geommicgen.microstructure.microstructure import Microstructure
+
+        microstructure = Microstructure.from_descriptors(
+            [1.0, 1.0], {"0": {"phase_type": 1}, "1": {"phase_type": 2, "vf": 0.5, "n": 150}}
+        )
+        generator = MolecularDynamicsSimulation.from_options(
+            {
+                "max_residue_per_particle": 0.0,
+                "max_step": 80,
+                "max_steps_to_relax": 0,
+                "dt": 0.05,
+                "min_distance": 0.0,
+                "type_initial_configuration": "random",
+                "save_history": False,
+                "initial_vel_coeff": 0.1,
+                "particle_mass_opt": "radius",
+                "fixed_seed": 5,
+                "initial_temp": None,
+                "max_ratio_osc": 2,
+                "temp_low_ratio": 0.25,
+                "speed_up_scheme": "Verlet",
+                "verlet_factor": 1.1,
+            }
+        )
+        # The defaults of a deck, under which the run settles: the first steps move
+        # most of the particles out of their neighbourhoods and the last ones a few
+        scheme = generator.speed_up_scheme
+        regimes = set()
+        original = scheme.new_list
+
+        def checked(particles):
+            before = None if scheme.verlet_neighborhoods is None else [
+                i for i, p in enumerate(particles)
+                if scheme.particle_intersects_its_own_neighborhood(p, scheme.verlet_neighborhoods[i])
+            ]
+            original(particles)
+            if before is not None and before:
+                regimes.add("partial" if len(before) <= scheme.FULL_REBUILD_FRACTION * len(particles) else "full")
+            neighborhoods = scheme.verlet_neighborhoods
+            expected = [set() for _ in particles]
+            for i in range(len(particles)):
+                for j in range(i + 1, len(particles)):
+                    if neighborhoods[i].intersection(neighborhoods[j], generator.box):
+                        expected[i].add(j)
+                        expected[j].add(i)
+            self.assertEqual(scheme.particle_list, expected)
+            for i, p in enumerate(particles):
+                self.assertFalse(
+                    scheme.particle_intersects_its_own_neighborhood(p, neighborhoods[i])
+                )
+
+        scheme.new_list = checked
+        generator.generate_microstructure(microstructure)
+        self.assertTrue(generator.status)
+        self.assertEqual(regimes, {"full", "partial"})
+        # After every step the lists are exactly the pairs of neighbourhoods that
+        # intersect, checked over every pair, and every particle is inside its
+        # neighbourhood; the run goes through both the steps where most particles
+        # leave and the steps where a few do
+
+
 class TestVerlet(unittest.TestCase):
     def test_intersection_issue_small_large_2(self):
         """Test for the Verlet list with two small ellipses inside a larger one."""
@@ -392,11 +548,11 @@ class TestVerlet(unittest.TestCase):
         molecular_dynamics_sim.box = rve_dims
         molecular_dynamics_sim.set_speed_up_scheme(verlet_list)
 
-        verlet_list.a_new_verlet_list_has_to_be_computed = True
         verlet_list.new_list(particles)
-        self.assertTrue(verlet_list.particle_list[0] == [0, 1, 2])
-        self.assertTrue(verlet_list.particle_list[1] == [0, 1, 2])
-        self.assertTrue(verlet_list.particle_list[2] == [0, 1, 2])
+        self.assertEqual(verlet_list.particle_list[0], {1, 2})
+        self.assertEqual(verlet_list.particle_list[1], {0, 2})
+        self.assertEqual(verlet_list.particle_list[2], {0, 1})
+        # Each list holds the others and not the particle itself
 
     def test_intersection_issue_small_large_3(self):
 
@@ -434,74 +590,29 @@ class TestVerlet(unittest.TestCase):
         )
 
 
+class TestCellsOf(unittest.TestCase):
+    """Test the cell of a set of positions against the cell of one position."""
 
-def load_a_troublesome_example(previous_mic_path):
-    """Load a troblesome example for debugging."""
+    def check(self, box):
+        """Check `cells_of` against `cell_of`, position by position."""
+        cell_list = CellList()
+        cell_list.box = np.array(box, dtype=float)
+        cell_list.max_radius = 0.1
+        rng = np.random.RandomState(0)
+        positions = rng.uniform(0, 1, size=(500, len(box))) * np.array(box)
+        positions = np.concatenate([positions, [box]])
+        # A position on the far face of the box among them, which a wrapped coordinate
+        # can be rounded onto and which the cell of one position counts in the last cell
 
-    with open(previous_mic_path, "rb") as mic:
-        info_previous_sample = pickle.load(mic)
-        # No need to generate a new microstructure. Using a previous microstructure.
-        current_sample = info_previous_sample["microstructure"]
-        current_mic_generator = info_previous_sample["generation_method"]
-        trouble_pair = []
-        trouble_pair_ind = []
-        for i_part_ind, i_particle in enumerate(current_sample.particles):
-            if (
-                0.55 < i_particle.position_center[0] < 0.65
-            ) and 0.05 < i_particle.position_center[1] < 0.25:
-                trouble_pair.append(i_particle)
-                trouble_pair_ind.append(i_part_ind)
-                print(vars(i_particle), i_particle.position_center)
+        one_at_a_time = [cell_list.cell_of(i_position) for i_position in positions]
+        self.assertEqual(list(cell_list.cells_of(positions)), one_at_a_time)
+        self.assertGreater(len(set(one_at_a_time)), 1)
 
-        # intersection, overlap_length, _ = trouble_pair[0].intersection_gjk(
-        #     trouble_pair[1], [1, 1]
-        # )
-        # self.assertTrue(intersection)
-        # intersection, overlap_length, _ = trouble_pair[0].intersection_gjk(
-        #     trouble_pair[2], [1, 1]
-        # )
-        # self.assertTrue(intersection)
-        # print(
-        #     current_mic_generator.speed_up_scheme.particle_list[
-        #         trouble_pair_ind[0]
-        #     ],
-        #     current_mic_generator.speed_up_scheme.particle_list[
-        #         trouble_pair_ind[1]
-        #     ],
-        #     current_mic_generator.speed_up_scheme.particle_list[
-        #         trouble_pair_ind[2]
-        #     ],
-        # )
-        plot_particles_2d(
-            trouble_pair
-            + [
-                current_mic_generator.speed_up_scheme.verlet_neighborhoods[ind]
-                for ind in trouble_pair_ind
-            ],
-            [1, 1],
-            "",
-            show=True,
-            save=False,
-        )
-        # current_mic_generator.speed_up_scheme.a_new_verlet_list_has_to_be_computed = True
-        current_mic_generator.speed_up_scheme.new_list(current_sample.particles)
-        print(
-            current_mic_generator.speed_up_scheme.particle_list[trouble_pair_ind[0]],
-            current_mic_generator.speed_up_scheme.particle_list[trouble_pair_ind[1]],
-        )
-        print(trouble_pair_ind)
-        plot_particles_2d(
-            trouble_pair
-            + [
-                current_mic_generator.speed_up_scheme.verlet_neighborhoods[ind]
-                for ind in trouble_pair_ind
-            ],
-            [1, 1],
-            "",
-            show=True,
-            save=False,
-        )
+    def test_two_dimensional(self):
+        self.check([1.0, 1.0])
 
+    def test_three_dimensional(self):
+        self.check([1.0, 2.0, 1.0])
 
 
 class TestNaive(unittest.TestCase):

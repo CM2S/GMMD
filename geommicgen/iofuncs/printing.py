@@ -1,22 +1,126 @@
 """Module containing the printing functions."""
 
-import os
 import datetime
+import logging
+import os
+import sys
+
 from tabulate import tabulate
 
-# Screen directory
-SCREEN_DIR = ""
+LOGGER = logging.getLogger("geommicgen")
+LOGGER.setLevel(logging.DEBUG)
+LOGGER.addHandler(logging.NullHandler())
+# Everything the program reports passes through this logger. The package attaches no
+# handler of its own beyond the null one, as a library should: an entry point attaches
+# the terminal, a run attaches its screen file, and a script that imports the package
+# hears nothing unless it asks to
+
+FORMATTER = logging.Formatter("%(message)s")
+# The lines are written as they are given, so that the terminal and the screen file
+# read exactly as the print statements they replace did
+
+SCREEN_FILE_NAME = "mic.screen"
 
 
-def print_initial_message(input_file_path):
-    """Print initial message."""
+class TerminalHandler(logging.StreamHandler):
+    """Handler writing to whatever *sys.stdout* is when a record is emitted."""
+
+    def __init__(self):
+        """Initializer for the TerminalHandler class."""
+        super().__init__(sys.stdout)
+
+    @property
+    def stream(self):
+        """The current standard output."""
+        return sys.stdout
+
+    @stream.setter
+    def stream(self, value):
+        """Ignore the stream given, since it is looked up at each record instead."""
+
+    # print looks the standard output up at every call, and so must this, so that
+    # output redirected by the caller is still seen -- which is how the tests read it
+
+
+_TERMINAL = None
+_SCREEN = None
+# The handlers attached at the moment, if any, so that each can be detached again
+
+
+def log_to_terminal():
+    """
+    Send what the program reports to the terminal, once.
+
+    Returns
+    -------
+    `.TerminalHandler`
+        The handler attached, whether by this call or an earlier one.
+    """
+    global _TERMINAL
+    if _TERMINAL is None:
+        _TERMINAL = TerminalHandler()
+        _TERMINAL.setLevel(logging.INFO)
+        _TERMINAL.setFormatter(FORMATTER)
+        LOGGER.addHandler(_TERMINAL)
+    # Called by every entry point, and idempotent so that the tests can call it too
+
+    return _TERMINAL
+
+
+def screen_to(directory):
+    """
+    Send what the program reports to the screen file of a directory, or stop doing so.
+
+    Parameters
+    ----------
+    directory: str
+        Directory the screen file is written in, appended to when it exists. None
+        detaches the current screen file and attaches nothing.
+
+    Returns
+    -------
+    str
+        Path of the screen file, or None when there is none.
+    """
+    global _SCREEN
+    if _SCREEN is not None:
+        LOGGER.removeHandler(_SCREEN)
+        _SCREEN.close()
+        _SCREEN = None
+    if directory is None:
+        return None
+
+    path = os.path.join(directory, SCREEN_FILE_NAME)
+    _SCREEN = logging.FileHandler(path, mode="a")
+    _SCREEN.setLevel(logging.DEBUG)
+    _SCREEN.setFormatter(FORMATTER)
+    LOGGER.addHandler(_SCREEN)
+    # The file takes everything, the traceback of a failed discretisation included,
+    # where the terminal is kept to what a user needs
+
+    return path
+
+
+def print_initial_message(input_file_path, label="Input file"):
+    """
+    Open a run or a command with what it is working on and when it started.
+
+    Parameters
+    ----------
+    input_file_path: str
+        Path of the file the work starts from.
+
+    label: str
+        What that file is: the input data file of a run, or the microstructure or the
+        mesh a command was given.
+    """
     print_to_file("\n")
     print_to_file("Geometrical microstructure generation")
     print_to_file("=" * 80)
     print_to_file("Computational Multi-Scale Modelling of".rjust(80))
     print_to_file("Solids and Structures Research Group".rjust(80))
     print_to_file("\n\n")
-    print_to_file("Input file: {0}".format(input_file_path))
+    print_to_file("{0}: {1}".format(label, input_file_path))
     print_to_file("\n")
     print_to_file(
         "Starting program execution at : {0}\n".format(datetime.datetime.now())
@@ -24,34 +128,11 @@ def print_initial_message(input_file_path):
     print_to_file("\n")
 
 
-def print_analysis_previous(previous_mic_path):
-    """Print previous mic path."""
-    print_to_file("Previous microstructure: {0}".format(previous_mic_path))
-    print_to_file("\n")
-
-
-def print_output_header():
-    """Print the output header."""
-    print_to_file("Output")
-    print_to_file("=" * 80 + "\n")
-
-
 def print_output(filepath):
     """Print output."""
     print_to_file("Output")
     print_to_file("=" * 80 + "\n")
     print_to_file("Microstructure output file: {0}\n".format(filepath))
-
-
-def print_femsh_output(filepath):
-    """Print finite element mesh output."""
-    print_to_file("\t Output file: {0}".format(filepath))
-
-
-def print_rgmsh_output(filepath):
-    """Print regular mesh output."""
-    print_to_file("Regular grid mesh:")
-    print_to_file("\t Output file: {0}".format(filepath))
 
 
 def print_final_message_md(time, total_overlap, number_iterations, max_overlap):
@@ -66,18 +147,9 @@ def print_final_message_md(time, total_overlap, number_iterations, max_overlap):
     print_to_file("\n")
 
 
-def print_to_file(message, end="\n", to_screen=True, to_terminal=True):
-    """Print to the screen file of corresponding to the current microstructure sample."""
-    if to_screen:
-        screen_path = os.path.join(SCREEN_DIR, "mic.screen")
-        if os.path.exists(screen_path):
-            action = "a"
-        else:
-            action = "w"
-        with open(screen_path, action) as screen:
-            print(message, file=screen, end=end)
-    if to_terminal:
-        print(message, end=end)
+def print_to_file(message):
+    """Report a line, to the terminal and to the screen file of the current run."""
+    LOGGER.info(message)
 
 
 def print_to_terminal_refresh(step, total_overlap, **kwargs):
@@ -109,21 +181,26 @@ def print_microstructure_info(microstructure):
         if i_phase.type.__name__ == "Matrix":
             print_to_file("")
             continue
-        print_to_file("\t\t- {:.6f}%".format(i_phase.volume_fraction * 100), end=" ")
+        volume_fraction = "\t\t- {:.6f}%".format(i_phase.volume_fraction * 100)
         if "vf" in i_phase.descriptors:
             print_to_file(
-                "(Specified: {:.6f}%)".format(i_phase.descriptors["vf"].value * 100)
+                "{0} (Specified: {1:.6f}%)".format(
+                    volume_fraction, i_phase.descriptors["vf"].value * 100
+                )
             )
             print_to_file("")
         else:
-            print_to_file("\n")
+            print_to_file(volume_fraction + "\n")
         print_to_file("\t- Number of particles:")
-        print_to_file("\t\t- {0}".format(i_phase.number_particles), end=" ")
+        number = "\t\t- {0}".format(i_phase.number_particles)
         if "n" in i_phase.descriptors:
-            print_to_file("(Specified: {0})".format(i_phase.descriptors["n"].value))
+            print_to_file(
+                "{0} (Specified: {1})".format(number, i_phase.descriptors["n"].value)
+            )
             print_to_file("")
         else:
-            print_to_file("\n")
+            print_to_file(number + "\n")
+        # Each line is built whole: a report is a line, not a stream
 
         for j_descriptor_name, j_descriptor in i_phase.descriptors.items():
             if j_descriptor_name in ("vf", "n"):
@@ -150,25 +227,49 @@ def print_virtual_total_volume_fraction(real_vf, virtual_vf, min_distance):
     print_to_file("=" * 80 + "\n")
     print_to_file("Total real volume fraction: {0:.3f}%".format(real_vf * 100))
     print_to_file(
-        "Total vitual volume fraction: {0:.3f}% (minimum distance: {1:.5f})\n".format(
+        "Total vitual volume fraction: {0:.3f}% (minimum distance: {1:.4g})\n".format(
             virtual_vf * 100, min_distance
         )
     )
 
 
-def print_final_message(mic_generator, mesh_generators, times_dict):
-    """Print final message."""
+def print_particle_progress(index, total):
+    """
+    Report that one more particle has been dealt with, overwriting the line before.
+
+    Parameters
+    ----------
+    index: int
+        Index of the particle that has been dealt with.
+
+    total: int
+        Total number of particles.
+    """
+    print("\t\t- Particle {0} of {1}".format(index + 1, total))
+    if index + 1 != total:
+        print("\033[F\033[K", end="")
+    # The line is overwritten by the next one, so a long run reports its progress
+    # without filling the screen file with a line per particle. This is the terminal
+    # being driven, not a report, so it does not go through the logger
+
+
+def print_final_message(times):
+    """
+    Close a run or a command with the time each step took, and the total.
+
+    Parameters
+    ----------
+    times: dict
+        Dictionary of the form *{step: seconds}*, in the order the steps are to be
+        reported. A step that did not finish is left out by the caller rather than
+        given a time of nothing: this runs in a finally block, and an error raised
+        here would replace the error that stopped the run.
+    """
     print_to_file(80 * "-")
 
     print_to_file("Ending program execution at : {0}\n".format(datetime.datetime.now()))
 
-    total_time = 0
-    total_time += mic_generator.time
-    for generator in mesh_generators:
-        total_time += generator.time
-
-    for post_proc_time in times_dict.values():
-        total_time += post_proc_time
+    total_time = sum(times.values())
 
     hours = int(total_time // 3600)
     minutes_rem = int(total_time // 60 - hours * 60)
@@ -180,38 +281,191 @@ def print_final_message(mic_generator, mesh_generators, times_dict):
 
     print_to_file("Execution times:\n")
 
-    data_to_print = []
-    data_to_print.append(
-        [
-            "Molecular Dynamics Simulation",
-            "{0:.2e}".format(mic_generator.time),
-            round(mic_generator.time / total_time * 100, ndigits=2),
-        ]
-    )
-    for generator in mesh_generators:
-        if generator.__class__.__name__ == "FEMMeshGenerator":
-            name = "Finite element mesh generation"
-        elif generator.__class__.__name__ == "RegularGridMeshGenerator":
-            name = "Regular mesh generation"
-        data_to_print.append(
-            [
-                name,
-                "{0:.2e}".format(generator.time),
-                round(generator.time / total_time * 100, ndigits=2),
-            ]
-        )
+    def share(duration):
+        """Give the percentage of the total a duration is."""
+        return round(duration / total_time * 100, ndigits=2) if total_time else 0.0
 
-    for post_proc_op_name, post_proc_op_time in times_dict.items():
-        data_to_print.append(
-            [
-                post_proc_op_name,
-                "{0:.2e}".format(post_proc_op_time),
-                round(post_proc_op_time / total_time * 100, ndigits=2),
-            ]
-        )
+    data_to_print = [
+        [i_step, "{0:.2e}".format(i_time), share(i_time)]
+        for i_step, i_time in times.items()
+    ]
     formated_data = tabulate(data_to_print, headers=["Phase", "Duration(s)", "%"])
     for row in formated_data.split("\n"):
         print_to_file("\t" + row)
 
     print_to_file("\n")
     print_to_file("{0: ^80}\n".format("Program Completed"))
+
+
+def step_times(mic_generator, mesh_generators, times_dict):
+    """
+    Collect the time every step of a run took, in the order they were run.
+
+    Parameters
+    ----------
+    mic_generator: `.MolecularDynamicsSimulation`
+        The generation method, or None when nothing was generated.
+
+    mesh_generators: list
+        The `.MeshJob` objects that were run.
+
+    times_dict: dict
+        Times the analyses reported.
+
+    Returns
+    -------
+    dict
+        Dictionary of the form *{step: seconds}* over the steps that finished.
+    """
+    times = {}
+    if mic_generator is not None and mic_generator.time is not None:
+        times["Molecular Dynamics Simulation"] = mic_generator.time
+    for i_generator in mesh_generators:
+        if i_generator.time is None:
+            continue
+        name = (
+            getattr(i_generator, "title", None)
+            or getattr(i_generator, "description", None)
+            or type(i_generator).__name__
+        )
+        times[name] = i_generator.time
+        # A step that does not say what it is called is reported under its class name,
+        # rather than under whichever name the loop happened to leave behind. A mesh
+        # job is reported under its title, since two of one mesher share a description
+        # and the second took the place of the first in the table
+    times.update(times_dict)
+
+    return times
+
+
+def print_failed_sample(total_overlap, max_residue):
+    """
+    Report that a sample was left with more overlap than allowed, and what follows.
+
+    Parameters
+    ----------
+    total_overlap: float
+        Overlap the run ended with.
+
+    max_residue: float
+        Overlap the run was allowed to end with.
+    """
+    print_to_file("Sample not generated")
+    print_to_file("=" * 80 + "\n")
+    print_to_file(
+        "The run ended with an overlap of {0:.2e} where {1:.2e} was allowed, so the "
+        "microstructure is not legal. It is written, but not meshed or "
+        "analysed.\n".format(total_overlap, max_residue)
+    )
+
+
+def print_failed_samples(samples):
+    """
+    Report the samples that were left illegal, once the batch has been run.
+
+    Parameters
+    ----------
+    samples: list
+        Tuples *(index, total overlap, allowed overlap)* of the samples that failed.
+
+    Returns
+    -------
+    list
+        The same list, so that the caller can tell whether there were any.
+    """
+    if not samples:
+        return samples
+
+    print_to_file("\n" + "=" * 80)
+    print_to_file(
+        "{0} of the samples asked for could not be generated:\n".format(len(samples))
+    )
+    for i_index, i_overlap, i_max_residue in samples:
+        print_to_file(
+            "\t- mic_{0}: overlap {1:.2e} where {2:.2e} was allowed".format(
+                i_index, i_overlap, i_max_residue
+            )
+        )
+    print_to_file("")
+
+    return samples
+
+
+def print_failed_analyses(failures):
+    """
+    Report the analyses that failed, once everything else has been attempted.
+
+    Parameters
+    ----------
+    failures: list
+        Tuples *(index of the sample, analysis, error, traceback)*.
+
+    Returns
+    -------
+    list
+        The same list, so that the caller can tell whether there were any.
+    """
+    if not failures:
+        return failures
+
+    print_to_file("\n" + "=" * 80)
+    print_to_file(
+        "{0} of the analyses asked for could not be carried out:\n".format(
+            len(failures)
+        )
+    )
+    for i_index, i_step, i_error, i_trace in failures:
+        print_to_file(
+            "\t- mic_{0}: {1}: {2}: {3}".format(
+                i_index, i_step, type(i_error).__name__, i_error
+            )
+        )
+        LOGGER.debug("\t\t" + i_trace.rstrip("\n").replace("\n", "\n\t\t"))
+        # The traceback goes to the screen file only, as that of a discretisation does
+    print_to_file("")
+
+    return failures
+
+
+def print_failed_jobs(jobs):
+    """
+    Report the discretisations that failed, once everything else has been attempted.
+
+    Parameters
+    ----------
+    jobs: list
+        The `.MeshJob` objects that were run, failed or not.
+
+    Returns
+    -------
+    list
+        The jobs that failed.
+    """
+    failed = [i_job for i_job in jobs if i_job.error is not None]
+    if not failed:
+        return failed
+
+    print_to_file("\n" + "=" * 80)
+    print_to_file(
+        "{0} of the discretisations asked for could not be produced:\n".format(
+            len(failed)
+        )
+    )
+    for i_job in failed:
+        print_to_file(
+            "\t- {0} ({1}): {2}: {3}".format(
+                i_job.description,
+                i_job.base_name,
+                type(i_job.error).__name__,
+                i_job.error,
+            )
+        )
+        if i_job.trace is not None:
+            LOGGER.debug("\t\t" + i_job.trace.rstrip("\n").replace("\n", "\n\t\t"))
+        # The traceback goes to the screen file only: a message is what a user needs,
+        # and the frames are what whoever has to fix it needs. The file listens at the
+        # debug level and the terminal does not, which is all the routing there is
+
+    print_to_file("")
+
+    return failed
