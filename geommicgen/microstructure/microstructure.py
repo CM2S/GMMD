@@ -179,12 +179,12 @@ class Microstructure:
                     "The particle type chosen is not compatible "
                     + "with the dimensions of the microstructure."
                 )
-            fibres = {
-                i_phase.type.__name__ == "CylindricalFiber"
+            is_fibre = phase.type.__name__ == "CylindricalFiber"
+            if any(
+                (i_phase.type.__name__ == "CylindricalFiber") != is_fibre
                 for i_phase in self.phases.values()
                 if i_phase.type.__name__ != "Matrix"
-            }
-            if fibres - {phase.type.__name__ == "CylindricalFiber"}:
+            ):
                 raise ValueError(
                     "The CylindricalFiber particles are only compatible with"
                     + " each other."

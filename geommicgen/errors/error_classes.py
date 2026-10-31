@@ -147,23 +147,6 @@ class UnsupportedMesh(Error):
         print("The mesh with extension {0} is not supported.".format(self.disc_ext))
 
 
-class UnsupportedInitialConfigurationType(Error):
-    """Raised when an unsupported initial configuration is specified."""
-
-    def __init__(self, init_conf):
-        """Initizalize UnsupportedInitialConfigurationType instance."""
-        self.init_conf = init_conf
-        super().__init__()
-
-    def message(self):
-        """Print message."""
-        print(
-            "The initial configuration type {0} is not supported.".format(
-                self.init_conf
-            )
-        )
-
-
 class UnsupportedDistribution(Error):
     """Raised when an unsupported distribution is required."""
 
