@@ -12,6 +12,7 @@ over an array of points, it inherits, and the inherited one loops over
 instead makes the statistical descriptors of the post processing, which throw
 millions of points at the particles, orders of magnitude faster.
 """
+
 from __future__ import annotations
 from typing import Union
 
@@ -20,7 +21,6 @@ import abc
 import numpy as np
 
 from scipy.optimize import fmin
-
 
 MINIMUM_SIZE = 0
 
@@ -288,7 +288,7 @@ class Particle(abc.ABC):
         and *particle_2*.
 
         It is computed to a prescribed accuracy using a minimization algorithm (Nelder-Mead)
-        or an approximation is supplie whose error is not estimated.
+        or an approximation is supplied whose error is not estimated.
 
         Parameters
         ----------
@@ -308,7 +308,7 @@ class Particle(abc.ABC):
         Returns
         -------
         intersection_length: float
-            Intersection legnth between *self* and *particle_2*.
+            Intersection length between *self* and *particle_2*.
 
         intersection_dir: float
             Direction along which a displacement of magnitude *intersection_length* would
@@ -753,9 +753,9 @@ class Particle(abc.ABC):
     def volume_circ(self):
         """Volme of the corresponding circumscribed spheres/disk."""
         if self.dim == 2:
-            volume = np.pi * self.radius ** 2
+            volume = np.pi * self.radius**2
         elif self.dim == 3:
-            volume = 4 / 3 * np.pi * self.radius ** 3
+            volume = 4 / 3 * np.pi * self.radius**3
 
         return volume
 

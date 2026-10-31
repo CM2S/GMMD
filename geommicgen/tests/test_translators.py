@@ -205,6 +205,11 @@ class TestLinksWriter(unittest.TestCase):
         # It takes no Gauss point line at all, so asking for one on every element must
         # not put one there: LINKS would read the following line as the Gauss points
 
+    def test_zero_gauss_points_are_refused(self):
+        with self.assertRaises(ValueError):
+            get_writer("links").from_options({"gauss_points": 0})
+        # Zero was taken for none given, and the defaults written instead
+
     def test_an_unknown_boundary_type_is_refused(self):
         with self.assertRaises(ValueError) as context:
             get_writer("links")(boundary_type="Mortar")

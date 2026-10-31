@@ -371,10 +371,24 @@ def mesh_command(argv=None):
     writers = resolve_writers(
         parser, arguments.to, declared_options(arguments, writer_options())
     )
-    try:
-        meshers = get_mesher(arguments.mesher).from_options(
-            declared_options(arguments, mesher_options())
+    given = declared_options(arguments, mesher_options())
+    own = {i_name.lower() for i_name in get_mesher(arguments.mesher).options}
+    others = sorted(
+        i_name
+        for i_name, i_value in given.items()
+        if i_value is not None and i_name not in own
+    )
+    if others:
+        parser.error(
+            "{0} is not an option of the {1} mesher".format(
+                ", ".join("--" + i_name.replace("_", "-") for i_name in others),
+                arguments.mesher,
+            )
         )
+    # An option of another mesher used to be read and then ignored, which is the same
+    # as not giving it
+    try:
+        meshers = get_mesher(arguments.mesher).from_options(given)
     except ValueError as error:
         parser.error(str(error))
     if arguments.name and len(meshers) > 1:

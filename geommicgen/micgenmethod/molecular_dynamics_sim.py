@@ -17,7 +17,6 @@ from scipy.stats import hmean
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-import geommicgen.errors.error_classes as errors
 import geommicgen.iofuncs.printing as print_funcs
 from geommicgen.microstructure.microstructure import unit_scale
 from geommicgen.microstructure.particleclasses import Matrix
@@ -50,6 +49,13 @@ OPTIONAL_OPTIONS = (
     "final_overlap_check",
 )
 # The generation parameters the initializer takes by keyword, and has a default for
+
+INITIAL_CONFIGURATIONS = ("random", "grid", "bcc", "fcc")
+# The initial configurations there are, under the names the input data file asks with
+
+LATTICE_PARTICLES = {"bcc": 128, "fcc": 256}
+# Number of particles each lattice places, eight layers of a four by four grid, in
+# three dimensions: it has no place for another, and leaves no place empty
 
 
 def grid_side(n_particles, dim):
@@ -133,7 +139,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
     min_distance: float
         Minimum distance between particles.
 
-    type_init_conf: {'random', 'grid'}
+    type_init_conf: {'random', 'grid', 'bcc', 'fcc'}
         Type of initial configuration used.
 
     max_residue_per_particle: float
@@ -171,8 +177,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
         How the overlap of two particles pushes them apart: by the length they overlap
         by, the one way there is.
 
-    force_rescale: bool
-        Flag for the use of force rescale.
+    force_rescale: {False}
+        Whether the forces are rescaled, which they are not: no rescale ran.
 
     dt_adapt: bool
         Flag for the use of the adaptive time step choice.
@@ -192,9 +198,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
 
     microstructure_sample: `.Microstructure`
         Microstructure to be generated.
-
-    force_rescale_coeff: float
-        Force rescale coefficient. Currently not in use.
 
     coord_number: float
         Mean coordination number of the particles in the simulation.
@@ -245,7 +248,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         min_distance: float
             Minimum distance between particles.
 
-        type_init_conf: {'random', 'grid'}
+        type_init_conf: {'random', 'grid', 'bcc', 'fcc'}
             Type of initial configuration used.
 
         save_history: bool
@@ -265,8 +268,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
             How the overlap of two particles pushes them apart: by the length they
             overlap by, the one way there is, and the default.
 
-        force_rescale: bool
-            Flag for the use of force rescale.
+        force_rescale: {False}
+            Whether the forces are rescaled, which they are not, the default.
 
         dt_adapt: bool
             Flag for the use of the adaptive time step choice.
@@ -279,7 +282,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
             process.
 
         initial_vel_coeff: float
-            Coeff used to setup the initial temperature of the system.
+            Coeff used to setup the initial temperature of the system. 0.1 by default.
 
         final_overlap_check: bool
             Do a final check using a naive approach for the particle overlap.
@@ -323,13 +326,22 @@ class MolecularDynamicsSimulation(GenerationMethod):
         # and neither ran: neither took the method of the distance the run passes, and
         # the area gave no direction, so either stopped the run at its first pair
         self.force_rescale = kwargs.get("force_rescale", False)
+        if self.force_rescale:
+            raise ValueError(
+                "The forces are not rescaled: force_rescale can only be False."
+            )
+        # The rescale read an attribute no simulation had, so asking for it stopped the
+        # run at its first step, and the coefficient it multiplied the forces by was
+        # one, the lines that changed it having been commented out
         self.dt_adapt = kwargs.get("dt_adapt", True)
         self.offset = kwargs.get("offset", True)
         self.fixed_seed = kwargs.get("fixed_seed", None)
-        self.initial_vel_coeff = kwargs.get("initial_vel_coeff", 0.25)
+        self.initial_vel_coeff = kwargs.get("initial_vel_coeff", 0.1)
+        # The default of the input data file. It was 0.25 here, so a simulation built
+        # without the option started its particles two and a half times as fast as one
+        # built from a file
         self.final_overlap_check = kwargs.get("final_overlap_check", False)
         self.microstructure_sample = None
-        self.force_rescale_coeff = 1
         self.coord_number = None
         self.thermic_energy_history = []
         self.all_dt = []
@@ -488,6 +500,24 @@ class MolecularDynamicsSimulation(GenerationMethod):
         particles: list(particles)
             Particles in the simulation box.
         """
+        if self.type_init_conf not in INITIAL_CONFIGURATIONS:
+            raise ValueError(
+                "{0} is not an initial configuration. The available ones are "
+                "{1}.".format(self.type_init_conf, ", ".join(INITIAL_CONFIGURATIONS))
+            )
+        # It was only printed, and the run went on with no particle placed until it
+        # stopped on a position that was not there
+        n_lattice = LATTICE_PARTICLES.get(self.type_init_conf)
+        if n_lattice is not None and (
+            len(particles) != n_lattice or particles[0].dim != 3
+        ):
+            raise ValueError(
+                "The {0} configuration places {1} particles in three dimensions, and "
+                "there are {2} in {3}.".format(
+                    self.type_init_conf, n_lattice, len(particles), particles[0].dim
+                )
+            )
+        # Fewer stopped it on an index out of range, and more were left with no place
         self.particle_velocities = [None for _ in particles]
         if self.type_init_conf == "random":
             # Random configuration for the particle centers and the zero velocity
@@ -556,7 +586,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
                         )
                         self.particle_velocities[ind_part] = np.zeros(particles[0].dim)
                         ind_part += 1
-            print(ind_part, "\n\n\n")
 
         elif self.type_init_conf == "fcc":
             step = self.box[0] / 4
@@ -620,11 +649,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
                         )
                         self.particle_velocities[ind_part] = np.zeros(particles[0].dim)
                         ind_part += 1
-        else:
-            try:
-                raise errors.UnsupportedInitialConfigurationType(self.type_init_conf)
-            except errors.UnsupportedInitialConfigurationType as error:
-                error.message()
 
     @contextmanager
     def virtual_particle_sizes(self, particles):
@@ -957,7 +981,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
         The forces are reset, computed and saved at *self.particle_forces*.
 
         Forces due particle interactions, thermostats and damping are considered.
-        A force rescale can also be specified according to *self.force_rescale_coeff*.
 
         Parameters
         ----------
@@ -973,15 +996,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
         # Computing forces due to the thermostat
         self.compute_forces_damping(particles)
         # Computing forces due to damping
-        if self.force_rescale:
-            self.particle_forces = [
-                (
-                    force * self.force_rescale_coeff
-                    if self.current_max_force != 0
-                    else force
-                )
-                for force in self.particle_forces
-            ]
 
     def compute_forces_overlap(self, particles):
         """

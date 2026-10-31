@@ -66,6 +66,11 @@ class Cylinder(Particle):
                 "float",
             ),
             "polar_angle": ("Polar angle", lambda polar_angle, rve_dims: True, "float"),
+            "ratio": (
+                "Ratio length/radius",
+                lambda ratio, rve_dims: ratio > 0,
+                "float",
+            ),
         },
         **Particle.possible_parameters,
     }
@@ -126,6 +131,16 @@ class Cylinder(Particle):
                 )
             elif "ratio" in descriptors:
                 self.r_cyl = self.length / descriptors["ratio"]
+        for i_name, i_value in (("r_cyl", self.r_cyl), ("length", self.length)):
+            if not Cylinder.possible_parameters[i_name][1](i_value, rve_dims):
+                raise ValueError(
+                    "{0} is not an allowable value for {1}, which the descriptors "
+                    "give.".format(i_value, i_name)
+                )
+        # The bounds of the radius and the length given as descriptors hold for the
+        # ones the descriptors give through the ratio or a volume. The ratio was used
+        # here and in the descriptions, and not declared, so no description by it was
+        # accepted
         if "azimuth_angle" in descriptors:
             self.azimuth_angle = np.abs(descriptors["azimuth_angle"])
         if "polar_angle" in descriptors:

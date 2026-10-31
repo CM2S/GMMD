@@ -168,27 +168,34 @@ class Microstructure:
         ----------
         phase: `.Phase`
         """
-        self.phases[phase.name] = phase
-        phase.microstructure = self
-        if self.phases[phase.name].type.__name__ == "Matrix":
+        if phase.type.__name__ == "Matrix":
             if self.matrix_phase is not None:
                 raise ValueError(
                     "The matrix for Phase {0} was specified twice.".format(phase.name)
                 )
-            self.matrix_phase = phase.name
         else:
-            if self.dim != self.phases[phase.name].type.dim:
+            if self.dim != phase.type.dim:
                 raise ValueError(
                     "The particle type chosen is not compatible "
                     + "with the dimensions of the microstructure."
                 )
-            if self.phases[phase.name].type.__name__ == "CylindricalFiber":
-                for i_phase in self.phases.values():
-                    if i_phase.type.__name__ not in ("CylindricalFiber", "Matrix"):
-                        raise ValueError(
-                            "The CylindricalFiber particles are only compatible with"
-                            + " each other."
-                        )
+            is_fibre = phase.type.__name__ == "CylindricalFiber"
+            if any(
+                (i_phase.type.__name__ == "CylindricalFiber") != is_fibre
+                for i_phase in self.phases.values()
+                if i_phase.type.__name__ != "Matrix"
+            ):
+                raise ValueError(
+                    "The CylindricalFiber particles are only compatible with"
+                    + " each other."
+                )
+        # Fibres were refused beside other particles only when they came after them,
+        # and a phase refused was added all the same; it is checked before it is added
+
+        self.phases[phase.name] = phase
+        phase.microstructure = self
+        if phase.type.__name__ == "Matrix":
+            self.matrix_phase = phase.name
 
     def inside_particle_phase(self, pts):
         """
@@ -265,6 +272,31 @@ class Microstructure:
         # point near it is not called at all
 
         return inside.astype(int).tolist()
+
+    def packing(self) -> "Microstructure":
+        """
+        Give the microstructure as the simulation packed it, without the inner phases.
+
+        The particles of a phase inside another are placed within the particles of
+        that one once the packing is done, and are not part of the arrangement the
+        analyses of a packing describe: a centre inside another particle is a nearest
+        neighbour at next to no distance, and the cell of a Voronoi diagram of a
+        particle inside another has no place between them.
+
+        Returns
+        -------
+        `.Microstructure`
+            A copy holding the phases of this one, less those inside another; the
+            phases themselves are not copied.
+        """
+        packing = copy.copy(self)
+        packing.phases = {
+            i_name: i_phase
+            for i_name, i_phase in self.phases.items()
+            if not i_phase.inner_phase
+        }
+
+        return packing
 
     @property
     def particles(self):

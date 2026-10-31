@@ -191,12 +191,15 @@
 #        length             float     Length
 #        azimuth_angle      float     Azimuthal angle of the axis
 #        polar_angle        float     Polar angle of the axis
+#        ratio              float     Ratio between the length and the radius
 #        n                  integer   Number of particles
 #        vf                 float     Volume fraction (decimal)
 #        -------------------------------------------------------------------------
 #        Choose one of the sets below; both angles are always among them.
 #          - r_cyl, length, azimuth_angle, polar_angle, n
 #          - r_cyl, length, azimuth_angle, polar_angle, vf
+#          - r_cyl, ratio, azimuth_angle, polar_angle, n
+#          - length, ratio, azimuth_angle, polar_angle, vf
 #          - length, azimuth_angle, polar_angle, n, vf
 #        ================== ========= ============================================
 #
@@ -477,7 +480,7 @@
 #
 # Syntax:    Type_Initial_Configuration x (default to 'random')
 #
-# x:         {'random', 'grid'}
+# x:         {'random', 'grid', 'bcc', 'fcc'}
 #            'random' - the initial configuration is obtained through a Poisson point
 #                       process, i.e. each component of the position of the centre of
 #                       mass is uniformly distributed along the corresponding side of
@@ -485,6 +488,10 @@
 #            'grid'   - the centres of mass of the particles are placed on a regular
 #                       grid, the smallest cube (or square) with a cell per particle,
 #                       the empty cells spread over it at random.
+#            'bcc'    - the centres of mass of exactly 128 particles, in three
+#                       dimensions, are placed on a body centred cubic lattice.
+#            'fcc'    - the centres of mass of exactly 256 particles, in three
+#                       dimensions, are placed on a face centred cubic lattice.
 # ------------------------------------------------------------------------------------------
 [insert here]
 
@@ -829,11 +836,12 @@
 #                                                                          Force rescale [O]
 # ==========================================================================================
 # Meaning:   Flag for the use of a force rescaling procedure, that approximates the sceme
-#            described in Salnikov et al. (2015).
+#            described in Salnikov et al. (2015). No rescale runs, so the flag can only
+#            be False.
 #
 # Syntax:    Force_Rescale x
 #
-# x:         float
+# x:         {False}
 # ------------------------------------------------------------------------------------------
 [insert here]
 

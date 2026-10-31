@@ -9,7 +9,8 @@ import numpy as np
 import numpy as np
 
 from geommicgen.microstructure.microstructure import Microstructure, unit_scale
-from geommicgen.microstructure.particleclasses import Disk
+from geommicgen.microstructure.particleclasses import CylindricalFiber, Disk, Sphere
+from geommicgen.microstructure.phase import Phase
 from geommicgen.tests.helpers import (
     build_microstructure,
     disk_microstructure,
@@ -122,6 +123,20 @@ class TestMicrostructure(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.microstructure_3D.add_phase(cylindricalfiber_mock)
 
+    def test_fibres_are_refused_beside_other_particles_in_either_order(self):
+        for i_first, i_second in (
+            (Sphere, CylindricalFiber),
+            (CylindricalFiber, Sphere),
+        ):
+            with self.subTest(first=i_first.__name__):
+                microstructure = Microstructure([1.0, 1.0, 1.0])
+                microstructure.add_phase(Phase.from_type("2", i_first))
+                with self.assertRaisesRegex(ValueError, "only compatible with each"):
+                    microstructure.add_phase(Phase.from_type("3", i_second))
+                self.assertEqual(list(microstructure.phases), ["2"])
+        # Fibres were refused only when they came after the other particles, and the
+        # phase refused was added all the same
+
     def test_particles_property(self):
         """Check that particles aggregates the particles of every phase."""
         phase_1 = Mock()
@@ -200,6 +215,32 @@ class TestFromDescriptors(unittest.TestCase):
         second = Microstructure.from_descriptors([1.0, 1.0], self.DESCRIPTORS)
         self.assertIsNot(first.phases["1"], second.phases["1"])
         # Each sample of a run is generated into a microstructure of its own
+
+
+class TestPacking(unittest.TestCase):
+    """Test class for the microstructure as the simulation packed it."""
+
+    def test_the_inner_phases_are_left_out_of_a_copy(self):
+        microstructure = Microstructure.from_descriptors(
+            [1.0, 1.0],
+            {
+                "0": {"phase_type": 1},
+                "1": {"phase_type": 2, "r": 0.2, "n": 2},
+                "2": {
+                    "phase_type": 2,
+                    "r": 0.05,
+                    "n": 2,
+                    "inner_phase": True,
+                    "outer_phase": "1",
+                },
+            },
+        )
+        packing = microstructure.packing()
+        self.assertEqual(list(packing.phases), ["0", "1"])
+        self.assertEqual(list(microstructure.phases), ["0", "1", "2"])
+        self.assertIs(packing.phases["1"], microstructure.phases["1"])
+        # The phases are shared, so the packing is the microstructure, less what was
+        # placed inside its particles
 
 
 class TestUnitScale(unittest.TestCase):

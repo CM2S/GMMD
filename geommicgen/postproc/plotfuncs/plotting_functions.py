@@ -213,7 +213,20 @@ def set_style(artists, ax, style):
 
 
 def generate_colors(n_colors):
-    """Generate a color for each pahse."""
+    """
+    Generate a colour for each of some phases.
+
+    Parameters
+    ----------
+    n_colors: int
+        Number of colours.
+
+    Returns
+    -------
+    list(tuple)
+        The colours, each different from the others, as their red, green, blue and
+        alpha, from zero to one.
+    """
     colors_def = [
         (68 / 255, 119 / 255, 170 / 255, 1),
         (102 / 255, 204 / 255, 238 / 255, 1),
@@ -223,7 +236,41 @@ def generate_colors(n_colors):
         (170 / 255, 51 / 255, 119 / 255, 1),
         (187 / 255, 187 / 255, 187 / 255, 1),
     ]
-    return colors_def[0 : n_colors + 1]
+    if n_colors <= len(colors_def):
+        return colors_def[:n_colors]
+
+    return [
+        tuple(i_color)
+        for i_color in matplotlib.colormaps["viridis"](np.linspace(0, 1, n_colors))
+    ]
+    # Up to seven phases are told apart by the colours of a scheme of seven; more are
+    # given colours evenly apart along a colour map. The colours of the scheme ran out,
+    # and a phase past the seventh had none to be drawn in
+
+
+def colors_of_phases(particles):
+    """
+    Give each phase of some particles a colour of its own, the same in every run.
+
+    Parameters
+    ----------
+    particles: list(`.Particle`)
+        The particles.
+
+    Returns
+    -------
+    dict
+        Dictionary of the form *{phase name: colour}*, the colours given in the order
+        of the names, as numbers where they are whole numbers.
+    """
+    names = sorted(
+        {i_particle.phase for i_particle in particles},
+        key=lambda name: (0, int(name), "") if str(name).isdigit() else (1, 0, name),
+    )
+
+    return dict(zip(names, generate_colors(len(names))))
+    # The names were taken in the order of a set of them, which changes from one run to
+    # the next, and so did the colour of each phase
 
 
 def plot_particles(particles, rve_dims, sample_dir, **kwargs):
@@ -238,10 +285,11 @@ def plot_particles(particles, rve_dims, sample_dir, **kwargs):
 def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
     """Plot 2D particles."""
     if "ax" in kwargs:
+        figure = None
         ax = kwargs["ax"]
         plt.sca(ax)
     else:
-        _ = plt.figure()
+        figure = plt.figure()
         ax = plt.gca()
     # Axes where the plot will be drawn
 
@@ -253,9 +301,7 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
     ax.set_xlim(0, rve_dims[0])
     # Setting the correct proportions
 
-    phases = list({i_particle.phase for i_particle in particles})
-    colors = generate_colors(len(phases))
-    phase_colors = dict(zip(phases, colors))
+    phase_colors = colors_of_phases(particles)
 
     for i_particle in particles:
         for j_dim, k_dim in [
@@ -282,6 +328,10 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
 
     if kwargs.get("show", False):
         plt.show()
+    if figure is not None:
+        plt.close(figure)
+    # A figure drawn here is closed once it is written, where it was kept to the end of
+    # the run; one the caller handed axes of is the caller's
 
 
 VIEW_ELEMENTS = {2: "tri3", 3: "tetra4"}
@@ -1040,9 +1090,7 @@ def plot_voronoi_2d(
     ax.set_ylim(0, rve_dims[1])
     ax.set_xlim(0, rve_dims[0])
 
-    phases = list({i_particle.phase for i_particle in particles})
-    colors = generate_colors(len(phases))
-    phase_colors = dict(zip(phases, colors))
+    phase_colors = colors_of_phases(particles)
 
     for i_particle in particles:
         for j_dim, k_dim in [
@@ -1082,6 +1130,9 @@ def plot_voronoi_2d(
 
     if show:
         plt.show()
+    plt.close(fig)
+    # Closed once it is written, as every other plot is: pyplot keeps a figure until it
+    # is, so each sample left this one open to the end of the run
 
 
 def set_voronoi_plot_2d(vor, ax=None, **kw):
@@ -1220,9 +1271,7 @@ def plot_voronoi_2d_with_imts(
         ax.set_ylim(0, rve_dims[1])
         ax.set_xlim(0, rve_dims[0])
 
-        phases = list({i_particle.phase for i_particle in particles})
-        colors = generate_colors(len(phases))
-        phase_colors = dict(zip(phases, colors))
+        phase_colors = colors_of_phases(particles)
 
         for i_particle in particles:
             for j_dim, k_dim in [
@@ -1323,6 +1372,9 @@ def plot_voronoi_2d_with_imts(
 
         if show:
             plt.show()
+        plt.close(fig)
+        # Closed as the histograms below are, where each sample left seven figures
+        # open to the end of the run
 
     for i_order in range(7):
 

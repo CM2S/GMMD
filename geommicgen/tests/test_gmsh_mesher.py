@@ -160,6 +160,11 @@ class TestGmshMesherConfiguration(unittest.TestCase):
         with self.assertRaises(ValueError):
             GmshMesher(mesh_size=-1.0)
 
+    def test_a_size_of_zero(self):
+        with self.assertRaises(ValueError):
+            GmshMesher(mesh_size=0.0)
+        # Taken, and gmsh was left to make what it would of it
+
     def test_element_of_the_wrong_dimension(self):
         with self.assertRaises(ValueError):
             GmshMesher(mesh_size=0.1, element_type="tetra4").mesh(disk_microstructure())

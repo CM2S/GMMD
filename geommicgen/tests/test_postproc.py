@@ -8,6 +8,7 @@ import warnings
 from unittest.mock import Mock, patch
 
 import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 
 from geommicgen._optional import has_gmsh
@@ -15,9 +16,18 @@ from geommicgen.errors.error_classes import MissingOptionalDependency, ProcessDi
 from geommicgen.iofuncs.md_state import load_md_state, save_md_state
 from geommicgen.iofuncs.printing import log_to_terminal, screen_to
 from geommicgen.meshing.voxel_mesher import VoxelMesher
+from geommicgen.micgenmethod.thermostats import (
+    BerendsenForceThermostat,
+    IsokineticThermostat,
+    MicroCanonicalEnsemble,
+    MultiTemperatureIsokineticThermostat,
+)
 from geommicgen.microstructure.particleclasses import Disk
+from geommicgen.microstructure.phase import Phase
 from geommicgen.pipeline import MESH_DIRECTORY, MeshJob
 from geommicgen.postproc.plotfuncs.plotting_functions import (
+    colors_of_phases,
+    generate_colors,
     histogram_bins,
     keep_what_the_cut_left,
     plot_particles_3d,
@@ -62,6 +72,30 @@ def a_state(directory, positions=True):
         run.position_center_history = None
 
     return load_md_state(save_md_state(directory, run))
+
+
+def with_a_disk_inside(microstructure):
+    """
+    Add a phase of one disk inside the first particle of a microstructure of disks.
+
+    Parameters
+    ----------
+    microstructure: `.Microstructure`
+        Microstructure whose phase of particles is named *2*.
+
+    Returns
+    -------
+    `.Microstructure`
+        The microstructure, with the inner phase named *3*.
+    """
+    inner = Disk("3", {"r": 0.05}, microstructure.rve_dims)
+    inner.position_center = microstructure.particles[0].position_center.copy()
+    microstructure.add_phase(
+        Phase.from_type("3", Disk, inner_phase=True, outer_phase="2")
+    )
+    microstructure.phases["3"].particles.append(inner)
+
+    return microstructure
 
 
 class PostProcTest(unittest.TestCase):
@@ -112,6 +146,50 @@ class TestPostProc(PostProcTest):
         self.assertIsNone(job.time)
         self.assertFalse(self.written(MESH_DIRECTORY))
         # A request that cannot be honoured is found out at once, not after the meshing
+
+    def test_the_analyses_of_the_packing_leave_out_the_inner_phases(self):
+        _, failures = run_analyses(
+            with_a_disk_inside(disk_microstructure()),
+            None,
+            self.sample_dir,
+            {
+                "voronoi_analysis": True,
+                "voronoi_type": "set",
+                "n_surf_points": 5,
+                "stat_nearest_neighbor": True,
+            },
+        )
+        self.assertEqual(failures, [])
+        with np.load(
+            os.path.join(self.sample_dir, "stat_analysis_results", "stat_results.npz")
+        ) as results:
+            self.assertEqual(len(results["stat_nearest_neighbor"]), 2)
+        # The disk inside the first is left out: its centre was the nearest neighbour
+        # of that one, at no distance, and the set Voronoi diagram, which has no place
+        # for a cell inside another, failed to order the vertices of their cells
+
+    def test_a_run_is_analysed_whatever_its_thermostat(self):
+        for i_thermostat in (
+            MicroCanonicalEnsemble(),
+            BerendsenForceThermostat(1.0, 0.01),
+            IsokineticThermostat(1.0),
+            MultiTemperatureIsokineticThermostat(
+                1.0, "original", min_eq_steps_at_temp=5
+            ),
+        ):
+            with self.subTest(type(i_thermostat).__name__):
+                run = a_generation_run()
+                run.position_center_history = None
+                run.set_thermostat(i_thermostat)
+                _, failures = run_analyses(
+                    disk_microstructure(),
+                    run,
+                    self.sample_dir,
+                    {"motion_analysis": True},
+                )
+                self.assertEqual(failures, [])
+        # A run hands the analyses the simulation itself, and the motion analysis read
+        # the changes of temperature off the thermostat of any of them
 
 
 class TestPlotsWithoutTeX(PostProcTest):
@@ -206,6 +284,73 @@ class TestColourMap(PostProcTest):
             )
         self.assertEqual(failures, [])
         # matplotlib.cm.get_cmap is deprecated since matplotlib 3.7, and goes in 3.11
+
+
+class TestFiguresAreClosed(PostProcTest):
+    """Test class for the figures the analyses draw, once they are written."""
+
+    def test_no_figure_is_left_open(self):
+        plt.close("all")
+        _, failures = run_analyses(
+            disk_microstructure(),
+            None,
+            self.sample_dir,
+            {
+                "final_config": True,
+                "voronoi_analysis": True,
+                "plot_voronoi": True,
+                "plot_imts": True,
+                "stat_nearest_neighbor": True,
+            },
+        )
+        self.assertEqual(failures, [])
+        self.assertEqual(plt.get_fignums(), [])
+        # pyplot keeps a figure until it is closed, so a figure left open is kept for
+        # the rest of the run: the final configuration and the Voronoi plots left
+        # nine for every sample
+
+
+class TestPhaseColours(unittest.TestCase):
+    """Test class for the colour each phase is drawn in."""
+
+    def test_each_phase_is_drawn_in_the_same_colour_in_every_run(self):
+        particles = [
+            Mock(phase=i_name) for i_name in ("10", "2", "7", "1", "3", "12", "5", "2")
+        ]
+        colours = colors_of_phases(particles)
+        self.assertEqual(list(colours), ["1", "2", "3", "5", "7", "10", "12"])
+        self.assertEqual(list(colours.values()), generate_colors(7))
+        # In the order of the names, as numbers; the order of a set of them changes
+        # from one run to the next, and each phase came out in another colour
+
+    def test_every_phase_has_a_colour_of_its_own(self):
+        for i_phases in (1, 7, 8, 20):
+            with self.subTest(phases=i_phases):
+                colours = colors_of_phases(
+                    [Mock(phase=str(j_name)) for j_name in range(2, i_phases + 2)]
+                )
+                self.assertEqual(len(colours), i_phases)
+                self.assertEqual(len(set(colours.values())), i_phases)
+        # There were the seven colours of a scheme, and a phase past them had none
+
+
+class TestManyPhases(PostProcTest):
+    """Test class for the drawing of more phases than a scheme has colours."""
+
+    def test_the_final_configuration_of_eight_phases_is_drawn(self):
+        microstructure = build_microstructure([1.0, 1.0], Disk, [])
+        for i_phase in range(3, 10):
+            microstructure.add_phase(Phase.from_type(str(i_phase), Disk))
+        for i_phase in range(2, 10):
+            disk = Disk(str(i_phase), {"r": 0.04}, [1.0, 1.0])
+            disk.position_center = np.array([0.1 * i_phase, 0.5])
+            microstructure.phases[str(i_phase)].particles.append(disk)
+        _, failures = run_analyses(
+            microstructure, None, self.sample_dir, {"final_config": True}
+        )
+        self.assertEqual(failures, [])
+        self.assertTrue(self.written("final_config.pdf"))
+        # The eighth phase had no colour, and the drawing failed with a KeyError
 
 
 class TestFailingAnalysis(PostProcTest):
@@ -349,6 +494,24 @@ class TestMotionAnalysisWithPaths(PostProcTest):
         self.assertTrue(os.listdir(paths))
         # The history ends where the particles are, as a run's does; the fixture's own
         # positions would put two overlapping disks at the origin
+
+    def test_a_phase_inside_another_has_no_paths(self):
+        microstructure = with_a_disk_inside(disk_microstructure())
+        run = a_generation_run()
+        run.position_center_history = [
+            [i_particle.position_center.copy()]
+            for i_particle in microstructure.phases["2"].particles
+        ]
+        state = load_md_state(save_md_state(self.sample_dir, run))
+        _, failures = run_analyses(
+            microstructure, state, self.sample_dir, {"motion_analysis": True}
+        )
+        self.assertEqual(failures, [])
+        self.assertTrue(
+            os.listdir(os.path.join(self.sample_dir, "motion_results", "paths"))
+        )
+        # The simulation recorded the paths of the particles it moved; those inside
+        # them are placed afterwards, and have none to be walked along
 
 
 @unittest.skipUnless(has_gmsh(), "gmsh is not installed")

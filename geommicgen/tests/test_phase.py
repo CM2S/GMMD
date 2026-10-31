@@ -30,6 +30,27 @@ class TestParticlesForAVolumeFraction(unittest.TestCase):
         # description asking for far more built particles until the memory ran out
 
 
+class TestSpecifiedValues(unittest.TestCase):
+    """Test class for a descriptor given particle by particle."""
+
+    def test_a_phase_that_runs_out_of_them_is_refused(self):
+        phase = Phase(
+            "1",
+            {
+                "phase_type": 2,
+                "r_distribution": "specified",
+                "r": np.array([0.1, 0.1]),
+                "vf": 0.5,
+            },
+        )
+        with self.assertRaisesRegex(
+            ValueError, "r is specified for 2 particles, one value each, and 3 are"
+        ):
+            phase.generate_particles([1.0, 1.0])
+        # Two disks fill less than the fraction; the third went past the values, as
+        # an array index out of bounds
+
+
 class PhaseInit(unittest.TestCase):
     from geommicgen.microstructure.particleclasses import Matrix, Disk
     from geommicgen.microstructure.phase import (
@@ -266,6 +287,78 @@ class DistributionTests(unittest.TestCase):
             distribution = self.DiscreteDistribution("name", [1,2,3], [0.2,0.3])  # Probabilities do not sum to 1
         with self.assertRaises(ValueError):
             distribution = self.DiscreteDistribution("name", [1,2,3], [0.2,0.9])  # Probabilities do not sum to 1
+
+
+class TestDescriptorKeys(unittest.TestCase):
+    """Test class for the keys of a phase and the parameters they give."""
+
+    def test_a_key_that_begins_as_another_gives_only_its_own(self):
+        phase = Phase(
+            "1",
+            {
+                "phase_type": 5,
+                "vf": 0.02,
+                "axis_1": 0.2,
+                "ratio_321_distribution": "uniform",
+                "ratio_321_low": 0.5,
+                "ratio_321_high": 0.5,
+                "p_3": 0.1,
+                "phi_z": 0.2,
+            },
+        )
+        self.assertEqual(
+            set(phase.descriptors), {"vf", "axis_1", "ratio_321", "p_3", "phi_z"}
+        )
+        phase.generate_particles([1.0, 1.0, 1.0])
+        self.assertEqual(
+            [phase.particles[0].axis_2, phase.particles[0].axis_3], [0.1, 0.1]
+        )
+        # ratio_321 gave ratio_32 as well, so no ellipsoid could be described by it
+
+    def test_a_key_that_gives_no_parameter_is_refused(self):
+        with self.assertRaisesRegex(ValueError, "Phase 1 gives major_axis"):
+            Phase("1", {"phase_type": 2, "r": 0.1, "n": 3, "major_axis": 0.2})
+        # It was ignored, so a misspelt key went unnoticed
+
+    def test_cylinders_by_the_ratio_of_their_length_to_their_radius(self):
+        angles = {"azimuth_angle": 0.1, "polar_angle": 0.2}
+        for i_descriptors in (
+            {"r_cyl": 0.05, "ratio": 4.0, "n": 2},
+            {"length": 0.2, "ratio": 4.0, "vf": 0.01},
+        ):
+            with self.subTest(descriptors=i_descriptors):
+                phase = Phase("1", dict(i_descriptors, phase_type=7, **angles))
+                phase.generate_particles([1.0, 1.0, 1.0])
+                self.assertAlmostEqual(phase.particles[0].r_cyl, 0.05, places=15)
+                self.assertAlmostEqual(phase.particles[0].length, 0.2, places=15)
+        with self.assertRaisesRegex(ValueError, "length"):
+            Phase(
+                "1", {"phase_type": 7, "r_cyl": 0.2, "ratio": 4.0, "n": 1, **angles}
+            ).generate_particles([1.0, 1.0, 1.0])
+        # The ratio was used by the cylinder and named in two of its descriptions, but
+        # not declared, so neither description was accepted. The length it gives is
+        # bounded as a length given is
+
+    def test_every_parameter_declared_is_in_a_description_and_the_other_way(self):
+        for i_type in Phase.phase_types.values():
+            with self.subTest(particle=i_type.__name__):
+                described = set().union(*i_type.acceptable_descriptions)
+                self.assertEqual(set(i_type.possible_parameters), described)
+        # The eccentricity of an ellipse was declared and in no description, and the
+        # ratio of a cylinder in two descriptions and not declared
+class TestDiscreteDistribution(unittest.TestCase):
+    """Test class for a descriptor that takes one of a few values."""
+
+    def test_the_parameters_of_one_are_its_own(self):
+        declared = set(phase_module.DiscreteDistribution.parameters)
+        distribution = phase_module.DiscreteDistribution("r", [0.1, 0.2], [0.5, 0.5])
+        self.assertEqual(
+            distribution.parameters, ["value_1", "prob_1", "value_2", "prob_2"]
+        )
+        self.assertEqual(set(phase_module.DiscreteDistribution.parameters), declared)
+        self.assertEqual(len(declared), 20)
+        # They were written over the class's, from which the input data file takes the
+        # keywords it reads
 
 
 if __name__ == "__main__":

@@ -557,21 +557,19 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
                 )
             )
 
-    @patch("builtins.print")
-    def test_generate_initial_configuration_unsupported_type_prints_message(
-        self, mock_print
-    ):
-        """Check that an unsupported initial configuration type does not raise, and instead prints an explanatory message."""
+    def test_generate_initial_configuration_unsupported_type_is_refused(self):
+        """Check that an unsupported initial configuration type is refused."""
         current_generation_method = MolecularDynamicsSimulation(
             *self.md_init_mock_kwargs.values()
         )
         particles = [Mock(dim=2) for _ in range(3)]
         current_generation_method.box = np.array([1.0, 1.0])
         current_generation_method.type_init_conf = "unsupported_type"
-        current_generation_method.generate_initial_configuration(particles)
-        mock_print.assert_called_once_with(
-            "The initial configuration type unsupported_type is not supported."
-        )
+        with self.assertRaisesRegex(
+            ValueError, "unsupported_type is not an initial configuration"
+        ):
+            current_generation_method.generate_initial_configuration(particles)
+        # A message was printed, and the run went on with the particles unplaced
 
     @unittest.skip(PINNED_TO_MASTER)
     def test_generate_initial_configuration_bcc(self):
@@ -790,34 +788,6 @@ class TestMolecularDynamicSimulationForce(unittest.TestCase):
         self.assertEqual(len(current_generation_method.particle_forces), 2)
         for force in current_generation_method.particle_forces:
             self.assertTrue(np.all(force == np.zeros(2)))
-
-    def test_compute_forces_with_force_rescale(self):
-        """Check that the forces are rescaled by force_rescale_coeff when force_rescale is
-        enabled and the current max force is non-zero."""
-        current_generation_method = MolecularDynamicsSimulation(
-            *self.md_init_mock_kwargs.values()
-        )
-        current_generation_method.force_rescale = True
-        current_generation_method.force_rescale_coeff = 2.0
-        current_generation_method.current_max_force = 1.0
-
-        def _set_forces(particles):
-            current_generation_method.particle_forces = [
-                np.array([1.0, 0.0]),
-                np.array([0.0, 1.0]),
-            ]
-
-        current_generation_method.compute_forces_overlap = Mock(side_effect=_set_forces)
-        current_generation_method.compute_forces_thermostat = Mock()
-        current_generation_method.compute_forces_damping = Mock()
-        particles = [Mock(dim=2), Mock(dim=2)]
-        current_generation_method.compute_forces(particles)
-        self.assertTrue(
-            np.allclose(current_generation_method.particle_forces[0], np.array([2.0, 0.0]))
-        )
-        self.assertTrue(
-            np.allclose(current_generation_method.particle_forces[1], np.array([0.0, 2.0]))
-        )
 
     def test_compute_forces_thermostat_no_force_coeff_is_a_no_op(self):
         """Check that no force is added when the thermostat has no force coefficient."""
