@@ -94,7 +94,7 @@ class MeshOptionsTest(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "gmsh was specified twice"):
             self.read("femsh\nmesh_size 0.1\ngmsh\nmesh_size 0.2\n")
-        # The decks of the thesis ask for them so
+        # Old decks ask for them so
 
     def test_a_mesher_that_does_not_exist_is_named_with_the_line(self):
         with self.assertRaises(ValueError) as context:
