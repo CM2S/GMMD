@@ -90,9 +90,14 @@ Incluir imagem de uma microestrutura?
 
 # AI usage disclosure
 
-The code was first built in 2020, when generative AI tools were not mainstream. In this period, no AI was used.
-Upwards of 2025, AI was used to haste the writing of the code, albeit not having a part in its core logic.
-For writing the manuscript, the authors used generative AI tools only to check spelling and grammar.
+The first version of GMMD was written in 2020 and 2021 without generative AI tools.
+Since 2026, generative AI tools have been used in its development:
+
+- Claude Code (Anthropic), with the models Claude Opus 4.6, Claude Opus 5, Claude Opus 5.5 and Claude Sonnet 5, was used to write and refactor code, to write tests, to review code, and to draft documentation (the README, the Sphinx documentation and the reference input file). It was also used to copy-edit this paper.
+- GitHub Copilot was used for code completion in the editor and, through Copilot Autofix, to propose fixes to code scanning alerts.
+
+The human authors reviewed, edited and validated all AI-assisted output, and made the core design decisions.
+A commit made with an AI assistant names the tool and model in an `Assisted-by:` trailer (`Co-authored-by:` in earlier commits); code completion in the editor is not marked.
 
 # Acknowledgements
 
