@@ -134,20 +134,3 @@ AnalysesConfig = pydantic.create_model(
     }
 )
 # A field for each analysis, which is not carried out unless it is given
-
-
-def analyses_to_options(analyses):
-    """
-    Give the analyses as the input data file keys them.
-
-    Parameters
-    ----------
-    analyses: `.ConfigModel`
-        The analyses section.
-
-    Returns
-    -------
-    dict
-        Every analysis option, whether the file names it or not.
-    """
-    return analyses.to_options()

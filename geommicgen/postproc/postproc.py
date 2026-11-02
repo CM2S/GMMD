@@ -72,11 +72,6 @@ def announced(step, times, failures):
     # Every analysis opens with its name and closes with its time, where only the
     # final configuration did and the others went unreported
 
-VORONOI_OPTIONS = tuple(VORONOI_OPTION_NAMES.values())
-# The options handed on to the Voronoi analysis, when they are given
-
-STAT_OPTIONS = STAT_FLAGS
-# The statistical analyses, each asked for by its own option
 
 ANALYSIS_DIRECTORIES = {
     "motion_analysis": "motion_results",
@@ -301,7 +296,7 @@ def run_analyses(microstructure, state, sample_dir, options):
     if options.get("voronoi_analysis", False):
         voronoi_kwargs = {
             i_option: options[i_option]
-            for i_option in VORONOI_OPTIONS
+            for i_option in VORONOI_OPTION_NAMES.values()
             if i_option in options
         }
         with announced(VORONOI_STEP, times, failures):
@@ -315,7 +310,7 @@ def run_analyses(microstructure, state, sample_dir, options):
     # Statistical analysis
     # --------------------------------------------------------------------------
     stat_options = {
-        i_option for i_option in STAT_OPTIONS if options.get(i_option, False)
+        i_option for i_option in STAT_FLAGS if options.get(i_option, False)
     }
     if stat_options:
         with announced(STAT_STEP, times, failures):

@@ -26,10 +26,6 @@ from geommicgen.micgenmethod.molecular_dynamics_sim import MolecularDynamicsSimu
 GENERATION_METHODS = {"molecular_dynamics": MolecularDynamicsSimulation}
 # The class of each method a generation can be asked to use, under its name in the file
 
-INPUT_FILE_KINDS = {".yaml": "input file", ".yml": "input file", ".mdsim": "deck"}
-# What a file is read as, by its extension
-
-
 def read_input(path):
     """
     Read the run an input file, or a deck of the keyword format, asks for.
@@ -52,23 +48,32 @@ def read_input(path):
     ConfigError:
         If the file is of neither kind, or does not validate.
     """
-    kind = INPUT_FILE_KINDS.get(os.path.splitext(path)[1])
-    if kind == "input file":
-        return read_config(path)
-    if kind == "deck":
-        print(
-            "geommicgen: {0} is a deck of the keyword format, which is read for now; "
-            "geommicgen-convert-deck turns it into an input file.".format(
+    reader = INPUT_READERS.get(os.path.splitext(path)[1])
+    if reader is None:
+        raise ConfigError(
+            "{0} is neither an input file (.yaml) nor a deck (.mdsim).".format(
                 os.path.basename(path)
-            ),
-            file=sys.stderr,
+            )
         )
-        return convert_deck(path)[1]
-    raise ConfigError(
-        "{0} is neither an input file (.yaml) nor a deck (.mdsim).".format(
+
+    return reader(path)
+
+
+def read_deck(path):
+    """Read a deck as the input file it lays out as, saying the format is going."""
+    print(
+        "geommicgen: {0} is a deck of the keyword format, which is read for now; "
+        "geommicgen-convert-deck turns it into an input file.".format(
             os.path.basename(path)
-        )
+        ),
+        file=sys.stderr,
     )
+
+    return convert_deck(path)[1]
+
+
+INPUT_READERS = {".yaml": read_config, ".yml": read_config, ".mdsim": read_deck}
+# What reads a file, by its extension
 
 
 def run_program(argv=None):

@@ -15,7 +15,7 @@ import pydantic
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-from geommicgen.config.analyses import AnalysesConfig, analyses_to_options
+from geommicgen.config.analyses import AnalysesConfig
 from geommicgen.config.base import (
     ConfigError,
     ConfigModel,
@@ -24,12 +24,9 @@ from geommicgen.config.base import (
     read_model,
 )
 from geommicgen.config.generation import Generation
-from geommicgen.config.meshes import MeshesConfig
+from geommicgen.config.meshes import MeshesConfig, to_mesh_options
 from geommicgen.config.phases import Fixed, PhaseModel, PhaseName
-from geommicgen.microstructure.microstructure import (
-    DIRECTION_VARIES,
-    phase_problems as shared_rules,
-)
+from geommicgen.microstructure.microstructure import DIRECTION_VARIES, phase_problems
 from geommicgen.microstructure.particleclasses import Matrix
 
 
@@ -65,18 +62,18 @@ class RunConfig(ConfigModel):
     @pydantic.model_validator(mode="after")
     def sections_agree(self):
         """Refuse phases that do not fit the RVE or each other, or meshes the phases."""
-        problems = self.phase_problems() + self.mesh_problems()
+        problems = self.phases_problems() + self.mesh_problems()
         if problems:
             raise Problems(problems)
 
         return self
 
-    def phase_problems(self):
+    def phases_problems(self):
         """Give what is wrong with the phases, taken together and with the RVE."""
         dim = len(self.rve_dimensions)
         problems = [
             (("phases",) + i_loc, i_message)
-            for i_loc, i_message in shared_rules(
+            for i_loc, i_message in phase_problems(
                 dim,
                 {
                     i_name: (
@@ -106,9 +103,7 @@ class RunConfig(ConfigModel):
         voxel = getattr(self.meshes, "voxel", None)
         if voxel is None:
             return problems
-        resolutions = voxel.n_voxels_dims or []
-        if resolutions and isinstance(resolutions[0], int):
-            resolutions = [resolutions]
+        resolutions = to_mesh_options(voxel).get("n_voxels_dims", [])
         for i_resolution in resolutions:
             if len(i_resolution) != len(self.rve_dimensions):
                 problems.append(
@@ -143,7 +138,7 @@ class RunConfig(ConfigModel):
             "mic_gen_descriptors": {
                 i_name: i_phase.to_options() for i_name, i_phase in self.phases.items()
             },
-            "post_proc": analyses_to_options(self.analyses),
+            "post_proc": self.analyses.to_options(),
         }
         mesh_options = self.meshes.to_options()
         if mesh_options:
