@@ -26,6 +26,7 @@ from geommicgen.config.base import (
 from geommicgen.config.generation import Generation
 from geommicgen.config.meshes import MeshesConfig
 from geommicgen.config.phases import Fixed, PhaseModel, PhaseName
+from geommicgen.microstructure.microstructure import phase_problems as shared_rules
 from geommicgen.microstructure.particleclasses import CylindricalFiber, Matrix
 
 
@@ -69,58 +70,22 @@ class RunConfig(ConfigModel):
 
     def phase_problems(self):
         """Give what is wrong with the phases, taken together and with the RVE."""
-        problems = []
         dim = len(self.rve_dimensions)
-        matrices = [
-            i_name
-            for i_name, i_phase in self.phases.items()
-            if i_phase.particle_class is Matrix
-        ]
-        if len(matrices) != 1:
-            problems.append(
-                (
-                    ("phases",),
-                    "one phase has to be the matrix, and {0}".format(
-                        "phases {0} are".format(", ".join(matrices))
-                        if matrices
-                        else "none is"
-                    ),
-                )
+        problems = [
+            (("phases",) + i_loc, i_message)
+            for i_loc, i_message in shared_rules(
+                dim,
+                {
+                    i_name: (i_phase.particle_class, i_phase.inside)
+                    for i_name, i_phase in self.phases.items()
+                },
             )
+        ]
+        # The rules a microstructure holds its phases to, as it is built
         fibres = fibres_in(self.phases)
         for i_name, i_phase in self.phases.items():
             here = ("phases", i_name)
             particle_class = i_phase.particle_class
-            if particle_class is not Matrix and particle_class.dim != dim:
-                problems.append(
-                    (
-                        here + ("type",),
-                        "a {0} is in {1} dimensions, and the RVE in {2}".format(
-                            i_phase.type, particle_class.dim, dim
-                        ),
-                    )
-                )
-            if fibres and particle_class not in (CylindricalFiber, Matrix):
-                problems.append(
-                    (
-                        here + ("type",),
-                        "cylindrical fibres go with no other particles, and phase {0} "
-                        "is of them".format(next(iter(fibres))),
-                    )
-                )
-            if i_phase.inside is not None:
-                outer = self.phases.get(i_phase.inside)
-                if (
-                    outer is None
-                    or outer.particle_class is Matrix
-                    or i_phase.inside == i_name
-                ):
-                    problems.append(
-                        (
-                            here + ("inside",),
-                            "has to name another phase of particles",
-                        )
-                    )
             if particle_class is not Matrix and particle_class.dim == dim:
                 problems += [
                     (here + j_loc, j_message)

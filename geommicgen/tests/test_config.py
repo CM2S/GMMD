@@ -513,7 +513,7 @@ class TestRun(unittest.TestCase):
             ),
             (
                 lambda d: d["phases"].update({2: {"type": "sphere", "r": 0.1, "n": 3}}),
-                ["  - phases.2.type: a sphere is in 3 dimensions, and the RVE in 2"],
+                ["  - phases.2.type: a Sphere is in 3 dimensions, and the RVE in 2"],
             ),
             (
                 lambda d: d["phases"][1].update(r=0.3),
@@ -523,7 +523,10 @@ class TestRun(unittest.TestCase):
                 lambda d: d["phases"].update(
                     {2: {"type": "disk", "r": 0.01, "n": 3, "inside": 0}}
                 ),
-                ["  - phases.2.inside: has to name another phase of particles"],
+                [
+                    "  - phases.2.inside: the phase it is inside, 0, is not another "
+                    "phase of particles"
+                ],
             ),
             (
                 lambda d: d.update(meshes={"voxel": {"n_voxels_dims": [8, 8, 8]}}),

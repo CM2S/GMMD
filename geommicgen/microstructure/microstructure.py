@@ -44,6 +44,99 @@ def unit_scale(lengths):
     # micrometres in boxes of sides 1.95 and 1.05, and gave two microstructures
 
 
+def phase_problems(dim, phases, complete=True):
+    """
+    Give what is wrong with a set of phases, taken together and with the RVE.
+
+    Parameters
+    ----------
+    dim: int
+        Number of dimensions of the RVE.
+
+    phases: dict
+        Dictionary of the form *{name: (particle_class, outer)}*, *outer* the name of
+        the phase a phase is inside, or None.
+
+    complete: bool
+        Whether the phases are all there are, rather than the ones added so far, in
+        which case a missing matrix and the phase another one is inside are not yet
+        known.
+
+    Returns
+    -------
+    list(tuple)
+        Tuples *(location, message)*: the location a tuple of the name of the phase and
+        the key of the input file the problem is at, or empty for the phases as a
+        whole.
+    """
+    problems = []
+    kinds = {i_name: i_class.__name__ for i_name, (i_class, _) in phases.items()}
+    matrices = [i_name for i_name, i_kind in kinds.items() if i_kind == "Matrix"]
+    if len(matrices) > 1 or (complete and not matrices):
+        problems.append(
+            (
+                (),
+                "one phase has to be the matrix, and {0}".format(
+                    "phases {0} are".format(", ".join(matrices))
+                    if matrices
+                    else "none is"
+                ),
+            )
+        )
+    fibres = [
+        i_name for i_name, i_kind in kinds.items() if i_kind == "CylindricalFiber"
+    ]
+    for i_name, (i_class, i_outer) in phases.items():
+        if kinds[i_name] == "Matrix":
+            continue
+        if i_class.dim != dim:
+            problems.append(
+                (
+                    (i_name, "type"),
+                    "a {0} is in {1} dimensions, and the RVE in {2}".format(
+                        kinds[i_name], i_class.dim, dim
+                    ),
+                )
+            )
+        if fibres and kinds[i_name] != "CylindricalFiber":
+            problems.append(
+                (
+                    (i_name, "type"),
+                    "cylindrical fibres go with no other particles, and phase {0} is "
+                    "of them".format(fibres[0]),
+                )
+            )
+        if complete and i_outer is not None:
+            outer = str(i_outer)
+            if outer == i_name or kinds.get(outer, "Matrix") == "Matrix":
+                problems.append(
+                    (
+                        (i_name, "inside"),
+                        "the phase it is inside, {0}, is not another phase of "
+                        "particles".format(outer),
+                    )
+                )
+
+    return problems
+    # The rules a set of phases is held to, whether it is read from an input file or
+    # built in Python, so that both say the same of the same phases
+
+
+def phase_problem_message(problems):
+    """Put the problems of some phases in one line, each naming its phase."""
+    return "; ".join(
+        "Phase {0}: {1}".format(i_loc[0], i_message) if i_loc else i_message
+        for i_loc, i_message in problems
+    )
+
+
+def as_rules_see_it(phase):
+    """Give a phase as `phase_problems` takes it: its class and the phase it is in."""
+    outer = phase.outer_phase if getattr(phase, "inner_phase", False) else None
+
+    return phase.type, outer
+
+
 class Microstructure:
     """
     Class for the Microstructure.
@@ -148,13 +241,20 @@ class Microstructure:
         Raises
         ------
         ValueError:
-            If no phase is a matrix, or if two are.
+            If the phases do not fit the RVE or each other, as `phase_problems` says.
         """
         microstructure = cls(rve_dims)
         for i_name, i_descriptors in descriptors.items():
             microstructure.add_phase(Phase(i_name, i_descriptors))
-        if microstructure.matrix_phase is None:
-            raise ValueError("No matrix phase was specified.")
+        problems = phase_problems(
+            microstructure.dim,
+            {
+                i_name: as_rules_see_it(i_phase)
+                for i_name, i_phase in microstructure.phases.items()
+            },
+        )
+        if problems:
+            raise ValueError(phase_problem_message(problems))
         # Refused here, where the phases are declared, rather than by whichever
         # mesher first fills the RVE and finds nothing to fill it with
 
@@ -167,30 +267,21 @@ class Microstructure:
         Parameters
         ----------
         phase: `.Phase`
+
+        Raises
+        ------
+        ValueError:
+            If the phase does not fit the RVE or the phases already added, as
+            `phase_problems` says.
         """
-        if phase.type.__name__ == "Matrix":
-            if self.matrix_phase is not None:
-                raise ValueError(
-                    "The matrix for Phase {0} was specified twice.".format(phase.name)
-                )
-        else:
-            if self.dim != phase.type.dim:
-                raise ValueError(
-                    "The particle type chosen is not compatible "
-                    + "with the dimensions of the microstructure."
-                )
-            is_fibre = phase.type.__name__ == "CylindricalFiber"
-            if any(
-                (i_phase.type.__name__ == "CylindricalFiber") != is_fibre
-                for i_phase in self.phases.values()
-                if i_phase.type.__name__ != "Matrix"
-            ):
-                raise ValueError(
-                    "The CylindricalFiber particles are only compatible with"
-                    + " each other."
-                )
-        # Fibres were refused beside other particles only when they came after them,
-        # and a phase refused was added all the same; it is checked before it is added
+        phases = {
+            i_name: as_rules_see_it(i_phase) for i_name, i_phase in self.phases.items()
+        }
+        phases[phase.name] = as_rules_see_it(phase)
+        problems = phase_problems(self.dim, phases, complete=False)
+        if problems:
+            raise ValueError(phase_problem_message(problems))
+        # Checked before the phase is added, so that a phase refused is not kept
 
         self.phases[phase.name] = phase
         phase.microstructure = self

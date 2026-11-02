@@ -131,7 +131,7 @@ class TestMicrostructure(unittest.TestCase):
             with self.subTest(first=i_first.__name__):
                 microstructure = Microstructure([1.0, 1.0, 1.0])
                 microstructure.add_phase(Phase.from_type("2", i_first))
-                with self.assertRaisesRegex(ValueError, "only compatible with each"):
+                with self.assertRaisesRegex(ValueError, "fibres go with no other"):
                     microstructure.add_phase(Phase.from_type("3", i_second))
                 self.assertEqual(list(microstructure.phases), ["2"])
         # Fibres were refused only when they came after the other particles, and the
@@ -215,6 +215,27 @@ class TestFromDescriptors(unittest.TestCase):
         second = Microstructure.from_descriptors([1.0, 1.0], self.DESCRIPTORS)
         self.assertIsNot(first.phases["1"], second.phases["1"])
         # Each sample of a run is generated into a microstructure of its own
+
+    def test_an_inner_phase_has_to_be_inside_a_phase_of_particles(self):
+        with self.assertRaisesRegex(
+            ValueError,
+            "Phase 2: the phase it is inside, 0, is not another phase of particles",
+        ):
+            Microstructure.from_descriptors(
+                [1.0, 1.0],
+                {
+                    "0": {"phase_type": 1},
+                    "1": {"phase_type": 2, "r": 0.2, "n": 2},
+                    "2": {
+                        "phase_type": 2,
+                        "r": 0.05,
+                        "n": 2,
+                        "inner_phase": True,
+                        "outer_phase": "0",
+                    },
+                },
+            )
+        # An input file was refused it, and a microstructure built in Python took it
 
 
 class TestPacking(unittest.TestCase):
