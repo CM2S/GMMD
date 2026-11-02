@@ -116,14 +116,6 @@ class RunConfig(ConfigModel):
         voxel = getattr(self.meshes, "voxel", None)
         if voxel is None:
             return problems
-        if fibres_in(self.phases):
-            problems.append(
-                (
-                    ("meshes", "voxel"),
-                    "cylindrical fibres are not stamped on a grid of voxels; gmsh "
-                    "meshes them",
-                )
-            )
         resolutions = voxel.n_voxels_dims or []
         if resolutions and isinstance(resolutions[0], int):
             resolutions = [resolutions]

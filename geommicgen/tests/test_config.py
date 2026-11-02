@@ -539,7 +539,7 @@ class TestRun(unittest.TestCase):
             with self.subTest(lines=i_lines):
                 self.assertEqual(self.refused(i_change), i_lines)
 
-    def test_fibres_go_alone_in_one_direction_and_not_on_a_grid(self):
+    def test_fibres_go_alone_and_in_one_direction(self):
         def fibres(data, second, meshes=None):
             data.update(rve_dimensions=[1, 1, 1], meshes=meshes or {})
             data["phases"][1] = {
@@ -563,10 +563,8 @@ class TestRun(unittest.TestCase):
                 )
             ),
             [
-                "  - meshes.voxel: cylindrical fibres are not stamped on a grid of "
-                "voxels; gmsh meshes them",
                 "  - phases: the cylindrical fibres have to run in one direction, "
-                "given as a fixed value",
+                "given as a fixed value"
             ],
         )
         # Each was found once the particles had been generated, or not at all: fibres

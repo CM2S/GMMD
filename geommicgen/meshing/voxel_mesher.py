@@ -132,8 +132,7 @@ class VoxelMesher(Mesher):
         ------
         ValueError:
             If the grid has a different number of directions than the microstructure,
-            if the microstructure has no matrix phase to fill the grid with, or if it
-            has cylindrical fibres, which are not stamped.
+            or if the microstructure has no matrix phase to fill the grid with.
         """
         rve_dims = np.asarray(microstructure.rve_dims, dtype=float)
         if len(self.n_voxels_dims) != len(rve_dims):
@@ -146,18 +145,6 @@ class VoxelMesher(Mesher):
             raise ValueError(
                 "The microstructure has no matrix phase to fill the grid with."
             )
-        if any(
-            i_phase.type is CylindricalFiber
-            for i_phase in microstructure.phases.values()
-        ):
-            raise ValueError(
-                "Cylindrical fibres are not stamped on a grid of voxels; gmsh meshes "
-                "them."
-            )
-        # A fibre is a disk in the plane across it, and is asked for its extent, and
-        # whether a point is inside, with the coordinates of that plane, where the grid
-        # has three, so the stamp stopped with an error of numpy's about shapes that
-        # could not be broadcast together
         spacing = rve_dims / self.n_voxels_dims
         phase_grid = np.full(
             tuple(self.n_voxels_dims), int(microstructure.matrix_phase), dtype=int
@@ -207,6 +194,41 @@ class VoxelMesher(Mesher):
 
         rve_dims: array
             Dimensions of the microstructure in each spatial direction.
+        """
+        if isinstance(particle, CylindricalFiber):
+            axis = particle.direction_fibers
+            across = [i_dir for i_dir in range(len(spacing)) if i_dir != axis]
+            layer = np.full([phase_grid.shape[i_dir] for i_dir in across], -1)
+            VoxelMesher.stamp_section(
+                particle, layer, spacing[across], np.asarray(rve_dims)[across]
+            )
+            inside = np.expand_dims(layer == int(particle.phase), axis)
+            phase_grid[np.broadcast_to(inside, phase_grid.shape)] = int(particle.phase)
+            return
+        # A fibre is a disk in the plane across it, as long as the RVE along it: the
+        # disk is stamped on one layer of voxels across the fibre, with the coordinates
+        # of that plane, and every layer along the fibre takes it
+
+        VoxelMesher.stamp_section(particle, phase_grid, spacing, rve_dims)
+
+    @staticmethod
+    def stamp_section(particle, phase_grid, spacing, rve_dims):
+        """
+        Stamp a particle on a grid with as many directions as its own coordinates.
+
+        Parameters
+        ----------
+        particle: `.Particle`
+            Particle to be stamped on the grid.
+
+        phase_grid: array
+            Array of integers with the phase of every voxel, modified in place.
+
+        spacing: array
+            Size of a voxel in each direction of the grid.
+
+        rve_dims: array
+            Dimensions of the microstructure in each direction of the grid.
         """
         axis_voxels = []
         for i_dir in range(len(spacing)):
