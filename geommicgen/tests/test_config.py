@@ -586,8 +586,8 @@ class TestRun(unittest.TestCase):
             ),
             (
                 {"voxel": {"n_voxels_dims": [[8, 8], [16, 16]], "file_name": "x"}},
-                "  - meshes.voxel: File_Name x would be given to each of the 2 "
-                "discretisations",
+                "  - meshes.voxel: file_name x would be given to each of the 2 "
+                "meshes",
             ),
         ):
             with self.subTest(meshes=i_meshes):
@@ -631,8 +631,8 @@ class TestRun(unittest.TestCase):
         self.assertEqual(len(lines), 1)
         self.assertTrue(
             lines[0].startswith(
-                "  - meshes.gmsh: File_Name x would be given to each of the 2 "
-                "discretisations"
+                "  - meshes.gmsh: file_name x would be given to each of the 2 "
+                "meshes"
             ),
             lines[0],
         )

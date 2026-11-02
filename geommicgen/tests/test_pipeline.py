@@ -124,7 +124,7 @@ class TestBuildMeshJobs(unittest.TestCase):
                     }
                 }
             )
-        self.assertIn("File_Name", str(context.exception))
+        self.assertIn("file_name", str(context.exception))
         self.assertIn("2", str(context.exception))
         # Every resolution would otherwise be written over the one before it
 
