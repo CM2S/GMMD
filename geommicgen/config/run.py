@@ -26,17 +26,20 @@ from geommicgen.config.base import (
 from geommicgen.config.generation import Generation
 from geommicgen.config.meshes import MeshesConfig
 from geommicgen.config.phases import Fixed, PhaseModel, PhaseName
-from geommicgen.microstructure.microstructure import phase_problems as shared_rules
-from geommicgen.microstructure.particleclasses import CylindricalFiber, Matrix
+from geommicgen.microstructure.microstructure import (
+    DIRECTION_VARIES,
+    phase_problems as shared_rules,
+)
+from geommicgen.microstructure.particleclasses import Matrix
 
 
-def fibres_in(phases):
-    """Give the phases of cylindrical fibres, keyed by their names."""
-    return {
-        i_name: i_phase
-        for i_name, i_phase in phases.items()
-        if i_phase.particle_class is CylindricalFiber
-    }
+def fibre_direction(phase):
+    """Give the direction of a phase as `.phase_problems` takes it."""
+    direction = getattr(phase, "direction", None)
+    if direction is None:
+        return None
+
+    return direction.value if isinstance(direction, Fixed) else DIRECTION_VARIES
 
 
 class RunConfig(ConfigModel):
@@ -76,13 +79,16 @@ class RunConfig(ConfigModel):
             for i_loc, i_message in shared_rules(
                 dim,
                 {
-                    i_name: (i_phase.particle_class, i_phase.inside)
+                    i_name: (
+                        i_phase.particle_class,
+                        i_phase.inside,
+                        fibre_direction(i_phase),
+                    )
                     for i_name, i_phase in self.phases.items()
                 },
             )
         ]
         # The rules a microstructure holds its phases to, as it is built
-        fibres = fibres_in(self.phases)
         for i_name, i_phase in self.phases.items():
             here = ("phases", i_name)
             particle_class = i_phase.particle_class
@@ -91,22 +97,6 @@ class RunConfig(ConfigModel):
                     (here + j_loc, j_message)
                     for j_loc, j_message in i_phase.problems(self.rve_dimensions)
                 ]
-        directions = {
-            i_phase.direction.value
-            for i_phase in fibres.values()
-            if isinstance(i_phase.direction, Fixed)
-        }
-        if len(directions) > 1 or any(
-            not isinstance(i_phase.direction, Fixed) for i_phase in fibres.values()
-        ):
-            problems.append(
-                (
-                    ("phases",),
-                    "the cylindrical fibres have to run in one direction, given as a "
-                    "fixed value",
-                )
-            )
-        # The simulation moves the fibres in the plane across them
 
         return problems
 

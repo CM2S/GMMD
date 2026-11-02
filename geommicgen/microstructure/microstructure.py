@@ -12,7 +12,7 @@ import numpy as np
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 from geommicgen.micgenmethod.speed_up_schemes import CellList
-from geommicgen.microstructure.phase import Phase
+from geommicgen.microstructure.phase import FixedValue, Phase
 
 
 def unit_scale(lengths):
@@ -44,6 +44,10 @@ def unit_scale(lengths):
     # micrometres in boxes of sides 1.95 and 1.05, and gave two microstructures
 
 
+DIRECTION_VARIES = "varies"
+# The direction of a phase of fibres that is not one fixed value
+
+
 def phase_problems(dim, phases, complete=True):
     """
     Give what is wrong with a set of phases, taken together and with the RVE.
@@ -54,8 +58,10 @@ def phase_problems(dim, phases, complete=True):
         Number of dimensions of the RVE.
 
     phases: dict
-        Dictionary of the form *{name: (particle_class, outer)}*, *outer* the name of
-        the phase a phase is inside, or None.
+        Dictionary of the form *{name: (particle_class, outer, direction)}*: *outer*
+        the name of the phase a phase is inside, or None; *direction* the one
+        direction of a phase of fibres, `DIRECTION_VARIES` when it is not a fixed
+        value, or None when it is not given.
 
     complete: bool
         Whether the phases are all there are, rather than the ones added so far, in
@@ -70,7 +76,7 @@ def phase_problems(dim, phases, complete=True):
         whole.
     """
     problems = []
-    kinds = {i_name: i_class.__name__ for i_name, (i_class, _) in phases.items()}
+    kinds = {i_name: i_class.__name__ for i_name, (i_class, *_) in phases.items()}
     matrices = [i_name for i_name, i_kind in kinds.items() if i_kind == "Matrix"]
     if len(matrices) > 1 or (complete and not matrices):
         problems.append(
@@ -86,7 +92,7 @@ def phase_problems(dim, phases, complete=True):
     fibres = [
         i_name for i_name, i_kind in kinds.items() if i_kind == "CylindricalFiber"
     ]
-    for i_name, (i_class, i_outer) in phases.items():
+    for i_name, (i_class, i_outer, _) in phases.items():
         if kinds[i_name] == "Matrix":
             continue
         if i_class.dim != dim:
@@ -117,6 +123,21 @@ def phase_problems(dim, phases, complete=True):
                     )
                 )
 
+    directions = {
+        i_direction
+        for i_name, (_, _, i_direction) in phases.items()
+        if kinds[i_name] == "CylindricalFiber" and i_direction is not None
+    }
+    if len(directions) > 1 or DIRECTION_VARIES in directions:
+        problems.append(
+            (
+                (),
+                "the cylindrical fibres have to run in one direction, given as a "
+                "fixed value",
+            )
+        )
+    # The simulation moves the fibres in the plane across them
+
     return problems
     # The rules a set of phases is held to, whether it is read from an input file or
     # built in Python, so that both say the same of the same phases
@@ -131,10 +152,18 @@ def phase_problem_message(problems):
 
 
 def as_rules_see_it(phase):
-    """Give a phase as `phase_problems` takes it: its class and the phase it is in."""
+    """
+    Give a phase as `phase_problems` takes it: its class, the phase it is in, and the
+    direction of its fibres.
+    """
     outer = phase.outer_phase if getattr(phase, "inner_phase", False) else None
+    direction = getattr(phase, "descriptors", {}).get("direction")
+    if direction is not None:
+        direction = (
+            direction.value if isinstance(direction, FixedValue) else DIRECTION_VARIES
+        )
 
-    return phase.type, outer
+    return phase.type, outer, direction
 
 
 class Microstructure:

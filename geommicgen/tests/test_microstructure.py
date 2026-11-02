@@ -216,6 +216,20 @@ class TestFromDescriptors(unittest.TestCase):
         self.assertIsNot(first.phases["1"], second.phases["1"])
         # Each sample of a run is generated into a microstructure of its own
 
+    def test_fibres_run_in_one_direction(self):
+        fibres = {"phase_type": 6, "r": 0.05, "n": 2}
+        with self.assertRaisesRegex(ValueError, "have to run in one direction"):
+            Microstructure.from_descriptors(
+                [1.0, 1.0, 1.0],
+                {
+                    "0": {"phase_type": 1},
+                    "1": dict(fibres, direction=1),
+                    "2": dict(fibres, direction=2),
+                },
+            )
+        # An input file was refused them, and a microstructure built in Python took
+        # them, which the simulation then moved in the plane across the first
+
     def test_an_inner_phase_has_to_be_inside_a_phase_of_particles(self):
         with self.assertRaisesRegex(
             ValueError,
