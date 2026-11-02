@@ -262,6 +262,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.force_rescale = kwargs.get("force_rescale", False)
         self.dt_adapt = kwargs.get("dt_adapt", True)
         self.offset = kwargs.get("offset", True)
+        self.inner_phase_max_step = kwargs.get("inner_phase_max_step")
         self.fixed_seed = kwargs.get("fixed_seed", None)
         self.initial_vel_coeff = kwargs.get("initial_vel_coeff", 0.25)
         self.final_overlap_check = kwargs.get("final_overlap_check", False)
@@ -308,13 +309,17 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.set_box(microstructure_sample.particles, microstructure_sample.rve_dims)
         self.generate_initial_configuration(microstructure_sample.particles)
         print_funcs.print_microstructure_info(microstructure_sample)
+        self.inner_phase_placements = []
         try:
             start = time.time()
             self.run_molecular_dynamics_simulation(microstructure_sample.particles)
-            self.time = time.time() - start
+            self.simulation_name = "MD simulation"
+            self.simulation_time = time.time() - start
+            self.simulation_steps = len(self.total_overlap_history)
             if self.final_overlap_check:
                 self.check_overlap_naive(microstructure_sample.particles)
             microstructure_sample.total_overlap = self.total_overlap
+
             # Placing inner phases
             # ------------------------------------------------------------------------------
             for phase in microstructure_sample.phases.values():
@@ -329,15 +334,10 @@ class MolecularDynamicsSimulation(GenerationMethod):
                         )
                     print_funcs.print_microstructure_info(microstructure_sample)
                     self.place_inner_phase_rsa(phase, outer_phase)
+            self.time = time.time() - start
+
         except KeyboardInterrupt as error:
             raise error
-        else:
-            print_funcs.print_final_message_md(
-                self.time,
-                microstructure_sample.total_overlap,
-                len(self.total_overlap_history),
-                self.max_residue,
-            )
 
     def set_thermostat(self, thermostat):
         """Set the thermostat for the moleuclar dynamics simulation."""
@@ -1020,62 +1020,4 @@ class MolecularDynamicsSimulation(GenerationMethod):
         if self.save_history:
             self.thermic_energy_history.append(thermic_energy)
 
-    def place_inner_phase_rsa(self, inner_phase, outer_phase):
-        """Place inner phase."""
-        rve_dims = np.array(inner_phase.microstructure.rve_dims)
-        # Pairing inner phase particles w/ outer phase particles
-        # ----------------------------------------------------------------------------------
-        out_part_in_part = [[] for _ in outer_phase.particles]
-        available_volume = [particle.volume for particle in outer_phase.particles]
-        for i_particle_ind, i_inner_particle in enumerate(inner_phase.particles):
-            while True:
-                outer_particle_ind = np.random.choice(
-                    list(range(len(outer_phase.particles))),
-                    p=[
-                        particle.volume
-                        / (
-                            outer_phase.volume_fraction
-                            * inner_phase.microstructure.volume
-                        )
-                        for particle in outer_phase.particles
-                    ],
-                )
-                if i_inner_particle.volume < 0.5 * available_volume[outer_particle_ind]:
-                    available_volume[outer_particle_ind] -= i_inner_particle.volume
-                    out_part_in_part[outer_particle_ind].append(i_inner_particle)
-                    print(i_particle_ind)
-                    break
-        # Placing inner phase particles in each outer phase particle 1-by-1
-        # ----------------------------------------------------------------------------------
-        k_part = 0
-        for i_outer_particle, i_list_inner_particles in zip(
-            outer_phase.particles, out_part_in_part
-        ):
-            placed_particles = []
-            for j_inner_particle in i_list_inner_particles:
-                j_inner_particle.dilate(0.01 * j_inner_particle.radius)
-                i_outer_particle.contract(j_inner_particle.radius * 1.05)
-                p_iter = 0
-                while p_iter < 200:
-                    p_iter += 1
-                    j_inner_particle.position_center = (
-                        i_outer_particle.generate_point_inside()
-                    )
-                    j_inner_particle.position_center = np.squeeze(
-                        j_inner_particle.position_center
-                        - rve_dims
-                        * np.floor(j_inner_particle.position_center / rve_dims)
-                    )
-                    intersect = False
-                    for k_particle in placed_particles:
-                        if k_particle.intersection(j_inner_particle, rve_dims):
-                            intersect = True
-                            break
-                    if not intersect:
-                        placed_particles.append(j_inner_particle)
-                        k_part += 1
-                        print(k_part, "\n\n")
-                        break
-
-                i_outer_particle.dilate(j_inner_particle.radius * 1.05)
-                j_inner_particle.contract(0.01 * j_inner_particle.radius)
+    

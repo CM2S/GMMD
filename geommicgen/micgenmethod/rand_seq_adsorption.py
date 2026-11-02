@@ -116,6 +116,7 @@ class RandomSequentialAdsorption(GenerationMethod):
         self.sample_dir = sample_dir
         self.make_gif = kwargs.get("sim_gif")
         self.offset = kwargs.get("offset", True)
+        self.inner_phase_max_step = kwargs.get("inner_phase_max_step")
 
 
     def generate_microstructure(self, microstructure_sample):
@@ -123,17 +124,17 @@ class RandomSequentialAdsorption(GenerationMethod):
         self.microstructure_sample = microstructure_sample
         start = time.time()
         n_particles_total = 0
-        n_iteration = 0
+        self.step = 0
         print_funcs.print_to_terminal_refresh_rsa(
-            n_iteration,
+            self.step,
             n_particles_total,
             first=True
             )
         
         if self.make_gif:
             # Create folder for the gif if it does not exist
-            gif_dir = os.path.join(self.sample_dir, "sim_gif")
-            os.makedirs(gif_dir)
+            self.gif_dir = os.path.join(self.sample_dir, "sim_gif")
+            os.makedirs(self.gif_dir)
 
         # Create trial microstructure in order to check volume fraction and set box.
         for phase in microstructure_sample.phases.values():
@@ -168,12 +169,12 @@ class RandomSequentialAdsorption(GenerationMethod):
                     )
 
                 while condition():
-                    # if number of iterations is higher than the maximum number of iterations
-                    if n_iteration > self.max_step:
+                    # if number of steps is higher than the maximum number
+                    if self.step > self.max_step:
                         self.status = False
-                        print("Simulation reached the maximum number of iterations.")
+                        print("Simulation reached the maximum number of steps.")
                         break
-                    n_iteration += 1
+                    self.step += 1
                         
                     trial_particle = i_phase.generate_single_particle(
                         microstructure_sample.rve_dims, self.box
@@ -197,13 +198,13 @@ class RandomSequentialAdsorption(GenerationMethod):
                         self.RSA_vf_history.append(microstructure_sample.volume_fraction)
                         self.accepted_particles_history.append(n_particles_total)
                     print_funcs.print_to_terminal_refresh_rsa(
-                    n_iteration,
+                    self.step,
                     n_particles_total
                     )
 
                     # save image of every step of simulation
                     if self.make_gif:
-                        kwargs = {"sim_gif": True, "simulation_gif_dir" : gif_dir, "iteration": n_iteration, "save": False}
+                        kwargs = {"sim_gif": True, "simulation_gif_dir" : self.gif_dir, "step": self.step, "save": False}
                         plot_funcs.plot_particles(microstructure_sample.particles, microstructure_sample.rve_dims, self.sample_dir, **kwargs)
  
                 # Contract all the particles back to their original. If there is no minimum distance, the particles will not be contracted, since min_distance is 0.
@@ -217,6 +218,25 @@ class RandomSequentialAdsorption(GenerationMethod):
                 # Running through all the particles
                 i_particle.position_center -= np.array(offset)[: len(self.box)]
                 # Applying the offset to the particles
+
+        self.simulation_name = "RSA simulation"
+        self.simulation_time = time.time() - start
+        self.simulation_steps = self.step
+
+        # Placing inner phases
+        # ------------------------------------------------------------------------------
+        self.inner_phase_placements = []
+        for phase in microstructure_sample.phases.values():
+            if phase.inner_phase:
+                outer_phase = microstructure_sample.phases[str(phase.outer_phase)]
+                phase.generate_particles(microstructure_sample.rve_dims)
+                if phase.volume_fraction > outer_phase.volume_fraction:
+                    raise ValueError(
+                        "The volume fraction goes over {0}: {1}".format(
+                            outer_phase.volume_fraction, phase.volume_fraction
+                        )
+                    )
+                self.place_inner_phase_rsa(phase, outer_phase)
      
         self.time = time.time() - start
         print("\n\n")
@@ -225,7 +245,6 @@ class RandomSequentialAdsorption(GenerationMethod):
             print_funcs.print_virtual_total_volume_fraction(
                 real_vf, virtual_vf, self.min_distance
             )
-        print_funcs.print_final_message_rsa(self.time, n_iteration)
 
 
     def set_speed_up_scheme(self, speed_up_scheme):

@@ -448,6 +448,12 @@ top_level_reader.add_top_level_keyword(
     KeywordTypeA("Max_Residue_Per_Particle", "Mic_Gen_Parameters", type_str="float"),
     KeywordTypeA("Max_Step", "Mic_Gen_Parameters", type_str="int"),
     KeywordTypeA(
+        "Inner_Phase_Max_Step",
+        "Mic_Gen_Parameters",
+        default_value=200,
+        type_str="int",
+    ),
+    KeywordTypeA(
         "Max_Steps_To_Relax",
         "Mic_Gen_Parameters",
         default_value=0,

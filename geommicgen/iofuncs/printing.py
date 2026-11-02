@@ -54,27 +54,6 @@ def print_rgmsh_output(filepath):
     print_to_file("\t Output file: {0}".format(filepath))
 
 
-def print_final_message_md(time, total_overlap, number_iterations, max_overlap):
-    """Print final message for molecular dynamics simulation."""
-    print_to_file("")
-    print_to_file("MD simulation results")
-    print_to_file("=" * 80 + "\n")
-    print_to_file("Total iterations: {0}".format(number_iterations))
-    print_to_file("Simulation time: {:.3f} s".format(time))
-    print_to_file("Total overlap: {:.2e}".format(total_overlap))
-    print_to_file("Maximum overlap: {:.2e}".format(max_overlap))
-    print_to_file("\n")
-
-def print_final_message_rsa(time, number_iterations):
-    """Print final message for random sequential adsorption."""
-    print_to_file("")
-    print_to_file("RSA simulation results")
-    print_to_file("=" * 80 + "\n")
-    print_to_file("Total iterations: {0}".format(number_iterations))
-    print_to_file("Simulation time: {:.3f} s".format(time))
-    print_to_file("\n")
-
-
 def print_to_file(message, end="\n", to_screen=True, to_terminal=True):
     """Print to the screen file of corresponding to the current microstructure sample."""
     if to_screen:
@@ -122,6 +101,26 @@ def print_to_terminal_refresh_rsa(step, number_particles, **kwargs):
             print("\033[F\033[K", end="")
         print("Step: {0}".format(step))
         print("Number of particles: {0}".format(number_particles))
+
+
+def print_to_terminal_refresh_inner_phase(
+    inner_phase_name, outer_phase_name, n_placed, n_particles, n_steps, **kwargs
+):
+    """Print info about the current state of the inner phase placement."""
+    if kwargs.get("first"):
+        # First meassage containing information about the inner phase placement
+        print("\n\n")
+        print("Inner phase placement info")
+        print("=" * 80 + "\n")
+        print("Step: {0}".format(n_steps))
+        print("Placed particles: {0}".format(n_placed))
+        
+    else:
+        for _ in range(2):
+            print("\033[F\033[K", end="")
+        print("Step {0}".format(n_steps))
+        print("Placed particles: {0}".format(n_placed))
+        
 
 
 def print_microstructure_info(microstructure):
@@ -211,10 +210,31 @@ def print_final_message(mic_generator, mesh_generators, times_dict):
     data_to_print.append(
         [
             "Microstructure generation",
+            "",
             "{0:.2e}".format(mic_generator.time),
             round(mic_generator.time / total_time * 100, ndigits=2),
         ]
     )
+    if getattr(mic_generator, "simulation_time", None) is not None:
+        data_to_print.append(
+            [
+                "- {0}".format(mic_generator.simulation_name),
+                mic_generator.simulation_steps,
+                "{0:.2e}".format(mic_generator.simulation_time),
+                round(mic_generator.simulation_time / total_time * 100, ndigits=2),
+            ]
+        )
+    for inner_phase_placement in getattr(mic_generator, "inner_phase_placements", []):
+        data_to_print.append(
+            [
+                "- Inner phase {0} placement".format(inner_phase_placement["phase"]),
+                inner_phase_placement["steps"],
+                "{0:.2e}".format(inner_phase_placement["time"]),
+                round(inner_phase_placement["time"] / total_time * 100, ndigits=2),
+            ]
+        )
+    # Steps and times of the simulation and of the inner phases placement, which are
+    # part of the microstructure generation
     for generator in mesh_generators:
         if generator.__class__.__name__ == "FEMMeshGenerator":
             name = "Finite element mesh generation"
@@ -223,6 +243,7 @@ def print_final_message(mic_generator, mesh_generators, times_dict):
         data_to_print.append(
             [
                 name,
+                "",
                 "{0:.2e}".format(generator.time),
                 round(generator.time / total_time * 100, ndigits=2),
             ]
@@ -232,11 +253,14 @@ def print_final_message(mic_generator, mesh_generators, times_dict):
         data_to_print.append(
             [
                 post_proc_op_name,
+                "",
                 "{0:.2e}".format(post_proc_op_time),
                 round(post_proc_op_time / total_time * 100, ndigits=2),
             ]
         )
-    formated_data = tabulate(data_to_print, headers=["Phase", "Duration(s)", "%"])
+    formated_data = tabulate(
+        data_to_print, headers=["Phase", "Steps", "Duration(s)", "%"]
+    )
     for row in formated_data.split("\n"):
         print_to_file("\t" + row)
 
