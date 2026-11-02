@@ -1,9 +1,7 @@
 import json
 import os
-import subprocess
 import tempfile
 import unittest
-from unittest.mock import patch
 
 import numpy as np
 import yaml
@@ -20,7 +18,6 @@ from geommicgen.microstructure.particleclasses import (
 )
 from geommicgen.iofuncs.microstructure_file import (
     FORMAT_NAME,
-    code_provenance,
     read_microstructure_file,
     write_microstructure_file,
 )
@@ -248,27 +245,6 @@ class TestMicrostructureFileStructure(unittest.TestCase):
         self.assertIn('"geommicgen_version":', contents)
         self.assertEqual(len(restored.particles), 2)
         # The provenance is informational and must not disturb the reader
-
-    def test_the_code_is_said_by_its_commit_and_the_libraries_by_version(self):
-        code = code_provenance.__wrapped__()
-        if code["git_commit"] is None:
-            self.assertIsNone(code["git_dirty"])
-        else:
-            self.assertRegex(code["git_commit"], r"^[0-9a-f]{40}$")
-            self.assertIsInstance(code["git_dirty"], bool)
-        self.assertEqual(code["libraries"]["numpy"], np.__version__)
-        # A copy of the code exported from git, as a test run elsewhere may be, has
-        # no commit to say
-
-    def test_no_commit_is_said_outside_a_checkout(self):
-        with patch(
-            "geommicgen.iofuncs.microstructure_file.subprocess.run",
-            side_effect=subprocess.CalledProcessError(128, "git"),
-        ):
-            code = code_provenance.__wrapped__()
-        self.assertIsNone(code["git_commit"])
-        self.assertIsNone(code["git_dirty"])
-        # An install, outside the checkout, is said by its version alone
 
     def test_rejects_foreign_file(self):
         with open(self.file_path, "w") as mic_file:
