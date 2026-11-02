@@ -31,8 +31,15 @@ from geommicgen.config.phases import type_name
 from geommicgen.config.run import RunConfig
 from geommicgen.iofuncs.legacy_deck import read_legacy_deck
 from geommicgen.micgenmethod.speed_up_schemes import SPEED_UP_SCHEMES
+from geommicgen.micgenmethod.thermostats import LOWERING_TEMP_CRITERIA, THERMOSTATS
 from geommicgen.microstructure.phase import PHASE_KEYS, Phase, gives_parameter
-from geommicgen.postproc.options import ANALYSES, DESCRIPTORS, VORONOI_OPTION_NAMES
+from geommicgen.postproc.options import (
+    ANALYSES,
+    DESCRIPTORS,
+    POST_PROC_FLAGS,
+    STAT_FLAGS,
+    VORONOI_OPTION_NAMES,
+)
 
 THERMOSTAT_PARAMETERS = {
     "multi_temperature": {"initial_temp", "lowering_temp_criterion", "temp_low_ratio"},
@@ -172,20 +179,24 @@ def legacy_thermostat(parameters, notes):
         default thermostat at its defaults.
     """
     defaults = thermostat_defaults()
-    name = parameters.get("thermostat", "multi_temperature")
+    name = parameters.get("thermostat", THERMOSTATS[0])
     read = set(THERMOSTAT_PARAMETERS.get(name, defaults))
     section = {"name": name}
     if parameters.get("initial_temp") is not None and "initial_temp" in read:
         section["initial_temp"] = parameters["initial_temp"]
     if name == "multi_temperature":
-        criterion = parameters.get("lowering_temp_criterion", "ratio_in_out")
+        criterion = parameters.get(
+            "lowering_temp_criterion", LOWERING_TEMP_CRITERIA[0]
+        )
         criterion_section = {"name": criterion}
         if criterion in CRITERION_PARAMETERS:
             parameter = CRITERION_PARAMETERS[criterion]
             read.add(parameter)
             if parameters.get(parameter, defaults[parameter]) != defaults[parameter]:
                 criterion_section[parameter] = parameters[parameter]
-        if criterion_section != {"name": "ratio_in_out"}:
+        if criterion_section != {
+            "name": MultiTemperature.model_fields["criterion"].default.name
+        }:
             section["criterion"] = (
                 criterion if len(criterion_section) == 1 else criterion_section
             )
@@ -205,7 +216,7 @@ def legacy_thermostat(parameters, notes):
                 )
             )
 
-    if section == {"name": "multi_temperature"}:
+    if section == {"name": MolecularDynamics.model_fields["thermostat"].default.name}:
         return None
 
     return name if len(section) == 1 else section
@@ -229,7 +240,7 @@ def legacy_speed_up(parameters, notes):
         The section, its name alone when it takes nothing else, or None for the
         default scheme.
     """
-    scheme = parameters.get("speed_up_scheme", "Cell")
+    scheme = parameters.get("speed_up_scheme", SPEED_UP_SCHEMES[0])
     if scheme == "Verlet":
         section = {"name": "verlet"}
         if "verlet_factor" in parameters:
@@ -243,7 +254,9 @@ def legacy_speed_up(parameters, notes):
         )
     name = scheme.lower() if scheme in SPEED_UP_SCHEMES else scheme
 
-    return None if name == "cell" else name
+    default = MolecularDynamics.model_fields["speed_up"].default.name
+
+    return None if name == default else name
 
 
 def legacy_generation(parameters, notes):
@@ -317,11 +330,12 @@ def legacy_analyses(post_proc, notes):
         The section: each analysis the deck asks for under its name, with the options
         the deck gave other than at their default, or true when it gave none.
     """
-    analyses = {}
-    if post_proc.get("final_config"):
-        analyses["final_config"] = True
-    if post_proc.get("motion_analysis"):
-        analyses["motion"] = True
+    analyses = {
+        i_name: True
+        for i_name, i_flag in POST_PROC_FLAGS.items()
+        if not ANALYSES[i_name]["options"] and post_proc.get(i_flag)
+    }
+    # The analyses that take no options, each asked for by its flag alone
 
     voronoi = {
         i_option: plain(post_proc[i_keyword])
@@ -330,7 +344,7 @@ def legacy_analyses(post_proc, notes):
         and post_proc[i_keyword]
         != ANALYSES["voronoi"]["options"][i_option]["default"]
     }
-    if post_proc.get("voronoi_analysis"):
+    if post_proc.get(POST_PROC_FLAGS["voronoi"]):
         analyses["voronoi"] = voronoi or True
     else:
         for i_option, i_value in voronoi.items():
@@ -339,7 +353,11 @@ def legacy_analyses(post_proc, notes):
                 "for, is left out".format(VORONOI_OPTION_NAMES[i_option], i_value)
             )
 
-    descriptors = [i_name for i_name in DESCRIPTORS if post_proc.get("stat_" + i_name)]
+    descriptors = [
+        i_name
+        for i_name, i_flag in zip(DESCRIPTORS, STAT_FLAGS)
+        if post_proc.get(i_flag)
+    ]
     seed = post_proc.get("stat_seed")
     if descriptors:
         statistics = {}
