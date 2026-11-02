@@ -4,28 +4,21 @@ tags:
   - Python
 
 authors:
-  - name: Some author
-    orcid: 0000-0000-0000-0000
-    equal-contrib: true
-    affiliation: "1, 2" # (Multiple affiliations must be quoted)
-  - name: Author Without ORCID
-    equal-contrib: true # (This is how you can denote equal contributions between multiple authors)
+  - name: José Luís P. Vila-Chã
+    corresponding: true
+    affiliation: 1
+  - name: João Morais
     affiliation: 2
-  - name: Author with no affiliation
-    corresponding: true # (This is how to denote the corresponding author)
-    affiliation: 3
-  - given-names: Ludwig
-    dropping-particle: van
-    surname: Beethoven
-    affiliation: 3
+  - name: Rui Coelho
+    affiliation: 1
+  - name: Francisco M. Andrade Pires
+    affiliation: "1, 2"
 affiliations:
- - name: Faculty of Engineering, University of Porto, Porto, Portugal
+ - name: Institute of Science and Innovation in Mechanical and Industrial Engineering (INEGI), Porto, Portugal
    index: 1
-   ror: 00hx57361
- - name: Institute of Science and Innovation in Mechanical and Industrial Engineering, Porto, Portugal
+ - name: Faculty of Engineering, University of Porto, Porto, Portugal
    index: 2
- - name: Independent Researcher, Country
-   index: 3
+   ror: 00hx57361
 date: 13 August 2017
 bibliography: paper.bib
 
