@@ -52,23 +52,33 @@ class Specified(ConfigModel):
         }
 
 
-class Normal(ConfigModel):
+class Distribution(ConfigModel):
+    """Model of a descriptor drawn from a distribution, given by its parameters."""
+
+    def options(self, name, kind):
+        """Give the descriptor as the input data file keys it."""
+        return {
+            name + "_distribution": self.distribution,
+            **{
+                "{0}_{1}".format(name, i_parameter): float(i_value)
+                for i_parameter, i_value in self.model_dump(
+                    exclude={"distribution"}
+                ).items()
+            },
+        }
+        # Each parameter keyed by the descriptor's name and its own, in the order the
+        # model declares them
+
+
+class Normal(Distribution):
     """Model of a descriptor drawn from a normal distribution."""
 
     distribution: Literal["normal"]
     mean: float
     sigma: float = pydantic.Field(ge=0)
 
-    def options(self, name, kind):
-        """Give the descriptor as the input data file keys it."""
-        return {
-            name + "_distribution": "normal",
-            name + "_mean": float(self.mean),
-            name + "_sigma": float(self.sigma),
-        }
 
-
-class LogNormal(ConfigModel):
+class LogNormal(Distribution):
     """Model of a descriptor drawn from a lognormal distribution."""
 
     distribution: Literal["lognormal"]
@@ -77,16 +87,8 @@ class LogNormal(ConfigModel):
     # The scale and the shape of scipy's lognormal, which gives no number for either
     # at zero or below
 
-    def options(self, name, kind):
-        """Give the descriptor as the input data file keys it."""
-        return {
-            name + "_distribution": "lognormal",
-            name + "_mean": float(self.mean),
-            name + "_sigma": float(self.sigma),
-        }
 
-
-class Uniform(ConfigModel):
+class Uniform(Distribution):
     """Model of a descriptor drawn from a uniform distribution."""
 
     distribution: Literal["uniform"]
@@ -105,31 +107,14 @@ class Uniform(ConfigModel):
 
         return self
 
-    def options(self, name, kind):
-        """Give the descriptor as the input data file keys it."""
-        return {
-            name + "_distribution": "uniform",
-            name + "_low": float(self.low),
-            name + "_high": float(self.high),
-        }
 
-
-class VonMises(ConfigModel):
+class VonMises(Distribution):
     """Model of a descriptor drawn from a von Mises distribution."""
 
     distribution: Literal["vonmises"]
     kappa: float = pydantic.Field(gt=0)
     loc: float
     scale: float = pydantic.Field(gt=0)
-
-    def options(self, name, kind):
-        """Give the descriptor as the input data file keys it."""
-        return {
-            name + "_distribution": "vonmises",
-            name + "_kappa": float(self.kappa),
-            name + "_loc": float(self.loc),
-            name + "_scale": float(self.scale),
-        }
 
 
 class Discrete(ConfigModel):
