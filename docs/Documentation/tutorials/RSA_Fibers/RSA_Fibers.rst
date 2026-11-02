@@ -43,7 +43,13 @@ The fibers have a fixed radius of 0.05 and a volume fraction of 0.3. They are al
 Generation Method
 =================
 
-This example uses a Random Sequential Adsorption simulation to generate the microstructure. The maximum number of iterations is 10000, the speed up scheme used is Cell and a minimum distance of 0.002 between particles is imposed.
+Since the fibers are long and all aligned along the same direction, the simulation is done in 2D: each fiber is a circle in the cross-section perpendicular to the fiber direction. Once the simulation has finished, the circles are extruded along the fiber direction to obtain the cylindrical fibers.
+
+This example uses a Random Sequential Adsorption simulation to generate the microstructure. In a given simulation step, this method places a new particle in a random position inside the simulation box. If the new particle does not overlap with any particle already in the simulation box, it is accepted, otherwise it is rejected.
+The speed up scheme used is Cell and a minimum distance of 0.002 between particles is imposed.
+The maximum number of iterations, 10000, is significantly larger than the number used for MD simulations in the previous tutorials. This is beacuse RSA simulations take more, but faster, iterations than MD simulations.
+
+
 
 
 Output files
