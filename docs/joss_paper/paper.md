@@ -22,22 +22,12 @@ affiliations:
  - name: Faculty of Engineering, University of Porto, Porto, Portugal
    index: 1
    ror: 00hx57361
- - name: Institute of Science and Innovation in Mechanical and Industrial Engineering, Porto, Portugal 
+ - name: Institute of Science and Innovation in Mechanical and Industrial Engineering, Porto, Portugal
    index: 2
  - name: Independent Researcher, Country
    index: 3
 date: 13 August 2017
 bibliography: paper.bib
-
-# Optional fields for papers that are part of a joint submission.
-# For example, submitting to a AAS journal too, see this blog post:
-# https://blog.joss.theoj.org/2018/12/a-new-collaboration-with-aas-publishing
-#
-# If you are not making a joint submission you should remove these lines.
-#
-#aas-doi: 10.3847/xxxxx <- update this with the DOI from AAS once you know it.
-#aas-journal: Astrophysical Journal <- The name of the AAS journal.
-
 
 # Note: the outline of this paper was copied from the JOSS example paper. To be changed later.
 
@@ -45,10 +35,10 @@ bibliography: paper.bib
 
 # Statement of need
 
-The understanding of the behaviour of complex materials is fundamental to use them in the limits of their capabilities, whether the material is natural and traditional, such as wood and soils, or modern synthetics, as is a fiber reinforced polymer, for example. These complex materials often are heterogeneous, as is nearly every material at a small enough scale. 
+The understanding of the behaviour of complex materials is fundamental to use them in the limits of their capabilities, whether the material is natural and traditional, such as wood and soils, or modern synthetics, as is a fiber reinforced polymer, for example. These complex materials often are heterogeneous, as is nearly every material at a small enough scale.
 An important class of heterogeneous materials is particle reinforced composites. These advanced engineering materials can be found in a number of applications, such as aerospace, aircraft and automotive industries, microelectronics, household applications and many more.
 
-Simulating an entire structural part considering all its heterogeneities, often very small comparative to the part size, can be very time consuming and extremely impractical.
+Simulating an entire structural part considering all its heterogeneities, often very small compared to the part size, can be very time consuming and extremely impractical.
 Thus, a multiscale approach emerged, where if one knows the microstructural features of the material:
 
 1. the properties of the constituents,
@@ -63,7 +53,7 @@ It can also facilitate machine learning based material design, since it can gene
 
 GMMD is, thus, an open-source Python tool built to generate microstructures of particle reinforced materials.
 It is capable of handling diverse particles (or voids) across both two- and three-dimensional domains (disks, ellipses, squares, spheres, ellipsoids, fibers, and cylinders), supporting variable RVE sizes and numerous microstructure descriptors following different statistical distributions.
-The generation of the microstructure is not based on the physical process of which it arose, it is purely geometric. GMMD can, for now, use one of two methods for generating the RVE: molecular dynamics (MD) and random sequential addition (RSA). In a general sense, MD proves to be faster for large volume fractions, and RSA faster for smaller volume fraction.
+The generation of the microstructure is not based on the physical process of which it arose, it is purely geometric. GMMD can, for now, use one of two methods for generating the RVE: molecular dynamics (MD) and random sequential adsorption (RSA). In a general sense, MD proves to be faster for large volume fractions, and RSA faster for smaller volume fractions.
 GMMD can export the final microstructure configuration (PDF for 2D, VTK for 2D and 3D) and can generate 2D simulation GIFs. It also includes built-in tools for performing statistical analyses on the microstructure, such as:
 
 - statistical descriptors (2-point correlation function, Ripley's K function, ...) and
@@ -77,15 +67,14 @@ After the generation procedure, the RVE can be discretized in a suitable finite 
 
 
 GMMD is part of an ecosystem of open source microstructure generators.
-Neper [@Neper2011; @Neper2018], for instance, generates polycrystalline microstructures via Laguerre tessellations. The seed positions and weights for tesselation are adjusted via an optimization algorithm until the resulting tesselation converges to the desired morphology.
-Kanapy [@Kanapy2019], also taylored for polycrystalline microstructures,  generates microstructures via collision driven particle dynamics.
+Neper [@Neper2011; @Neper2018], for instance, generates polycrystalline microstructures via Laguerre tessellations. The seed positions and weights for tessellation are adjusted via an optimization algorithm until the resulting tessellation converges to the desired morphology.
+Kanapy [@Kanapy2019], also tailored for polycrystalline microstructures, generates microstructures via collision driven particle dynamics.
 Albeit not primarily designed for microstructure generation, PoreSpy [@gostick2019porespy] is tailored for porous materials.
-Lastly, MicroStrucPy [@hart2020microstructpy] generates microstructures via packing geometries (with controled overlap), approximating them by multi-circles and them using them as seeds to tesselate the domain. It is suitable for polycristaline materials while also handling porous and particle reinforced materials.
+Lastly, MicroStructPy [@hart2020microstructpy] generates microstructures via packing geometries (with controlled overlap), approximating them by multi-circles and then using them as seeds to tessellate the domain. It is suitable for polycrystalline materials while also handling porous and particle reinforced materials.
 
-GMMD is unique in that it generates microstructures for particle reinforced materials, it supports a broad library of particle shapes and its architecture allows for easy integration of new ones and can use time driven molecular dynamics or random sequentian adsorption as the generation method, not making use of tesselation nor optimization.
+GMMD is unique in that it generates microstructures for particle reinforced materials, it supports a broad library of particle shapes and its architecture allows for easy integration of new ones and can use time-driven molecular dynamics or random sequential adsorption as the generation method, not making use of tesselation nor optimization.
 
-For more information on how to use and/or contribute to this code, visit our documentation and  repository.
-<!-- A documentação não está feita-->
+For more information on how to use and/or contribute to this code, visit our documentation and repository.
 
 
 <!--
@@ -108,9 +97,9 @@ Incluir imagem de uma microestrutura?
 
 # AI usage disclosure
 
-The code was first built in 2020, when generative AI tools where not mainstream. In this period, no AI was used.
-Upwards of 2025, AI was used to haste the writting of the code, albeit not having a part in its core logic.
-For writting the manuscript, the authors used generative AI tools only to check spelling and grammar.
+The code was first built in 2020, when generative AI tools were not mainstream. In this period, no AI was used.
+Upwards of 2025, AI was used to haste the writing of the code, albeit not having a part in its core logic.
+For writing the manuscript, the authors used generative AI tools only to check spelling and grammar.
 
 # Acknowledgements
 
