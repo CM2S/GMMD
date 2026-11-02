@@ -352,7 +352,10 @@ class TestMicrostructureFileDescriptors(unittest.TestCase):
         with open(self.file_path) as json_file:
             document = json.load(json_file)
         for i_record, i_problem in (
-            ({"distribution": "normal", "mean": 0.1, "sigma": -0.01}, "sigma is -0.01"),
+            (
+                {"distribution": "normal", "mean": 0.1, "sigma": -0.01},
+                r"sigma: Input should be greater than or equal to 0 \(given -0.01\)",
+            ),
             ({"distribution": "uniform", "low": 0.2, "high": 0.1}, "the lower bound"),
             (
                 {"distribution": "discrete", "values": [0.1, 0.2],
