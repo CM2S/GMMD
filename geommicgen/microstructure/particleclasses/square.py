@@ -209,7 +209,9 @@ class Square(Particle):
             point, self.position_center, box
         )
         point_in = (
-            (np.array(self.position_center) - np.array(point_nearest_pbc))[0] <= self.side / 2 and (np.array(self.position_center) - np.array(point_nearest_pbc))[1]<= self.side / 2 
+            abs( (np.array(self.position_center) - np.array(point_nearest_pbc))[0] ) <= self.side / 2
+            and
+            abs( (np.array(self.position_center) - np.array(point_nearest_pbc))[1] ) <= self.side / 2 
         )
         
         return point_in
