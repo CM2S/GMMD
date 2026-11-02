@@ -70,7 +70,7 @@ class TestExamples(unittest.TestCase):
 
     def test_the_two_dimensional_example(self):
         sample = self.run_example(
-            "2D_example_ellipses_vf_50_n_10",
+            "2D_example_ellipses_vf_50_n_100",
             {
                 ("phases", 1, "n"): 10,
                 ("phases", 1, "vf"): 0.2,

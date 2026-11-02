@@ -17,9 +17,8 @@ from geommicgen.microstructure.phase import Phase, FixedValue, NormalDistributio
 from geommicgen.microstructure.particleclasses import Matrix, Ellipse
 
 _TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
-_GEOMMICGEN_DIR = os.path.dirname(_TESTS_DIR)
 ELLIPSE_EXAMPLE_PATH = os.path.join(
-    _GEOMMICGEN_DIR, "resources", "examples", "2D_example_ellipses_vf_50_n_10.mdsim"
+    _TESTS_DIR, "fixtures", "decks", "2D_example_ellipses_vf_50_n_100.mdsim"
 )
 
 
