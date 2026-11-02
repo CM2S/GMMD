@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from geommicgen._optional import has_gmsh
-from geommicgen.iofuncs.keywords import Keyword
+from geommicgen.iofuncs.legacy_deck import Keyword
 from geommicgen.pipeline import (
     MeshJob,
     build_mesh_jobs,
@@ -124,7 +124,7 @@ class TestBuildMeshJobs(unittest.TestCase):
                     }
                 }
             )
-        self.assertIn("File_Name", str(context.exception))
+        self.assertIn("file_name", str(context.exception))
         self.assertIn("2", str(context.exception))
         # Every resolution would otherwise be written over the one before it
 

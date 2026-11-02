@@ -124,6 +124,7 @@ class LinksWriter(SolverWriter):
         },
         "Boundary_Type": {
             "type": "str",
+            "default": DEFAULT_BOUNDARY_TYPE,
             "help": "RVE constraint the example input file asks for; naming one that "
             "ties faces which do not match is how a mesh that is not periodic is "
             "written out",

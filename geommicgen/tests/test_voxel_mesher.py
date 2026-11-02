@@ -254,6 +254,27 @@ class TestVoxelMesherMesh(unittest.TestCase):
         )
         self.assertEqual(reported, [(0, 1)])
 
+    def test_a_fibre_is_its_disk_in_every_layer_along_it(self):
+        rve_dims = [1.0, 1.0, 1.0]
+        centers = (np.arange(8) + 0.5) / 8
+        for i_direction in (0, 1, 2):
+            with self.subTest(direction=i_direction):
+                particle = CylindricalFiber(
+                    "2", {"r": 0.2, "direction": i_direction}, rve_dims
+                )
+                particle.position_center = np.array([0.25, 0.6])
+                grid = VoxelMesher([8, 8, 8]).mesh(
+                    build_microstructure(rve_dims, CylindricalFiber, [particle])
+                ).structured.phase_grid
+                across_1, across_2 = np.meshgrid(centers, centers, indexing="ij")
+                disk = np.hypot(across_1 - 0.25, across_2 - 0.6) <= 0.2
+                for i_layer in range(8):
+                    layer = np.take(grid, i_layer, axis=i_direction)
+                    np.testing.assert_array_equal(layer == 2, disk)
+        # A fibre is the disk across it in every layer along it. The centre is off the
+        # middle of the plane, and not on its diagonal, so a fibre stamped along the
+        # wrong axis, or with the two across it swapped, does not match
+
 
 class TestVoxelMesherErrors(unittest.TestCase):
     """Test class for the microstructures and the grids the voxel mesher refuses."""
@@ -273,15 +294,6 @@ class TestVoxelMesherErrors(unittest.TestCase):
         microstructure.add_phase(Phase.from_type("2", Disk))
         with self.assertRaises(ValueError):
             VoxelMesher([8, 8]).mesh(microstructure)
-
-    def test_cylindrical_fibres(self):
-        rve_dims = [1.0, 1.0, 1.0]
-        particle = CylindricalFiber("2", {"r": 0.2, "direction": 2}, rve_dims)
-        particle.position_center = np.array([0.5, 0.5, 0.5])
-        microstructure = build_microstructure(rve_dims, CylindricalFiber, [particle])
-        with self.assertRaisesRegex(ValueError, "Cylindrical fibres"):
-            VoxelMesher([8, 8, 8]).mesh(microstructure)
-        # Refused with a reason, where the stamp stopped with an error about shapes
 
 
 class TestVoxelMesherFromOptions(unittest.TestCase):

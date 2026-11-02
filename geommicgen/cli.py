@@ -29,12 +29,7 @@ from geommicgen.pipeline import (
 )
 from geommicgen.meshing.mesher import available_meshers, get_mesher, mesher_options
 from geommicgen.meshing.writers import read_mesh
-from geommicgen.postproc.options import (
-    ANALYSES,
-    ANALYSIS_GROUPS,
-    ANALYSIS_OPTIONS,
-    with_defaults,
-)
+from geommicgen.postproc.options import ANALYSES, post_proc_options
 from geommicgen.translators.base import available_writers, get_writer, writer_options
 
 
@@ -205,6 +200,96 @@ def writer_arguments(parser):
 def declared_options(arguments, options):
     """Collect the declared arguments the way the input data file keys them."""
     return {i_name.lower(): getattr(arguments, i_name.lower()) for i_name in options}
+
+
+def analysis_option_flag(analysis, option):
+    """Give the argument of an option of an analysis, named after both."""
+    return "--{0}-{1}".format(analysis, option).replace("_", "-")
+
+
+def add_analysis_arguments(parser):
+    """
+    Add an argument for each analysis, and one for each of its options.
+
+    Parameters
+    ----------
+    parser: argparse.ArgumentParser
+        Parser to add them to.
+    """
+    group = parser.add_argument_group("the analyses to run")
+    for i_name, i_declared in ANALYSES.items():
+        group.add_argument(
+            "--" + i_name.replace("_", "-"),
+            action="store_true",
+            help=i_declared["help"],
+        )
+    for i_name, i_declared in ANALYSES.items():
+        if not i_declared["options"]:
+            continue
+        group = parser.add_argument_group("options of the {0} analysis".format(i_name))
+        for j_name, j_description in i_declared["options"].items():
+            kwargs = dict(ARGUMENT_KWARGS[j_description["type"]])
+            if j_description["type"] == "str" and "choices" in j_description:
+                kwargs["choices"] = j_description["choices"]
+            elif j_description["type"] != "bool":
+                kwargs.setdefault("metavar", j_name.upper())
+            group.add_argument(
+                analysis_option_flag(i_name, j_name),
+                dest="{0}__{1}".format(i_name, j_name),
+                help=j_description["help"],
+                **kwargs,
+            )
+    # Named as the analyses section of an input file names them, the option after its
+    # analysis: --voronoi --voronoi-type set is voronoi: {type: set}
+
+
+def asked_analyses(parser, arguments):
+    """
+    Collect the analyses the arguments ask for, ending the program on one it refuses.
+
+    Parameters
+    ----------
+    parser: argparse.ArgumentParser
+        Parser to report through.
+
+    arguments: argparse.Namespace
+        The arguments, as `add_analysis_arguments` added them.
+
+    Returns
+    -------
+    dict
+        Each analysis asked for by its name, with the options given for it.
+    """
+    asked = {}
+    for i_name, i_declared in ANALYSES.items():
+        given = {}
+        for j_name, j_description in i_declared["options"].items():
+            value = getattr(arguments, "{0}__{1}".format(i_name, j_name))
+            if value is None:
+                continue
+            unknown = []
+            if j_description["type"] == "str_list" and "choices" in j_description:
+                unknown = sorted(set(value) - set(j_description["choices"]))
+            if unknown:
+                parser.error(
+                    "{0}: {1} is not one of {2}".format(
+                        analysis_option_flag(i_name, j_name),
+                        ", ".join(unknown),
+                        ", ".join(j_description["choices"]),
+                    )
+                )
+            given[j_name] = value
+        if getattr(arguments, i_name):
+            asked[i_name] = given
+        elif given:
+            flags = [analysis_option_flag(i_name, j_name) for j_name in given]
+            parser.error(
+                "{0} configures the {1} analysis, which was not asked for; give "
+                "--{1} as well".format(" and ".join(flags), i_name)
+            )
+    # An option of an analysis not asked for is refused, where it would go unread
+
+    return asked
 
 
 def add_output_arguments(parser, default=".", where="directory to write into"):
@@ -627,13 +712,7 @@ def analyze_command(argv=None):
         help="microstructure file to be analysed; the state of the run that produced "
         "it is read from md_state.npz beside it, when an analysis needs it",
     )
-    add_grouped_arguments(
-        parser,
-        [
-            (i_title, {i_name: ANALYSIS_OPTIONS[i_name] for i_name in i_names})
-            for i_title, i_names in ANALYSIS_GROUPS
-        ],
-    )
+    add_analysis_arguments(parser)
     parser.add_argument(
         "-o",
         "--output-dir",
@@ -643,13 +722,14 @@ def analyze_command(argv=None):
     arguments = parser.parse_args(argv)
     # No --name: the analyses name their own directories and files
 
-    options = with_defaults(declared_options(arguments, ANALYSIS_OPTIONS))
-    if not any(options[i_name] for i_name in ANALYSES):
+    asked = asked_analyses(parser, arguments)
+    if not asked:
         parser.error(
             "no analysis was asked for; give at least one of {0}".format(
                 ", ".join("--" + i_name.replace("_", "-") for i_name in ANALYSES)
             )
         )
+    options = post_proc_options(asked)
 
     from geommicgen.iofuncs.md_state import STATE_FILE_NAME, load_md_state
     from geommicgen.iofuncs.microstructure_file import read_microstructure_file

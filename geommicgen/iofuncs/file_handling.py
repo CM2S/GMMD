@@ -113,15 +113,19 @@ def parse_arguments(argv=None):
     Returns
     -------
     argparse.Namespace
-        The arguments: *input_file*, the input data file.
+        The arguments: *input_file*, the input file.
     """
     parser = argparse.ArgumentParser(
         prog="geommicgen",
-        description="Generate a set of microstructures from an input data file, and "
-        "mesh and analyse each one as the file asks. A microstructure generated "
-        "earlier is meshed with geommicgen-mesh and analysed with geommicgen-analyze.",
+        description="Generate a set of microstructures from an input file, and mesh "
+        "and analyse each one as the file asks. A microstructure generated earlier is "
+        "meshed with geommicgen-mesh and analysed with geommicgen-analyze.",
     )
-    parser.add_argument("input_file", help="input data file (.mdsim)")
+    parser.add_argument(
+        "input_file",
+        help="input file (.yaml), or a deck of the keyword format (.mdsim), which "
+        "geommicgen-convert-deck turns into one",
+    )
 
     return parser.parse_args(argv)
 

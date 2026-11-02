@@ -404,8 +404,8 @@ def build_mesh_jobs(mesh_options, deck_name=None):
         file_name = i_options.get("file_name")
         if file_name and len(meshers) > 1:
             raise ValueError(
-                "File_Name {0} would be given to each of the {1} discretisations asked "
-                "for under {2} ({3}), so each would be written over the one before. "
+                "file_name {0} would be given to each of the {1} meshes asked for "
+                "under {2} ({3}), so each would be written over the one before. "
                 "Remove it and they are named {4} instead.".format(
                     file_name,
                     len(meshers),

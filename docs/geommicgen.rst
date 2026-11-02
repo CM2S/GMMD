@@ -11,6 +11,7 @@ Subpackages
 
 .. toctree::
 
+    geommicgen.config
     geommicgen.errors
     geommicgen.iofuncs
     geommicgen.meshing
@@ -28,4 +29,5 @@ Submodules
    geommicgen.app
    geommicgen.cli
    geommicgen.pipeline
+   geommicgen.provenance
 

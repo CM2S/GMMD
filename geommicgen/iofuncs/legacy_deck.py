@@ -1,11 +1,10 @@
 """
-Module containg the Keyword class used for input.
+Module reading the input data files of the keyword format, which the YAML one replaces.
 
-This module defines the Keyword class and its subclasses and the TopLevelReader class. These
-are used to read the input file. A single TopLevelReader instance is created as a module
-level variable containing all the allowed Keywords.
-
-TO ADD A POSSIBLE KEYWORD, ADD IT TO THE INSTANCE OF THE TopLevelReader.
+This module defines the Keyword class and its subclasses and the TopLevelReader class,
+which read a deck into the options the rest of the package was built from. It is kept
+for the decks written before the YAML format, which `read_legacy_deck` reads and the
+converter turns into input files; nothing else reads it.
 """
 
 import numpy as np
@@ -13,9 +12,6 @@ import numpy as np
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 import geommicgen.microstructure.particleclasses as part_cls
-from geommicgen.meshing.mesher import available_meshers, get_mesher
-from geommicgen.postproc.options import ANALYSIS_OPTIONS
-from geommicgen.translators import writer_options
 import geommicgen.microstructure.phase as phase
 
 
@@ -528,241 +524,298 @@ def generate_all_possible_keywords_from_particle_attributes():
     return keyword_set
 
 
-top_level_reader = TopLevelReader()
-
-# Generation parameters
-# ------------------------------------------------------------------------------------------
-top_level_reader.add_top_level_keyword(
-    KeywordTypeA("Max_Residue_Per_Particle", "Mic_Gen_Parameters", type_str="float"),
-    KeywordTypeA("Max_Step", "Mic_Gen_Parameters", type_str="int"),
-    KeywordTypeA(
-        "Max_Steps_To_Relax",
-        "Mic_Gen_Parameters",
-        default_value=0,
-        type_str="int",
-    ),
-    KeywordTypeA(
-        "Speed_Up_Scheme",
-        "Mic_Gen_Parameters",
-        default_value="Cell",
-        type_str="str",
-    ),
-    KeywordTypeA(
-        "Verlet_Factor",
-        "Mic_Gen_Parameters",
-        type_str="float",
-    ),
-    KeywordTypeA(
-        "dt",
-        "Mic_Gen_Parameters",
-        default_value=0.05,
-        type_str="float",
-    ),
-    KeywordTypeA(
-        "Save_History",
-        "Mic_Gen_Parameters",
-        default_value=False,
-        type_str="bool",
-    ),
-    KeywordTypeA(
-        "Type_Initial_Configuration",
-        "Mic_Gen_Parameters",
-        default_value="random",
-        type_str="str",
-    ),
-    KeywordTypeA(
-        "Thermostat",
-        "Mic_Gen_Parameters",
-        default_value="multi_temperature",
-        type_str="str",
-    ),
-    KeywordTypeA(
-        "Min_Distance",
-        "Mic_Gen_Parameters",
-        default_value=0,
-        type_str="float",
-    ),
-    KeywordTypeA(
-        "Initial_Temp",
-        "Mic_Gen_Parameters",
-        default_value=None,
-        type_str="float",
-    ),
-    KeywordTypeA(
-        "initial_vel_coeff",
-        "Mic_Gen_Parameters",
-        default_value=0.1,
-        type_str="float",
-    ),
-    KeywordTypeA(
-        "Min_Eq_Steps_At_Temp",
-        "Mic_Gen_Parameters",
-        default_value=25,
-        type_str="int",
-    ),
-    KeywordTypeA(
-        "final_overlap_check",
-        "Mic_Gen_Parameters",
-        default_value=False,
-        type_str="bool",
-    ),
-    KeywordTypeA(
-        "Lowering_Temp_Criterion",
-        "Mic_Gen_Parameters",
-        default_value="ratio_in_out",
-        type_str="str",
-    ),
-    KeywordTypeA(
-        "Average_Window",
-        "Mic_Gen_Parameters",
-        default_value=25,
-        type_str="int",
-    ),
-    KeywordTypeA(
-        "Damping_Coeff",
-        "Mic_Gen_Parameters",
-        default_value=0,
-        type_str="float",
-    ),
-    KeywordTypeA(
-        "Particle_Mass_Opt",
-        "Mic_Gen_Parameters",
-        default_value="radius",
-        type_str="str",
-    ),
-    KeywordTypeA(
-        "Force_Option",
-        "Mic_Gen_Parameters",
-        default_value="intersection_length",
-        type_str="str",
-    ),
-    KeywordTypeA(
-        "Berendsen_Coeff",
-        "Mic_Gen_Parameters",
-        default_value=1e-2,
-        type_str="float",
-    ),
-    KeywordTypeA(
-        "Force_Rescale",
-        "Mic_Gen_Parameters",
-        default_value=False,
-        type_str="bool",
-    ),
-    KeywordTypeA(
-        "Max_Ratio_Osc",
-        "Mic_Gen_Parameters",
-        default_value=2,
-        type_str="int",
-    ),
-    KeywordTypeA(
-        "dt_adapt",
-        "Mic_Gen_Parameters",
-        default_value=True,
-        type_str="bool",
-    ),
-    KeywordTypeA(
-        "temp_low_ratio",
-        "Mic_Gen_Parameters",
-        default_value=1 / 4,
-        type_str="float",
-    ),
-    KeywordTypeA(
-        "offset",
-        "Mic_Gen_Parameters",
-        default_value=True,
-        type_str="bool",
-    ),
-    KeywordTypeA(
-        "fixed_seed",
-        "Mic_Gen_Parameters",
-        default_value=None,
-        type_str="int",
-    ),
-    KeywordTypeA("RVE_Dimensions", "Mic_Gen_Parameters", type_str="float"),
-)
-
-# Post Processing
-# ------------------------------------------------------------------------------------------
-top_level_reader.add_top_level_keyword(
-    *(
-        KeywordTypeA(
-            i_name,
-            "post_proc",
-            default_value=i_description["default"],
-            type_str=i_description["type"],
-        )
-        for i_name, i_description in ANALYSIS_OPTIONS.items()
-    )
-)
-# One keyword per analysis option, from the declaration the analysis command is built
-# from as well, so that a deck and the command ask for an analysis the same way
-
-# General keywords
-# ------------------------------------------------------------------------------------------
-top_level_reader.add_top_level_keyword(
-    KeywordTypeB("Problem_Type", type_str="int"),
-    KeywordTypeB("N_DP_Samples", type_str="int"),
-    KeywordTypeB("save_min", type_str="bool", default_value=False),
-)
-
-# Phase descriptors
-# ------------------------------------------------------------------------------------------
-top_level_reader.add_top_level_keyword(
-    KeywordTypeC(
-        "Mic_Gen_Descriptors",
-        header_keys={Keyword("Phase")},
-        sub_keys={
-            "Phase": {
-                Keyword("Phase_Type", type_str="int"),
-                Keyword("inner_phase", type_str="bool"),
-                Keyword("outer_phase", type_str="int"),
-                *generate_all_possible_keywords_from_particle_attributes(),
-            }
-        },
-    )
-)
-
-# Mesh generation parameters
-# ------------------------------------------------------------------------------------------
-JOB_KEYWORDS = {Keyword("File_Name", type_str="str")}
-# The options of a discretisation that belong to neither what discretises it nor the
-# formats it is written in, but to the files as such
-
-FORMAT_KEYWORDS = {
-    Keyword("Formats", type_str="str_list"),
-} | {
-    Keyword(i_name, type_str=i_description["type"])
-    for i_name, i_description in writer_options().items()
-}
-# The options of a discretisation that belong to the formats it is written in, rather
-# than to what discretises it. The ones a format declares are read here without this
-# module knowing which format declared them, so writing a new one that takes an option
-# is a change to that writer alone
-
-
-def mesher_keywords(mesher_name):
-    """Keywords for the options a mesher declares, the way the formats declare theirs."""
-    return {
-        Keyword(i_name, type_str=i_description["type"])
-        for i_name, i_description in get_mesher(mesher_name).options.items()
-    }
-
-
-OLD_MESHER_NAMES = {"femsh": "gmsh", "rgmsh": "voxel"}
+LEGACY_MESHERS = {"femsh": "gmsh", "rgmsh": "voxel"}
 # The names the meshers were asked for by before they were asked for by their own, which
 # a deck written then still gives
 
-top_level_reader.add_top_level_keyword(
-    KeywordTypeC(
-        "Mesh_Options",
-        header_keys={Keyword(i_name, type_str="none") for i_name in available_meshers()},
-        sub_keys={
-            i_name: mesher_keywords(i_name) | FORMAT_KEYWORDS | JOB_KEYWORDS
-            for i_name in available_meshers()
-        },
-        renamed_headers=OLD_MESHER_NAMES,
+MESHER_KEYWORDS = {
+    "gmsh": {
+        "Mesh_Size": "float",
+        "Elements_Per_Particle": "float",
+        "Element_Type": "str",
+    },
+    "voxel": {"N_Voxels_Dims": "int_list"},
+}
+# The options of each mesher a deck gives, by keyword and the type it is read as
+
+DISCRETISATION_KEYWORDS = {
+    "Formats": "str_list",
+    "File_Name": "str",
+    "Periodic_Constraints": "bool",
+    "Gauss_Points": "int",
+    "Boundary_Type": "str",
+}
+# The options of a discretisation that belong to the formats it is written in and to its
+# files, which a deck gives under either mesher
+
+ANALYSIS_KEYWORDS = {
+    "final_config": ("bool", False),
+    "motion_analysis": ("bool", False),
+    "voronoi_analysis": ("bool", False),
+    "voronoi_type": ("str", "standard"),
+    "n_surf_points": ("int", 10),
+    "plot_voronoi": ("bool", False),
+    "plot_imts": ("bool", False),
+    "stat_nearest_neighbor": ("bool", False),
+    "stat_ripleys_k": ("bool", False),
+    "stat_two_pt_corr": ("bool", False),
+    "stat_seed": ("int", None),
+}
+# The analyses a deck asks for, by keyword, with the type each is read as and the value
+# it has when the deck does not give it
+
+# The keywords of the meshes and the analyses as they were when the input file replaced
+# the format, which is all a deck can give. They were built from what the meshers, the
+# formats and the analyses declare; an option one of them declares later is given in an
+# input file, and the reader of decks does not follow it
+
+
+def build_reader():
+    """
+    Build a reader of decks, which has read none.
+
+    The reader keeps the value of every keyword it reads, and gives the ones a deck
+    leaves out the values an earlier deck gave them, so each deck is read by a reader
+    of its own.
+
+    Returns
+    -------
+    `.TopLevelReader`
+        The reader, holding the default of every keyword that has one.
+    """
+    top_level_reader = TopLevelReader()
+
+    # Generation parameters
+    # ----------------------------------------------------------------------------------
+    top_level_reader.add_top_level_keyword(
+        KeywordTypeA(
+            "Max_Residue_Per_Particle", "Mic_Gen_Parameters", type_str="float"
+        ),
+        KeywordTypeA("Max_Step", "Mic_Gen_Parameters", type_str="int"),
+        KeywordTypeA(
+            "Max_Steps_To_Relax",
+            "Mic_Gen_Parameters",
+            default_value=0,
+            type_str="int",
+        ),
+        KeywordTypeA(
+            "Speed_Up_Scheme",
+            "Mic_Gen_Parameters",
+            default_value="Cell",
+            type_str="str",
+        ),
+        KeywordTypeA(
+            "Verlet_Factor",
+            "Mic_Gen_Parameters",
+            type_str="float",
+        ),
+        KeywordTypeA(
+            "dt",
+            "Mic_Gen_Parameters",
+            default_value=0.05,
+            type_str="float",
+        ),
+        KeywordTypeA(
+            "Save_History",
+            "Mic_Gen_Parameters",
+            default_value=False,
+            type_str="bool",
+        ),
+        KeywordTypeA(
+            "Type_Initial_Configuration",
+            "Mic_Gen_Parameters",
+            default_value="random",
+            type_str="str",
+        ),
+        KeywordTypeA(
+            "Thermostat",
+            "Mic_Gen_Parameters",
+            default_value="multi_temperature",
+            type_str="str",
+        ),
+        KeywordTypeA(
+            "Min_Distance",
+            "Mic_Gen_Parameters",
+            default_value=0,
+            type_str="float",
+        ),
+        KeywordTypeA(
+            "Initial_Temp",
+            "Mic_Gen_Parameters",
+            default_value=None,
+            type_str="float",
+        ),
+        KeywordTypeA(
+            "initial_vel_coeff",
+            "Mic_Gen_Parameters",
+            default_value=0.1,
+            type_str="float",
+        ),
+        KeywordTypeA(
+            "Min_Eq_Steps_At_Temp",
+            "Mic_Gen_Parameters",
+            default_value=25,
+            type_str="int",
+        ),
+        KeywordTypeA(
+            "final_overlap_check",
+            "Mic_Gen_Parameters",
+            default_value=False,
+            type_str="bool",
+        ),
+        KeywordTypeA(
+            "Lowering_Temp_Criterion",
+            "Mic_Gen_Parameters",
+            default_value="ratio_in_out",
+            type_str="str",
+        ),
+        KeywordTypeA(
+            "Average_Window",
+            "Mic_Gen_Parameters",
+            default_value=25,
+            type_str="int",
+        ),
+        KeywordTypeA(
+            "Damping_Coeff",
+            "Mic_Gen_Parameters",
+            default_value=0,
+            type_str="float",
+        ),
+        KeywordTypeA(
+            "Particle_Mass_Opt",
+            "Mic_Gen_Parameters",
+            default_value="radius",
+            type_str="str",
+        ),
+        KeywordTypeA(
+            "Force_Option",
+            "Mic_Gen_Parameters",
+            default_value="intersection_length",
+            type_str="str",
+        ),
+        KeywordTypeA(
+            "Berendsen_Coeff",
+            "Mic_Gen_Parameters",
+            default_value=1e-2,
+            type_str="float",
+        ),
+        KeywordTypeA(
+            "Force_Rescale",
+            "Mic_Gen_Parameters",
+            default_value=False,
+            type_str="bool",
+        ),
+        KeywordTypeA(
+            "Max_Ratio_Osc",
+            "Mic_Gen_Parameters",
+            default_value=2,
+            type_str="int",
+        ),
+        KeywordTypeA(
+            "dt_adapt",
+            "Mic_Gen_Parameters",
+            default_value=True,
+            type_str="bool",
+        ),
+        KeywordTypeA(
+            "temp_low_ratio",
+            "Mic_Gen_Parameters",
+            default_value=1 / 4,
+            type_str="float",
+        ),
+        KeywordTypeA(
+            "offset",
+            "Mic_Gen_Parameters",
+            default_value=True,
+            type_str="bool",
+        ),
+        KeywordTypeA(
+            "fixed_seed",
+            "Mic_Gen_Parameters",
+            default_value=None,
+            type_str="int",
+        ),
+        KeywordTypeA("RVE_Dimensions", "Mic_Gen_Parameters", type_str="float"),
     )
-)
-# One header per registered mesher, under its own name, each reading the options that
-# mesher declares: a mesher that is registered is asked for here without this module
-# naming it, as a format is. A mesher given under its old name is read under its own
+
+    # Post Processing
+    # ----------------------------------------------------------------------------------
+    top_level_reader.add_top_level_keyword(
+        *(
+            KeywordTypeA(
+                i_name, "post_proc", default_value=i_default, type_str=i_type
+            )
+            for i_name, (i_type, i_default) in ANALYSIS_KEYWORDS.items()
+        )
+    )
+
+    # General keywords
+    # ----------------------------------------------------------------------------------
+    top_level_reader.add_top_level_keyword(
+        KeywordTypeB("Problem_Type", type_str="int"),
+        KeywordTypeB("N_DP_Samples", type_str="int"),
+        KeywordTypeB("save_min", type_str="bool", default_value=False),
+    )
+
+    # Phase descriptors
+    # ----------------------------------------------------------------------------------
+    top_level_reader.add_top_level_keyword(
+        KeywordTypeC(
+            "Mic_Gen_Descriptors",
+            header_keys={Keyword("Phase")},
+            sub_keys={
+                "Phase": {
+                    Keyword("Phase_Type", type_str="int"),
+                    Keyword("inner_phase", type_str="bool"),
+                    Keyword("outer_phase", type_str="int"),
+                    *generate_all_possible_keywords_from_particle_attributes(),
+                }
+            },
+        )
+    )
+
+    # Mesh generation parameters
+    # ----------------------------------------------------------------------------------
+    discretisation = {
+        Keyword(i_name, type_str=i_type)
+        for i_name, i_type in DISCRETISATION_KEYWORDS.items()
+    }
+    sub_keys = {
+        i_mesher: discretisation
+        | {Keyword(j_name, type_str=j_type) for j_name, j_type in i_options.items()}
+        for i_mesher, i_options in MESHER_KEYWORDS.items()
+    }
+    top_level_reader.add_top_level_keyword(
+        KeywordTypeC(
+            "Mesh_Options",
+            header_keys={Keyword(i_name, type_str="none") for i_name in sub_keys},
+            sub_keys=sub_keys,
+            renamed_headers=LEGACY_MESHERS,
+        )
+    )
+    # One header per mesher, under its own name, each reading the options of that
+    # mesher. The finite element mesh used to be asked for as femsh and the grid as
+    # rgmsh, which a deck written then is still read with
+
+    return top_level_reader
+
+
+def read_legacy_deck(path):
+    """
+    Read a deck.
+
+    Parameters
+    ----------
+    path: str
+        Path of the deck.
+
+    Returns
+    -------
+    dict
+        The options the deck gives, every keyword it leaves out at its default, with a
+        mesher asked for by its old name under its own.
+    """
+    reader = build_reader()
+    reader.read_input_file(path)
+
+    return reader.all_options

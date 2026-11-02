@@ -9,7 +9,8 @@ Welcome to GMMD's documentation!
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
-   
+
+   input_file
    modules
 
 

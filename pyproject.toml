@@ -22,6 +22,7 @@ dependencies = [
     "python-dateutil>=2.8.1",
     "scipy>=1.15.0",
     "pyyaml>=5.4",
+    "pydantic>=2",
     "meshio>=5.3",
     "six>=1.16.0",
     "tabulate>=0.8.9",
@@ -44,6 +45,7 @@ geommicgen-mesh = "geommicgen.cli:mesh_command"
 geommicgen-translate = "geommicgen.cli:translate_command"
 geommicgen-analyze = "geommicgen.cli:analyze_command"
 geommicgen-convert-mic = "geommicgen.iofuncs.convert_mic:convert_mic_command"
+geommicgen-convert-deck = "geommicgen.iofuncs.convert_deck:convert_deck_command"
 
 [build-system]
 requires = ["setuptools>=61.0.0", "wheel"]
@@ -56,7 +58,11 @@ version = {attr = "geommicgen.__version__"}
 include = ["geommicgen*"]
 
 [tool.setuptools.package-data]
-geommicgen = ["tests/fixtures/*.npy"]
+geommicgen = [
+    "tests/fixtures/*.npy",
+    "tests/fixtures/decks/*.mdsim",
+    "tests/fixtures/converted/*.yaml",
+]
 
 
 [tool.coverage.run]

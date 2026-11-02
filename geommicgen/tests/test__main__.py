@@ -81,6 +81,22 @@ Max_Step 3
 Speed_Up_Scheme Naive
 Save_History False
 """
+# A deck of the keyword format, which the program still reads
+
+SEEDED_RUN = """
+samples: 2
+rve_dimensions: [1, 1]
+seed: 3
+phases:
+  0: {type: matrix}
+  1: {type: disk, vf: 0.2, n: 4}
+generation:
+  molecular_dynamics:
+    max_residue_per_particle: 0
+    max_step: 3
+    speed_up: naive
+"""
+# The seeded deck, as an input file
 
 
 class DeckRunTest(unittest.TestCase):
@@ -95,9 +111,9 @@ class DeckRunTest(unittest.TestCase):
     )
     # What the process runs: the program, on the deck it is given
 
-    def run_deck(self, text):
-        """Run a deck in a process of its own, giving its status and its stderr."""
-        deck_path = os.path.join(self.temp_dir.name, "deck.mdsim")
+    def run_deck(self, text, extension=".yaml"):
+        """Run a file in a process of its own, giving its status and its stderr."""
+        deck_path = os.path.join(self.temp_dir.name, "deck" + extension)
         with open(deck_path, "w") as deck:
             deck.write(text)
         completed = subprocess.run(
@@ -115,20 +131,22 @@ class TestMandatoryKeywords(DeckRunTest):
 
     def test_the_missing_keywords_are_named_together(self):
         status, stderr, _ = self.run_deck(
-            SEEDED_DECK.replace("N_DP_Samples 2\n", "").replace(
-                "RVE_Dimensions [1, 1]\n", ""
+            SEEDED_RUN.replace("samples: 2\n", "").replace(
+                "rve_dimensions: [1, 1]\n", ""
             )
         )
-        self.assertNotEqual(status, 0)
-        self.assertIn("ValueError", stderr)
-        self.assertIn("N_DP_Samples, RVE_Dimensions", stderr)
-        self.assertNotIn("KeyError", stderr)
-        # It used to be a KeyError on the first of them, after a line saying that a
-        # mandatory parameter was missing without saying which
+        self.assertEqual(status, 2)
+        self.assertIn("  - rve_dimensions: is missing", stderr)
+        self.assertIn("  - samples: is missing", stderr)
+        self.assertNotIn("Traceback", stderr)
+        self.assertFalse(os.path.exists(os.path.join(self.temp_dir.name, "deck")))
+        # Refused before anything is written. It used to be a KeyError on the first of
+        # them, after a line saying that a mandatory parameter was missing without
+        # saying which
 
     def test_a_deck_without_problem_type_runs(self):
         self.assertNotIn("Problem_Type", SEEDED_DECK)
-        status, stderr, _ = self.run_deck(SEEDED_DECK)
+        status, stderr, _ = self.run_deck(SEEDED_DECK, ".mdsim")
         self.assertEqual(status, 0, stderr)
         self.assertTrue(
             os.path.exists(os.path.join(self.temp_dir.name, "deck", "mic_1", "mic.json"))
@@ -136,25 +154,108 @@ class TestMandatoryKeywords(DeckRunTest):
         # The keyword was required and read by nothing; it is still accepted
 
     def test_a_deck_with_problem_type_still_reads(self):
-        status, stderr, _ = self.run_deck("Problem_Type 1\n" + SEEDED_DECK)
+        status, stderr, _ = self.run_deck("Problem_Type 1\n" + SEEDED_DECK, ".mdsim")
         self.assertEqual(status, 0, stderr)
 
     def test_no_samples_is_refused(self):
-        status, stderr, _ = self.run_deck(SEEDED_DECK.replace("N_DP_Samples 2", "N_DP_Samples 0"))
-        self.assertNotEqual(status, 0)
-        self.assertIn("positive integer", stderr)
+        status, stderr, _ = self.run_deck(
+            SEEDED_RUN.replace("samples: 2", "samples: 0")
+        )
+        self.assertEqual(status, 2)
+        self.assertIn("samples: Input should be greater than or equal to 1", stderr)
+
+
+class TestInputFile(DeckRunTest):
+    """Test class for the run an input file asks for, and one a deck does."""
+
+    def test_an_input_file_runs_as_the_deck_it_was_written_from(self):
+        status, stderr, _ = self.run_deck(SEEDED_RUN)
+        self.assertEqual(status, 0, stderr)
+        self.assertEqual(stderr, "")
+        results_dir = os.path.join(self.temp_dir.name, "deck")
+        from_file = self.particles(results_dir)
+        os.rename(results_dir, results_dir + "_file")
+        status, stderr, _ = self.run_deck(SEEDED_DECK, ".mdsim")
+        self.assertEqual(status, 0, stderr)
+        self.assertEqual(self.particles(results_dir), from_file)
+
+    @staticmethod
+    def particles(results_dir):
+        """Give the particles of each sample of a run of two."""
+        particles = []
+        for i_sample in range(2):
+            path = os.path.join(results_dir, "mic_{0}".format(i_sample), "mic.json")
+            with open(path) as mic_file:
+                particles.append(json.load(mic_file)["particles"])
+
+        return particles
+
+    def test_the_run_keeps_the_file_and_each_sample_the_code_it_ran(self):
+        status, stderr, _ = self.run_deck(SEEDED_RUN)
+        self.assertEqual(status, 0, stderr)
+        results_dir = os.path.join(self.temp_dir.name, "deck")
+        with open(os.path.join(results_dir, "deck.yaml")) as copy:
+            self.assertEqual(copy.read(), SEEDED_RUN)
+        with open(os.path.join(results_dir, "mic_0", "mic.json")) as mic_file:
+            provenance = json.load(mic_file)["provenance"]
+        self.assertEqual(provenance["input_file"], "deck.yaml")
+        for i_key in ("git_commit", "git_dirty", "libraries"):
+            self.assertIn(i_key, provenance)
+        # The input file, the commit of GMMD and the versions of the libraries are
+        # the whole of the run, its defaults among it
+
+    def test_a_deck_is_said_to_be_of_the_old_format(self):
+        status, stderr, _ = self.run_deck(SEEDED_DECK, ".mdsim")
+        self.assertEqual(status, 0, stderr)
+        self.assertEqual(
+            stderr.splitlines(),
+            [
+                "geommicgen: deck.mdsim is a deck of the keyword format, which is read "
+                "for now; geommicgen-convert-deck turns it into an input file."
+            ],
+        )
+        self.assertTrue(
+            os.path.exists(os.path.join(self.temp_dir.name, "deck", "deck.mdsim"))
+        )
+
+    def test_a_file_of_another_kind_is_refused_and_nothing_written(self):
+        status, stderr, _ = self.run_deck(SEEDED_RUN, ".txt")
+        self.assertEqual(status, 2)
+        self.assertIn(
+            "deck.txt is neither an input file (.yaml) nor a deck (.mdsim).", stderr
+        )
+        self.assertFalse(os.path.exists(os.path.join(self.temp_dir.name, "deck")))
+        # The extension used to be read as the method of generation, after the results
+        # had been written
+
+    def test_every_problem_is_said_before_anything_is_written(self):
+        status, stderr, _ = self.run_deck(
+            SEEDED_RUN.replace("max_step: 3", "max_steps: 3").replace(
+                "n: 4", "n: 4, r: {distribution: normal, mean: 0.1, sigma: -1}"
+            )
+        )
+        self.assertEqual(status, 2)
+        self.assertIn("deck.yaml has 3 problems:", stderr)
+        self.assertIn("  - generation.molecular_dynamics.max_step: is missing", stderr)
+        self.assertIn(
+            "  - generation.molecular_dynamics.max_steps: is not a key this section "
+            "takes",
+            stderr,
+        )
+        self.assertIn("  - phases.1.r.sigma: Input should be greater than", stderr)
+        self.assertFalse(os.path.exists(os.path.join(self.temp_dir.name, "deck")))
 
 
 class TestFailedSample(DeckRunTest):
     """Test class for a sample the run leaves overlapping."""
 
-    OVERLAPPING_DECK = SEEDED_DECK.replace("vf 0.2", "vf 0.5").replace(
-        "Max_Step 3", "Max_Step 2"
-    ) + "Mesh_Options\nvoxel\nn_voxels_dims [8, 8]\n"
+    OVERLAPPING_RUN = SEEDED_RUN.replace("vf: 0.2", "vf: 0.5").replace(
+        "max_step: 3", "max_step: 2"
+    ) + "meshes:\n  voxel: {n_voxels_dims: [8, 8]}\n"
     # Six disks at half the area in two steps stay overlapping, with a mesh asked for
 
     def test_it_is_written_but_not_meshed_and_the_run_fails(self):
-        status, stderr, stdout = self.run_deck(self.OVERLAPPING_DECK)
+        status, stderr, stdout = self.run_deck(self.OVERLAPPING_RUN)
         self.assertEqual(status, 1, stderr)
         self.assertNotIn("Traceback", stderr)
         sample_dir = os.path.join(self.temp_dir.name, "deck", "mic_0")
@@ -169,8 +270,8 @@ class TestFailedSample(DeckRunTest):
 
     def test_a_sample_that_converges_is_meshed_and_the_run_succeeds(self):
         status, stderr, stdout = self.run_deck(
-            self.OVERLAPPING_DECK.replace("vf 0.5", "vf 0.1").replace(
-                "Max_Step 2", "Max_Step 200"
+            self.OVERLAPPING_RUN.replace("vf: 0.5", "vf: 0.1").replace(
+                "max_step: 2", "max_step: 200"
             )
         )
         self.assertEqual(status, 0, stderr)
@@ -206,10 +307,12 @@ class TestFailedAnalysis(DeckRunTest):
 
     def test_the_run_goes_on_and_fails(self):
         status, stderr, stdout = self.run_deck(
-            TestFailedSample.OVERLAPPING_DECK.replace("vf 0.5", "vf 0.1").replace(
-                "Max_Step 2", "Max_Step 200"
+            TestFailedSample.OVERLAPPING_RUN.replace("vf: 0.5", "vf: 0.1").replace(
+                "max_step: 2", "max_step: 200"
             )
-            + "final_config True\nstat_nearest_neighbor True\n"
+            + "analyses:\n"
+            + "  final_config: true\n"
+            + "  statistics: {descriptors: [nearest_neighbor]}\n"
         )
         self.assertEqual(status, 1, stderr)
         self.assertNotIn("Traceback", stderr)
@@ -240,9 +343,9 @@ class TestFixedSeedAcrossSamples(unittest.TestCase):
 
     def run_deck(self, name):
         """Run the seeded deck under a name of its own, returning its microstructures."""
-        deck_path = os.path.join(self.temp_dir.name, name + ".mdsim")
+        deck_path = os.path.join(self.temp_dir.name, name + ".yaml")
         with open(deck_path, "w") as deck:
-            deck.write(SEEDED_DECK)
+            deck.write(SEEDED_RUN)
         run_program([deck_path])
         results_dir = os.path.join(self.temp_dir.name, name)
         documents = []
