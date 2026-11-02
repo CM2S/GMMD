@@ -34,6 +34,7 @@ from geommicgen.micgenmethod import speed_up_schemes, thermostats
 from geommicgen.micgenmethod.molecular_dynamics_sim import (
     OPTIONAL_OPTIONS,
     REQUIRED_OPTIONS,
+    MolecularDynamicsSimulation,
 )
 from geommicgen.microstructure.phase import Phase
 from geommicgen.pipeline import build_mesh_jobs
@@ -716,6 +717,39 @@ def model_fields():
 
 
 @unittest.skipUnless(os.path.exists(REFERENCE_FILE), "not run from the repository")
+class TestDefaultsOfTheClasses(unittest.TestCase):
+    """Test class for the defaults a class built in Python takes, and a file gives."""
+
+    def test_a_simulation_built_in_python_takes_the_defaults_of_a_file(self):
+        simulation = MolecularDynamicsSimulation(0.0, 10, 0, 0.05, 0.0, "random", False)
+        fields = generation.MolecularDynamics.model_fields
+        defaults = {
+            **{
+                i_name: i_field.default
+                for i_name, i_field in fields.items()
+                if not i_field.is_required()
+            },
+            "offset": generation.Generation.model_fields["offset"].default,
+            "fixed_seed": RunConfig.model_fields["seed"].default,
+        }
+        for i_name in set(OPTIONAL_OPTIONS) - {"force_option", "force_rescale"}:
+            with self.subTest(option=i_name):
+                self.assertEqual(getattr(simulation, i_name), defaults[i_name])
+        # A file gives the simulation every option, at the model's default where it
+        # names none, and a script leaves it to the initializer's; the two drifted
+        # apart once. The force options have one value each, which a file does not ask
+
+    def test_a_thermostat_built_in_python_takes_the_defaults_of_a_file(self):
+        thermostat = thermostats.MultiTemperatureIsokineticThermostat(
+            None, "original", min_eq_steps_at_temp=25
+        )
+        self.assertEqual(
+            thermostat.temp_low_ratio,
+            generation.MultiTemperature.model_fields["temp_low_ratio"].default,
+        )
+        # The one parameter of a thermostat the initializer has a default for
+
+
 class TestReferenceFile(unittest.TestCase):
     """Test class holding the reference input file to the models of the file."""
 
