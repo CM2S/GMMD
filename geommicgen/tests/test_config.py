@@ -115,7 +115,7 @@ class TestValidation(unittest.TestCase):
         # The union's tag, verlet, is in pydantic's location of the factor and not in
         # the file, so it is not in the path
 
-    def test_a_key_of_a_map_that_is_not_right_is_said_to_be_the_key(self):
+    def test_a_bad_value_in_a_map_is_named_by_its_key(self):
         lines = self.refused({"steps": 1, "sizes": {"a": "big"}})
         self.assertEqual(
             lines[1],
