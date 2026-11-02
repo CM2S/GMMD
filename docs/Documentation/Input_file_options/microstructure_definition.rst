@@ -263,6 +263,7 @@ Square (8)
      - float
      - Volume fraction (decimal)
 
+
 Statistical distributions for descriptors
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -355,3 +356,41 @@ The parameter follows a von Mises distribution with concentration
    Particular choices of descriptor values for a given phase may lead to
    impossible (e.g. volume fraction above 100%) or very costly to obtain
    (e.g. ellipses with very high ratios) microstructures.
+
+
+Inner and outer phases (O)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Meaning:** Place the particles of a phase (the **inner phase**) inside the
+particles of another phase (the **outer phase**).
+
+**Syntax:**
+
+.. code-block:: text
+
+   Phase phase_id
+   Phase_Type x
+   inner_phase True
+   outer_phase outer_phase_id
+   phase_descriptor_1 y
+   phase_descriptor_2 y
+
+- ``inner_phase``: bool (default: ``False``). If ``True``, the phase is an
+  inner phase.
+- ``outer_phase``: integer. The ``phase_id`` of the outer phase, i.e. the
+  phase whose particles will contain the particles of the inner phase.
+  Mandatory if ``inner_phase True``.
+
+The remaining descriptors are specified as for any other phase, according to
+the shape of the particles (see `Phase descriptors per particle shape`_).
+
+The microstructure is generated in two stages. First, all phases except the inner phases are generated with the specified generation method (``Mic_Gen_Method``). Then, the inner phase particles are placed inside the outer phase particles using RSA. Each inner particle is assigned to an outer particle chosen at random, with a probability proportional to the size of the outer particle, as long as it does not fill more than half of the space still available in that particle. The maximum number of steps of this placement is set by ``Inner_Phase_Max_Step`` (see :doc:`generation_parameters/generation_parameters`).
+
+.. note::
+   - The volume fraction ``vf`` of the inner phase is relative to the whole
+     RVE, not to the outer phase. It must be smaller than the volume
+     fraction of the outer phase.
+   - The minimum distance between particles (``Min_Distance``) is not
+     imposed on the inner particles.
+
+For an example, see :doc:`/tutorials/MD_Inner_Outer_Disks/MD_Inner_Outer_Disks`.

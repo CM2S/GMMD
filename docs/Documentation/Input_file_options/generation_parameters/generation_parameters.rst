@@ -54,6 +54,24 @@ Minimum Distance Between Particles (O)
 
 - ``x``: float (default: ``0``)
 
+Inner Phase Maximum Number of Steps (O)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Meaning:** The maximum number of steps for placing each inner phase inside
+its outer phase (see :doc:`../microstructure_definition`). Each random
+position tried for an inner particle counts as one step. When this number is
+reached, the placement stops and the inner particles not yet placed are
+removed, so the inner phase may end up with a volume fraction smaller than the
+one specified. A message is printed when this happens.
+
+**Syntax:**
+
+.. code-block:: text
+
+   Inner_Phase_Max_Step x
+
+- ``x``: integer (default: ``200``)
+
 Speed-Up Scheme (O)
 ~~~~~~~~~~~~~~~~~~~~~~
 
