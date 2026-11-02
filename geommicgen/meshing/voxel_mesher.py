@@ -202,12 +202,15 @@ class VoxelMesher(Mesher):
             VoxelMesher.stamp_section(
                 particle, layer, spacing[across], np.asarray(rve_dims)[across]
             )
-            inside = np.expand_dims(layer == int(particle.phase), axis)
-            phase_grid[np.broadcast_to(inside, phase_grid.shape)] = int(particle.phase)
+            np.moveaxis(phase_grid, axis, -1)[layer == int(particle.phase)] = int(
+                particle.phase
+            )
             return
         # A fibre is a disk in the plane across it, as long as the RVE along it: the
         # disk is stamped on one layer of voxels across the fibre, with the coordinates
-        # of that plane, and every layer along the fibre takes it
+        # of that plane, and every voxel along the fibre's axis under the disk takes it.
+        # The view with the fibre's axis last is indexed by the disk alone, so only the
+        # voxels of the fibre are written, not a mask of the whole grid
 
         VoxelMesher.stamp_section(particle, phase_grid, spacing, rve_dims)
 
