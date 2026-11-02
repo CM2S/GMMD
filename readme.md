@@ -290,12 +290,11 @@ geommicgen-convert-mic mic_0/mic.mic
 
 ## Output
 
-Running GMMD on an input file, say `input_file.yaml`, creates a folder of the same name beside it holding a copy of the file, the run it resolved to with every default filled in, and a folder `mic_*` for each microstructure generated. A run never writes over an earlier one: a second run of the same file goes into `input_file_1/`, a third into `input_file_2/`.
+Running GMMD on an input file, say `input_file.yaml`, creates a folder of the same name beside it holding a copy of the file and a folder `mic_*` for each microstructure generated. Each microstructure file records the git commit of GMMD the run used, whether the package had uncommitted changes, and the versions of numpy, scipy and gmsh: with the input file, that is the whole of the run, its defaults included. A run never writes over an earlier one: a second run of the same file goes into `input_file_1/`, a third into `input_file_2/`.
 
 ```
 input_file/
 ├── input_file.yaml                copy of the input file
-├── input_file.resolved.yaml       the run carried out, every default filled in
 ├── mic_0/
 │   ├── mic.json                   microstructure file
 │   ├── status                     status of the generation: flag, time, final overlap

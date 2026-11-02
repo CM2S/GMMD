@@ -72,9 +72,8 @@ def mesher_model(mesher_class):
     return pydantic.create_model(
         mesher_class.__name__ + "Options", __base__=ConfigModel, **fields
     )
-    # An option not given is at the default its mesher or writer declares, which the
-    # resolved file then states; one that declares none is left to the initializer, as
-    # the input data file left it
+    # An option not given is at the default its mesher or writer declares; one that
+    # declares none is left to the initializer, as the input data file left it
 
 
 def to_mesh_options(section):

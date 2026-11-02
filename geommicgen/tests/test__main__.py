@@ -16,7 +16,6 @@ import textwrap
 import numpy as np
 
 from geommicgen.app import run_program
-from geommicgen.config.run import read_config
 
 
 class TestMainFromCommandLine(unittest.TestCase):
@@ -191,19 +190,19 @@ class TestInputFile(DeckRunTest):
 
         return particles
 
-    def test_the_run_keeps_the_file_and_the_run_it_resolved_to(self):
+    def test_the_run_keeps_the_file_and_each_sample_the_code_it_ran(self):
         status, stderr, _ = self.run_deck(SEEDED_RUN)
         self.assertEqual(status, 0, stderr)
         results_dir = os.path.join(self.temp_dir.name, "deck")
         with open(os.path.join(results_dir, "deck.yaml")) as copy:
             self.assertEqual(copy.read(), SEEDED_RUN)
-        resolved = read_config(os.path.join(results_dir, "deck.resolved.yaml"))
-        self.assertEqual(
-            resolved, read_config(os.path.join(self.temp_dir.name, "deck.yaml"))
-        )
-        thermostat = resolved.generation.molecular_dynamics.thermostat
-        self.assertEqual(thermostat.criterion.max_ratio_osc, 2)
-        # Every default is written into the resolved run, which reads back as the run
+        with open(os.path.join(results_dir, "mic_0", "mic.json")) as mic_file:
+            provenance = json.load(mic_file)["provenance"]
+        self.assertEqual(provenance["input_file"], "deck.yaml")
+        for i_key in ("git_commit", "git_dirty", "libraries"):
+            self.assertIn(i_key, provenance)
+        # The input file, the commit of GMMD and the versions of the libraries are
+        # the whole of the run, its defaults among it
 
     def test_a_deck_is_said_to_be_of_the_old_format(self):
         status, stderr, _ = self.run_deck(SEEDED_DECK, ".mdsim")
@@ -216,9 +215,7 @@ class TestInputFile(DeckRunTest):
             ],
         )
         self.assertTrue(
-            os.path.exists(
-                os.path.join(self.temp_dir.name, "deck", "deck.resolved.yaml")
-            )
+            os.path.exists(os.path.join(self.temp_dir.name, "deck", "deck.mdsim"))
         )
 
     def test_a_file_of_another_kind_is_refused_and_nothing_written(self):

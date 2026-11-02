@@ -16,7 +16,7 @@ from geommicgen.pipeline import build_mesh_jobs
 from geommicgen.postproc.postproc import post_proc
 
 import geommicgen.iofuncs.file_handling as fileio
-from geommicgen.config.base import ConfigError, write_config
+from geommicgen.config.base import ConfigError
 from geommicgen.config.run import read_config
 from geommicgen.iofuncs.convert_deck import convert_deck
 
@@ -98,15 +98,6 @@ def run_program(argv=None):
         input_file_dir, input_file_name
     )
     fileio.copy_input_file(input_file_path, results_folder)
-    write_config(
-        run.model_dump(mode="json", exclude_none=True),
-        os.path.join(results_folder, input_file_name + ".resolved.yaml"),
-        header="The run {0} asks for, with every default filled in.".format(
-            os.path.basename(input_file_path)
-        ),
-    )
-    # Beside the copy of the file, the run as it was carried out: a default that
-    # changes later does not change what this run was
 
     options = run.to_options()
     mic_gen_descriptors = options["mic_gen_descriptors"]
@@ -115,9 +106,10 @@ def run_program(argv=None):
     # The options the rest of the package is built from, as the reader of decks gave
     # them
 
-    provenance = {"source_deck": os.path.basename(input_file_path)}
+    provenance = {"input_file": os.path.basename(input_file_path)}
     # Carried by every microstructure file the run writes, so that a sample says
-    # what produced it
+    # what produced it: with the commit of GMMD and the versions of the libraries,
+    # which the file adds, the input file is the whole of the run
 
     failed_jobs = []
     failed_samples = []

@@ -26,9 +26,10 @@ file::
       - generation.molecular_dynamics.max_step: is missing
       - phases.1.axis_1.sigma: Input should be greater than or equal to 0 (given -0.025)
 
-Beside the copy of the input file, the results folder holds the run it resolved to,
-``input_file.resolved.yaml``, with every default filled in, which reads back as the
-same run.
+The results folder holds a copy of the input file. Each microstructure file records
+the git commit of GMMD the run used, whether the package had uncommitted changes, and
+the versions of numpy, scipy and gmsh: with the input file, that is the whole of the
+run, its defaults included.
 
 A deck of the keyword format (``.mdsim``) that earlier versions read is still run, with
 a line saying that the format is on its way out. ``geommicgen-convert-deck`` writes the
