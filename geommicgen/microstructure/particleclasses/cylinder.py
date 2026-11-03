@@ -209,33 +209,21 @@ class Cylinder(Particle):
 
     def support_function(self, direction: np.array) -> np.array:
         """Compute the point of the cylinder's support in *direction*."""
-        dir_parallel_comp = (
-            direction.dot(self.sym_axis_unit_vec) * self.sym_axis_unit_vec
+        axis = self.sym_axis_unit_vec
+        along = direction.dot(axis)
+        normal = direction - along * axis
+        normal_norm = np.linalg.norm(normal)
+        axial_offset = self.length / 2 * (axis if along >= 0 else -axis)
+        radial_offset = (
+            self.r_cyl * normal / normal_norm if normal_norm != 0 else np.zeros(3)
         )
-        dir_normal_comp = direction - dir_parallel_comp
-        axial_vec_local = (
-            self.length
-            / 2
-            * self.sym_axis_unit_vec
-            * np.sign(self.sym_axis_unit_vec.dot(dir_parallel_comp))
-            if np.sign(self.sym_axis_unit_vec.dot(dir_parallel_comp)) != 0
-            else self.length / 2 * self.sym_axis_unit_vec
-        )
-        trans_vec_local = (
-            self.r_cyl * dir_normal_comp / np.linalg.norm(dir_normal_comp)
-            if np.linalg.norm(dir_normal_comp) != 0
-            else 0
-        )
-
         dir_unit = direction / np.linalg.norm(direction)
-        point_global = (
-            self.position_center
-            + axial_vec_local
-            + trans_vec_local
-            + self.delta * dir_unit
-        )
 
-        return point_global
+        return (
+            self.position_center + axial_offset + radial_offset + self.delta * dir_unit
+        )
+        # The point is on the rim of the cap that *direction* points to, or of the top
+        # cap when it is normal to the axis, pushed out by the dilation
 
     def contract(self, distance: float):
         """Contract the particle."""

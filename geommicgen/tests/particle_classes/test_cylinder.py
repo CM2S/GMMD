@@ -255,6 +255,44 @@ class TestCylinder(unittest.TestCase):
             all(np.abs(furthest_point_2 - np.array([0.6, 0.8, 0.4])) < 1e-4)
         )
 
+    def test_support_function_reaches_the_support(self):
+        """Check the support point against the support function of a cylinder."""
+        rve_dims = [1, 1, 1]
+        rng = np.random.default_rng(0)
+        for i_polar, i_azimuth in rng.uniform(0, np.pi, size=(5, 2)):
+            cyl = Cylinder(
+                "1",
+                {
+                    "r_cyl": 0.1,
+                    "length": 0.3,
+                    "n": 1,
+                    "azimuth_angle": i_azimuth,
+                    "polar_angle": i_polar,
+                },
+                rve_dims,
+            )
+            cyl.position_center = np.array([0.5, 0.4, 0.3])
+            cyl.dilate(0.02)
+            axis = cyl.sym_axis_unit_vec
+            directions = np.concatenate(
+                [rng.normal(size=(20, 3)), [np.cross(axis, [1, 0, 0])]]
+            )
+            for i_direction in directions:
+                along = i_direction.dot(axis)
+                support = (
+                    i_direction.dot(cyl.position_center)
+                    + 0.15 * np.abs(along)
+                    + 0.1 * np.linalg.norm(i_direction - along * axis)
+                    + 0.02 * np.linalg.norm(i_direction)
+                )
+                with self.subTest(polar=i_polar, azimuth=i_azimuth, d=i_direction):
+                    point = cyl.support_function(i_direction)
+                    self.assertEqual(point.shape, (3,))
+                    self.assertAlmostEqual(i_direction.dot(point), support, places=12)
+        # The support function of a cylinder dilated by delta is the reach of the
+        # centre, plus half the length times the share of the direction along the axis,
+        # the radius times the share across it, and delta times its length. A direction
+        # normal to the axis is among those tried
 
     def test_intersection_calls(self):
         "Check if the function intersection calls the correct function to compute the intersection based on the other particle type"
