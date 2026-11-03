@@ -253,6 +253,33 @@ class TestCylinder(unittest.TestCase):
             cyl.intersection_length(other_particle, rve_dims)
             cyl.intersection_length_mink_diff.assert_called_once()
 
+    def test_intersection_length_with_a_sphere(self):
+        """Check the overlap of a cylinder and a sphere beside it, measured by GJK."""
+        rve_dims = [1, 1, 1]
+        cyl = Cylinder(
+            "1",
+            {"r_cyl": 0.1, "length": 0.2, "n": 1, "azimuth_angle": 0, "polar_angle": 0},
+            rve_dims,
+        )
+        cyl.position_center = np.array([0.5, 0.5, 0.5])
+        sphere = Sphere("1", {"r": 0.1, "n": 1}, rve_dims)
+        for i_dist_met in ("dist_approx", "dist_exact"):
+            with self.subTest("Overlapping", dist_met=i_dist_met):
+                sphere.position_center = np.array([0.5, 0.65, 0.5])
+                length, direction = cyl.intersection_length(
+                    sphere, rve_dims, dist_met=i_dist_met
+                )
+                self.assertAlmostEqual(length, 0.05)
+                np.testing.assert_allclose(direction, [0, 1, 0], atol=1e-12)
+        with self.subTest("Apart"):
+            sphere.position_center = np.array([0.5, 0.75, 0.5])
+            length, direction = cyl.intersection_length(sphere, rve_dims)
+            self.assertEqual(length, 0)
+            np.testing.assert_array_equal(direction, [0, 0, 0])
+        # The side of the cylinder reaches 0.6 along y and the sphere starts at 0.55, so
+        # they overlap by 0.05 along the line between their centres. A sphere goes the
+        # way of every other particle, through GJK and the Minkowski difference
+
 
     def test_intersection_area_calls(self):
         "Check if the function intersection_area calls the correct function to compute the intersection area based on the other particle type"

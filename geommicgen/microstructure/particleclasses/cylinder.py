@@ -6,7 +6,6 @@ import numpy as np
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-import geommicgen.microstructure.particleclasses.sphere as sph_cls
 from .particle import Particle, MINIMUM_SIZE
 
 
@@ -242,21 +241,14 @@ class Cylinder(Particle):
         """
         tol = kwargs.get("tol", 1e-8)
         dist_met = kwargs.get("dist_met", "dist_approx")
-        if False and isinstance(other_particle, sph_cls.Sphere):
-            other_particle: sph_cls.Sphere
-            _, intersection_length = other_particle.intersection_sphere_cylinder(
-                self, box
+        intersection = self.intersection_gjk(other_particle, box)
+        if intersection:
+            intersection_length, unit_vector = self.intersection_length_mink_diff(
+                other_particle, box, tol=tol, dist_met=dist_met
             )
-            unit_vector = self.intersection_vector(other_particle, box)
         else:
-            intersection = self.intersection_gjk(other_particle, box)
-            if intersection:
-                intersection_length, unit_vector = self.intersection_length_mink_diff(
-                    other_particle, box, tol=tol, dist_met=dist_met
-                )
-            else:
-                intersection_length = 0
-                unit_vector = np.array([0, 0, 0])
+            intersection_length = 0
+            unit_vector = np.array([0, 0, 0])
 
         return intersection_length, unit_vector
 
