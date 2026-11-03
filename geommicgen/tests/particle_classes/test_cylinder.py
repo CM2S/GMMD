@@ -212,6 +212,21 @@ class TestCylinder(unittest.TestCase):
             self.assertTrue(cyl.point_inside(np.array([0.56, 0.74, 0.39]), rve_dims))
         with self.subTest("Point outside the cylinder"):
             self.assertTrue(not cyl.point_inside(np.array([0.9, 0.9, 0.5]), rve_dims))
+        with self.subTest("Point with a NaN coordinate"):
+            self.assertFalse(cyl.point_inside(np.array([0.6, np.nan, 0.3]), rve_dims))
+        with self.subTest("Same answers as points_inside"):
+            rng = np.random.default_rng(0)
+            cyl = Cylinder(
+                "1", {**descriptors, "azimuth_angle": 1.1, "polar_angle": 0.7}, rve_dims
+            )
+            cyl.position_center = np.array([0.95, 0.5, 0.05])
+            points = cyl.position_center + rng.uniform(-0.15, 0.15, size=(500, 3))
+            np.testing.assert_array_equal(
+                [cyl.point_inside(i_point, rve_dims) for i_point in points],
+                cyl.points_inside(points, rve_dims),
+            )
+        # The cylinder crosses two faces of the RVE, so that some points are asked
+        # about through their nearest periodic image
 
     def test_generate_point_inside(self):
         "This test only works if cyl.point_inside function is working"

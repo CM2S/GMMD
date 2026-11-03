@@ -250,28 +250,20 @@ class Cylinder(Particle):
         point_nearest_pbc = Particle.nearest_periodic_image(
             point, self.position_center, box
         )
-        dist_on_axis = self.sym_axis_unit_vec.dot(
-            self.position_center - point_nearest_pbc
+        to_center = self.position_center - point_nearest_pbc
+        dist_on_axis = to_center.dot(self.sym_axis_unit_vec)
+        dist_to_axis = np.sqrt(
+            np.maximum(np.sum(to_center ** 2) - dist_on_axis ** 2, 0.0)
         )
-        if np.abs(dist_on_axis) > self.length / 2:
-            point_inside = False
+        # The subtraction under the root is held at zero, as it is in `points_inside`. A
+        # point on the axis could round it below zero, and the root of that is less than
+        # no radius, so the point was left out: a third of the points on the axis of a
+        # cylinder turned at random, and the voxels on the axis of one that runs through
+        # their centres
 
-        elif np.abs(dist_on_axis) <= self.length / 2:
-            L = np.sqrt(
-                np.maximum(
-                    np.sum((self.position_center - point_nearest_pbc) ** 2)
-                    - dist_on_axis ** 2,
-                    0.0,
-                )
-            )
-            point_inside = L < self.r_cyl
-            # The subtraction under the root is held at zero, as it is in
-            # `points_inside`. A point on the axis could round it below zero, and the
-            # root of that is less than no radius, so the point was left out: a third
-            # of the points on the axis of a cylinder turned at random, and the voxels
-            # on the axis of one that runs through their centres
-
-        return point_inside
+        return np.abs(dist_on_axis) <= self.length / 2 and dist_to_axis < self.r_cyl
+        # The test of `points_inside` for one point. The test along the axis was split
+        # into two branches, and a point with a NaN coordinate took neither and raised
 
     def points_inside(self, points: np.array, box: list) -> np.array:
         """Say which of *points* are in the Cylinder; see `.Particle.points_inside`."""
