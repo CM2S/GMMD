@@ -7,6 +7,10 @@ from unittest.mock import Mock
 
 import numpy as np
 from geommicgen.microstructure.particleclasses import Cylinder, Ellipsoid, Sphere
+from geommicgen.microstructure.particleclasses.cylinder import (
+    cylinder_size,
+    rotation_from_angles,
+)
 
 
 class TestCylinder(unittest.TestCase):
@@ -314,6 +318,79 @@ class TestCylinder(unittest.TestCase):
             cyl.intersection_area(other_particle, rve_dims)
             cyl.intersection_area_monte_carlo.assert_called_once()
 
+
+class TestCylinderSize(unittest.TestCase):
+    """Test the radius and the length worked out from the descriptors."""
+
+    def test_each_description(self):
+        rve_dims = [1, 2, 3]
+        for i_case, i_descriptors, i_size in (
+            ("radius and length", {"r_cyl": 0.1, "length": 0.2}, (0.1, 0.2)),
+            ("radius and ratio", {"r_cyl": 0.1, "ratio": 3}, (0.1, 0.3)),
+            ("length and ratio", {"length": 0.3, "ratio": 3}, (0.1, 0.3)),
+            (
+                "length, fraction and number",
+                {"length": 0.2, "vf": 0.1, "n": 10},
+                (np.sqrt(0.1 * 6 / (0.2 * np.pi * 10)), 0.2),
+            ),
+        ):
+            with self.subTest(i_case):
+                np.testing.assert_allclose(
+                    cylinder_size(i_descriptors, rve_dims), i_size, rtol=1e-12
+                )
+
+    def test_order_of_the_cases(self):
+        rve_dims = [1, 1, 1]
+        with self.subTest("fraction and number before the radius"):
+            r_cyl, _ = cylinder_size(
+                {"r_cyl": 0.5, "length": 0.2, "vf": 0.1, "n": 10}, rve_dims
+            )
+            self.assertAlmostEqual(r_cyl, np.sqrt(0.1 / (0.2 * np.pi * 10)))
+        with self.subTest("ratio before the radius"):
+            self.assertEqual(
+                cylinder_size({"r_cyl": 0.5, "length": 0.2, "ratio": 2}, rve_dims),
+                (0.1, 0.2),
+            )
+        # The constructor worked the radius out from the length last, over a radius
+        # given with it, and a run that gives all of them still gets the same cylinder
+
+    def test_incomplete_description(self):
+        for i_descriptors in ({"r_cyl": 0.1, "n": 2}, {"length": 0.2, "vf": 0.1}):
+            with self.subTest(descriptors=i_descriptors):
+                with self.assertRaises(ValueError):
+                    cylinder_size(i_descriptors, [1, 1, 1])
+        with self.subTest("through the constructor"):
+            with self.assertRaises(ValueError):
+                Cylinder(
+                    "1",
+                    {"r_cyl": 0.1, "n": 2, "azimuth_angle": 0, "polar_angle": 0},
+                    [1, 1, 1],
+                )
+        # A description that gives one size and not what the other follows from left
+        # the other unset, and the constructor failed on it with an AttributeError
+
+
+class TestRotationFromAngles(unittest.TestCase):
+    """Test the rotation from global coordinates to those of a cylinder."""
+
+    def test_rotation(self):
+        rng = np.random.default_rng(0)
+        for i_polar, i_azimuth in rng.uniform(-np.pi, np.pi, size=(20, 2)):
+            rot_mat = rotation_from_angles(i_polar, i_azimuth)
+            with self.subTest(polar=i_polar, azimuth=i_azimuth):
+                np.testing.assert_allclose(rot_mat.dot(rot_mat.T), np.eye(3), atol=1e-12)
+                self.assertAlmostEqual(np.linalg.det(rot_mat), 1)
+                np.testing.assert_allclose(
+                    rot_mat[0],
+                    [
+                        np.sin(i_polar) * np.cos(i_azimuth),
+                        np.sin(i_polar) * np.sin(i_azimuth),
+                        np.cos(i_polar),
+                    ],
+                    atol=1e-12,
+                )
+        # The rows are an orthonormal, right-handed frame, and the first of them is the
+        # axis at the polar and the azimuth angle
 
 
 class TestCylinderIntersection(unittest.TestCase):

@@ -29,7 +29,7 @@ class Cylinder(Particle):
         cylinder forms with the positive z semi-axis.
 
     rot_mat: array
-        Rotation matrix from local to global coordinates.
+        Rotation matrix from global to local coordinates; see `rotation_from_angles`.
 
     radius: float
         Radius of the circumscribed sphere.
@@ -107,20 +107,7 @@ class Cylinder(Particle):
             its bounds.
         """
         self.check_if_descriptor_values_are_valid(descriptors, rve_dims)
-        if "r_cyl" in descriptors:
-            self.r_cyl = descriptors["r_cyl"]
-            if "ratio" in descriptors:
-                self.length = self.r_cyl * descriptors["ratio"]
-        if "length" in descriptors:
-            self.length = descriptors["length"]
-            if "vf" in descriptors and "n" in descriptors:
-                self.r_cyl = np.sqrt(
-                    descriptors["vf"]
-                    * np.prod(rve_dims)
-                    / (self.length * np.pi * descriptors["n"])
-                )
-            elif "ratio" in descriptors:
-                self.r_cyl = self.length / descriptors["ratio"]
+        self.r_cyl, self.length = cylinder_size(descriptors, rve_dims)
         for i_name, i_value in (("r_cyl", self.r_cyl), ("length", self.length)):
             if not Cylinder.possible_parameters[i_name][1](i_value, rve_dims):
                 raise ValueError(
@@ -132,29 +119,9 @@ class Cylinder(Particle):
         # here and in the descriptions, and not declared, so no description by it was
         # accepted. The bounds refuse a radius or a length of zero or less, so neither
         # needs a check of its own
-        if "azimuth_angle" in descriptors:
-            self.azimuth_angle = np.abs(descriptors["azimuth_angle"])
-        if "polar_angle" in descriptors:
-            self.polar_angle = np.abs(descriptors["polar_angle"])
-        self.rot_mat = np.array(
-            [
-                [
-                    np.sin(self.polar_angle) * np.cos(self.azimuth_angle),
-                    np.sin(self.polar_angle) * np.sin(self.azimuth_angle),
-                    np.cos(self.polar_angle),
-                ],
-                [
-                    np.cos(self.polar_angle) * np.cos(self.azimuth_angle),
-                    np.cos(self.polar_angle) * np.sin(self.azimuth_angle),
-                    -np.sin(self.polar_angle),
-                ],
-                [
-                    -np.sin(self.azimuth_angle),
-                    np.cos(self.azimuth_angle),
-                    0,
-                ],
-            ]
-        )
+        self.azimuth_angle = np.abs(descriptors["azimuth_angle"])
+        self.polar_angle = np.abs(descriptors["polar_angle"])
+        self.rot_mat = rotation_from_angles(self.polar_angle, self.azimuth_angle)
         super().__init__(3, phase)
 
     @property
@@ -351,3 +318,94 @@ class Cylinder(Particle):
         # first. It was taken by the rotation itself, with that coordinate last, and
         # most points fell outside the cylinder
         return x_glob
+
+
+def cylinder_size(descriptors: dict, rve_dims: list) -> tuple[float, float]:
+    """
+    Give the radius and the length of a cylinder from its descriptors.
+
+    Parameters
+    ----------
+    descriptors: dict
+        Dictionary of the form *{descriptor_name: value}*.
+
+    rve_dims: list
+        List containing the dimensions of the microstructure in each direction.
+
+    Returns
+    -------
+    r_cyl: float
+        Radius of the cylinder.
+
+    length: float
+        Length of the cylinder.
+
+    Raises
+    ------
+    ValueError:
+        When the descriptors give neither the radius nor the length, or give one of
+        them without what the other follows from.
+    """
+    if "length" in descriptors and "vf" in descriptors and "n" in descriptors:
+        length = descriptors["length"]
+        r_cyl = np.sqrt(
+            descriptors["vf"] * np.prod(rve_dims) / (length * np.pi * descriptors["n"])
+        )
+        return r_cyl, length
+    if "length" in descriptors and "ratio" in descriptors:
+        return descriptors["length"] / descriptors["ratio"], descriptors["length"]
+    if "length" in descriptors and "r_cyl" in descriptors:
+        return descriptors["r_cyl"], descriptors["length"]
+    if "r_cyl" in descriptors and "ratio" in descriptors:
+        return descriptors["r_cyl"], descriptors["r_cyl"] * descriptors["ratio"]
+    raise ValueError(
+        "The descriptors {0} give neither the radius and the length of a cylinder, "
+        "nor one of them and what the other follows from.".format(sorted(descriptors))
+    )
+    # The cases are tried in the order the constructor used to work them out in, so
+    # that a length with a volume fraction and a number of particles, or with a
+    # ratio, gives the radius even where a radius is given too
+
+
+def rotation_from_angles(polar_angle: float, azimuth_angle: float) -> np.ndarray:
+    """
+    Give the rotation from global coordinates to those of a cylinder.
+
+    The rows are the unit vectors of the cylinder's frame, in global coordinates:
+    the axis of symmetry, then the directions in which the polar angle and the
+    azimuth angle grow. The transpose takes coordinates in the cylinder's frame back
+    to the global frame.
+
+    Parameters
+    ----------
+    polar_angle: float
+        Angle of the axis of symmetry from the positive z semi-axis.
+
+    azimuth_angle: float
+        Angle of the projection of the axis on the xy plane from the positive x
+        semi-axis.
+
+    Returns
+    -------
+    array, shape (3, 3)
+        Rotation matrix.
+    """
+    return np.array(
+        [
+            [
+                np.sin(polar_angle) * np.cos(azimuth_angle),
+                np.sin(polar_angle) * np.sin(azimuth_angle),
+                np.cos(polar_angle),
+            ],
+            [
+                np.cos(polar_angle) * np.cos(azimuth_angle),
+                np.cos(polar_angle) * np.sin(azimuth_angle),
+                -np.sin(polar_angle),
+            ],
+            [
+                -np.sin(azimuth_angle),
+                np.cos(azimuth_angle),
+                0,
+            ],
+        ]
+    )
