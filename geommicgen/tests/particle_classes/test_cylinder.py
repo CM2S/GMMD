@@ -88,6 +88,20 @@ class TestCylinder(unittest.TestCase):
             with self.assertRaises(ValueError):
                 Cylinder(phase, descriptors, rve_dims)
 
+        angles = {"azimuth_angle": 0, "polar_angle": 0}
+        for i_case, i_descriptors in (
+            ("zero radius", {"r_cyl": 0, "length": 0.1, "n": 2}),
+            ("zero length", {"r_cyl": 0.1, "length": 0, "n": 2}),
+            ("radius from the ratio too large", {"ratio": 0.5, "length": 0.2, "n": 2}),
+            ("length from the ratio too long", {"ratio": 3, "r_cyl": 0.2, "n": 2}),
+        ):
+            with self.subTest(i_case):
+                with self.assertRaises(ValueError):
+                    Cylinder(phase, {**i_descriptors, **angles}, rve_dims)
+        # A radius must be below a quarter of the smallest side of the RVE and a length
+        # below half of it, and both above zero, whether the descriptors give them or
+        # they follow from the ratio of the two
+
 
 
     def test_properties(self):

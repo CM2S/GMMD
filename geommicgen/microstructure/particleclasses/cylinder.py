@@ -103,24 +103,15 @@ class Cylinder(Particle):
         Raises
         ------
         ValueError:
-            When the cylinder radius or the length are nonpositive numbers.
+            When the radius or the length of the cylinder, given or derived, is out of
+            its bounds.
         """
         self.check_if_descriptor_values_are_valid(descriptors, rve_dims)
         if "r_cyl" in descriptors:
-            if descriptors["r_cyl"] <= 0:
-                raise ValueError(
-                    "In Phase {0}:".format(phase)
-                    + "The radius of a cylinder particle must be a positive number."
-                )
             self.r_cyl = descriptors["r_cyl"]
             if "ratio" in descriptors:
                 self.length = self.r_cyl * descriptors["ratio"]
         if "length" in descriptors:
-            if descriptors["length"] <= 0:
-                raise ValueError(
-                    "In Phase {0}:".format(phase)
-                    + "The length of a cylinder particle must be a positive number."
-                )
             self.length = descriptors["length"]
             if "vf" in descriptors and "n" in descriptors:
                 self.r_cyl = np.sqrt(
@@ -139,7 +130,8 @@ class Cylinder(Particle):
         # The bounds of the radius and the length given as descriptors hold for the
         # ones the descriptors give through the ratio or a volume. The ratio was used
         # here and in the descriptions, and not declared, so no description by it was
-        # accepted
+        # accepted. The bounds refuse a radius or a length of zero or less, so neither
+        # needs a check of its own
         if "azimuth_angle" in descriptors:
             self.azimuth_angle = np.abs(descriptors["azimuth_angle"])
         if "polar_angle" in descriptors:
