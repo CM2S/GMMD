@@ -212,6 +212,10 @@ class Cylinder(Particle):
         axis = self.sym_axis_unit_vec
         along = direction.dot(axis)
         normal = direction - along * axis
+        normal = normal - normal.dot(axis) * axis
+        # Projected off the axis twice. For a direction along the axis the first leaves
+        # rounding errors, partly along the axis, and they were scaled to the radius:
+        # the point was then up to a radius off the support, above or below the cap
         normal_norm = np.linalg.norm(normal)
         axial_offset = self.length / 2 * (axis if along >= 0 else -axis)
         radial_offset = (

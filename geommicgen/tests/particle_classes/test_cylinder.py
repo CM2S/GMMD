@@ -275,7 +275,7 @@ class TestCylinder(unittest.TestCase):
             cyl.dilate(0.02)
             axis = cyl.sym_axis_unit_vec
             directions = np.concatenate(
-                [rng.normal(size=(20, 3)), [np.cross(axis, [1, 0, 0])]]
+                [rng.normal(size=(20, 3)), [axis, -2 * axis, np.cross(axis, [1, 0, 0])]]
             )
             for i_direction in directions:
                 along = i_direction.dot(axis)
@@ -291,8 +291,9 @@ class TestCylinder(unittest.TestCase):
                     self.assertAlmostEqual(i_direction.dot(point), support, places=12)
         # The support function of a cylinder dilated by delta is the reach of the
         # centre, plus half the length times the share of the direction along the axis,
-        # the radius times the share across it, and delta times its length. A direction
-        # normal to the axis is among those tried
+        # the radius times the share across it, and delta times its length. Directions
+        # along the axis and normal to it are among those tried: along the axis of two
+        # of these cylinders, the point was a radius above or below the cap
 
     def test_intersection_calls(self):
         "Check if the function intersection calls the correct function to compute the intersection based on the other particle type"
