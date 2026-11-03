@@ -156,6 +156,28 @@ class TestCylinder(unittest.TestCase):
                 self.assertFalse(cyl.point_inside(0.5 + 0.101 * axis, rve_dims))
         # The caps are a half length, 0.1, from the centre along the axis
 
+    def test_negative_angles(self):
+        """Check that negative angles give the axis they stand for."""
+        cyl = Cylinder(
+            "1",
+            {
+                "r_cyl": 0.1,
+                "length": 0.2,
+                "n": 1,
+                "azimuth_angle": -0.5,
+                "polar_angle": -1.0,
+            },
+            [1, 1, 1],
+        )
+        self.assertEqual((cyl.polar_angle, cyl.azimuth_angle), (-1.0, -0.5))
+        np.testing.assert_allclose(
+            cyl.sym_axis_unit_vec,
+            [np.sin(-1.0) * np.cos(-0.5), np.sin(-1.0) * np.sin(-0.5), np.cos(-1.0)],
+            atol=1e-15,
+        )
+        # The axis is (-0.74, 0.40, 0.54). The absolute values of the angles were taken,
+        # which give (0.74, 0.40, 0.54), another line
+
 
     def test_contract_and_dilate(self):
         descriptors = {

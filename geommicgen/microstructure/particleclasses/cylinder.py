@@ -119,9 +119,14 @@ class Cylinder(Particle):
         # here and in the descriptions, and not declared, so no description by it was
         # accepted. The bounds refuse a radius or a length of zero or less, so neither
         # needs a check of its own
-        self.azimuth_angle = np.abs(descriptors["azimuth_angle"])
-        self.polar_angle = np.abs(descriptors["polar_angle"])
+        self.azimuth_angle = descriptors["azimuth_angle"]
+        self.polar_angle = descriptors["polar_angle"]
         self.rot_mat = rotation_from_angles(self.polar_angle, self.azimuth_angle)
+        # Any angles give an axis, and the cylinder is the same along it either way, so
+        # the angles are taken as they come. Their absolute values were taken, which
+        # turned the axis of a negative polar angle by half a turn about z, and mirrored
+        # that of a negative azimuth: a spread of polar angles about zero leant to one
+        # side
         super().__init__(3, phase)
 
     @property
