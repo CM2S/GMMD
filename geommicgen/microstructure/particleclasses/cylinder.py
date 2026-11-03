@@ -133,14 +133,10 @@ class Cylinder(Particle):
     @property
     def sym_axis_unit_vec(self):
         """Get unit vector along the cylinder's symmetry axis."""
-        sym_axis_unit_vec = np.array(
-            [
-                np.cos(self.azimuth_angle) * np.sin(self.polar_angle),
-                np.sin(self.azimuth_angle) * np.sin(self.polar_angle),
-                np.cos(self.polar_angle),
-            ]
-        )
-        return sym_axis_unit_vec
+        return self.rot_mat[0]
+        # The first row of the rotation, which is worked out once from the angles. It
+        # was worked out from them again at each call, four times in each call of the
+        # support function
 
     @property
     def radius(self):

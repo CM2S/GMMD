@@ -124,6 +124,38 @@ class TestCylinder(unittest.TestCase):
         self.assertAlmostEqual(cyl.radius, 0.14142, places = 5)
         self.assertAlmostEqual(cyl.radius_insc, 0.1, places = 5)
 
+    def test_sym_axis_unit_vec(self):
+        """Check the axis of symmetry against the angles, and against the caps."""
+        rve_dims = [1, 1, 1]
+        rng = np.random.default_rng(0)
+        for i_polar, i_azimuth in rng.uniform(0, np.pi, size=(10, 2)):
+            cyl = Cylinder(
+                "1",
+                {
+                    "r_cyl": 0.1,
+                    "length": 0.2,
+                    "n": 1,
+                    "azimuth_angle": i_azimuth,
+                    "polar_angle": i_polar,
+                },
+                rve_dims,
+            )
+            cyl.position_center = np.array([0.5, 0.5, 0.5])
+            axis = cyl.sym_axis_unit_vec
+            with self.subTest(polar=i_polar, azimuth=i_azimuth):
+                np.testing.assert_allclose(
+                    axis,
+                    [
+                        np.sin(i_polar) * np.cos(i_azimuth),
+                        np.sin(i_polar) * np.sin(i_azimuth),
+                        np.cos(i_polar),
+                    ],
+                    atol=1e-15,
+                )
+                self.assertTrue(cyl.point_inside(0.5 + 0.099 * axis, rve_dims))
+                self.assertFalse(cyl.point_inside(0.5 + 0.101 * axis, rve_dims))
+        # The caps are a half length, 0.1, from the centre along the axis
+
 
     def test_contract_and_dilate(self):
         descriptors = {
