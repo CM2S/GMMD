@@ -475,7 +475,7 @@ def convert_deck_command(argv=None):
         Status to exit with.
     """
     parser = argparse.ArgumentParser(
-        prog="geommicgen-convert-deck",
+        prog="geommicgen-convert-mdsim",
         description="Convert an input data file of the keyword format (.mdsim) into "
         "an input file (.yaml), which is validated before it is written.",
     )
@@ -499,7 +499,7 @@ def convert_deck_command(argv=None):
     write_config(
         config,
         file_path,
-        header="Converted from {0} by geommicgen-convert-deck.".format(
+        header="Converted from {0} by geommicgen-convert-mdsim.".format(
             os.path.basename(arguments.deck)
         ),
     )

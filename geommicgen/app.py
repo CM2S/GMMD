@@ -63,7 +63,7 @@ def read_deck(path):
     """Read a deck as the input file it lays out as, saying the format is going."""
     print(
         "geommicgen: {0} is a deck of the keyword format, which is read for now; "
-        "geommicgen-convert-deck turns it into an input file.".format(
+        "geommicgen-convert-mdsim turns it into an input file.".format(
             os.path.basename(path)
         ),
         file=sys.stderr,

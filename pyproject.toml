@@ -47,7 +47,7 @@ geommicgen-mesh = "geommicgen.cli:mesh_command"
 geommicgen-translate = "geommicgen.cli:translate_command"
 geommicgen-analyze = "geommicgen.cli:analyze_command"
 geommicgen-convert-mic = "geommicgen.iofuncs.convert_mic:convert_mic_command"
-geommicgen-convert-deck = "geommicgen.iofuncs.convert_deck:convert_deck_command"
+geommicgen-convert-mdsim = "geommicgen.iofuncs.convert_deck:convert_deck_command"
 
 [build-system]
 requires = ["setuptools>=61.0.0", "wheel"]

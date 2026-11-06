@@ -124,7 +124,7 @@ def parse_arguments(argv=None):
     parser.add_argument(
         "input_file",
         help="input file (.yaml), or a deck of the keyword format (.mdsim), which "
-        "geommicgen-convert-deck turns into one",
+        "geommicgen-convert-mdsim turns into one",
     )
 
     return parser.parse_args(argv)

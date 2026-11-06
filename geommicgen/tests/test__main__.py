@@ -211,7 +211,7 @@ class TestInputFile(DeckRunTest):
             stderr.splitlines(),
             [
                 "geommicgen: deck.mdsim is a deck of the keyword format, which is read "
-                "for now; geommicgen-convert-deck turns it into an input file."
+                "for now; geommicgen-convert-mdsim turns it into an input file."
             ],
         )
         self.assertTrue(

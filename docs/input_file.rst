@@ -32,7 +32,7 @@ the versions of numpy, scipy and gmsh: with the input file, that is the whole of
 run, its defaults included.
 
 A deck of the keyword format (``.mdsim``) that earlier versions read is still run, with
-a line saying that the format is on its way out. ``geommicgen-convert-deck`` writes the
+a line saying that the format is on its way out. ``geommicgen-convert-mdsim`` writes the
 input file a deck amounts to, beside it, saying what the deck gave that nothing read.
 
 Every key

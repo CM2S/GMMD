@@ -187,7 +187,7 @@ GMMD generates a set of microstructures from an **input file**, and post-process
 | Translate a mesh for a solver | `geommicgen-translate mesh.vtu --to ...` |
 | Analyse a microstructure | `geommicgen-analyze mic.json ...` |
 | Convert a `.mic` file of an earlier version | `geommicgen-convert-mic mic.mic` |
-| Convert a deck of an earlier version | `geommicgen-convert-deck deck.mdsim` |
+| Convert a deck of an earlier version | `geommicgen-convert-mdsim deck.mdsim` |
 
 Each command lists its options with `--help`.
 
@@ -238,10 +238,10 @@ geommicgen: input_file.yaml has 2 problems:
 
 [examples/reference.yaml](examples/reference.yaml) documents every key -- what it means, the values it takes and its default -- and runs as it is written. Two worked examples, a two dimensional microstructure of ellipses and a three dimensional one of ellipsoids, are beside it in [examples/](examples/); the test suite runs both.
 
-A deck of the keyword format (`.mdsim`) that earlier versions read is still run, with a line saying that the format is on its way out. `geommicgen-convert-deck` writes the input file a deck amounts to, beside it, saying what the deck gave that nothing read:
+A deck of the keyword format (`.mdsim`) that earlier versions read is still run, with a line saying that the format is on its way out. `geommicgen-convert-mdsim` writes the input file a deck amounts to, beside it, saying what the deck gave that nothing read:
 
 ```bash
-geommicgen-convert-deck input_data_file.mdsim
+geommicgen-convert-mdsim input_data_file.mdsim
 ```
 
 ### Generating a set of microstructures
