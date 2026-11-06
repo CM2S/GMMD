@@ -210,8 +210,8 @@ class TestInputFile(DeckRunTest):
         self.assertEqual(
             stderr.splitlines(),
             [
-                "geommicgen: deck.mdsim is a deck of the keyword format, which is read "
-                "for now; geommicgen-convert-mdsim turns it into an input file."
+                "geommicgen: deck.mdsim is an old input data file, which is read for "
+                "now; geommicgen-convert-mdsim turns it into an input file."
             ],
         )
         self.assertTrue(
@@ -222,7 +222,9 @@ class TestInputFile(DeckRunTest):
         status, stderr, _ = self.run_deck(SEEDED_RUN, ".txt")
         self.assertEqual(status, 2)
         self.assertIn(
-            "deck.txt is neither an input file (.yaml) nor a deck (.mdsim).", stderr
+            "deck.txt is neither an input file (.yaml) nor an old input data file "
+            "(.mdsim).",
+            stderr,
         )
         self.assertFalse(os.path.exists(os.path.join(self.temp_dir.name, "deck")))
         # The extension used to be read as the method of generation, after the results

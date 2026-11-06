@@ -7,8 +7,8 @@
 #
 # An input file is YAML. A key that is not one of these is refused, and so is a key
 # given twice; a file that is refused is refused with every problem in it, each at its
-# path in the file, before anything is generated or written. A deck of the keyword
-# format (.mdsim) is converted into an input file by geommicgen-convert-mdsim.
+# path in the file, before anything is generated or written. An old input data file
+# (.mdsim) is converted into an input file by geommicgen-convert-mdsim.
 # ======================================================================================
 
 # Number of microstructures to generate, each a sample of the same description.

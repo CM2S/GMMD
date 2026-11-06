@@ -51,9 +51,8 @@ def read_input(path):
     reader = INPUT_READERS.get(os.path.splitext(path)[1])
     if reader is None:
         raise ConfigError(
-            "{0} is neither an input file (.yaml) nor a deck (.mdsim).".format(
-                os.path.basename(path)
-            )
+            "{0} is neither an input file (.yaml) nor an old input data file "
+            "(.mdsim).".format(os.path.basename(path))
         )
 
     return reader(path)
@@ -62,7 +61,7 @@ def read_input(path):
 def read_deck(path):
     """Read a deck as the input file it lays out as, saying the format is going."""
     print(
-        "geommicgen: {0} is a deck of the keyword format, which is read for now; "
+        "geommicgen: {0} is an old input data file, which is read for now; "
         "geommicgen-convert-mdsim turns it into an input file.".format(
             os.path.basename(path)
         ),

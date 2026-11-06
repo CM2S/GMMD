@@ -31,9 +31,9 @@ the git commit of GMMD the run used, whether the package had uncommitted changes
 the versions of numpy, scipy and gmsh: with the input file, that is the whole of the
 run, its defaults included.
 
-A deck of the keyword format (``.mdsim``) that earlier versions read is still run, with
-a line saying that the format is on its way out. ``geommicgen-convert-mdsim`` writes the
-input file a deck amounts to, beside it, saying what the deck gave that nothing read.
+An old input data file (``.mdsim``) is still run, with a line saying that the format is
+on its way out. ``geommicgen-convert-mdsim`` writes the equivalent input file beside it,
+and says what the old file gave that nothing read.
 
 Every key
 ---------

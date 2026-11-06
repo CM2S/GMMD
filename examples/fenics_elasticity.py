@@ -1,8 +1,8 @@
 """
 Solve linear elasticity with FEniCS on a microstructure GMMD has meshed.
 
-GMMD writes a mesh FEniCS reads when it is asked for the xdmf format, from a deck with
-``Formats [xdmf]`` or from the command line:
+GMMD writes a mesh FEniCS reads when it is asked for the xdmf format, from an input
+file with ``formats: [xdmf]`` or from the command line:
 
     geommicgen-mesh mic.json --to xdmf
 

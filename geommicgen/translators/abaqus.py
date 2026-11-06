@@ -117,7 +117,7 @@ class AbaqusWriter(SolverWriter):
             "type": "bool",
             "default": True,
             "help": "whether to write the constraints that make the cell periodic; "
-            "without them the deck carries the mesh and its sets alone",
+            "without them the file carries the mesh and its sets alone",
         }
     }
 
