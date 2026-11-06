@@ -1112,10 +1112,7 @@ class GmshMesher(Mesher):
                     particle.polar_angle,
                 )
             # Turned by the polar angle about the direction in which the azimuth grows,
-            # which takes z onto the axis whatever the angles. It was turned about the
-            # axis's projection on xy turned a quarter, which points the other way when
-            # the sine of the polar angle is negative, and the cylinder was meshed along
-            # another line than the one it was placed on
+            # which takes z onto the axis whatever the angles
 
             return entities
 

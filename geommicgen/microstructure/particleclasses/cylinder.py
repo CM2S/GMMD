@@ -114,19 +114,14 @@ class Cylinder(Particle):
                     "{0} is not an allowable value for {1}, which the descriptors "
                     "give.".format(i_value, i_name)
                 )
-        # The bounds of the radius and the length given as descriptors hold for the
-        # ones the descriptors give through the ratio or a volume. The ratio was used
-        # here and in the descriptions, and not declared, so no description by it was
-        # accepted. The bounds refuse a radius or a length of zero or less, so neither
-        # needs a check of its own
+        # The bounds are checked twice. The first check sees the descriptors as given,
+        # and comes before the sizing so that a ratio of zero or a negative volume
+        # fraction is named itself, and is not divided by or rooted. A radius or a
+        # length worked out from a ratio or a volume fraction is not among them, so it
+        # is checked here against the same bounds
         self.azimuth_angle = descriptors["azimuth_angle"]
         self.polar_angle = descriptors["polar_angle"]
         self.rot_mat = rotation_from_angles(self.polar_angle, self.azimuth_angle)
-        # Any angles give an axis, and the cylinder is the same along it either way, so
-        # the angles are taken as they come. Their absolute values were taken, which
-        # turned the axis of a negative polar angle by half a turn about z, and mirrored
-        # that of a negative azimuth: a spread of polar angles about zero leant to one
-        # side
         super().__init__(3, phase)
 
     @property
@@ -139,9 +134,7 @@ class Cylinder(Particle):
     def sym_axis_unit_vec(self):
         """Get unit vector along the cylinder's symmetry axis."""
         return self.rot_mat[0]
-        # The first row of the rotation, which is worked out once from the angles. It
-        # was worked out from them again at each call, four times in each call of the
-        # support function
+        # The first row of the rotation is the axis
 
     @property
     def radius(self):
@@ -160,8 +153,7 @@ class Cylinder(Particle):
         """Check for the intersection between *self* and the *other_particle*."""
         intersection = self.intersection_gjk(other_particle, box)
         # Two cylinders are told apart by GJK too, as their overlap is measured by the
-        # Minkowski difference. The test of their caps answered with a tuple, which is
-        # always true, and took a quarter of the pairs apart for intersecting
+        # Minkowski difference
         return intersection
 
     def intersection_area(self, other_particle: Particle, box: list) -> float:
@@ -218,9 +210,9 @@ class Cylinder(Particle):
         along = direction.dot(axis)
         normal = direction - along * axis
         normal = normal - normal.dot(axis) * axis
-        # Projected off the axis twice. For a direction along the axis the first leaves
-        # rounding errors, partly along the axis, and they were scaled to the radius:
-        # the point was then up to a radius off the support, above or below the cap
+        # Projected off the axis twice. For a direction along the axis the first pass
+        # leaves rounding errors, partly along the axis, and these are scaled to the
+        # radius below, so they have to lie in the plane of the cap
         normal_norm = np.linalg.norm(normal)
         axial_offset = self.length / 2 * (axis if along >= 0 else -axis)
         radial_offset = (
@@ -260,15 +252,12 @@ class Cylinder(Particle):
         dist_to_axis = np.sqrt(
             np.maximum(np.sum(to_center ** 2) - dist_on_axis ** 2, 0.0)
         )
-        # The subtraction under the root is held at zero, as it is in `points_inside`. A
-        # point on the axis could round it below zero, and the root of that is less than
-        # no radius, so the point was left out: a third of the points on the axis of a
-        # cylinder turned at random, and the voxels on the axis of one that runs through
-        # their centres
+        # The subtraction under the root is held at zero, as it is in `points_inside`,
+        # because a point on the axis can round it below zero, and the root of that is
+        # less than no radius
 
         return np.abs(dist_on_axis) <= self.length / 2 and dist_to_axis < self.r_cyl
-        # The test of `points_inside` for one point. The test along the axis was split
-        # into two branches, and a point with a NaN coordinate took neither and raised
+        # The test of `points_inside` for one point
 
     def points_inside(self, points: np.array, box: list) -> np.array:
         """Say which of *points* are in the Cylinder; see `.Particle.points_inside`."""
@@ -299,9 +288,7 @@ class Cylinder(Particle):
         )
         x_glob = self.rot_mat.T.dot(x_loc) + self.position_center
         # The first row of the rotation is the axis of symmetry, so the point is taken
-        # to the global frame by its transpose, with its coordinate along the axis
-        # first. It was taken by the rotation itself, with that coordinate last, and
-        # most points fell outside the cylinder
+        # to the global frame by its transpose, with its coordinate along the axis first
         return x_glob
 
 
@@ -347,9 +334,9 @@ def cylinder_size(descriptors: dict, rve_dims: list) -> tuple[float, float]:
         "The descriptors {0} give neither the radius and the length of a cylinder, "
         "nor one of them and what the other follows from.".format(sorted(descriptors))
     )
-    # The cases are tried in the order the constructor used to work them out in, so
-    # that a length with a volume fraction and a number of particles, or with a
-    # ratio, gives the radius even where a radius is given too
+    # The cases are tried in this order so that a length with a volume fraction and a
+    # number of particles, or with a ratio, gives the radius even where a radius is
+    # given too
 
 
 def rotation_from_angles(polar_angle: float, azimuth_angle: float) -> np.ndarray:

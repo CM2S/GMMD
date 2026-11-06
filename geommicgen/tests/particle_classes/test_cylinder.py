@@ -193,8 +193,8 @@ class TestCylinder(unittest.TestCase):
             [np.sin(-1.0) * np.cos(-0.5), np.sin(-1.0) * np.sin(-0.5), np.cos(-1.0)],
             atol=1e-15,
         )
-        # The axis is (-0.74, 0.40, 0.54). The absolute values of the angles were taken,
-        # which give (0.74, 0.40, 0.54), another line
+        # The axis is (-0.74, 0.40, 0.54). The absolute values of the angles would give
+        # (0.74, 0.40, 0.54), another line
 
 
     def test_contract_and_dilate(self):
@@ -347,8 +347,8 @@ class TestCylinder(unittest.TestCase):
         # The support function of a cylinder dilated by delta is the reach of the
         # centre, plus half the length times the share of the direction along the axis,
         # the radius times the share across it, and delta times its length. Directions
-        # along the axis and normal to it are among those tried: along the axis of two
-        # of these cylinders, the point was a radius above or below the cap
+        # along the axis and normal to it are among those tried, because rounding can
+        # throw the point off the cap for the first
 
     def test_intersection_calls(self):
         "Check if the function intersection calls the correct function to compute the intersection based on the other particle type"
@@ -367,8 +367,7 @@ class TestCylinder(unittest.TestCase):
             cyl.intersection_gjk = Mock()
             cyl.intersection(other_particle, rve_dims)
             cyl.intersection_gjk.assert_called_once()
-            # Two cylinders are checked with GJK too: intersection_cylinder_cylinder
-            # answered wrong in two of the cases below, and was removed
+            # Two cylinders are checked with GJK too
 
         with self.subTest("Other particle is other type"):
             other_particle = Mock()
@@ -492,8 +491,8 @@ class TestCylinderSize(unittest.TestCase):
                     {"r_cyl": 0.1, "n": 2, "azimuth_angle": 0, "polar_angle": 0},
                     [1, 1, 1],
                 )
-        # A description that gives one size and not what the other follows from left
-        # the other unset, and the constructor failed on it with an AttributeError
+        # A description that gives one size and not what the other follows from cannot
+        # size the cylinder, and says so
 
 
 class TestRotationFromAngles(unittest.TestCase):

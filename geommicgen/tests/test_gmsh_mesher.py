@@ -367,9 +367,7 @@ class TestCylinderPrimitive(unittest.TestCase):
                     abs(directions[:, 0].dot(cylinder.sym_axis_unit_vec)), 1, places=9
                 )
         # A cylinder longer than the root of three times its radius turns most easily
-        # about its axis, so the direction of the least moment of inertia is the axis.
-        # Where the sine of the polar angle is negative, the geometry lay along another
-        # line than the particle
+        # about its axis, so the direction of the least moment of inertia is the axis
 
 
 @unittest.skipUnless(has_gmsh(), "gmsh is not installed")
