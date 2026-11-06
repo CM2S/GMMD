@@ -349,8 +349,8 @@ def legacy_analyses(post_proc, notes):
     else:
         for i_option, i_value in voronoi.items():
             notes.append(
-                "{0} {1}, which configures the Voronoi analysis the deck does not ask "
-                "for, is left out".format(VORONOI_OPTION_NAMES[i_option], i_value)
+                "{0} {1}, which configures the Voronoi analysis the old file does not "
+                "ask for, is left out".format(VORONOI_OPTION_NAMES[i_option], i_value)
             )
 
     descriptors = [
@@ -368,8 +368,8 @@ def legacy_analyses(post_proc, notes):
         analyses["statistics"] = statistics or True
     elif seed is not None:
         notes.append(
-            "stat_seed {0}, which seeds the statistics the deck does not ask for, is "
-            "left out".format(seed)
+            "stat_seed {0}, which seeds the statistics the old file does not ask for, "
+            "is left out".format(seed)
         )
 
     return analyses
@@ -475,23 +475,24 @@ def convert_deck_command(argv=None):
         Status to exit with.
     """
     parser = argparse.ArgumentParser(
-        prog="geommicgen-convert-deck",
-        description="Convert an input data file of the keyword format (.mdsim) into "
-        "an input file (.yaml), which is validated before it is written.",
+        prog="geommicgen-convert-mdsim",
+        description="Convert an old input data file (.mdsim) into an input file "
+        "(.yaml), which is validated before it is written.",
     )
-    parser.add_argument("deck", help="input data file to be converted")
+    parser.add_argument("input_data_file", help="old input data file to be converted")
     parser.add_argument(
         "-o",
         "--output",
-        help="input file to be written, beside the deck and named after it by default",
+        help="input file to be written, beside the old file and named after it by "
+        "default",
     )
     arguments = parser.parse_args(argv)
 
     file_path = arguments.output
     if file_path is None:
-        file_path = os.path.splitext(arguments.deck)[0] + ".yaml"
+        file_path = os.path.splitext(arguments.input_data_file)[0] + ".yaml"
     try:
-        config, _, notes = convert_deck(arguments.deck)
+        config, _, notes = convert_deck(arguments.input_data_file)
     except (OSError, ValueError) as error:
         parser.error(str(error))
     # A deck that cannot be read, or does not validate, is said so as a command line
@@ -499,8 +500,8 @@ def convert_deck_command(argv=None):
     write_config(
         config,
         file_path,
-        header="Converted from {0} by geommicgen-convert-deck.".format(
-            os.path.basename(arguments.deck)
+        header="Converted from {0} by geommicgen-convert-mdsim.".format(
+            os.path.basename(arguments.input_data_file)
         ),
     )
     for i_note in notes:

@@ -28,7 +28,7 @@ José Luís P. Vila-Chã ([jvc@fe.up.pt](mailto:jvc@fe.up.pt)), CM2S research gr
 
 ### Contributors
 
-Bernardo P. Ferreira, Francisco M. Andrade Pires, Rui Coelho, João Morais.
+Bernardo P. Ferreira, Francisco M. Andrade Pires, Rui P. Cardoso Coelho, João A. G. Cruz de Morais.
 
 ### Acknowledgements
 
@@ -36,7 +36,11 @@ António M. Couto Carneiro, whose gmsh2links package gives the order in which LI
 
 ### Use of AI
 
-AI coding assistants are used in developing GMMD. The person committing reviews every change and is responsible for it. A commit made with an assistant says so in an `Assisted-by:` trailer naming the tool and model (`Co-authored-by:` in earlier commits). Code completion in the editor is not marked.
+The first version of GMMD, written in 2020 and 2021, was made without AI tools. Since 2026, AI coding assistants are used in developing GMMD: Claude Code, with Claude Opus and Sonnet models, and GitHub Copilot, for code completion in the editor and for Copilot Autofix. They are used to write and refactor code, write tests, review code and draft documentation, and to copy-edit the JOSS paper. The person committing reviews every change and is responsible for it. A commit made with an assistant says so in an `Assisted-by:` trailer naming the tool and model (`Co-authored-by:` in earlier commits). Code completion in the editor is not marked.
+
+### Contributing and support
+
+Bug reports, questions and pull requests are welcome on GitHub. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Main features
 
@@ -183,7 +187,7 @@ GMMD generates a set of microstructures from an **input file**, and post-process
 | Translate a mesh for a solver | `geommicgen-translate mesh.vtu --to ...` |
 | Analyse a microstructure | `geommicgen-analyze mic.json ...` |
 | Convert a `.mic` file of an earlier version | `geommicgen-convert-mic mic.mic` |
-| Convert a deck of an earlier version | `geommicgen-convert-deck deck.mdsim` |
+| Convert an old input data file | `geommicgen-convert-mdsim input_data_file.mdsim` |
 
 Each command lists its options with `--help`.
 
@@ -234,10 +238,10 @@ geommicgen: input_file.yaml has 2 problems:
 
 [examples/reference.yaml](examples/reference.yaml) documents every key -- what it means, the values it takes and its default -- and runs as it is written. Two worked examples, a two dimensional microstructure of ellipses and a three dimensional one of ellipsoids, are beside it in [examples/](examples/); the test suite runs both.
 
-A deck of the keyword format (`.mdsim`) that earlier versions read is still run, with a line saying that the format is on its way out. `geommicgen-convert-deck` writes the input file a deck amounts to, beside it, saying what the deck gave that nothing read:
+An old input data file (`.mdsim`) is still run, with a line saying that the format is on its way out. `geommicgen-convert-mdsim` writes the equivalent input file beside it, and says what the old file gave that nothing read:
 
 ```bash
-geommicgen-convert-deck input_data_file.mdsim
+geommicgen-convert-mdsim input_data_file.mdsim
 ```
 
 ### Generating a set of microstructures
@@ -265,7 +269,7 @@ geommicgen-translate --list-formats
 
 A mesh is written as a VTK file whichever mesher produced it, `.vtu` for an unstructured mesh and `.vti` for a grid, with a small `.mesh.json` beside it holding what those formats cannot carry. The files are named after the microstructure file and what discretised it -- `mic_tri6_h0.05.vtu`, `mic_tri6_epp4.vtu`, `mic_100_100.vti` -- so that meshing one microstructure several ways into one directory keeps them apart; `--name` names them outright. The size, the elements per particle and the element each take several values, separated by commas, and there is a mesh for every combination: the second line above writes four. Several microstructures can be given at once, as the third line meshes every sample of a run; each is meshed into `meshes/` beside it unless `-o` says otherwise. Giving no `--to` stops after that file, which is a complete stage: `geommicgen-translate` picks up from it later, or somewhere else.
 
-The LINKS and Abaqus decks, and the example CRATE input file written beside a grid, carry placeholder materials and a placeholder loading, a stretch along x, marked as such: a microstructure says nothing about either, but with them the decks run as written, which is how they are checked. The CRATE file also declares the dimensions of the RVE, which the grid does not carry. FEniCS reads the `.xdmf` file, with the phase of every cell as a cell tag; [`examples/fenics_elasticity.py`](examples/fenics_elasticity.py) reads one, gives each phase a material and solves.
+The LINKS and Abaqus input files, and the example CRATE input file written beside a grid, carry placeholder materials and a placeholder loading, a stretch along x, marked as such: a microstructure says nothing about either, but with them the files run as written, which is how they are checked. The CRATE file also declares the dimensions of the RVE, which the grid does not carry. FEniCS reads the `.xdmf` file, with the phase of every cell as a cell tag; [`examples/fenics_elasticity.py`](examples/fenics_elasticity.py) reads one, gives each phase a material and solves.
 
 The gmsh mesher offers `tri3`, `tri6`, `quad4` and `quad8` in two dimensions and `tetra4` and `tetra10` in three. A quadrilateral mesh is made by recombining triangles, and Gmsh keeps a triangle where it finds no pair for it, so a `quad4` or `quad8` mesh may hold a few triangles; when it does, the mesher says so with the counts, and the mesh is written with both, each type in a group of its own.
 
