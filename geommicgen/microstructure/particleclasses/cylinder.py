@@ -6,7 +6,6 @@ import numpy as np
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-import geommicgen.microstructure.particleclasses.sphere as sph_cls
 from .particle import Particle, MINIMUM_SIZE
 
 
@@ -30,7 +29,7 @@ class Cylinder(Particle):
         cylinder forms with the positive z semi-axis.
 
     rot_mat: array
-        Rotation matrix from local to global coordinates.
+        Rotation matrix from global to local coordinates; see `rotation_from_angles`.
 
     radius: float
         Radius of the circumscribed sphere.
@@ -104,66 +103,25 @@ class Cylinder(Particle):
         Raises
         ------
         ValueError:
-            When the cylinder radius or the length are nonpositive numbers.
+            When the radius or the length of the cylinder, given or derived, is out of
+            its bounds.
         """
         self.check_if_descriptor_values_are_valid(descriptors, rve_dims)
-        if "r_cyl" in descriptors:
-            if descriptors["r_cyl"] <= 0:
-                raise ValueError(
-                    "In Phase {0}:".format(phase)
-                    + "The radius of a cylinder particle must be a positive number."
-                )
-            self.r_cyl = descriptors["r_cyl"]
-            if "ratio" in descriptors:
-                self.length = self.r_cyl * descriptors["ratio"]
-        if "length" in descriptors:
-            if descriptors["length"] <= 0:
-                raise ValueError(
-                    "In Phase {0}:".format(phase)
-                    + "The length of a cylinder particle must be a positive number."
-                )
-            self.length = descriptors["length"]
-            if "vf" in descriptors and "n" in descriptors:
-                self.r_cyl = np.sqrt(
-                    descriptors["vf"]
-                    * np.prod(rve_dims)
-                    / (self.length * np.pi * descriptors["n"])
-                )
-            elif "ratio" in descriptors:
-                self.r_cyl = self.length / descriptors["ratio"]
+        self.r_cyl, self.length = cylinder_size(descriptors, rve_dims)
         for i_name, i_value in (("r_cyl", self.r_cyl), ("length", self.length)):
             if not Cylinder.possible_parameters[i_name][1](i_value, rve_dims):
                 raise ValueError(
                     "{0} is not an allowable value for {1}, which the descriptors "
                     "give.".format(i_value, i_name)
                 )
-        # The bounds of the radius and the length given as descriptors hold for the
-        # ones the descriptors give through the ratio or a volume. The ratio was used
-        # here and in the descriptions, and not declared, so no description by it was
-        # accepted
-        if "azimuth_angle" in descriptors:
-            self.azimuth_angle = np.abs(descriptors["azimuth_angle"])
-        if "polar_angle" in descriptors:
-            self.polar_angle = np.abs(descriptors["polar_angle"])
-        self.rot_mat = np.array(
-            [
-                [
-                    np.sin(self.polar_angle) * np.cos(self.azimuth_angle),
-                    np.sin(self.polar_angle) * np.sin(self.azimuth_angle),
-                    np.cos(self.polar_angle),
-                ],
-                [
-                    np.cos(self.polar_angle) * np.cos(self.azimuth_angle),
-                    np.cos(self.polar_angle) * np.sin(self.azimuth_angle),
-                    -np.sin(self.polar_angle),
-                ],
-                [
-                    -np.sin(self.azimuth_angle),
-                    np.cos(self.azimuth_angle),
-                    0,
-                ],
-            ]
-        )
+        # The bounds are checked twice. The first check sees the descriptors as given,
+        # and comes before the sizing so that a ratio of zero or a negative volume
+        # fraction is named itself, and is not divided by or rooted. A radius or a
+        # length worked out from a ratio or a volume fraction is not among them, so it
+        # is checked here against the same bounds
+        self.azimuth_angle = descriptors["azimuth_angle"]
+        self.polar_angle = descriptors["polar_angle"]
+        self.rot_mat = rotation_from_angles(self.polar_angle, self.azimuth_angle)
         super().__init__(3, phase)
 
     @property
@@ -175,14 +133,8 @@ class Cylinder(Particle):
     @property
     def sym_axis_unit_vec(self):
         """Get unit vector along the cylinder's symmetry axis."""
-        sym_axis_unit_vec = np.array(
-            [
-                np.cos(self.azimuth_angle) * np.sin(self.polar_angle),
-                np.sin(self.azimuth_angle) * np.sin(self.polar_angle),
-                np.cos(self.polar_angle),
-            ]
-        )
-        return sym_axis_unit_vec
+        return self.rot_mat[0]
+        # The first row of the rotation is the axis
 
     @property
     def radius(self):
@@ -201,8 +153,7 @@ class Cylinder(Particle):
         """Check for the intersection between *self* and the *other_particle*."""
         intersection = self.intersection_gjk(other_particle, box)
         # Two cylinders are told apart by GJK too, as their overlap is measured by the
-        # Minkowski difference. The test of their caps answered with a tuple, which is
-        # always true, and took a quarter of the pairs apart for intersecting
+        # Minkowski difference
         return intersection
 
     def intersection_area(self, other_particle: Particle, box: list) -> float:
@@ -242,53 +193,38 @@ class Cylinder(Particle):
         """
         tol = kwargs.get("tol", 1e-8)
         dist_met = kwargs.get("dist_met", "dist_approx")
-        if False and isinstance(other_particle, sph_cls.Sphere):
-            other_particle: sph_cls.Sphere
-            _, intersection_length = other_particle.intersection_sphere_cylinder(
-                self, box
+        intersection = self.intersection_gjk(other_particle, box)
+        if intersection:
+            intersection_length, unit_vector = self.intersection_length_mink_diff(
+                other_particle, box, tol=tol, dist_met=dist_met
             )
-            unit_vector = self.intersection_vector(other_particle, box)
         else:
-            intersection = self.intersection_gjk(other_particle, box)
-            if intersection:
-                intersection_length, unit_vector = self.intersection_length_mink_diff(
-                    other_particle, box, tol=tol, dist_met=dist_met
-                )
-            else:
-                intersection_length = 0
-                unit_vector = np.array([0, 0, 0])
+            intersection_length = 0
+            unit_vector = np.array([0, 0, 0])
 
         return intersection_length, unit_vector
 
     def support_function(self, direction: np.array) -> np.array:
         """Compute the point of the cylinder's support in *direction*."""
-        dir_parallel_comp = (
-            direction.dot(self.sym_axis_unit_vec) * self.sym_axis_unit_vec
+        axis = self.sym_axis_unit_vec
+        along = direction.dot(axis)
+        normal = direction - along * axis
+        normal = normal - normal.dot(axis) * axis
+        # Projected off the axis twice. For a direction along the axis the first pass
+        # leaves rounding errors, partly along the axis, and these are scaled to the
+        # radius below, so they have to lie in the plane of the cap
+        normal_norm = np.linalg.norm(normal)
+        axial_offset = self.length / 2 * (axis if along >= 0 else -axis)
+        radial_offset = (
+            self.r_cyl * normal / normal_norm if normal_norm != 0 else np.zeros(3)
         )
-        dir_normal_comp = direction - dir_parallel_comp
-        axial_vec_local = (
-            self.length
-            / 2
-            * self.sym_axis_unit_vec
-            * np.sign(self.sym_axis_unit_vec.dot(dir_parallel_comp))
-            if np.sign(self.sym_axis_unit_vec.dot(dir_parallel_comp)) != 0
-            else self.length / 2 * self.sym_axis_unit_vec
-        )
-        trans_vec_local = (
-            self.r_cyl * dir_normal_comp / np.linalg.norm(dir_normal_comp)
-            if np.linalg.norm(dir_normal_comp) != 0
-            else 0
-        )
-
         dir_unit = direction / np.linalg.norm(direction)
-        point_global = (
-            self.position_center
-            + axial_vec_local
-            + trans_vec_local
-            + self.delta * dir_unit
-        )
 
-        return point_global
+        return (
+            self.position_center + axial_offset + radial_offset + self.delta * dir_unit
+        )
+        # The point is on the rim of the cap that *direction* points to, or of the top
+        # cap when it is normal to the axis, pushed out by the dilation
 
     def contract(self, distance: float):
         """Contract the particle."""
@@ -311,28 +247,17 @@ class Cylinder(Particle):
         point_nearest_pbc = Particle.nearest_periodic_image(
             point, self.position_center, box
         )
-        dist_on_axis = self.sym_axis_unit_vec.dot(
-            self.position_center - point_nearest_pbc
+        to_center = self.position_center - point_nearest_pbc
+        dist_on_axis = to_center.dot(self.sym_axis_unit_vec)
+        dist_to_axis = np.sqrt(
+            np.maximum(np.sum(to_center ** 2) - dist_on_axis ** 2, 0.0)
         )
-        if np.abs(dist_on_axis) > self.length / 2:
-            point_inside = False
+        # The subtraction under the root is held at zero, as it is in `points_inside`,
+        # because a point on the axis can round it below zero, and the root of that is
+        # less than no radius
 
-        elif np.abs(dist_on_axis) <= self.length / 2:
-            L = np.sqrt(
-                np.maximum(
-                    np.sum((self.position_center - point_nearest_pbc) ** 2)
-                    - dist_on_axis ** 2,
-                    0.0,
-                )
-            )
-            point_inside = L < self.r_cyl
-            # The subtraction under the root is held at zero, as it is in
-            # `points_inside`. A point on the axis could round it below zero, and the
-            # root of that is less than no radius, so the point was left out: a third
-            # of the points on the axis of a cylinder turned at random, and the voxels
-            # on the axis of one that runs through their centres
-
-        return point_inside
+        return np.abs(dist_on_axis) <= self.length / 2 and dist_to_axis < self.r_cyl
+        # The test of `points_inside` for one point
 
     def points_inside(self, points: np.array, box: list) -> np.array:
         """Say which of *points* are in the Cylinder; see `.Particle.points_inside`."""
@@ -363,7 +288,96 @@ class Cylinder(Particle):
         )
         x_glob = self.rot_mat.T.dot(x_loc) + self.position_center
         # The first row of the rotation is the axis of symmetry, so the point is taken
-        # to the global frame by its transpose, with its coordinate along the axis
-        # first. It was taken by the rotation itself, with that coordinate last, and
-        # most points fell outside the cylinder
+        # to the global frame by its transpose, with its coordinate along the axis first
         return x_glob
+
+
+def cylinder_size(descriptors: dict, rve_dims: list) -> tuple[float, float]:
+    """
+    Give the radius and the length of a cylinder from its descriptors.
+
+    Parameters
+    ----------
+    descriptors: dict
+        Dictionary of the form *{descriptor_name: value}*.
+
+    rve_dims: list
+        List containing the dimensions of the microstructure in each direction.
+
+    Returns
+    -------
+    r_cyl: float
+        Radius of the cylinder.
+
+    length: float
+        Length of the cylinder.
+
+    Raises
+    ------
+    ValueError:
+        When the descriptors give neither the radius nor the length, or give one of
+        them without what the other follows from.
+    """
+    if "length" in descriptors and "vf" in descriptors and "n" in descriptors:
+        length = descriptors["length"]
+        r_cyl = np.sqrt(
+            descriptors["vf"] * np.prod(rve_dims) / (length * np.pi * descriptors["n"])
+        )
+        return r_cyl, length
+    if "length" in descriptors and "ratio" in descriptors:
+        return descriptors["length"] / descriptors["ratio"], descriptors["length"]
+    if "length" in descriptors and "r_cyl" in descriptors:
+        return descriptors["r_cyl"], descriptors["length"]
+    if "r_cyl" in descriptors and "ratio" in descriptors:
+        return descriptors["r_cyl"], descriptors["r_cyl"] * descriptors["ratio"]
+    raise ValueError(
+        "The descriptors {0} give neither the radius and the length of a cylinder, "
+        "nor one of them and what the other follows from.".format(sorted(descriptors))
+    )
+    # The cases are tried in this order so that a length with a volume fraction and a
+    # number of particles, or with a ratio, gives the radius even where a radius is
+    # given too
+
+
+def rotation_from_angles(polar_angle: float, azimuth_angle: float) -> np.ndarray:
+    """
+    Give the rotation from global coordinates to those of a cylinder.
+
+    The rows are the unit vectors of the cylinder's frame, in global coordinates:
+    the axis of symmetry, then the directions in which the polar angle and the
+    azimuth angle grow. The transpose takes coordinates in the cylinder's frame back
+    to the global frame.
+
+    Parameters
+    ----------
+    polar_angle: float
+        Angle of the axis of symmetry from the positive z semi-axis.
+
+    azimuth_angle: float
+        Angle of the projection of the axis on the xy plane from the positive x
+        semi-axis.
+
+    Returns
+    -------
+    array, shape (3, 3)
+        Rotation matrix.
+    """
+    return np.array(
+        [
+            [
+                np.sin(polar_angle) * np.cos(azimuth_angle),
+                np.sin(polar_angle) * np.sin(azimuth_angle),
+                np.cos(polar_angle),
+            ],
+            [
+                np.cos(polar_angle) * np.cos(azimuth_angle),
+                np.cos(polar_angle) * np.sin(azimuth_angle),
+                -np.sin(polar_angle),
+            ],
+            [
+                -np.sin(azimuth_angle),
+                np.cos(azimuth_angle),
+                0,
+            ],
+        ]
+    )

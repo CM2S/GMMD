@@ -1108,11 +1108,11 @@ class GmshMesher(Mesher):
                     center_x,
                     center_y,
                     center_z,
-                    -particle.sym_axis_unit_vec[1],
-                    particle.sym_axis_unit_vec[0],
-                    0,
+                    *particle.rot_mat[2],
                     particle.polar_angle,
                 )
+            # Turned by the polar angle about the direction in which the azimuth grows,
+            # which takes z onto the axis whatever the angles
 
             return entities
 

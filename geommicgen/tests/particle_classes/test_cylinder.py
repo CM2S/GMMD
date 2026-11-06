@@ -7,6 +7,10 @@ from unittest.mock import Mock
 
 import numpy as np
 from geommicgen.microstructure.particleclasses import Cylinder, Ellipsoid, Sphere
+from geommicgen.microstructure.particleclasses.cylinder import (
+    cylinder_size,
+    rotation_from_angles,
+)
 
 
 class TestCylinder(unittest.TestCase):
@@ -88,6 +92,38 @@ class TestCylinder(unittest.TestCase):
             with self.assertRaises(ValueError):
                 Cylinder(phase, descriptors, rve_dims)
 
+        angles = {"azimuth_angle": 0, "polar_angle": 0}
+        for i_case, i_descriptors, i_named in (
+            ("zero radius", {"r_cyl": 0, "length": 0.1, "n": 2}, "r_cyl"),
+            ("zero length", {"r_cyl": 0.1, "length": 0, "n": 2}, "length"),
+            (
+                "radius from the ratio too large",
+                {"ratio": 0.5, "length": 0.2, "n": 2},
+                "r_cyl",
+            ),
+            (
+                "length from the ratio too long",
+                {"ratio": 3, "r_cyl": 0.2, "n": 2},
+                "length",
+            ),
+            ("zero ratio", {"ratio": 0.0, "length": 0.2, "n": 2}, "ratio"),
+            (
+                "negative volume fraction",
+                {"vf": -0.1, "length": 0.2, "n": 10},
+                "vf",
+            ),
+        ):
+            with self.subTest(i_case):
+                with self.assertRaisesRegex(
+                    ValueError, "for (descriptor )?{0}".format(i_named)
+                ):
+                    Cylinder(phase, {**i_descriptors, **angles}, rve_dims)
+        # A radius must be below a quarter of the smallest side of the RVE and a length
+        # below half of it, and both above zero, whether the descriptors give them or
+        # they follow from the ratio of the two. A ratio or a fraction out of bounds is
+        # named itself, not through the radius it would give, since a ratio of zero
+        # divides by zero and a negative fraction gives a radius that is not a number
+
 
 
     def test_properties(self):
@@ -105,6 +141,60 @@ class TestCylinder(unittest.TestCase):
         self.assertTrue(np.abs(cyl.volume - 0.1 ** 2 * np.pi * 0.2) < 1e-4)
         self.assertAlmostEqual(cyl.radius, 0.14142, places = 5)
         self.assertAlmostEqual(cyl.radius_insc, 0.1, places = 5)
+
+    def test_sym_axis_unit_vec(self):
+        """Check the axis of symmetry against the angles, and against the caps."""
+        rve_dims = [1, 1, 1]
+        rng = np.random.default_rng(0)
+        for i_polar, i_azimuth in rng.uniform(0, np.pi, size=(10, 2)):
+            cyl = Cylinder(
+                "1",
+                {
+                    "r_cyl": 0.1,
+                    "length": 0.2,
+                    "n": 1,
+                    "azimuth_angle": i_azimuth,
+                    "polar_angle": i_polar,
+                },
+                rve_dims,
+            )
+            cyl.position_center = np.array([0.5, 0.5, 0.5])
+            axis = cyl.sym_axis_unit_vec
+            with self.subTest(polar=i_polar, azimuth=i_azimuth):
+                np.testing.assert_allclose(
+                    axis,
+                    [
+                        np.sin(i_polar) * np.cos(i_azimuth),
+                        np.sin(i_polar) * np.sin(i_azimuth),
+                        np.cos(i_polar),
+                    ],
+                    atol=1e-15,
+                )
+                self.assertTrue(cyl.point_inside(0.5 + 0.099 * axis, rve_dims))
+                self.assertFalse(cyl.point_inside(0.5 + 0.101 * axis, rve_dims))
+        # The caps are a half length, 0.1, from the centre along the axis
+
+    def test_negative_angles(self):
+        """Check that negative angles give the axis they stand for."""
+        cyl = Cylinder(
+            "1",
+            {
+                "r_cyl": 0.1,
+                "length": 0.2,
+                "n": 1,
+                "azimuth_angle": -0.5,
+                "polar_angle": -1.0,
+            },
+            [1, 1, 1],
+        )
+        self.assertEqual((cyl.polar_angle, cyl.azimuth_angle), (-1.0, -0.5))
+        np.testing.assert_allclose(
+            cyl.sym_axis_unit_vec,
+            [np.sin(-1.0) * np.cos(-0.5), np.sin(-1.0) * np.sin(-0.5), np.cos(-1.0)],
+            atol=1e-15,
+        )
+        # The axis is (-0.74, 0.40, 0.54). The absolute values of the angles would give
+        # (0.74, 0.40, 0.54), another line
 
 
     def test_contract_and_dilate(self):
@@ -162,6 +252,21 @@ class TestCylinder(unittest.TestCase):
             self.assertTrue(cyl.point_inside(np.array([0.56, 0.74, 0.39]), rve_dims))
         with self.subTest("Point outside the cylinder"):
             self.assertTrue(not cyl.point_inside(np.array([0.9, 0.9, 0.5]), rve_dims))
+        with self.subTest("Point with a NaN coordinate"):
+            self.assertFalse(cyl.point_inside(np.array([0.6, np.nan, 0.3]), rve_dims))
+        with self.subTest("Same answers as points_inside"):
+            rng = np.random.default_rng(0)
+            cyl = Cylinder(
+                "1", {**descriptors, "azimuth_angle": 1.1, "polar_angle": 0.7}, rve_dims
+            )
+            cyl.position_center = np.array([0.95, 0.5, 0.05])
+            points = cyl.position_center + rng.uniform(-0.15, 0.15, size=(500, 3))
+            np.testing.assert_array_equal(
+                [cyl.point_inside(i_point, rve_dims) for i_point in points],
+                cyl.points_inside(points, rve_dims),
+            )
+        # The cylinder crosses two faces of the RVE, so that some points are asked
+        # about through their nearest periodic image
 
     def test_generate_point_inside(self):
         "This test only works if cyl.point_inside function is working"
@@ -205,6 +310,45 @@ class TestCylinder(unittest.TestCase):
             all(np.abs(furthest_point_2 - np.array([0.6, 0.8, 0.4])) < 1e-4)
         )
 
+    def test_support_function_reaches_the_support(self):
+        """Check the support point against the support function of a cylinder."""
+        rve_dims = [1, 1, 1]
+        rng = np.random.default_rng(0)
+        for i_polar, i_azimuth in rng.uniform(0, np.pi, size=(5, 2)):
+            cyl = Cylinder(
+                "1",
+                {
+                    "r_cyl": 0.1,
+                    "length": 0.3,
+                    "n": 1,
+                    "azimuth_angle": i_azimuth,
+                    "polar_angle": i_polar,
+                },
+                rve_dims,
+            )
+            cyl.position_center = np.array([0.5, 0.4, 0.3])
+            cyl.dilate(0.02)
+            axis = cyl.sym_axis_unit_vec
+            directions = np.concatenate(
+                [rng.normal(size=(20, 3)), [axis, -2 * axis, np.cross(axis, [1, 0, 0])]]
+            )
+            for i_direction in directions:
+                along = i_direction.dot(axis)
+                support = (
+                    i_direction.dot(cyl.position_center)
+                    + 0.15 * np.abs(along)
+                    + 0.1 * np.linalg.norm(i_direction - along * axis)
+                    + 0.02 * np.linalg.norm(i_direction)
+                )
+                with self.subTest(polar=i_polar, azimuth=i_azimuth, d=i_direction):
+                    point = cyl.support_function(i_direction)
+                    self.assertEqual(point.shape, (3,))
+                    self.assertAlmostEqual(i_direction.dot(point), support, places=12)
+        # The support function of a cylinder dilated by delta is the reach of the
+        # centre, plus half the length times the share of the direction along the axis,
+        # the radius times the share across it, and delta times its length. Directions
+        # along the axis and normal to it are among those tried, because rounding can
+        # throw the point off the cap for the first
 
     def test_intersection_calls(self):
         "Check if the function intersection calls the correct function to compute the intersection based on the other particle type"
@@ -223,8 +367,7 @@ class TestCylinder(unittest.TestCase):
             cyl.intersection_gjk = Mock()
             cyl.intersection(other_particle, rve_dims)
             cyl.intersection_gjk.assert_called_once()
-            # Two cylinders are checked with GJK too: intersection_cylinder_cylinder
-            # answered wrong in two of the cases below, and was removed
+            # Two cylinders are checked with GJK too
 
         with self.subTest("Other particle is other type"):
             other_particle = Mock()
@@ -253,6 +396,33 @@ class TestCylinder(unittest.TestCase):
             cyl.intersection_length(other_particle, rve_dims)
             cyl.intersection_length_mink_diff.assert_called_once()
 
+    def test_intersection_length_with_a_sphere(self):
+        """Check the overlap of a cylinder and a sphere beside it, measured by GJK."""
+        rve_dims = [1, 1, 1]
+        cyl = Cylinder(
+            "1",
+            {"r_cyl": 0.1, "length": 0.2, "n": 1, "azimuth_angle": 0, "polar_angle": 0},
+            rve_dims,
+        )
+        cyl.position_center = np.array([0.5, 0.5, 0.5])
+        sphere = Sphere("1", {"r": 0.1, "n": 1}, rve_dims)
+        for i_dist_met in ("dist_approx", "dist_exact"):
+            with self.subTest("Overlapping", dist_met=i_dist_met):
+                sphere.position_center = np.array([0.5, 0.65, 0.5])
+                length, direction = cyl.intersection_length(
+                    sphere, rve_dims, dist_met=i_dist_met
+                )
+                self.assertAlmostEqual(length, 0.05)
+                np.testing.assert_allclose(direction, [0, 1, 0], atol=1e-12)
+        with self.subTest("Apart"):
+            sphere.position_center = np.array([0.5, 0.75, 0.5])
+            length, direction = cyl.intersection_length(sphere, rve_dims)
+            self.assertEqual(length, 0)
+            np.testing.assert_array_equal(direction, [0, 0, 0])
+        # The side of the cylinder reaches 0.6 along y and the sphere starts at 0.55, so
+        # they overlap by 0.05 along the line between their centres. A sphere goes the
+        # way of every other particle, through GJK and the Minkowski difference
+
 
     def test_intersection_area_calls(self):
         "Check if the function intersection_area calls the correct function to compute the intersection area based on the other particle type"
@@ -273,6 +443,79 @@ class TestCylinder(unittest.TestCase):
             cyl.intersection_area(other_particle, rve_dims)
             cyl.intersection_area_monte_carlo.assert_called_once()
 
+
+class TestCylinderSize(unittest.TestCase):
+    """Test the radius and the length worked out from the descriptors."""
+
+    def test_each_description(self):
+        rve_dims = [1, 2, 3]
+        for i_case, i_descriptors, i_size in (
+            ("radius and length", {"r_cyl": 0.1, "length": 0.2}, (0.1, 0.2)),
+            ("radius and ratio", {"r_cyl": 0.1, "ratio": 3}, (0.1, 0.3)),
+            ("length and ratio", {"length": 0.3, "ratio": 3}, (0.1, 0.3)),
+            (
+                "length, fraction and number",
+                {"length": 0.2, "vf": 0.1, "n": 10},
+                (np.sqrt(0.1 * 6 / (0.2 * np.pi * 10)), 0.2),
+            ),
+        ):
+            with self.subTest(i_case):
+                np.testing.assert_allclose(
+                    cylinder_size(i_descriptors, rve_dims), i_size, rtol=1e-12
+                )
+
+    def test_order_of_the_cases(self):
+        rve_dims = [1, 1, 1]
+        with self.subTest("fraction and number before the radius"):
+            r_cyl, _ = cylinder_size(
+                {"r_cyl": 0.5, "length": 0.2, "vf": 0.1, "n": 10}, rve_dims
+            )
+            self.assertAlmostEqual(r_cyl, np.sqrt(0.1 / (0.2 * np.pi * 10)))
+        with self.subTest("ratio before the radius"):
+            self.assertEqual(
+                cylinder_size({"r_cyl": 0.5, "length": 0.2, "ratio": 2}, rve_dims),
+                (0.1, 0.2),
+            )
+        # The constructor worked the radius out from the length last, over a radius
+        # given with it, and a run that gives all of them still gets the same cylinder
+
+    def test_incomplete_description(self):
+        for i_descriptors in ({"r_cyl": 0.1, "n": 2}, {"length": 0.2, "vf": 0.1}):
+            with self.subTest(descriptors=i_descriptors):
+                with self.assertRaises(ValueError):
+                    cylinder_size(i_descriptors, [1, 1, 1])
+        with self.subTest("through the constructor"):
+            with self.assertRaises(ValueError):
+                Cylinder(
+                    "1",
+                    {"r_cyl": 0.1, "n": 2, "azimuth_angle": 0, "polar_angle": 0},
+                    [1, 1, 1],
+                )
+        # A description that gives one size and not what the other follows from cannot
+        # size the cylinder, and says so
+
+
+class TestRotationFromAngles(unittest.TestCase):
+    """Test the rotation from global coordinates to those of a cylinder."""
+
+    def test_rotation(self):
+        rng = np.random.default_rng(0)
+        for i_polar, i_azimuth in rng.uniform(-np.pi, np.pi, size=(20, 2)):
+            rot_mat = rotation_from_angles(i_polar, i_azimuth)
+            with self.subTest(polar=i_polar, azimuth=i_azimuth):
+                np.testing.assert_allclose(rot_mat.dot(rot_mat.T), np.eye(3), atol=1e-12)
+                self.assertAlmostEqual(np.linalg.det(rot_mat), 1)
+                np.testing.assert_allclose(
+                    rot_mat[0],
+                    [
+                        np.sin(i_polar) * np.cos(i_azimuth),
+                        np.sin(i_polar) * np.sin(i_azimuth),
+                        np.cos(i_polar),
+                    ],
+                    atol=1e-12,
+                )
+        # The rows are an orthonormal, right-handed frame, and the first of them is the
+        # axis at the polar and the azimuth angle
 
 
 class TestCylinderIntersection(unittest.TestCase):

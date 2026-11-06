@@ -16,7 +16,7 @@ from geommicgen.meshing.images import periodic_images
 from geommicgen.meshing.mesher import get_mesher
 from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.microstructure.phase import Phase
-from geommicgen.microstructure.particleclasses import Disk, Point, Sphere
+from geommicgen.microstructure.particleclasses import Cylinder, Disk, Point, Sphere
 from geommicgen.tests.helpers import (
     ENDING_SIGNAL,
     FailingMesher,
@@ -328,6 +328,46 @@ class TestGmshMesherMeshes(unittest.TestCase):
         self.assertEqual(mesh.source["element_type"], "tri3")
         self.assertEqual(mesh.phase_names, {1: "1", 2: "2"})
         self.assertEqual(mesh.matrix_phase, "1")
+
+
+@unittest.skipUnless(has_gmsh(), "gmsh is not installed")
+class TestCylinderPrimitive(unittest.TestCase):
+    """Test class for the geometry gmsh is given for a cylinder."""
+
+    def test_the_geometry_lies_along_the_axis(self):
+        for i_polar, i_azimuth in (
+            (1.0, 0.5),
+            (-1.0, 0.5),
+            (4.0, 0.5),
+            (1.0, -2.0),
+            (np.pi, 0.3),
+        ):
+            cylinder = Cylinder(
+                "1",
+                {
+                    "r_cyl": 0.1,
+                    "length": 0.4,
+                    "n": 1,
+                    "azimuth_angle": i_azimuth,
+                    "polar_angle": i_polar,
+                },
+                [1, 1, 1],
+            )
+            with gmsh_session() as gmsh:
+                (volume,) = GmshMesher.add_primitive(
+                    gmsh.model.occ, gmsh.model, cylinder, (0.5, 0.5, 0.5)
+                )
+                gmsh.model.occ.synchronize()
+                center = gmsh.model.occ.getCenterOfMass(*volume)
+                inertia = np.reshape(gmsh.model.occ.getMatrixOfInertia(*volume), (3, 3))
+            _, directions = np.linalg.eigh(inertia)
+            with self.subTest(polar=i_polar, azimuth=i_azimuth):
+                np.testing.assert_allclose(center, [0.5, 0.5, 0.5], atol=1e-9)
+                self.assertAlmostEqual(
+                    abs(directions[:, 0].dot(cylinder.sym_axis_unit_vec)), 1, places=9
+                )
+        # A cylinder longer than the root of three times its radius turns most easily
+        # about its axis, so the direction of the least moment of inertia is the axis
 
 
 @unittest.skipUnless(has_gmsh(), "gmsh is not installed")
