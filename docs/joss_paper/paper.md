@@ -106,6 +106,6 @@ A commit made with an AI assistant names the tool and model in an `Assisted-by:`
 
 # Acknowledgements
 
-Falar da bolsas (JOSS obriga).
+José L. P. Vila-Chã acknowledges the support provided by Fundação para a Ciência e a Tecnologia (FCT) through the scholarship [2021.07345.BD](https://doi.org/10.54499/2021.07345.BD), and by the Faculty of Engineering of the University of Porto through the project FEUP-MHFEM. Bernardo P. Ferreira acknowledges the support provided by FCT through the scholarship SFRH/BD/130593/2017. This research has also been supported by Instituto de Ciência e Inovação em Engenharia Mecânica e Engenharia Industrial (INEGI).
 
 # References
