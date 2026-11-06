@@ -38,6 +38,10 @@ António M. Couto Carneiro, whose gmsh2links package gives the order in which LI
 
 The first version of GMMD, written in 2020 and 2021, was made without AI tools. Since 2026, AI coding assistants are used in developing GMMD: Claude Code, with Claude Opus and Sonnet models, and GitHub Copilot, for code completion in the editor and for Copilot Autofix. They are used to write and refactor code, write tests, review code and draft documentation, and to copy-edit the JOSS paper. The person committing reviews every change and is responsible for it. A commit made with an assistant says so in an `Assisted-by:` trailer naming the tool and model (`Co-authored-by:` in earlier commits). Code completion in the editor is not marked.
 
+### Contributing and support
+
+Bug reports, questions and pull requests are welcome on GitHub. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Main features
 
 ### Phase descriptors
