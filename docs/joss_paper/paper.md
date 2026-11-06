@@ -5,15 +5,18 @@ tags:
 
 authors:
   - name: José Luís P. Vila-Chã
+    orcid: 0009-0000-3812-8075
     corresponding: true
-    affiliation: 1
-  - name: João Morais
+    affiliation: "1, 2"
+  - name: João A. G. Cruz de Morais
     affiliation: 2
-  - name: Rui Coelho
+  - name: Rui P. Cardoso Coelho
+    orcid: 0000-0001-9989-964X
     affiliation: 1
   - name: Bernardo P. Ferreira
     affiliation: 2
   - name: Francisco M. Andrade Pires
+    orcid: 0000-0002-4802-6360
     affiliation: "1, 2"
 affiliations:
  - name: Institute of Science and Innovation in Mechanical and Industrial Engineering (INEGI), Porto, Portugal
