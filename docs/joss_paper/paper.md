@@ -11,6 +11,8 @@ authors:
     affiliation: 2
   - name: Rui Coelho
     affiliation: 1
+  - name: Bernardo P. Ferreira
+    affiliation: 2
   - name: Francisco M. Andrade Pires
     affiliation: "1, 2"
 affiliations:
