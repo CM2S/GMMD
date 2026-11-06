@@ -8,6 +8,8 @@ license = {file = "LICENSE"}
 keywords = ["Microstructure generation"]
 authors = [
     {name = "José Luís P. Vila-Chã", email = "jvc@fe.up.pt"},
+    {name = "João A. G. Cruz de Morais", email = "up202105264@up.pt"},
+    {name = "Rui P. Cardoso Coelho", email = "ruicoelhopedro@gmail.com"},
     {name = "Bernardo P. Ferreira", email = "bpferreira@fe.up.pt"},
     {name = "Francisco M. Andrade Pires", email = "fpires@fe.up.pt"},
 ]

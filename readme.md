@@ -28,7 +28,7 @@ José Luís P. Vila-Chã ([jvc@fe.up.pt](mailto:jvc@fe.up.pt)), CM2S research gr
 
 ### Contributors
 
-Bernardo P. Ferreira, Francisco M. Andrade Pires, Rui Coelho, João Morais.
+Bernardo P. Ferreira, Francisco M. Andrade Pires, Rui P. Cardoso Coelho, João A. G. Cruz de Morais.
 
 ### Acknowledgements
 
