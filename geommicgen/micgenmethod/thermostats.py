@@ -13,7 +13,44 @@ import numpy as np
 
 
 class Thermostat(abc.ABC):
-    """This is the abstract class for thermostats."""
+    """
+    This is the abstract class for thermostats.
+
+    Attributes
+    ----------
+    k_b: float
+        Boltzmann constant relating the kinetic energy to the temperature.
+
+    force_coeff: float
+        Coefficient of the damping force the thermostat applies, proportional to the
+        velocity. None when the thermostat applies no such force.
+
+    kin_energy_div: bool
+        Whether the kinetic energy has diverged from the thermic energy, which makes
+        the simulation compute the intersections exactly. Only the multi temperature
+        thermostat ever sets it.
+
+    temp_change_steps: list(int)
+        Steps at which the thermostat changed the temperature.
+
+    ratio: list(float)
+        History of the overlap ratio the thermostat lowers the temperature by.
+    """
+
+    k_b = 1e-15
+    force_coeff = None
+    kin_energy_div = False
+    # What the simulation reads off any thermostat, so that one that does not set an
+    # attribute has its default rather than none at all
+
+    def __init__(self):
+        """Initizalizer for the Thermostat Class."""
+        self.temp_change_steps = []
+        self.ratio = []
+        # What the motion analysis draws of any thermostat, empty for one that never
+        # changes the temperature. It read them off every thermostat, and a run whose
+        # thermostat had none failed its analysis, where the analysis of its saved
+        # state, which records them empty, did not
 
     def apply_thermostat(self, particle_velocities, kin_energy):
         """Apply the thermostat."""
@@ -24,6 +61,7 @@ class MicroCanonicalEnsemble(Thermostat):
 
     def __init__(self):
         """Initialize MicroCanonicalEnsemble class object. Do nothing."""
+        super().__init__()
         self.reference_temp = None
 
     def apply_thermostat(self, particle_velocities, kin_energy):
@@ -100,8 +138,14 @@ class IsokineticThermostat(Thermostat):
         number_particles = len(particle_velocities)
         # The thermostate used is the isokinetic with constant temperature
         lambda_vel = np.sqrt(
-            0.5 * dim * number_particles * self.k_b * self.reference_temp / kin_energy
+            0.5
+            * dim
+            * number_particles
+            * self.k_b
+            * self.reference_temp
+            / (kin_energy + 1e-15)
         )
+        # the constant 1e-15 in the denominator is only here to prevent divide by zero errors when kin_energy is null.
         for i_particle_index in range(number_particles):
             # Running through all the particles
             particle_velocities[i_particle_index] *= lambda_vel
@@ -140,12 +184,19 @@ class BerendsenForceThermostat(Thermostat):
         berendsen_coeff: float
             Coefficient regulating the force coefficient
         """
+        if reference_temp is None:
+            raise ValueError(
+                "The Berendsen thermostat needs the temperature it keeps, Initial_Temp."
+            )
+        # Compared with zero below, which stopped on a TypeError for a deck that left
+        # it out, since the reader gives it as None by default
         if reference_temp < 0:
             raise ValueError(
                 "The reference temperature cannot be negative: Given value is {0}".format(
                     reference_temp
                 )
             )
+        super().__init__()
         self.reference_temp = reference_temp
         # Intial temperature
         self.k_b = 1e-15
@@ -287,12 +338,18 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
             # If a legal configuration has not been achieved
             if self.reached_equilibrium():
                 if not self.kin_energy_div:
+                    thermic_energy = self.molecular_dynamics_sim.thermic_energy
+                    # compute_thermic_energy runs immediately before the thermostat, so
+                    # this is the same value that would be appended to
+                    # thermic_energy_history. Reading the attribute rather than
+                    # history[-1] keeps this path working when save_history is False,
+                    # in which case the history is never populated and the indexing
+                    # raised IndexError.
                     diff_kin_e = (
                         np.abs(
-                            self.molecular_dynamics_sim.kinetic_energy
-                            - self.molecular_dynamics_sim.thermic_energy_history[-1]
+                            self.molecular_dynamics_sim.kinetic_energy - thermic_energy
                         )
-                        / self.molecular_dynamics_sim.thermic_energy_history[-1]
+                        / thermic_energy
                     )
                     if diff_kin_e > 1 / self.temp_low_ratio / 2:
                         self.kin_energy_div = True
@@ -301,7 +358,6 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
                         # If the total overlap has increased in the previous iterations
                         self.reference_temp *= self.temp_low_ratio
                         # self.molecular_dynamics_sim.dt *= 1.001
-                        # self.molecular_dynamics_sim.force_rescale_coeff *= 2  # 16 ** 2
                         # Lowering the temperature
                         self.temp_change_steps.append(self.molecular_dynamics_sim.step)
                         # Saving minimum equilibration times and times at which the
@@ -310,7 +366,6 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
                     # If the total overlap has increased in the previous iterations
                     self.reference_temp *= self.temp_low_ratio
                     # self.molecular_dynamics_sim.dt *= 1.001
-                    # self.molecular_dynamics_sim.force_rescale_coeff *= 2  # 16 ** 2
                     # Lowering the temperature
                     self.temp_change_steps.append(self.molecular_dynamics_sim.step)
                     # Saving minimum equilibration times and times at which the
@@ -337,6 +392,7 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
                     )
                     > 0
                 )
+
                 if equilibrium_flag:
                     self.min_eq_steps_at_temp += (
                         self.molecular_dynamics_sim.step - self._next_temp_change - 1
@@ -382,9 +438,7 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
                 self.ratio.append(
                     np.abs(self.inc_history[-1] / self.dec_history[-1])
                     if self.dec_history[-1] != 0
-                    else 1e12
-                    if self.inc_history[-1] != 0
-                    else 1
+                    else 1e12 if self.inc_history[-1] != 0 else 1
                 )
                 if (self.ratio[-1] - 1) * (self.ratio[-2] - 1) <= 0:
                     self._count += 1
@@ -395,3 +449,91 @@ class MultiTemperatureIsokineticThermostat(IsokineticThermostat):
                 equilibrium_flag = False
 
         return equilibrium_flag
+
+
+THERMOSTATS = ("multi_temperature", "isokinetic", "micro_canonical", "berendsen")
+# The thermostats an input data file can ask for, under the names it asks with
+
+LOWERING_TEMP_CRITERIA = ("ratio_in_out", "rolling_ave", "original")
+# The criteria the multi-temperature thermostat lowers the temperature by
+
+
+def _required(options, name, purpose):
+    """Get an option that has to be given, saying what needs it when it is not."""
+    if name not in options:
+        raise ValueError(
+            "The input data file does not give {0}, which {1} needs.".format(
+                name, purpose
+            )
+        )
+
+    return options[name]
+
+
+def thermostat_from_options(options):
+    """
+    Build the thermostat an input data file asks for.
+
+    Parameters
+    ----------
+    options: dict
+        Generation parameters, keyed as the input data file keys them.
+
+    Returns
+    -------
+    `.Thermostat`
+        The thermostat, a multi-temperature one when none is named.
+
+    Raises
+    ------
+    ValueError:
+        If the thermostat, or the criterion of the multi-temperature one, is not one
+        there is, or if a parameter it needs is not given.
+    """
+    name = options.get("thermostat", THERMOSTATS[0])
+    if name == "micro_canonical":
+        return MicroCanonicalEnsemble()
+    if name == "isokinetic":
+        return IsokineticThermostat(
+            _required(options, "initial_temp", "the isokinetic thermostat")
+        )
+    if name == "berendsen":
+        return BerendsenForceThermostat(
+            _required(options, "initial_temp", "the Berendsen thermostat"),
+            _required(options, "berendsen_coeff", "the Berendsen thermostat"),
+        )
+    if name == "multi_temperature":
+        criterion = options.get("lowering_temp_criterion", LOWERING_TEMP_CRITERIA[0])
+        purpose = "the {0} criterion of the multi-temperature thermostat".format(
+            criterion
+        )
+        if criterion == "ratio_in_out":
+            kwargs = {"max_ratio_osc": _required(options, "max_ratio_osc", purpose)}
+        elif criterion == "rolling_ave":
+            kwargs = {"average_window": _required(options, "average_window", purpose)}
+        elif criterion == "original":
+            kwargs = {
+                "min_eq_steps_at_temp": _required(
+                    options, "min_eq_steps_at_temp", purpose
+                )
+            }
+        else:
+            raise ValueError(
+                "{0} is not a criterion for lowering the temperature. The available "
+                "options are {1}.".format(criterion, ", ".join(LOWERING_TEMP_CRITERIA))
+            )
+        kwargs["temp_low_ratio"] = _required(
+            options, "temp_low_ratio", "the multi-temperature thermostat"
+        )
+        return MultiTemperatureIsokineticThermostat(
+            _required(options, "initial_temp", "the multi-temperature thermostat"),
+            criterion,
+            **kwargs
+        )
+    raise ValueError(
+        "{0} is not a thermostat. The available options are {1}.".format(
+            name, ", ".join(THERMOSTATS)
+        )
+    )
+    # A name that is not known is refused here, where the message can list the names,
+    # rather than quietly given the micro canonical ensemble as it used to be

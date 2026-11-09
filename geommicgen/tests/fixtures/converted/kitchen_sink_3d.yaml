@@ -1,0 +1,53 @@
+# What the deck kitchen_sink_3d.mdsim is converted into, with every default written out.
+
+samples: 1
+rve_dimensions: [1.0, 1.0, 1.0]
+save_min: false
+phases:
+  0: {type: matrix}
+  1:
+    type: sphere
+    r: {distribution: normal, mean: 0.1, sigma: 0.01}
+    n: {distribution: fixed, value: 3}
+  2:
+    type: ellipsoid
+    axis_1: {distribution: fixed, value: 0.2}
+    ratio_321: {distribution: fixed, value: 0.5}
+    p_3: {distribution: fixed, value: 0.1}
+    phi_z: {distribution: uniform, low: 0.0, high: 1.0}
+    vf: {distribution: fixed, value: 0.02}
+  3:
+    type: cylinder
+    r_cyl: {distribution: fixed, value: 0.05}
+    azimuth_angle: {distribution: fixed, value: 0.1}
+    polar_angle: {distribution: fixed, value: 0.2}
+    ratio: {distribution: fixed, value: 4.0}
+    n: {distribution: fixed, value: 2}
+generation:
+  min_distance: 0.0
+  offset: true
+  molecular_dynamics:
+    max_residue_per_particle: 0.0
+    max_step: 10
+    max_steps_to_relax: 0
+    dt: 0.05
+    dt_adapt: true
+    save_history: false
+    type_initial_configuration: random
+    initial_vel_coeff: 0.1
+    final_overlap_check: false
+    damping_coeff: 0.0
+    particle_mass_opt: radius
+    speed_up: {name: verlet, factor: 1.3}
+    thermostat: {name: berendsen, initial_temp: 5.0, coeff: 0.02}
+meshes:
+  gmsh:
+    elements_per_particle: 4.0
+    element_type: tetra4
+    periodic_constraints: true
+    boundary_type: Periodic_Condition
+  voxel:
+    n_voxels_dims: [8, 8, 8]
+    periodic_constraints: true
+    boundary_type: Periodic_Condition
+analyses: {}

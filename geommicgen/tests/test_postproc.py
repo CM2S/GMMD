@@ -1,0 +1,580 @@
+"""Test module for the post processing: the discretisations, then the analyses."""
+
+import os
+import sys
+import tempfile
+import unittest
+import warnings
+from unittest.mock import Mock, patch
+
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+
+from geommicgen._optional import has_gmsh
+from geommicgen.errors.error_classes import MissingOptionalDependency, ProcessDied
+from geommicgen.iofuncs.md_state import load_md_state, save_md_state
+from geommicgen.iofuncs.printing import log_to_terminal, screen_to
+from geommicgen.meshing.voxel_mesher import VoxelMesher
+from geommicgen.micgenmethod.thermostats import (
+    BerendsenForceThermostat,
+    IsokineticThermostat,
+    MicroCanonicalEnsemble,
+    MultiTemperatureIsokineticThermostat,
+)
+from geommicgen.microstructure.particleclasses import Disk
+from geommicgen.microstructure.phase import Phase
+from geommicgen.pipeline import MESH_DIRECTORY, MeshJob
+from geommicgen.postproc.plotfuncs.plotting_functions import (
+    colors_of_phases,
+    generate_colors,
+    histogram_bins,
+    keep_what_the_cut_left,
+    plot_particles_3d,
+    plot_paths,
+)
+from geommicgen.postproc.voronoimetrics.voronoi_analysis import do_voronoi_analysis
+from geommicgen.postproc.postproc import (
+    FINAL_CONFIG_STEP,
+    STAT_STEP,
+    check_analyses,
+    post_proc,
+    run_analyses,
+)
+from geommicgen.tests.helpers import (
+    a_generation_run,
+    build_microstructure,
+    disk_microstructure,
+    sphere_microstructure,
+)
+from geommicgen.tests.test_process import ending
+
+
+def a_state(directory, positions=True):
+    """
+    Write the state of a run beside a microstructure and read it back.
+
+    Parameters
+    ----------
+    directory: str
+        Directory the state is written in.
+
+    positions: bool
+        Whether the run recorded the positions of the particles.
+
+    Returns
+    -------
+    `.GenerationState`
+        The state, as an analysis reads it.
+    """
+    run = a_generation_run()
+    if not positions:
+        run.position_center_history = None
+
+    return load_md_state(save_md_state(directory, run))
+
+
+def with_a_disk_inside(microstructure):
+    """
+    Add a phase of one disk inside the first particle of a microstructure of disks.
+
+    Parameters
+    ----------
+    microstructure: `.Microstructure`
+        Microstructure whose phase of particles is named *2*.
+
+    Returns
+    -------
+    `.Microstructure`
+        The microstructure, with the inner phase named *3*.
+    """
+    inner = Disk("3", {"r": 0.05}, microstructure.rve_dims)
+    inner.position_center = microstructure.particles[0].position_center.copy()
+    microstructure.add_phase(
+        Phase.from_type("3", Disk, inner_phase=True, outer_phase="2")
+    )
+    microstructure.phases["3"].particles.append(inner)
+
+    return microstructure
+
+
+class PostProcTest(unittest.TestCase):
+    """Base class for tests that post process into a directory of their own."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.sample_dir = self.directory.name
+        log_to_terminal()
+        screen_to(self.sample_dir)
+        self.addCleanup(screen_to, None)
+
+    def written(self, *names):
+        """Say whether a file or directory of the sample was written."""
+        return os.path.exists(os.path.join(self.sample_dir, *names))
+
+
+class TestPostProc(PostProcTest):
+    """Test class for the composition the input data file runs."""
+
+    def test_the_final_configuration_time_is_returned(self):
+        times, failures = post_proc(
+            [], disk_microstructure(), None, self.sample_dir, {"final_config": True}
+        )
+        self.assertEqual(failures, [])
+        self.assertEqual(list(times), [FINAL_CONFIG_STEP])
+        self.assertGreater(times[FINAL_CONFIG_STEP], 0.0)
+        self.assertTrue(self.written("final_config.pdf"))
+
+    def test_nothing_asked_for_returns_no_times(self):
+        self.assertEqual(
+            post_proc([], disk_microstructure(), None, self.sample_dir, {}), ({}, [])
+        )
+
+    def test_the_meshes_are_run(self):
+        job = MeshJob(VoxelMesher([4, 4]), [], "grid")
+        post_proc([job], disk_microstructure(), None, self.sample_dir, {})
+        self.assertIsNone(job.error)
+        self.assertTrue(self.written(MESH_DIRECTORY, "grid.vti"))
+
+    def test_the_analyses_are_checked_before_the_meshes(self):
+        job = MeshJob(VoxelMesher([4, 4]), [], "grid")
+        with self.assertRaises(ValueError):
+            post_proc(
+                [job], disk_microstructure(), None, self.sample_dir, {"motion_analysis": True}
+            )
+        self.assertIsNone(job.time)
+        self.assertFalse(self.written(MESH_DIRECTORY))
+        # A request that cannot be honoured is found out at once, not after the meshing
+
+    def test_the_analyses_of_the_packing_leave_out_the_inner_phases(self):
+        _, failures = run_analyses(
+            with_a_disk_inside(disk_microstructure()),
+            None,
+            self.sample_dir,
+            {
+                "voronoi_analysis": True,
+                "voronoi_type": "set",
+                "n_surf_points": 5,
+                "stat_nearest_neighbor": True,
+            },
+        )
+        self.assertEqual(failures, [])
+        with np.load(
+            os.path.join(self.sample_dir, "stat_analysis_results", "stat_results.npz")
+        ) as results:
+            self.assertEqual(len(results["stat_nearest_neighbor"]), 2)
+        # The disk inside the first is left out: its centre was the nearest neighbour
+        # of that one, at no distance, and the set Voronoi diagram, which has no place
+        # for a cell inside another, failed to order the vertices of their cells
+
+    def test_a_run_is_analysed_whatever_its_thermostat(self):
+        for i_thermostat in (
+            MicroCanonicalEnsemble(),
+            BerendsenForceThermostat(1.0, 0.01),
+            IsokineticThermostat(1.0),
+            MultiTemperatureIsokineticThermostat(
+                1.0, "original", min_eq_steps_at_temp=5
+            ),
+        ):
+            with self.subTest(type(i_thermostat).__name__):
+                run = a_generation_run()
+                run.position_center_history = None
+                run.set_thermostat(i_thermostat)
+                _, failures = run_analyses(
+                    disk_microstructure(),
+                    run,
+                    self.sample_dir,
+                    {"motion_analysis": True},
+                )
+                self.assertEqual(failures, [])
+        # A run hands the analyses the simulation itself, and the motion analysis read
+        # the changes of temperature off the thermostat of any of them
+
+
+class TestPlotsWithoutTeX(PostProcTest):
+    """Test class for the plots, drawn without a TeX installation."""
+
+    def test_the_plots_are_drawn_without_tex(self):
+        disks = []
+        for i_center, i_radius in (
+            ([0.15, 0.2], 0.06),
+            ([0.5, 0.15], 0.05),
+            ([0.85, 0.3], 0.07),
+            ([0.3, 0.55], 0.08),
+            ([0.7, 0.65], 0.05),
+            ([0.15, 0.85], 0.06),
+            ([0.55, 0.9], 0.07),
+        ):
+            disks.append(Disk("2", {"r": i_radius}, [1.0, 1.0]))
+            disks[-1].position_center = np.array(i_center)
+        # Seven disks, so that their Voronoi cells differ enough for a histogram
+        with patch(
+            "matplotlib.texmanager.TexManager.make_dvi",
+            side_effect=AssertionError("TeX was asked for"),
+        ):
+            _, failures = run_analyses(
+                build_microstructure([1.0, 1.0], Disk, disks),
+                None,
+                self.sample_dir,
+                {
+                    "final_config": True,
+                    "voronoi_analysis": True,
+                    "plot_voronoi": True,
+                    "plot_imts": True,
+                    "stat_nearest_neighbor": True,
+                    "stat_ripleys_k": True,
+                },
+            )
+        self.assertEqual(failures, [])
+        self.assertTrue(
+            self.written("voronoi_analysis_results", "voronoi_hist_0.pdf")
+        )
+        self.assertTrue(self.written("stat_analysis_results", "k_ripleys_func.pdf"))
+        # The Voronoi plots set the text by TeX, for every plot after them as well,
+        # so a plot needed a TeX installation, which nothing declared
+
+
+class TestHistograms(PostProcTest):
+    """Test class for the histograms of values that all but coincide."""
+
+    def test_values_alike_are_one_bin_around_them(self):
+        values = [1.0, 1.0 + 4.4e-16, 1.0 + 2.2e-16]
+        for i_bins in (10, "auto"):
+            with self.subTest(bins=i_bins):
+                bins, value_range = histogram_bins(values, i_bins)
+                self.assertEqual(bins, 1)
+                counts, _ = np.histogram(values, bins=bins, range=value_range)
+                self.assertEqual(counts.tolist(), [3])
+        self.assertEqual(histogram_bins([1.0, 1.1], "auto"), ("auto", None))
+        # numpy refuses bins between values that differ in their last digits, and
+        # sizes "auto" bins from their spread, a width of the last digit
+
+    def test_the_cells_of_two_disks_alike_are_drawn(self):
+        _, failures = run_analyses(
+            disk_microstructure(),
+            None,
+            self.sample_dir,
+            {
+                "voronoi_analysis": True,
+                "plot_voronoi": True,
+                "plot_imts": True,
+                "stat_nearest_neighbor": True,
+            },
+        )
+        self.assertEqual(failures, [])
+        self.assertTrue(
+            self.written("voronoi_analysis_results", "voronoi_hist_0.pdf")
+        )
+        # The two cells of the periodic RVE have the same perimeter to the last few
+        # digits, and the histogram of the perimeters failed
+
+
+class TestColourMap(PostProcTest):
+    """Test class for the colour map the Voronoi cells are drawn in."""
+
+    def test_it_is_looked_up_as_matplotlib_goes_on_offering(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", matplotlib.MatplotlibDeprecationWarning)
+            _, failures = run_analyses(
+                disk_microstructure(),
+                None,
+                self.sample_dir,
+                {"voronoi_analysis": True, "plot_imts": True},
+            )
+        self.assertEqual(failures, [])
+        # matplotlib.cm.get_cmap is deprecated since matplotlib 3.7, and goes in 3.11
+
+
+class TestFiguresAreClosed(PostProcTest):
+    """Test class for the figures the analyses draw, once they are written."""
+
+    def test_no_figure_is_left_open(self):
+        plt.close("all")
+        _, failures = run_analyses(
+            disk_microstructure(),
+            None,
+            self.sample_dir,
+            {
+                "final_config": True,
+                "voronoi_analysis": True,
+                "plot_voronoi": True,
+                "plot_imts": True,
+                "stat_nearest_neighbor": True,
+            },
+        )
+        self.assertEqual(failures, [])
+        self.assertEqual(plt.get_fignums(), [])
+        # pyplot keeps a figure until it is closed, so a figure left open is kept for
+        # the rest of the run: the final configuration and the Voronoi plots left
+        # nine for every sample
+
+
+class TestPhaseColours(unittest.TestCase):
+    """Test class for the colour each phase is drawn in."""
+
+    def test_each_phase_is_drawn_in_the_same_colour_in_every_run(self):
+        particles = [
+            Mock(phase=i_name) for i_name in ("10", "2", "7", "1", "3", "12", "5", "2")
+        ]
+        colours = colors_of_phases(particles)
+        self.assertEqual(list(colours), ["1", "2", "3", "5", "7", "10", "12"])
+        self.assertEqual(list(colours.values()), generate_colors(7))
+        # In the order of the names, as numbers; the order of a set of them changes
+        # from one run to the next, and each phase came out in another colour
+
+    def test_every_phase_has_a_colour_of_its_own(self):
+        for i_phases in (1, 7, 8, 20):
+            with self.subTest(phases=i_phases):
+                colours = colors_of_phases(
+                    [Mock(phase=str(j_name)) for j_name in range(2, i_phases + 2)]
+                )
+                self.assertEqual(len(colours), i_phases)
+                self.assertEqual(len(set(colours.values())), i_phases)
+        # There were the seven colours of a scheme, and a phase past them had none
+
+
+class TestManyPhases(PostProcTest):
+    """Test class for the drawing of more phases than a scheme has colours."""
+
+    def test_the_final_configuration_of_eight_phases_is_drawn(self):
+        microstructure = build_microstructure([1.0, 1.0], Disk, [])
+        for i_phase in range(3, 10):
+            microstructure.add_phase(Phase.from_type(str(i_phase), Disk))
+        for i_phase in range(2, 10):
+            disk = Disk(str(i_phase), {"r": 0.04}, [1.0, 1.0])
+            disk.position_center = np.array([0.1 * i_phase, 0.5])
+            microstructure.phases[str(i_phase)].particles.append(disk)
+        _, failures = run_analyses(
+            microstructure, None, self.sample_dir, {"final_config": True}
+        )
+        self.assertEqual(failures, [])
+        self.assertTrue(self.written("final_config.pdf"))
+        # The eighth phase had no colour, and the drawing failed with a KeyError
+
+
+class TestFailingAnalysis(PostProcTest):
+    """Test class for an analysis that fails while the others are carried out."""
+
+    OPTIONS = {"final_config": True, "stat_nearest_neighbor": True}
+
+    def test_it_is_recorded_and_the_others_run(self):
+        with patch(
+            "geommicgen.postproc.postproc.plot_particles",
+            side_effect=RuntimeError("drawn wrong"),
+        ):
+            times, failures = run_analyses(
+                disk_microstructure(), None, self.sample_dir, self.OPTIONS
+            )
+        self.assertEqual(len(failures), 1)
+        step, error, trace = failures[0]
+        self.assertEqual(step, FINAL_CONFIG_STEP)
+        self.assertIsInstance(error, RuntimeError)
+        self.assertIsNone(error.__traceback__)
+        self.assertIn("drawn wrong", trace)
+        self.assertEqual(set(times), {FINAL_CONFIG_STEP, STAT_STEP})
+        self.assertTrue(self.written("stat_analysis_results", "stat_results.npz"))
+        # The error raised out of the run, and the analyses after it and the samples
+        # after it were never carried out
+
+    def test_a_view_whose_process_ends_is_recorded(self):
+        with patch(
+            "geommicgen.postproc.postproc.plot_particles",
+            side_effect=lambda *args: ending(),
+        ):
+            _, failures = run_analyses(
+                disk_microstructure(), None, self.sample_dir, self.OPTIONS
+            )
+        self.assertIsInstance(failures[0][1], ProcessDied)
+        self.assertTrue(self.written("stat_analysis_results", "stat_results.npz"))
+        # What gmsh does to the process a view is drawn in, when it ends it rather than
+        # raise
+
+
+class TestCheckAnalyses(PostProcTest):
+    """Test class for the refusals, and for their coming before anything is written."""
+
+    def test_the_motion_analysis_needs_the_state(self):
+        with self.assertRaises(ValueError) as context:
+            run_analyses(
+                disk_microstructure(),
+                None,
+                self.sample_dir,
+                {"final_config": True, "motion_analysis": True},
+            )
+        self.assertIn("md_state.npz", str(context.exception))
+        self.assertFalse(self.written("final_config.pdf"))
+        # Refused before the final configuration it was asked for alongside is drawn
+
+    def test_an_unknown_voronoi_diagram_is_refused(self):
+        with self.assertRaises(ValueError) as context:
+            check_analyses(
+                disk_microstructure(),
+                None,
+                {"voronoi_analysis": True, "voronoi_type": "other"},
+            )
+        self.assertIn("other", str(context.exception))
+        self.assertIn("standard", str(context.exception))
+
+    def test_the_weighted_diagram_is_no_longer_offered(self):
+        with self.assertRaises(ValueError):
+            check_analyses(
+                disk_microstructure(),
+                None,
+                {"voronoi_analysis": True, "voronoi_type": "weighted"},
+            )
+        # It was accepted and computed the standard diagram in its place
+
+    def test_a_diagram_is_not_checked_when_no_analysis_asks_for_it(self):
+        check_analyses(disk_microstructure(), None, {"voronoi_type": "other"})
+
+    def test_gmsh_is_required_up_front(self):
+        needing_gmsh = (
+            (sphere_microstructure(), None, {"final_config": True}),
+            (disk_microstructure(), a_state(self.sample_dir), {"motion_analysis": True}),
+            (
+                sphere_microstructure(),
+                None,
+                {"voronoi_analysis": True, "plot_voronoi": True},
+            ),
+        )
+        for i_microstructure, i_state, i_options in needing_gmsh:
+            with self.subTest(options=i_options, dim=i_microstructure.dim):
+                with patch.dict(sys.modules, {"gmsh": None}):
+                    with self.assertRaises(MissingOptionalDependency):
+                        run_analyses(i_microstructure, i_state, self.sample_dir, i_options)
+                self.assertFalse(self.written("final_config.msh"))
+                self.assertFalse(self.written("motion_results"))
+                self.assertFalse(self.written("voronoi_analysis_results"))
+        # Setting the module entry to None makes the import raise; nothing is written
+        # before the refusal, where the paths used to leave an empty directory behind
+
+    def test_what_does_not_draw_through_gmsh_does_not_need_it(self):
+        state = a_state(self.sample_dir, positions=False)
+        with patch.dict(sys.modules, {"gmsh": None}):
+            run_analyses(
+                disk_microstructure(),
+                state,
+                self.sample_dir,
+                {"final_config": True, "motion_analysis": True, "stat_nearest_neighbor": True},
+            )
+        self.assertTrue(self.written("final_config.pdf"))
+        self.assertTrue(self.written("motion_results", "relative_energy.pdf"))
+        self.assertFalse(self.written("motion_results", "paths"))
+        self.assertTrue(self.written("stat_analysis_results", "stat_results.npz"))
+        # A two dimensional final configuration, a motion analysis of a run that kept
+        # no positions, and the statistics are matplotlib and numpy alone
+
+    def test_running_twice_writes_over_the_first_time(self):
+        options = {"final_config": True, "stat_nearest_neighbor": True}
+        run_analyses(disk_microstructure(), None, self.sample_dir, options)
+        results = os.path.join(self.sample_dir, "stat_analysis_results", "stat_results.npz")
+        first = os.stat(results).st_mtime_ns
+        os.utime(results, ns=(first - 10**9, first - 10**9))
+        run_analyses(disk_microstructure(), None, self.sample_dir, options)
+        self.assertGreater(os.stat(results).st_mtime_ns, first - 10**9)
+        # The meshers write over an earlier run into the same directory, and so do the
+        # analyses; the directories they make are allowed to exist already
+
+
+@unittest.skipUnless(has_gmsh(), "gmsh is not installed")
+class TestMotionAnalysisWithPaths(PostProcTest):
+    """Test class for the motion analysis when the run recorded where the particles went."""
+
+    def test_the_paths_are_plotted(self):
+        microstructure = disk_microstructure()
+        run = a_generation_run()
+        run.position_center_history = [
+            [i_center - 0.2, i_center - 0.1, i_center.copy()]
+            for i_center in (i.position_center for i in microstructure.particles)
+        ]
+        state = load_md_state(save_md_state(self.sample_dir, run))
+        run_analyses(microstructure, state, self.sample_dir, {"motion_analysis": True})
+        paths = os.path.join(self.sample_dir, "motion_results", "paths")
+        self.assertTrue(os.listdir(paths))
+        # The history ends where the particles are, as a run's does; the fixture's own
+        # positions would put two overlapping disks at the origin
+
+    def test_a_phase_inside_another_has_no_paths(self):
+        microstructure = with_a_disk_inside(disk_microstructure())
+        run = a_generation_run()
+        run.position_center_history = [
+            [i_particle.position_center.copy()]
+            for i_particle in microstructure.phases["2"].particles
+        ]
+        state = load_md_state(save_md_state(self.sample_dir, run))
+        _, failures = run_analyses(
+            microstructure, state, self.sample_dir, {"motion_analysis": True}
+        )
+        self.assertEqual(failures, [])
+        self.assertTrue(
+            os.listdir(os.path.join(self.sample_dir, "motion_results", "paths"))
+        )
+        # The simulation recorded the paths of the particles it moved; those inside
+        # them are placed afterwards, and have none to be walked along
+
+
+@unittest.skipUnless(has_gmsh(), "gmsh is not installed")
+class TestViewsInAnyUnits(unittest.TestCase):
+    """Test class for the gmsh views of a microstructure in any units."""
+
+    def views(self, scale):
+        """Write every gmsh view of a scaled microstructure, and read the nodes back."""
+        import meshio
+
+        spheres = sphere_microstructure().scaled(scale)
+        disks = disk_microstructure().scaled(scale)
+        with tempfile.TemporaryDirectory() as directory:
+            plot_particles_3d(spheres.particles, spheres.rve_dims, directory)
+            do_voronoi_analysis(
+                spheres.particles,
+                np.array(spheres.rve_dims),
+                directory,
+                plot_voronoi=True,
+                plot_imts=True,
+            )
+            plot_paths(
+                disks.particles,
+                disks.rve_dims,
+                [[i_particle.position_center] for i_particle in disks.particles],
+                directory,
+            )
+            nodes = {}
+            with open(os.path.join(directory, "final_config.msh")) as msh:
+                self.assertNotIn("$Entities", msh.read())
+            for i_file in (
+                "final_config.msh",
+                "final_config.vtk",
+                os.path.join("voronoi_analysis_results", "voronoi.vtk"),
+                os.path.join("voronoi_analysis_results", "voronoi_wIMTs.vtk"),
+                os.path.join("paths", "mic_step_0.vtk"),
+            ):
+                nodes[i_file] = meshio.read(os.path.join(directory, i_file)).points
+
+        return nodes
+
+    def test_the_views_are_the_same_in_any_units(self):
+        reference = self.views(1.0)
+        for i_scale in (2.0**-20, 2.0**20):
+            for i_file, i_nodes in self.views(i_scale).items():
+                with self.subTest(i_file, scale=i_scale):
+                    self.assertEqual(i_nodes.shape, reference[i_file].shape)
+                    np.testing.assert_allclose(
+                        i_nodes / i_scale, reference[i_file], rtol=0, atol=1e-14
+                    )
+        # Built at unit scale and written back in the user's units, where they were
+        # built in the user's: at a millionth of the unit OpenCASCADE refused the edges
+        # of the Voronoi cells and gave an empty view of the particles without an
+        # error. The files carry sixteen digits, so the nodes are compared to that
+
+    def test_a_cut_that_leaves_nothing_is_refused(self):
+        factory = Mock()
+        factory.intersect.return_value = ([], [])
+        with self.assertRaisesRegex(ValueError, "left nothing to view"):
+            keep_what_the_cut_left(factory, 3, 1, [2, 3], {"2": [(3, 2), (3, 3)]})
+        # What OpenCASCADE returned for a micrometre RVE, before the views were built at
+        # unit scale; the empty view was written without an error
+
+
+if __name__ == "__main__":
+    unittest.main()

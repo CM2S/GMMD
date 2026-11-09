@@ -1,0 +1,29 @@
+# 2D example
+# A microstructure of 100 ellipses filling half of it, their major axis 1.2 times the
+# minor one, oriented by a normal distribution.
+
+samples: 1
+rve_dimensions: [1, 1]
+
+phases:
+  0: {type: matrix}
+  1:
+    type: ellipse
+    vf: 0.5
+    n: 100
+    angle: {distribution: normal, mean: 0, sigma: 0.2}
+    ratio: 1.2
+
+generation:
+  molecular_dynamics:
+    max_residue_per_particle: 0
+    max_step: 150
+    speed_up: {name: verlet, factor: 1.1}
+    save_history: true
+
+meshes:
+  gmsh: {mesh_size: 0.1, element_type: tri3}
+  voxel: {n_voxels_dims: [1000, 1000]}
+
+analyses:
+  final_config: true

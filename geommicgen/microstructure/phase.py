@@ -24,6 +24,46 @@ from .particleclasses import (
     Cylinder,
 )
 
+MAX_PARTICLES = 100000
+# Most particles a phase given by its volume fraction is built with. Nothing bounded
+# the loop, so a description whose particles came out far smaller than the fraction
+# asked for built particles until the memory ran out
+
+PHASE_KEYS = ("phase_type", "inner_phase", "outer_phase")
+# Keys of a phase in the input data file that say what it is rather than describe its
+# particles
+
+
+def gives_parameter(key, parameter):
+    """
+    Say whether a key of the input data file gives a parameter or its distribution.
+
+    Parameters
+    ----------
+    key: str
+        Key of a phase in the input data file.
+
+    parameter: str
+        Name of a parameter of the particles of the phase.
+
+    Returns
+    -------
+    bool
+        True for the parameter itself, and for the parameter followed by the name of
+        a distribution's field, such as r_mean for r.
+    """
+    if key == parameter:
+        return True
+    fields = {"distribution"}.union(
+        *(i_class.parameters for i_class in PhaseDescriptor.__subclasses__())
+    )
+
+    return key.startswith(parameter + "_") and key[len(parameter) + 1:] in fields
+    # A key was taken to give every parameter it began with, so ratio_321 gave the
+    # ratio_32 of an ellipsoid as well, and a description by it was refused as one of
+    # both; and a key that gave no parameter was ignored, so a misspelt one went
+    # unnoticed
+
 
 class Phase:
     """
@@ -99,14 +139,21 @@ class Phase:
         if self.inner_phase:
             self.outer_phase = phase_descriptors["outer_phase"]
         # Type of the phase
+        for i_key in phase_descriptors:
+            if i_key not in PHASE_KEYS and not any(
+                gives_parameter(i_key, j_parameter)
+                for j_parameter in self.type.possible_parameters
+            ):
+                raise ValueError(
+                    "Phase {0} gives {1}, which describes no parameter of a "
+                    "{2}.".format(name, i_key, self.type.__name__)
+                )
         self.descriptors = {
             possible_descriptor: None
             for possible_descriptor in self.type.possible_parameters
             if any(
-                [
-                    descriptor.startswith(possible_descriptor)
-                    for descriptor in phase_descriptors.keys()
-                ]
+                gives_parameter(descriptor, possible_descriptor)
+                for descriptor in phase_descriptors
             )
         }
         self.type.check_acceptable_description(set(self.descriptors.keys()))
@@ -194,6 +241,53 @@ class Phase:
 
         self.particles = []
 
+    @classmethod
+    def from_type(
+        cls, name, phase_type, inner_phase=False, outer_phase=None, descriptors=None
+    ):
+        """
+        Build a phase directly from its type, without going through the descriptors.
+
+        This is used when a microstructure is read back from a file, where the particles
+        are already known and the descriptors are provenance rather than instructions.
+        The regular initializer cannot be used because it requires a description that is
+        acceptable for the particle type, which a stored inclusion phase need not carry.
+
+        Parameters
+        ----------
+        name: string
+            Name of the phase.
+
+        phase_type: class
+            Class of the particles of the phase, one of the values of `phase_types`.
+
+        inner_phase: bool
+            Whether the phase is placed inside the particles of another phase.
+
+        outer_phase: string
+            Name of the phase in which this one is placed, when it is an inner phase.
+
+        descriptors: dict
+            Dictionary of the form *{descriptor_name: `.PhaseDescriptor`}*. Optional.
+
+        Returns
+        -------
+        `.Phase`
+            The phase with an empty particle list.
+        """
+        phase = cls.__new__(cls)
+        phase.microstructure = None
+        phase.name = name
+        phase.type = phase_type
+        phase.inner_phase = bool(inner_phase)
+        if phase.inner_phase:
+            phase.outer_phase = outer_phase
+        phase.descriptors = descriptors if descriptors is not None else {}
+        phase.particles = []
+        # The attributes are the same ones the regular initializer sets
+
+        return phase
+
     @property
     def volume_fraction(self):
         """Volume fraction in decimal."""
@@ -225,6 +319,12 @@ class Phase:
         ----------
         rve_dims: list
             List containing the size of the microstructure in each dimension.
+
+        Raises
+        ------
+        ValueError:
+            If the phase is given by its volume fraction, and its particles come out
+            too small to reach it with `MAX_PARTICLES` of them.
         """
         particles = []
         if "vf" in self.descriptors and "n" not in self.descriptors:
@@ -234,7 +334,18 @@ class Phase:
             vf_real = 0
             # Initializing the real volume fraction
             while vf_real < self.descriptors["vf"].value:
-
+                if len(particles) == MAX_PARTICLES:
+                    raise ValueError(
+                        "Phase {0} has {1} particles, of a mean volume of {2:.3g}, "
+                        "and they fill {3:.3g} of the {4:.3g} asked for: its particles "
+                        "come out too small for its volume fraction.".format(
+                            self.name,
+                            len(particles),
+                            vf_real * np.prod(rve_dims) / len(particles),
+                            vf_real,
+                            self.descriptors["vf"].value,
+                        )
+                    )
                 for i_descriptor_name, i_descriptor in self.descriptors.items():
                     current_sample[i_descriptor_name] = i_descriptor.generate_sample()
                 particles.append(self.type(self.name, current_sample, rve_dims))
@@ -307,11 +418,11 @@ class SpecifiedValue(PhaseDescriptor):
 
     Class Attributes
     ----------------
-    parameters: set
+    parameters: tuple
         Parameters of the statistical distribution.
     """
 
-    parameters = {"mean", "sigma"}
+    parameters = ("mean", "sigma")
 
     def __init__(self, name, vals):
         """
@@ -332,7 +443,34 @@ class SpecifiedValue(PhaseDescriptor):
         super().__init__(name)
 
     def generate_sample(self, n_samples=1):
-        """Return the specified value of the descriptor."""
+        """
+        Return the specified values of the next particles.
+
+        Parameters
+        ----------
+        n_samples: int
+            Number of particles.
+
+        Returns
+        -------
+        object
+            The value of the next particle, or an array of the values of the next
+            *n_samples* of them.
+
+        Raises
+        ------
+        ValueError:
+            If fewer values are left than particles asked for.
+        """
+        if self.current_val + n_samples > len(self.array_vals):
+            raise ValueError(
+                "{0} is specified for {1} particles, one value each, and {2} are "
+                "drawn.".format(
+                    self.name, len(self.array_vals), self.current_val + n_samples
+                )
+            )
+        # Beyond the values given, an array index was out of bounds, which said nothing
+        # of the description
         val = self.array_vals[self.current_val : self.current_val + n_samples]
         self.current_val += n_samples
         return val if len(val) > 1 else val[0]
@@ -349,11 +487,11 @@ class FixedValue(PhaseDescriptor):
 
     Class Attributes
     ----------------
-    parameters: set
+    parameters: tuple
         Parameters of the statistical distribution.
     """
 
-    parameters = {"value"}
+    parameters = ("value",)
 
     def __init__(self, name, value):
         """
@@ -390,11 +528,11 @@ class NormalDistribution(PhaseDescriptor):
 
     Class Attributes
     ----------------
-    parameters: set
+    parameters: tuple
         Parameters of the statistical distribution.
     """
 
-    parameters = {"mean", "sigma"}
+    parameters = ("mean", "sigma")
 
     def __init__(self, name, mean, sigma):
         """
@@ -435,11 +573,11 @@ class LogNormalDistribution(PhaseDescriptor):
 
     Class Attributes
     ----------------
-    parameters: set
+    parameters: tuple
         Parameters of the statistical distribution.
     """
 
-    parameters = {"mean", "sigma"}
+    parameters = ("mean", "sigma")
 
     def __init__(self, name, mean, sigma):
         """
@@ -481,11 +619,11 @@ class UniformDistribution(PhaseDescriptor):
 
     Class Attributes
     ----------------
-    parameters: set
+    parameters: tuple
         Parameters of the statistical distribution.
     """
 
-    parameters = {"low", "high"}
+    parameters = ("low", "high")
 
     def __init__(self, name, low, high):
         """
@@ -537,11 +675,11 @@ class VonMisesDistribution(PhaseDescriptor):
 
     Class Attributes
     ----------------
-    parameters: set
+    parameters: tuple
         Parameters of the statistical distribution.
     """
 
-    parameters = {"kappa", "loc", "scale"}
+    parameters = ("kappa", "loc", "scale")
 
     def __init__(self, name, kappa, loc, scale):
         """
@@ -588,12 +726,14 @@ class DiscreteDistribution(PhaseDescriptor):
 
     Class Attributes
     ----------------
-    parameters: set
+    parameters: tuple
         Parameters of the statistical distribution.
     """
 
-    parameters = {"value_" + str(i) for i in range(1, 11)}.union(
-        {"prob_" + str(i) for i in range(1, 11)}
+    parameters = tuple(
+        "{0}_{1}".format(j_name, i)
+        for i in range(1, 11)
+        for j_name in ("value", "prob")
     )
 
     def __init__(self, name, values, probabilities):
@@ -619,12 +759,15 @@ class DiscreteDistribution(PhaseDescriptor):
 
         self.values = values
         self.probabilities = probabilities
-        DiscreteDistribution.parameters = []
+        self.parameters = []
         for i_ind, (i_val, i_prob) in enumerate(zip(self.values, self.probabilities)):
             setattr(self, "value_{0}".format(i_ind + 1), i_val)
-            DiscreteDistribution.parameters.append("value_{0}".format(i_ind + 1))
+            self.parameters.append("value_{0}".format(i_ind + 1))
             setattr(self, "prob_{0}".format(i_ind + 1), i_prob)
-            DiscreteDistribution.parameters.append("prob_{0}".format(i_ind + 1))
+            self.parameters.append("prob_{0}".format(i_ind + 1))
+        # The parameters of this distribution, over those the class declares. They were
+        # written over the class's, so a deck read after a discrete descriptor was built
+        # offered only as many values as that descriptor had
 
         super().__init__(name)
 

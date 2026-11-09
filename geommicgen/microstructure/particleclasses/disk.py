@@ -216,6 +216,15 @@ class Disk(Ellipse):
 
         return point_in
 
+    def points_inside(self, points: np.array, box: list) -> np.array:
+        """Say which of *points* are inside the Disk; see `.Particle.points_inside`."""
+        points_nearest_pbc = self.nearest_periodic_images(points, box)
+
+        return (
+            np.linalg.norm(points_nearest_pbc - self.position_center, axis=1)
+            <= self.radius
+        )
+
     def intersection_disk_disk(self, other_disk: Disk, box: list, inside=True) -> bool:
         """Check if two Disks intersect."""
         diff_center = self.position_center - other_disk.position_center
@@ -238,7 +247,10 @@ class Disk(Ellipse):
     @property
     def volume(self):
         """Volume/area of the disk."""
-        volume = np.pi * (self.radius + self.delta) ** 2
+        volume = np.pi * self.radius**2
+        # The radius holds the dilation already; it was added a second time, so a
+        # dilated disk weighed, and filled the virtual volume fraction, as one dilated
+        # by twice as much
 
         return volume
 
@@ -254,7 +266,7 @@ class Disk(Ellipse):
         # GJK algorithm is written for 3D
 
     def intersection_length(
-        self, other_particle: Particle, box: list, tol: float = 1e-8, **kwargs
+        self, other_particle: Particle, box: list, **kwargs
     ) -> Union[float, np.array]:
         """
         Compute the intersection length between the Disk and the other particle.
@@ -289,7 +301,9 @@ class Disk(Ellipse):
             )
             unit_vector = self.intersection_vector(other_particle, box)
         else:
-            intersection = self.intersection_gjk(other_particle, box, tol=tol)
+            intersection = self.intersection_gjk(other_particle, box)
+            # `intersection_gjk` takes no tolerance, and was given one, so a disk asked
+            # about any other shape raised
             overlap_length, unit_vector = self.intersection_length_mink_diff(
                 other_particle, box, dist_met=dist_met
             )
@@ -312,29 +326,6 @@ class Disk(Ellipse):
             )
             - other_disk.position_center
         )
-        # Distance between the current sphere and the nearest image of the other sphere
-        if self.radius >= other_disk.radius:
-            # The radius of the self is larger than the radius of the other sphere
-            r_1 = self.radius
-            # Disk 1 is the sphere with the larger radius
-            r_2 = other_disk.radius
-            # Disk 2 is the sphere with the smaller radius
-        else:
-            # The radius of the other sphere is larger than the radius of the self
-            r_1 = other_disk.radius
-            # Disk 1 is the sphere with the larger radius
-            r_2 = self.radius
-            # Disk 2 is the sphere with the smaller radius
-        if d >= (r_1 + r_2):
-            # The spheres intersect at most at one point
-            intersection_length = 0
-            # The intersection length of the spheres is zero
-        elif d <= r_1 - r_2:
-            # Disk 2 is interely contained within Disk 1
-            intersection_length = 2 * r_2
-            # The intersection length is the diameter of the smaller sphere
-        else:
-            intersection_length = r_1 + r_2 - d
-            # intersection length
+        intersection_length = max(0, self.radius + other_disk.radius - d)
         return intersection_length
         # Returning the intersection length
