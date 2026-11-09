@@ -1,7 +1,12 @@
 ---
-title: 'GMMD: A Python package for geometric microstructure generation'
+title: 'GMMD: Geometric Methods for Microstructure Design, a Python package for particle-reinforced RVEs'
 tags:
   - Python
+  - microstructure generation
+  - representative volume element
+  - computational homogenization
+  - molecular dynamics
+  - particle-reinforced composites
 
 authors:
   - name: José Luís P. Vila-Chã
@@ -25,11 +30,8 @@ affiliations:
  - name: Faculty of Engineering, University of Porto, Porto, Portugal
    index: 2
    ror: 00hx57361
-date: 13 August 2017
+date: 9 November 2026
 bibliography: paper.bib
-
-# Note: the outline of this paper was copied from the JOSS example paper. To be changed later.
-
 ---
 
 # Statement of need
@@ -74,25 +76,6 @@ Lastly, MicroStructPy [@hart2020microstructpy] generates microstructures via pac
 GMMD is unique in that it generates microstructures for particle reinforced materials, it supports a broad library of particle shapes and its architecture allows for easy integration of new ones and can use time-driven molecular dynamics or random sequential adsorption as the generation method, not making use of tesselation nor optimization.
 
 For more information on how to use and/or contribute to this code, visit our documentation and repository.
-
-
-<!--
-Vale a pena mencionar todos estes softwares?
-Vale a pena falar também de softwares comerciais? Os que tenho aqui são todos open-source.
-
-There are several open-source softwares for microstructure generation.
-- Neper and Kanapy are softwares that generate and mesh microstructures. Both focus on polycristaline microstructures.
-- PoreSpy can, among other capabilities, generate microstructures, albeit not being the main functionality. It is taylored for porous materials.
-- DREAM.3D (simplnx)...
-- TexGen allows for designing of a textile with varying number of yarns and different interlacing schemes.
-- MicroStructPy: generation and meshing of microstrcutures. It does not have particles like squares, ellipsoids, fibers and cylinders.
-
-Nos softwares de geração, vale a pena ver o método de geração?
-
-Incluir imagem de uma microestrutura?
-
--->
-
 
 # AI usage disclosure
 
