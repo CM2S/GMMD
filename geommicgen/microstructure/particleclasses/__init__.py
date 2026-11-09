@@ -11,5 +11,3 @@ from .ellipse import Ellipse
 from .disk import Disk
 
 from .cylindrical_fiber import CylindricalFiber
-
-from .square import Square

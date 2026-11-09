@@ -98,36 +98,19 @@ class Particle(abc.ABC):
     @property
     @abc.abstractmethod
     def radius(self):
-        """Radius of the circumscribed circle to the particle."""
+        """Radius of the circumscribed circle to the ellipse."""
         radius = self._radius
 
         return radius
-    
-    @property
-    @abc.abstractmethod
-    def real_volume(self):
-        """
-        Real volume/area of the particle.
-        When a minimum distance between paeticles is imposed, the algorithm dilates the particles, runs the generation method and then contracts the particles.
-        The real volume is the volume of the non dilated particles.
-        """
-        real_volume = self._real_volume
-        return real_volume
 
     @property
     @abc.abstractmethod
     def volume(self):
-        """
-        Volume/area of the particle.
-        When a minimum distance between paeticles is imposed, the algorithm dilates the particles, runs the generation method and then contracts the particles.
-        The volume is the volume of the dilated particles.
-        
-        If the particles are not dilated, real_volume = volume.
-        """
+        """Area(volume) of the particle."""
         volume = self._volume
 
         return volume
-    
+
     @staticmethod
     def nearest_periodic_image(
         point_1: np.array, point_2: np.array, box: list
@@ -555,7 +538,6 @@ class Particle(abc.ABC):
         unit_vector_i_j: array
             Unit vector from the center of *self* to *other_particle*
         """
-
         vector_centers = other_particle.position_center - self.position_center
         vector_centers = vector_centers - box * np.round(vector_centers / box)
         # Vector connecting the centers of the current particle and the nearest image of
@@ -594,13 +576,6 @@ class Particle(abc.ABC):
     @abc.abstractmethod
     def generate_point_inside(self):
         """Generate a random point inside the particle."""
-
-    @abc.abstractmethod
-    def contract(self,distance):
-        """Contract the particle by a given distance."""
-
-    def dilate(self,distance):
-        """Dilate the particle by a given distance."""
 
     def intersection_area_monte_carlo(
         self, other_particle: Particle, box: list, **kwargs
@@ -745,21 +720,17 @@ class Point(Particle):
 
     radius = 0
     volume = 0
-    real_volume = 0
 
     def intersection(self, other_particle: Particle, box: list) -> bool:
         """Check if the two particles intersect."""
-        pass
 
     def intersection_area(self, other_particle: Particle, box: list) -> float:
         """Compute the interesection area/volume between two particles."""
-        pass
 
     def intersection_length(
         self, other_particle: Particle, box: list
     ) -> Union[float, np.array]:
         """Compute the interesection length between two particles."""
-        pass
 
     def support_function(self, direction: np.array) -> np.array:
         """Compute the interesection length between two particles."""
@@ -775,15 +746,6 @@ class Point(Particle):
 
     def generate_point_inside(self):
         """Generate a random point inside the particle."""
-        pass
-
-    def contract(self, distance):
-        """Contract the particle by a given distance."""
-        pass
-
-    def dilate(self, distance):
-        """Dilate the particle by a given distance."""
-        pass
 
 
 class Line(Particle):

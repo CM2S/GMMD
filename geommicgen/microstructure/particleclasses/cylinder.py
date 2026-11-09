@@ -153,14 +153,8 @@ class Cylinder(Particle):
 
     @property
     def volume(self):
-        """Particle volume."""
+        """Particle volume. Only approximate if *self.delta !=0."""
         volume = (self.length + 2 * self.delta) * np.pi * (self.r_cyl + self.delta) ** 2
-        return volume
-
-    @property
-    def real_volume(self):
-        """Particle real volume."""
-        volume = (self.length) * np.pi * (self.r_cyl) ** 2
         return volume
 
     @property
@@ -192,7 +186,7 @@ class Cylinder(Particle):
         """Check for the intersection between *self* and the *other_particle*."""
         if isinstance(other_particle, Cylinder):
             other_particle: Cylinder
-            intersection,_ = self.intersection_cylinder_cylinder(other_particle, box)
+            intersection = self.intersection_cylinder_cylinder(other_particle, box)
         else:
             intersection = self.intersection_gjk(other_particle, box)
         return intersection
@@ -297,6 +291,12 @@ class Cylinder(Particle):
         """Dilate the particle."""
         self.delta += distance
         # Dilating the particle size adding the minimum distance to the semi-axis
+
+    def rescale(self, rescale_parameter):
+        """Rescale all size parameters and the position according to *rescale_parameter*."""
+        self.r_cyl *= rescale_parameter
+        self.length *= rescale_parameter
+        self.position_center *= rescale_parameter
 
     def intersection_cylinder_cylinder(
         self: Cylinder, other_cylinder: Cylinder, box: list

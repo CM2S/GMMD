@@ -1,7 +1,6 @@
 """Module for the GenerationMethod abstract class."""
 
 import abc
-from contextlib import contextmanager
 import numpy as np
 
 # pylint: disable=import-error
@@ -11,7 +10,6 @@ from geommicgen.microstructure.particleclasses import (
     Point,
     Line,
 )
-import geommicgen.iofuncs.printing as print_funcs
 
 
 class GenerationMethod(abc.ABC):
@@ -53,7 +51,7 @@ class GenerationMethod(abc.ABC):
             dim = particles[0].dim
             all_dist = []
             # List containing all the distances from offset to the surface of the particles
-            if dim == 2 and False:
+            if dim == 2:
                 point_offset = Point(dim, "1")
                 point_offset.position_center = offset_array[0:dim]
                 # Setting up the Point object corresponding to the offset
@@ -71,14 +69,14 @@ class GenerationMethod(abc.ABC):
                         if i_particle.point_inside(offset_array[:dim], rve_dims):
                             # If the offset is inside the particle this will be the smallest
                             # distance
-                            dist, _ = i_particle.intersection_length_mink_diff(
-                                point_offset, rve_dims
+                            _, dist, _ = i_particle.intersection_gjk(
+                                point_offset, rve_dims, out_dist=True
                             )
                             all_dist = [dist]
                             break
 
-                        dist, _ = i_particle.intersection_length_mink_diff(
-                            point_offset, rve_dims, 
+                        _, dist, _ = i_particle.intersection_gjk(
+                            point_offset, rve_dims, out_dist=True
                         )
                         all_dist.append(dist)
             elif dim == 3:
@@ -144,7 +142,7 @@ class GenerationMethod(abc.ABC):
                         - rve_dims[i_dim] * np.floor(all_lim[-1] / rve_dims[i_dim])
                     )
                 if np.floor(all_lim[-2] / rve_dims[i_dim]) != 0:
-                    all_lim.append( 
+                    all_lim.append(
                         all_lim[-2]
                         - rve_dims[i_dim] * np.floor(all_lim[-2] / rve_dims[i_dim])
                     )
@@ -207,46 +205,3 @@ class GenerationMethod(abc.ABC):
             k_ind_sort[ind_inc] += 1
             # Increase the index whose next distance is the largest
         return offset
-    
-
-    def contract_all_particles(self, particles):
-        """Contract all the particles in the simulation box."""
-        for i_particle in particles:
-            # Running through all the particles
-            i_particle.contract(self.min_distance / 2)
-            # Dilate i_particle
-
-    def dilate_all_particles(self, particles):
-        """Dilate all the particles in the simulation box."""
-        for i_particle in particles:
-            # Running through all the particles
-            i_particle.dilate(self.min_distance / 2)
-            # Dilate i_particle
-
-    def set_box(self, particles, rve_dims):
-        """
-        Set the dimensions of the simulation box.
-
-        Set the dimensions of the box according to the particles present and the
-        dimensions of the microstructure.
-
-        It is assumed that there are no incompatible particles.
-
-        Parameters
-        ----------
-        particles: list(`.Particle`)
-            List of particles in the simulation.
-
-        rve_dims: list(floats)
-            Dimensions of the microstructure in each spatial direction.
-        """
-        if any(
-            [
-                particle.__class__.__name__ == "CylindricalFiber"
-                for particle in particles
-            ]
-        ):
-            self.box = list(rve_dims)
-            del self.box[particles[0].direction_fibers]
-        else:
-            self.box = list(rve_dims)

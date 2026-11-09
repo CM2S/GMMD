@@ -18,7 +18,6 @@ setup(
     name="geommicgen",
     # Version from the version file
     version=version,
-    py_modules=['geommicgen'],
     # Short description
     description="GMMD: Generation of Microstructures using Molecular Dynamics",
     # Long descriptionf from README.md
@@ -55,11 +54,11 @@ setup(
         "Tracker": "unknown",
     },
     # Python version compatibility
-    python_requires=">=3.8",
+    python_requires=">=3.8, <3.9",
     # Source directory
     # package_dir={"": "src"},
     # Packages provided
-    packages=find_packages(),
+    packages=find_packages(where="src"),
     # Execution command
     entry_points={
         "console_scripts": [
@@ -67,19 +66,15 @@ setup(
         ],
     },
     install_requires=[
-        "contourpy==1.3.3",
-        "cycler==0.12.1",
-        "fonttools==4.60.1",
-        "gmsh==4.15.0",
-        "kiwisolver==1.4.9",
-        "matplotlib==3.10.7",
-        "numpy==2.3.4",
-        "packaging==25.0",
-        "pillow==12.0.0",
-        "pyparsing==3.2.5",
-        "python-dateutil==2.9.0.post0",
-        "scipy==1.16.3",
-        "six==1.17.0",
-        "tabulate==0.9.0",
+        "cycler>=0.10.0",
+        "kiwisolver>=1.3.1",
+        "matplotlib>=3.4.2",
+        "numpy>=1.21.0",
+        "Pillow>=8.2.0",
+        "pyparsing>=2.4.7",
+        "python-dateutil>=2.8.1",
+        "scipy>=1.7.0",
+        "six>=1.16.0",
+        "tabulate>=0.8.9",
     ],
 )

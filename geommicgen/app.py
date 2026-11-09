@@ -6,7 +6,6 @@ import os
 # import postproc.voronoimetrics.motion_analysis as motion_analysis
 # import postproc.voronoimetrics.stat_analysis as stat_analysis
 
-from geommicgen.micgenmethod.rand_seq_adsorption import RandomSequentialAdsorption
 import geommicgen.iofuncs.printing as print_funcs
 
 # from postproc.plotfuncs.plotting_functions import plot_particles
@@ -30,16 +29,12 @@ from geommicgen.micgenmethod.thermostats import (
     MicroCanonicalEnsemble,
     BerendsenForceThermostat,
 )
-
-import geommicgen.micgenmethod.speed_up_schemes.MD_speed_up_schemes as MD_speed_up_schemes
-import geommicgen.micgenmethod.speed_up_schemes.RSA_speed_up_schemes as RSA_speed_up_schemes
-
-# from geommicgen.micgenmethod.speed_up_schemes import (
-#     CellList,
-#     VerletList,
-#     VerletPartialUpdate,
-#     Naive,
-# )
+from geommicgen.micgenmethod.speed_up_schemes import (
+    CellList,
+    VerletList,
+    VerletPartialUpdate,
+    Naive,
+)
 
 
 def run_program():
@@ -60,7 +55,7 @@ def run_program():
     )
     fileio.RESULTS_FOLDER = results_folder
     fileio.copy_input_file(input_file_path, results_folder)
-    
+
     if previous_mic_path is not None:
         print_funcs.SCREEN_DIR = results_folder
         print_funcs.print_initial_message(input_file_path)
@@ -112,14 +107,12 @@ def run_program():
 
         # Initializing the mesh generators
     else:
-        try:  
+        try:
             n_dp_samples = top_level_reader.all_options["n_dp_samples"]
             _ = top_level_reader.all_options["problem_type"]
             mic_gen_descriptors = top_level_reader.all_options["mic_gen_descriptors"]
             mic_gen_parameters = top_level_reader.all_options["mic_gen_parameters"]
-            post_proc_parameters = top_level_reader.all_options["post_proc"]
             rve_dims = mic_gen_parameters["rve_dimensions"]
-            mic_gen_method = mic_gen_parameters["mic_gen_method"]
             # Mandatory top level parameters
         except KeyError:
             print("Mandatory parameter not supplied.")
@@ -177,156 +170,121 @@ def run_program():
 
             current_sample = Microstructure(rve_dims)
             # Initializing the current sample
-            
-            if ext == ".mgsim":
-                if mic_gen_method == "MD":
-                    # Molecular dynamics simulation
-                    md_kwargs_keys = {
-                        "damping_coeff",
-                        "particle_mass_opt",
-                        "force_option",
-                        "force_rescale",
-                        "dt_adapt",
-                        "offset",
-                        "fixed_seed",
-                        "initial_vel_coeff",
-                        "final_overlap_check",
-                        "sim_gif",
-                    }
-                    md_kwargs = {
-                        key: value
-                        for key, value in mic_gen_parameters.items()
-                        if key in md_kwargs_keys
-                    }
-                    md_kwargs["sim_gif"] = post_proc_parameters.get("sim_gif", False)
-                    #if md_kwargs["sim_gif"]:
-                        #raise NotImplementedError("The simulation_gif option for MD simulations is not implemented yet.")
-                    try: 
-                        current_mic_generator = MolecularDynamicsSimulation(
-                            mic_gen_parameters["max_residue_per_particle"],
-                            mic_gen_parameters["max_step"],
-                            mic_gen_parameters["max_steps_to_relax"],
-                            mic_gen_parameters["dt"],
-                            mic_gen_parameters["min_distance"],
-                            mic_gen_parameters["type_initial_configuration"],
-                            mic_gen_parameters["save_history"],
-                            sample_dir,
-                            **md_kwargs
-                        )
-                    except KeyError:
-                        print("Missing mandatory parameter defining a MD simulation.")
-                        raise
 
-                    try:
-                        if mic_gen_parameters.get("thermostat") == "isokinetic":
-                            current_thermostat = IsokineticThermostat(
-                                mic_gen_parameters["initial_temp"]
-                            )
-                        elif mic_gen_parameters.get("thermostat") == "multi_temperature":
-                            if (
-                                mic_gen_parameters.get("lowering_temp_criterion")
-                                == "rolling_ave"
-                            ):
-                                kwargs = {
-                                    "criterion": "rolling_ave",
-                                    "average_window": mic_gen_parameters["average_window"],
-                                }
-                            elif (
-                                mic_gen_parameters.get("lowering_temp_criterion")
-                                == "ratio_in_out"
-                            ):
-                                kwargs = {
-                                    "criterion": "ratio_in_out",
-                                    "max_ratio_osc": mic_gen_parameters["max_ratio_osc"],
-                                }
-                            else:
-                                kwargs = {
-                                    "criterion": "original",
-                                    "min_eq_steps_at_temp": mic_gen_parameters[
-                                        "min_eq_steps_at_temp"
-                                    ],
-                                }
-                            kwargs.update(
-                                {"temp_low_ratio": mic_gen_parameters["temp_low_ratio"]}
-                            )
-                            current_thermostat = MultiTemperatureIsokineticThermostat(
-                                mic_gen_parameters["initial_temp"], **kwargs
-                            )
-                        elif mic_gen_parameters.get("thermostat") == "micro_canonical":
-                            current_thermostat = MicroCanonicalEnsemble()
-                        elif mic_gen_parameters.get("thermostat") == "berendsen":
-                            current_thermostat = BerendsenForceThermostat(
-                                mic_gen_parameters["initial_temp"],
-                                mic_gen_parameters["berendsen_coeff"],
-                            )
+            if ext == ".mdsim":
+                # Molecular dynamics simulation
+                md_kwargs_keys = {
+                    "damping_coeff",
+                    "particle_mass_opt",
+                    "force_option",
+                    "force_rescale",
+                    "dt_adapt",
+                    "offset",
+                    "fixed_seed",
+                    "initial_vel_coeff",
+                    "final_overlap_check",
+                }
+                md_kwargs = {
+                    key: value
+                    for key, value in mic_gen_parameters.items()
+                    if key in md_kwargs_keys
+                }
+                try:
+                    current_mic_generator = MolecularDynamicsSimulation(
+                        mic_gen_parameters["max_residue_per_particle"],
+                        mic_gen_parameters["max_step"],
+                        mic_gen_parameters["max_steps_to_relax"],
+                        mic_gen_parameters["dt"],
+                        mic_gen_parameters["min_distance"],
+                        mic_gen_parameters["type_initial_configuration"],
+                        mic_gen_parameters["save_history"],
+                        **md_kwargs
+                    )
+                except KeyError:
+                    print("Missing mandatory parameter defining a MD simulation.")
+                    raise
+
+                try:
+                    if mic_gen_parameters.get("thermostat") == "isokinetic":
+                        current_thermostat = IsokineticThermostat(
+                            mic_gen_parameters["initial_temp"]
+                        )
+                    elif mic_gen_parameters.get("thermostat") == "multi_temperature":
+                        if (
+                            mic_gen_parameters.get("lowering_temp_criterion")
+                            == "rolling_ave"
+                        ):
+                            kwargs = {
+                                "criterion": "rolling_ave",
+                                "average_window": mic_gen_parameters["average_window"],
+                            }
+                        elif (
+                            mic_gen_parameters.get("lowering_temp_criterion")
+                            == "ratio_in_out"
+                        ):
+                            kwargs = {
+                                "criterion": "ratio_in_out",
+                                "max_ratio_osc": mic_gen_parameters["max_ratio_osc"],
+                            }
                         else:
-                            current_thermostat = MicroCanonicalEnsemble()
-                    except KeyError:
-                        print(
-                            "Missing mandatory parameter defining the {0} thermostat.".format(
-                                mic_gen_parameters["thermostat"]
-                            )
+                            kwargs = {
+                                "criterion": "original",
+                                "min_eq_steps_at_temp": mic_gen_parameters[
+                                    "min_eq_steps_at_temp"
+                                ],
+                            }
+                        kwargs.update(
+                            {"temp_low_ratio": mic_gen_parameters["temp_low_ratio"]}
                         )
-                        raise
+                        current_thermostat = MultiTemperatureIsokineticThermostat(
+                            mic_gen_parameters["initial_temp"], **kwargs
+                        )
+                    elif mic_gen_parameters.get("thermostat") == "micro_canonical":
+                        current_thermostat = MicroCanonicalEnsemble()
+                    elif mic_gen_parameters.get("thermostat") == "berendsen":
+                        current_thermostat = BerendsenForceThermostat(
+                            mic_gen_parameters["initial_temp"],
+                            mic_gen_parameters["berendsen_coeff"],
+                        )
+                    else:
+                        current_thermostat = MicroCanonicalEnsemble()
+                except KeyError:
+                    print(
+                        "Missing mandatory parameter defining the {0} thermostat.".format(
+                            mic_gen_parameters["thermostat"]
+                        )
+                    )
+                    raise
 
-                    current_mic_generator.set_thermostat(current_thermostat)
-                    # Adding a thermostat to the MD simulation
+                current_mic_generator.set_thermostat(current_thermostat)
+                # Adding a thermostat to the MD simulation
 
-
-                    if mic_gen_parameters.get("speed_up_scheme") == "Cell" or mic_gen_parameters.get("speed_up_scheme") == None:
-                        # CellList is the default
-                        current_speed_up_scheme = MD_speed_up_schemes.CellList()
+                try:
+                    if mic_gen_parameters.get("speed_up_scheme") == "Cell":
+                        current_speed_up_scheme = CellList()
                     elif mic_gen_parameters.get("speed_up_scheme") == "Verlet":
-                        current_speed_up_scheme = MD_speed_up_schemes.VerletList(
+                        current_speed_up_scheme = VerletList(
                             mic_gen_parameters["verlet_factor"]
                         )
                     elif mic_gen_parameters.get("speed_up_scheme") == "Verlet2":
-                        current_speed_up_scheme = MD_speed_up_schemes.VerletPartialUpdate(
+                        current_speed_up_scheme = VerletPartialUpdate(
                             mic_gen_parameters["verlet_factor"]
                         )
                     elif mic_gen_parameters["speed_up_scheme"] == "Naive":
-                        current_speed_up_scheme = MD_speed_up_schemes.Naive()
+                        current_speed_up_scheme = Naive()
                     else:
-                        raise ValueError(f"Unknown speed up scheme for MD simulation: '{mic_gen_parameters['speed_up_scheme']}'. ")
+                        current_speed_up_scheme = CellList()
+                except KeyError:
+                    print(
+                        "Missing mandatory parameter defining the"
+                        + "{0} speed up scheme.".format(
+                            mic_gen_parameters["speed_up_scheme"]
+                        )
+                    )
+                    raise
 
-                    current_mic_generator.set_speed_up_scheme(current_speed_up_scheme)
-                    # Adding a speed up scheme to the MD simulation
-                elif mic_gen_method == "RSA":
-                    # Random sequential adsorption method
-
-                    # Uncomment following lines if kwargs from mic_gen_parameters are needed in the RSA simulation
-                    #rsa_kwargs_keys = {"sim_gif"}
-                    #rsa_kwargs = {
-                        #key: value
-                        #for key, value in mic_gen_parameters.items()
-                        #if key in rsa_kwargs_keys
-                    #}
-                    rsa_kwargs={} # delete this line if the above lines are uncommented
-                    rsa_kwargs["sim_gif"] = post_proc_parameters.get("sim_gif", False)
-                    try:
-                        current_mic_generator = RandomSequentialAdsorption(
-                            mic_gen_parameters["max_step"],
-                            mic_gen_parameters["min_distance"],
-                            mic_gen_parameters["save_history"],
-                            sample_dir,
-                            **rsa_kwargs
-                            )
-                    except KeyError:
-                        print("Missing mandatory parameter defining the RSA simulation.")
-                        raise
-
-                    if mic_gen_parameters.get("speed_up_scheme") == "Cell" or mic_gen_parameters.get("speed_up_scheme") == None:
-                        current_speed_up_scheme = RSA_speed_up_schemes.CellList()
-                    elif mic_gen_parameters["speed_up_scheme"] == "Naive":
-                        current_speed_up_scheme = RSA_speed_up_schemes.Naive()
-                    else:
-                        raise ValueError(f"Unknown speed up scheme for RSA simulation: '{mic_gen_parameters['speed_up_scheme']}'. ")
-
-                    current_mic_generator.set_speed_up_scheme(current_speed_up_scheme)
-                    # Adding a speed up scheme to the RSA simulation
-
-                else:
-                    raise ValueError("Unknown microstructure generation method: {0}".format(mic_gen_method))
+                current_mic_generator.set_speed_up_scheme(current_speed_up_scheme)
+                # Adding a speed up scheme to the MD simulation
             else:
                 raise ValueError("Unknown input file extension: {0}".format(ext))
 
@@ -360,7 +318,6 @@ def run_program():
                     sample_dir,
                     top_level_reader.all_options["post_proc"],
                 )
-
             finally:
                 print_funcs.print_final_message(
                     current_mic_generator, mesh_generators, times_dict

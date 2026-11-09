@@ -338,7 +338,7 @@ class TopLevelReader:
         while True:
             if self.i_line >= len(self.input):
                 break
-            # Remain inside the file
+            # Remaain inside the file
             line = self.input[self.i_line]
             # Save current line
             if (
@@ -444,7 +444,6 @@ top_level_reader = TopLevelReader()
 # Generation parameters
 # ------------------------------------------------------------------------------------------
 top_level_reader.add_top_level_keyword(
-    KeywordTypeA("Mic_Gen_Method", "Mic_Gen_Parameters", type_str="str"),
     KeywordTypeA("Max_Residue_Per_Particle", "Mic_Gen_Parameters", type_str="float"),
     KeywordTypeA("Max_Step", "Mic_Gen_Parameters", type_str="int"),
     KeywordTypeA(
@@ -656,30 +655,6 @@ top_level_reader.add_top_level_keyword(
         default_value=False,
         type_str="bool",
     ),
-    KeywordTypeA(
-        "plot_rsa_vf_history",
-        "post_proc",
-        default_value=False,
-        type_str="bool",
-    ),
-    KeywordTypeA(
-        "sim_gif",
-        "post_proc",
-        default_value=False,
-        type_str="bool",
-    ),
-    KeywordTypeA(
-        "sim_gif_frame_duration",
-        "post_proc",
-        default_value=200,
-        type_str="int"
-    ),
-    KeywordTypeA(
-        "sim_gif_cleanup_frames",
-        "post_proc",
-        default_value=True,
-        type_str="bool"
-    )
 )
 
 # General keywords

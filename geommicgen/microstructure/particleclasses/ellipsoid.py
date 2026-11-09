@@ -362,28 +362,14 @@ class Ellipsoid(Particle):
 
     @property
     def volume(self):
-        """Volume of the ellipsoid."""
+        """Volume of the ellipsoid. Only approximate if *self.delta*!=0."""
         volume = (
             4
             / 3
             * np.pi
-            * (self.semi_axis_1)
-            * (self.semi_axis_2)
-            * (self.semi_axis_3)
-        )
-
-        return volume
-
-    @property
-    def real_volume(self):
-        """Real volume of the ellipsoid."""
-        volume = (
-            4
-            / 3
-            * np.pi
-            * (self.semi_axis_1 - self.delta)
-            * (self.semi_axis_2 - self.delta)
-            * (self.semi_axis_3 - self.delta)
+            * (self.semi_axis_1 + self.delta)
+            * (self.semi_axis_2 + self.delta)
+            * (self.semi_axis_3 + self.delta)
         )
 
         return volume
@@ -431,17 +417,17 @@ class Ellipsoid(Particle):
 
     def contract(self, distance):
         """Contract the particle."""
-        self.axis_1 -= 2 * distance
-        self.axis_2 -= 2 * distance
-        self.axis_3 -= 2 * distance
+        # self.axis_1 -= 2 * distance
+        # self.axis_2 -= 2 * distance
+        # self.axis_3 -= 2 * distance
         self.delta -= distance
         # Contracting the particle size subracting the minimum distance from the semi-axis
 
     def dilate(self, distance):
         """Dilate the particle."""
-        self.axis_1 += 2 * distance
-        self.axis_2 += 2 * distance
-        self.axis_3 += 2 * distance
+        # self.axis_1 += 2 * distance
+        # self.axis_2 += 2 * distance
+        # self.axis_3 += 2 * distance
         self.delta += distance
         # Dilating the particle size adding the minimum distance to the semi-axis
 
@@ -1029,3 +1015,9 @@ class Ellipsoid(Particle):
             unit_vector = np.array([0, 0, 0])
         return intersection_length, unit_vector
 
+    def rescale(self, rescale_parameter):
+        """Rescale all size parameters and the position according to *rescale_parameter*."""
+        self.axis_1 *= rescale_parameter
+        self.axis_2 *= rescale_parameter
+        self.axis_3 *= rescale_parameter
+        self.position_center *= rescale_parameter

@@ -1,9 +1,6 @@
 """Module containing the main function relative to post processsing."""
 
-import shutil
 import time
-import os
-from PIL import Image
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
@@ -12,7 +9,8 @@ import geommicgen.iofuncs.printing as print_funcs
 import geommicgen.postproc.voronoimetrics.motion_analysis as motion_analysis
 import geommicgen.postproc.voronoimetrics.stat_analysis as stat_analysis
 import geommicgen.postproc.voronoimetrics.voronoi_analysis as voronoi_analysis
-import geommicgen.postproc.plotfuncs.plotting_functions as plot_funcs
+
+from geommicgen.postproc.plotfuncs.plotting_functions import plot_particles
 
 
 def post_proc(
@@ -27,7 +25,7 @@ def post_proc(
         print_funcs.print_to_file("Generating final configuration for visualization")
         print_funcs.print_to_file("-" * 80 + "\n")
         start = time.time()
-        plot_funcs.plot_particles(current_sample.particles, current_sample.rve_dims, sample_dir)
+        plot_particles(current_sample.particles, current_sample.rve_dims, sample_dir)
         plot_particles_time = time.time() - start
         print_funcs.print_to_file(
             "Time ellapsed: {0:.3f}s\n".format(plot_particles_time)
@@ -92,15 +90,6 @@ def post_proc(
         )
         # Do a voronoi analysis
 
-    if post_proc_opts.get("plot_rsa_vf_history", False):
-        plot_funcs.plot_RSA_history(
-            current_mic_generator.RSA_vf_history,
-            sample_dir,
-            save=True,
-            show=False
-            )
-
-
     # Statistical analysis
     # --------------------------------------------------------------------------
     all_stat_options = {
@@ -118,61 +107,4 @@ def post_proc(
         print_funcs.print_to_file("-" * 80 + "\n")
         stat_analysis.do_stat_analysis(current_sample, sample_dir, stat_options_req)
 
-    # GIF generation
-    if post_proc_opts.get("sim_gif", False):
-        print_funcs.print_to_file("Simulation GIF")
-        print_funcs.print_to_file("-" * 80 + "\n")
-        start = time.time()
-
-        import re
-        
-        input_folder = os.path.join(sample_dir, "sim_gif")
-        output_gif_path = os.path.join(sample_dir, "Simulation.gif")
-        duration = post_proc_opts.get("sim_gif_frame_duration")
-        print("Add option for user to specify duration between frames/gif total time and loop option, postproc.py, post_proc function, simulation gif option.")
-        
-        # Gather all PNG files
-        images = [f for f in os.listdir(input_folder) if f.lower().endswith('.png')]
-        
-        # Sort numerically by frame number
-        def extract_frame_number(filename):
-            match = re.search(r'iteration_(\d+)', filename)
-            return int(match.group(1)) if match else 0
-        
-        images.sort(key=extract_frame_number)
-        
-        # Build full file paths and load frames
-        image_paths = [os.path.join(input_folder, img) for img in images]
-        frames = [Image.open(image) for image in image_paths]
-        first_image = frames[0]
-        
-        # Save as GIF
-        print_funcs.print_to_file("\t> Generating GIF.")
-        print_funcs.print_to_file("\t\t- {0}".format(output_gif_path))
-        first_image.save(
-            output_gif_path,
-            format="GIF",
-            append_images=frames[1:],
-            save_all=True,
-            duration=duration,
-            loop=0  # 0 = infinite, 1 = play once
-        )
-
-
-
-        # Delete the individual PNG files
-        if post_proc_opts.get("sim_gif_cleanup_frames"):
-            print_funcs.print_to_file("\n\t> Deleting individual PNG files.")
-            shutil.rmtree(input_folder)
-
-        plot_particles_time = time.time() - start
-        print_funcs.print_to_file(
-            "\nTime ellapsed: {0:.3f}s\n".format(plot_particles_time)
-        )
-
-        dict_times[
-            "Generating GIF from simulation frames"
-        ] = plot_particles_time
     return dict_times
-
-

@@ -10,7 +10,6 @@ Thermostat and SpeedUpScheme abstract classes to work.
 """
 
 from contextlib import contextmanager
-import os
 import time
 import numpy as np
 from scipy.stats import hmean
@@ -23,7 +22,6 @@ import geommicgen.iofuncs.printing as print_funcs
 from geommicgen.microstructure.particleclasses import Matrix
 from geommicgen.micgenmethod.microstructure_gen_method import GenerationMethod
 from geommicgen.micgenmethod.integration_methods import verlet_sync_integration
-import geommicgen.postproc.plotfuncs.plotting_functions as plot_funcs
 
 
 class MolecularDynamicsSimulation(GenerationMethod):
@@ -39,7 +37,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
     ----------
     box: list
         List of the dimensions of the simulation box. Almost always equal to the the
-        dimensions of the microstructure, except for CylindricalFibers.
+        dimensions of the micrrostructure, except for CylindricalFibers.
 
     particle_velocities: list(array)
         List containing the velocities of the particles in the simulation box.
@@ -166,7 +164,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
         min_distance,
         type_init_conf,
         save_history,
-        sample_dir,
         **kwargs
     ):
         """
@@ -197,9 +194,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
         save_history: bool
             Save all the trajectories of the particles, the history of the relative and
             kinetic energy.
-        
-        sample_dir: str
-            Directory of the sample for which the microstructure is being generated.
 
         Keyword Parameters
         ------------------
@@ -230,9 +224,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
 
         final_overlap_check: bool
             Do a final check using a naive approach for the particle overlap.
-
-        simulation_gif: bool
-            Make a gif of the simulation.
         """
         self.box = None
         self.particle_velocities = None
@@ -265,16 +256,14 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.fixed_seed = kwargs.get("fixed_seed", None)
         self.initial_vel_coeff = kwargs.get("initial_vel_coeff", 0.25)
         self.final_overlap_check = kwargs.get("final_overlap_check", False)
-        self.make_gif = kwargs.get("sim_gif")
-        self.sample_dir = sample_dir
         self.microstructure_sample = None
         self.force_rescale_coeff = 1
         self.coord_number = None
         self.thermic_energy_history = []
         self.all_dt = []
+
         self.status = False
         self._original_box = None
-        
 
     def generate_microstructure(self, microstructure_sample):
         """
@@ -288,12 +277,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
         microstructure_sample: `.Microstructure`
             Microstructure sample to be generated
         """
-        
-        if self.make_gif:
-            # Create folder for the gif if it does not exist
-            self.gif_dir = os.path.join(self.sample_dir, "sim_gif")
-            os.makedirs(self.gif_dir)
-
         self.microstructure_sample = microstructure_sample
         for phase in microstructure_sample.phases.values():
             if phase.type is not Matrix and not phase.inner_phase:
@@ -339,6 +322,34 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 self.max_residue,
             )
 
+    def set_box(self, particles, rve_dims):
+        """
+        Set the dimensions of the simulation box.
+
+        Set the dimensions of the box according to the particles present and the
+        dimensions of the microstructure.
+
+        It is assumed that there are no incompatible particles.
+
+        Parameters
+        ----------
+        particles: list(`.Particle`)
+            List of particles in the simulation.
+
+        rve_dims: list(floats)
+            Dimensions of the microstructure in each spatial direction.
+        """
+        if any(
+            [
+                particle.__class__.__name__ == "CylindricalFiber"
+                for particle in particles
+            ]
+        ):
+            self.box = list(rve_dims)
+            del self.box[particles[0].direction_fibers]
+        else:
+            self.box = list(rve_dims)
+
     def set_thermostat(self, thermostat):
         """Set the thermostat for the moleuclar dynamics simulation."""
         self.thermostat = thermostat
@@ -382,7 +393,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
             # number of cells in each direction and a total number of cells larger than the
             # number of particles
             if particles[0].dim == 3:
-                # n_cells_side = np.int_(np.ceil(np.cbrt(len(particles))))
+                # n_cells_side = np.int(np.ceil(np.cbrt(len(particles))))
                 n_cells_side = 6
                 # Number of cells in each direction
                 cell_length = np.array(self.box) / n_cells_side
@@ -419,7 +430,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                         # Saving particle history
                     k_counter += 1
             elif particles[0].dim == 2:
-                n_cells_side = np.int_(np.ceil(np.sqrt(len(particles))))
+                n_cells_side = np.int(np.ceil(np.sqrt(len(particles))))
                 # Number of cells in each direction
                 cell_length = self.box / n_cells_side
                 # Length of the cells in each direction
@@ -570,6 +581,83 @@ class MolecularDynamicsSimulation(GenerationMethod):
             except errors.UnsupportedInitialConfigurationType as error:
                 error.message()
 
+    @contextmanager
+    def virtual_particle_sizes(self, particles):
+        """
+        Ensure a minimum distance using a virtual particle size larger than the real size.
+
+        Dilate all the particles so that a minimum distance is ensured after contraction at
+        the begin of the simulation and contract all the particles so that a minimum
+        distance is ensured.
+
+        Parameters
+        ----------
+        particles: list(`.Particle`)
+            List of the particles inside the simulation box.
+        """
+        real_vf = self.microstructure_sample.volume_fraction
+        self.dilate_all_particles(particles)
+        self.resize_sim_box_and_all_particles_inside(particles, size="unitary")
+        virtual_vf = self.microstructure_sample.volume_fraction
+        if self.min_distance != 0:
+            print_funcs.print_virtual_total_volume_fraction(
+                real_vf, virtual_vf, self.min_distance
+            )
+        try:
+            yield
+        finally:
+            if self.thermostat.__class__.__name__ == "MultiTemperatureIsokineticScheme":
+                self.thermostat.equilibration_steps.append(self.thermostat.jump_list)
+            if not self.save_history:
+                # If the complete motion was not saved
+                for i_particle_ind, i_particle in enumerate(particles):
+
+                    self.position_center_history[i_particle_ind].append(
+                        i_particle.position_center.flatten()
+                    )
+                    # Saving the final configuration
+            self.contract_all_particles(particles)
+            self.resize_sim_box_and_all_particles_inside(particles, size="original")
+            if self.offset:
+                offset = self.compute_rve_offset(particles, self.box)
+                for i_particle in particles:
+                    # Running through all the particles
+                    i_particle.position_center -= np.array(offset)[: len(self.box)]
+                    # Applying the offset to the particles
+
+    def contract_all_particles(self, particles):
+        """Contract all the particles in the simulation box."""
+        for i_particle in particles:
+            # Running through all the particles
+            i_particle.contract(self.min_distance / 2)
+            # Dilate i_particle
+
+    def dilate_all_particles(self, particles):
+        """Dilate all the particles in the simulation box."""
+        for i_particle in particles:
+            # Running through all the particles
+            i_particle.dilate(self.min_distance / 2)
+            # Dilate i_particle
+
+    def resize_sim_box_and_all_particles_inside(self, particles, size):
+        """Resize the simulation box and all the particles inside."""
+        if size == "unitary":
+            if self._original_box is None:
+                self._original_box = list(self.box)
+                self.box = [1 for _ in self._original_box]
+                rescale_parameter = 1 / min(self._original_box)
+                for i_particle in particles:
+                    i_particle.rescale(rescale_parameter)
+        elif size == "original":
+            if self._original_box is not None:
+                rescale_parameter = min(self._original_box)
+                self.box = list(self._original_box)
+                self._original_box = None
+                for i_particle in particles:
+                    i_particle.rescale(rescale_parameter)
+
+        else:
+            raise ValueError("Size choice for simulation box unknown: {0}".format(size))
 
     def set_initial_temp(self, particles):
         """Set the intial temperature if it was not already specified.
@@ -624,7 +712,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
             self.compute_kinetic_energy(particles)
             self.set_initial_temp(particles)
 
-            print_funcs.print_to_terminal_refresh_md(
+            print_funcs.print_to_terminal_refresh(
                 self.step,
                 self.total_overlap,
                 first=True,
@@ -659,7 +747,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 else:
                     n_steps_relax = 0
                     # Restarting the count
-                print_funcs.print_to_terminal_refresh_md(
+                print_funcs.print_to_terminal_refresh(
                     self.step,
                     self.total_overlap,
                 )
@@ -686,50 +774,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     self.status = False
                     print_funcs.print_to_file("Failed sample")
                     break
-                if self.make_gif:
-                        kwargs = {"sim_gif": True, "simulation_gif_dir" : self.gif_dir, "iteration": self.step, "save": False}
-                        plot_funcs.plot_particles(self.microstructure_sample.particles, self.microstructure_sample.rve_dims, self.sample_dir, **kwargs)
-
-    @contextmanager
-    def virtual_particle_sizes(self, particles):
-        """
-        Ensure a minimum distance using a virtual particle size larger than the real size.
-
-        Dilate all the particles so that a minimum distance is ensured after contraction at
-        the begin of the simulation and contract all the particles so that a minimum
-        distance is ensured.
-
-        Parameters
-        ----------
-        particles: list(`.Particle`)
-            List of the particles inside the simulation box.
-        """
-        real_vf = self.microstructure_sample.volume_fraction
-        self.dilate_all_particles(particles)
-        virtual_vf = self.microstructure_sample.volume_fraction
-        if self.min_distance != 0:
-            print_funcs.print_virtual_total_volume_fraction(
-                real_vf, virtual_vf, self.min_distance
-            )
-        try:
-            yield
-        finally:
-            if self.thermostat.__class__.__name__ == "MultiTemperatureIsokineticScheme":
-                self.thermostat.equilibration_steps.append(self.thermostat.jump_list)
-            if not self.save_history:
-                # If the complete motion was not saved
-                for i_particle_ind, i_particle in enumerate(particles):
-                    self.position_center_history[i_particle_ind].append(
-                        i_particle.position_center.flatten()
-                    )
-                    # Saving the final configuration
-            self.contract_all_particles(particles)
-            if self.offset:
-                offset = self.compute_rve_offset(particles, self.box)
-                for i_particle in particles:
-                    # Running through all the particles
-                    i_particle.position_center -= np.array(offset)[: len(self.box)]
-                    # Applying the offset to the particles
 
     def check_overlap_naive(self, particles):
         """Check the overlap between particle naively.
@@ -779,7 +823,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 else force
                 for force in self.particle_forces
             ]
-        
+
     def compute_forces_overlap(self, particles):
         """
         Compute the forces due to particle interactions.
@@ -819,11 +863,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 j_particle = particles[j_particle_index]
                 if j_particle_index > i_particle_index:
                     # Running through the particle pairs that have not been considered yet
-
                     intersection_area, unit_vector_i_j = getattr(
                         i_particle, self.force_option
                     )(j_particle, self.box, dist_met=dist_met)
-
                     self.particle_overlap_areas_dict.setdefault(
                         (i_particle_index, j_particle_index),
                         [0 for _ in range(self.step - 1)],
@@ -831,8 +873,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     self.particle_overlap_areas_dict[
                         (i_particle_index, j_particle_index)
                     ] += [intersection_area]
-
-                    
                     # Intersection area between particle i and j
                     self.particle_overlap_areas[i_particle_index] += intersection_area
                     self.particle_overlap_areas[j_particle_index] += intersection_area

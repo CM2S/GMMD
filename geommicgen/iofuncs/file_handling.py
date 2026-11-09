@@ -163,12 +163,11 @@ def save_status(sample_dir, current_sample, current_mic_generator):
     status_file_name = os.path.join(sample_dir, "status")
     with open(status_file_name, "w") as status:
         time_line = "Time: {0:.3f}s\n".format(current_mic_generator.time)
-        status.writelines(time_line)
+        overlap_line = "Overlap: {0:.3f}\n".format(current_sample.total_overlap)
         status_line = "Status: {0}\n".format(current_mic_generator.status)
+        status.writelines(time_line)
+        status.writelines(overlap_line)
         status.writelines(status_line)
-        if hasattr(current_mic_generator, "total_overlap"):
-            overlap_line = "Overlap: {0:.3f}\n".format(current_sample.total_overlap)
-            status.writelines(overlap_line)
 
 
 def delete_screen(screen_dir):

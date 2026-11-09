@@ -95,7 +95,7 @@ class Ellipse(Particle):
 
     def __init__(self, phase, descriptors, rve_dims):
         """
-        Initialize a classe Ellipse object.
+        Initialize a classe Ellipse obejct.
 
         Parameters
         ----------
@@ -164,29 +164,16 @@ class Ellipse(Particle):
         )
         super().__init__(2, phase)
 
-
     @property
     def volume(self):
-        """Area(volume) of the real ellipse."""
+        """Area(volume) of the ellipse. Only approximate if *self.delta*!=0."""
         volume = (
             np.pi
-            * (self.semi_major_axis)
-            * (self.semi_minor_axis)
-        )
-        return volume
-
-
-    @property
-    def real_volume(self):
-        """Real area(volume) of the ellipse."""
-        volume = (
-            np.pi
-            * (self.semi_major_axis - self.delta)
-            * (self.semi_minor_axis - self.delta)
+            * (self.semi_major_axis + self.delta)
+            * (self.semi_minor_axis + self.delta)
         )
 
         return volume
-    
 
     @property
     def semi_major_axis(self):
@@ -212,7 +199,7 @@ class Ellipse(Particle):
     @property
     def radius(self):
         """Radius of the circumscribed circle to the ellipse."""
-        radius = self.semi_major_axis
+        radius = self.semi_major_axis + self.delta
 
         return radius
 
@@ -226,15 +213,11 @@ class Ellipse(Particle):
     def contract(self, distance):
         """Contract the particle."""
         self.delta -= distance
-        self.major_axis -= 2 * distance
-        self.minor_axis -= 2 * distance
         # Contracting the particle size subracting the minimum distance from the semi-axis
 
     def dilate(self, distance):
         """Dilate the particle."""
         self.delta += distance
-        self.major_axis += 2 * distance
-        self.minor_axis += 2 * distance
         # Dilating the particle size adding the minimum distance to the semi-axis
 
     def point_inside(self, point: np.array, box: list, **kwargs) -> bool:
@@ -737,8 +720,8 @@ class Ellipse(Particle):
             z[1] = np.random.normal()
             r = np.random.uniform() ** (1 / 2)
             R = np.linalg.norm(z)
-            x_loc = r * self.semi_major_axis * z[0] / R
-            y_loc = r * self.semi_minor_axis * z[1] / R
+            x_loc = r * (self.semi_major_axis + self.delta) * z[0] / R
+            y_loc = r * (self.semi_minor_axis + self.delta) * z[1] / R
             [x_glob, y_glob] = self.rot_mat.T.dot([x_loc, y_loc]) + self.position_center
             points.append(np.array([x_glob, y_glob]))
 
@@ -834,6 +817,13 @@ class Ellipse(Particle):
             self.rot_mat.T.dot(point_on_ellipse_loc) + self.position_center
         )
         return np.append(point_on_ellipse_glob, [0])
+
+    def rescale(self, rescale_parameter):
+        """Rescale all size parameters and the position according to *rescale_parameter*."""
+        self.major_axis *= rescale_parameter
+        self.minor_axis *= rescale_parameter
+        self.position_center *= rescale_parameter
+
 
 def intersection_points_ellipses(
     A1, B1, center_1, angle_1, A2, B2, center_2, angle_2, tol=1e-10

@@ -24,11 +24,10 @@ from matplotlib import cm
 from geommicgen.microstructure.particleclasses import (
     Disk,
     Ellipse,
-    Square,
     CylindricalFiber,
     Sphere,
     Ellipsoid,
-    Particle
+    Particle,
 )
 
 from geommicgen.postproc.mshgen.meshing_interface import FEMMeshGenerator
@@ -210,10 +209,10 @@ def generate_colors(n_colors):
 def plot_particles(particles, rve_dims, sample_dir, **kwargs):
     """Plot the particles."""
     if len(rve_dims) == 2:
-        plot_particles_2d(particles, rve_dims, sample_dir,**kwargs)
+        plot_particles_2d(particles, rve_dims, sample_dir)
     elif len(rve_dims) == 3:
         # plot_particles_3d_one_by_one(particles, rve_dims, sample_dir)
-        plot_particles_3d(particles, rve_dims, sample_dir,**kwargs)
+        plot_particles_3d(particles, rve_dims, sample_dir)
 
 
 def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
@@ -234,73 +233,26 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
     ax.set_xlim(0, rve_dims[0])
     # Setting the correct proportions
 
-    if kwargs.get("sim_gif", False):
-        step = kwargs.get("iteration", 0)
-        ax.text(
-            1.05, 0.5, 
-            f"Step: {step:04d}",  # Pad to 4 digits (0000, 0001, ..., 0999, 1000)
-            transform=ax.transAxes, 
-            verticalalignment='center', 
-            horizontalalignment='left',
-            fontsize=12, 
-            fontweight='bold',
-            bbox=dict(boxstyle="square,pad=0.3", facecolor="white", edgecolor="gray", alpha=0.5)
-        )
-    # Adding a text box with the step number for the gif images
-
     phases = list({i_particle.phase for i_particle in particles})
     colors = generate_colors(len(phases))
     phase_colors = dict(zip(phases, colors))
 
-
-    for idx,i_particle in enumerate(particles):
+    for i_particle in particles:
         for (j_dim, k_dim) in [
             (j_dim, k_dim) for j_dim in range(-1, 2) for k_dim in range(-1, 2)
         ]:
-            if isinstance(i_particle, Square):  
-                square = mpatches.Rectangle(
-                    i_particle.position_center
-                    - np.array([i_particle.side, i_particle.side]) / 2
-                    + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),
-                    i_particle.side,
-                    i_particle.side,
-                    angle=0,
-                    alpha=0.8,
-                    edgecolor=None,
-                    facecolor=phase_colors[i_particle.phase],
-                )
-                ax.add_artist(square)
-            else:    # particle is a disk or an ellipse
-                #print("particle position (in plotting functions): {0}".format(i_particle.position_center))
-                # above print is for debugging. Delete later.
-                ellip = mpatches.Ellipse(
-                    i_particle.position_center
-                    + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),
-                    i_particle.major_axis,
-                    i_particle.minor_axis,
-                    angle=180 / np.pi * i_particle.angle,
-                    alpha=0.8,
-                    edgecolor=None,
-                    facecolor=phase_colors[i_particle.phase],
-                )
-
-                ax.add_artist(ellip)
-
-            ####    Comment or uncomment to show particle index at the center   #####
-            # plt.annotate(
-            #     str(idx), 
-            #     tuple(i_particle.position_center + np.array(rve_dims) * np.array([j_dim, k_dim])), 
-            #     fontsize=6,
-            #     clip_on=False
-            #     )
-            ####    end particle indexing   ####
-
-
-    if kwargs.get("sim_gif", False):
-        gif_dir = kwargs.get("simulation_gif_dir")
-        step = kwargs.get("iteration", 0)
-        plt.savefig(os.path.join(gif_dir, "iteration_{0}.png".format(step)), bbox_inches="tight")
-        plt.close()
+            ellip = mpatches.Ellipse(
+                i_particle.position_center
+                + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),
+                i_particle.major_axis,
+                i_particle.minor_axis,
+                angle=180 / np.pi * i_particle.angle,
+                alpha=0.8,
+                edgecolor=None,
+                facecolor=phase_colors[i_particle.phase],
+            )
+            ax.add_artist(ellip)
+            # plt.annotate(str(k), tuple(i_particle.position_center))
 
     if kwargs.get("save", True):
         plt.savefig(os.path.join(sample_dir, "final_config.pdf"), bbox_inches="tight")
@@ -313,9 +265,6 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
 
 
 def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
-
-    if kwargs.get("sim_gif", False):
-        raise NotImplementedError("Simulation GIF for 3D particles is not implemented.")
 
     dim = len(rve_dims)
     mesh_generator = FEMMeshGenerator(
@@ -723,7 +672,7 @@ def plot_paths(particles, box, position_center_history, motion_results_dir):
         #         ]
         #
         #     # Set the mesh size on the geometry points
-        #     # Synchronize the CAD engine (alwaygraphs needed before generating the mesh)
+        #     # Synchronize the CAD engine (always needed before generating the mesh)
         #     # It may also be useful for some intermidate operations, like checking the tags of
         #     # entities
         #     factory.synchronize()
@@ -1007,6 +956,8 @@ def plot_voronoi_2d(
             ax.add_artist(ellip)
             # plt.annotate(str(k), tuple(i_particle.position_center))
 
+    # print("here2")
+    # voronoi_type = "standard"
     if voronoi_type == "set":
         set_voronoi_plot_2d(
             voronoi, ax=plt.gca(), show_vertices=False, point_size=0, line_width=0.1
@@ -1196,7 +1147,7 @@ def plot_voronoi_2d_with_imts(
 
         plt.axis([0, rve_dims[0], 0, rve_dims[1]])
 
-        # cmap = matplotlib.cm. map("jet")
+        # cmap = matplotlib.cm.get_cmap("jet")
         cmap = matplotlib.cm.get_cmap("Blues")
         # Initializing the list containing the list of imts for each Voronoi cell
         k_cell = 0
@@ -2358,33 +2309,5 @@ def plot_voronoi_3d_with_imts(
         plt.close()
 
 
-def plot_RSA_history(
-    RSA_vf_history,
-    sample_dir,
-    save=True,
-    show=False
-):
-    """Plot the number of particles history as a function of the iteration step."""
-    graph_RSA_vf_history, ax, (w_fig, h_fig) = create_figure(nrows=3, ncols=2)
-
-    ax.plot(
-        range(len(RSA_vf_history)),
-        RSA_vf_history,
-        color=(68 / 255, 119 / 255, 170 / 255, 1)
-    )
-
-    # --- Added Axis Labels ---
-    # Using LaTeX syntax as your create_figure function enables usetex=True
-    ax.set_xlabel(r"Iteration Step")
-    ax.set_ylabel(r"Volume fraction")
-    ax.grid(True, linestyle='--', alpha=0.6)
-
-    if save:
-        # Use fig (graph_RSA_particle_history) to save to ensure the whole canvas is captured
-        plt.savefig(os.path.join(sample_dir, "RSA_vf_history.pdf"), bbox_inches="tight")
-
-        if show:
-            plt.show()
-        plt.close()
-    else:
-        return graph_RSA_vf_history
+# def rescaleAxis(ax):
+#     for line in ax.lines:

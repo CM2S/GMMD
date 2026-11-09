@@ -1,5 +1,5 @@
 """
-Module containing the classes used in the speed up schemes for force computation in MD simulations.
+Module containing the classes used in the speed up schemes for force computation.
 
 It includes a naive scheme, a cell list class, and a Verlet list class, where the Verlet
 list is computed from the cell list.
@@ -12,21 +12,20 @@ from copy import deepcopy
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 from geommicgen.microstructure.particleclasses import Particle
-from geommicgen.micgenmethod.speed_up_schemes.Speed_up_scheme import SpeedUpScheme
 
 import numpy as np
 
 
-class MD_SpeedUpScheme(SpeedUpScheme,abc.ABC):
-    """Abstract class for the molecular dynamics speed up schemes."""
+class SpeedUpScheme(abc.ABC):
+    """Abstract class for the speed up schemes."""
 
     @abc.abstractmethod
     def new_list(self, particles):
         """Compute a new list for force computation."""
 
 
-class CellList(MD_SpeedUpScheme):
-    """Class for the cell list speed up scheme for checking particle intersection.
+class CellList(SpeedUpScheme):
+    """Class for the cell list speed up scheme for force computation.
 
     Attributes
     ----------
@@ -63,7 +62,7 @@ class CellList(MD_SpeedUpScheme):
         if self.box is None:
             raise ValueError("The simulation box has not been defined")
         n_cell_dim = [
-            np.int_(np.floor(self.box[i_dim] / (2 * self.max_radius)))
+            np.int(np.floor(self.box[i_dim] / (2 * self.max_radius)))
             for i_dim in range(len(self.box))
         ]
         return n_cell_dim
@@ -268,8 +267,159 @@ class CellList(MD_SpeedUpScheme):
                     if i_particle_index > j_particle_index or True:
                         self.cell_particle_list[j_particle_index].add(i_particle_index)
 
+    def neighbor_cell(self, pos_current_cell, local_pos_neighbor_cell, dim, n_cells):
+        """
+        Compute the global cell position of the neighbor cell.
 
-class VerletList(MD_SpeedUpScheme):
+        Parameters
+        ----------
+        pos_current_cell: integer
+            Global position of the current cell
+
+        local_pos_neighbor_cell: integer
+            Local position of the neighbor cell
+
+        dim: integer
+            Dimension of the problem
+
+        n_cells: list
+            Number of cells in each direction (0:x; 1:y; 2:z)
+
+        Returns
+        -------
+        pos_neighbor_cell: integer
+            Global position of the neighbor cell
+        """
+
+        def at_bottom():
+            """Check if the current position is at the bottom of the simulation box."""
+            return (
+                pos_current_cell
+                - n_cells[1]
+                * n_cells[0]
+                * (pos_current_cell // (n_cells[1] * n_cells[0]))
+                < n_cells[0]
+            )
+
+        def at_top():
+            """Check if the current position is at the top of the simulation box."""
+            return pos_current_cell - n_cells[1] * n_cells[0] * (
+                pos_current_cell // (n_cells[1] * n_cells[0])
+            ) >= n_cells[0] * (n_cells[1] - 1)
+
+        def at_right():
+            """Check if the current position is at the right of the simulation box."""
+            return np.mod(pos_current_cell + 1, n_cells[0]) == 0
+
+        def at_left():
+            """Check if the current position is at the left of the simulation box."""
+            return np.mod(pos_current_cell, n_cells[0]) == 0
+
+        def at_front():
+            """Check if the current position is at the front of the simulation box."""
+            return pos_current_cell < n_cells[1] * n_cells[0]
+
+        def at_back():
+            """Check if the current position is at the back of the simulation box."""
+            return pos_current_cell > n_cells[1] * n_cells[0] * (n_cells[2] - 1) - 1
+
+        if dim == 2:
+            # 2D problem
+            local_row_pos_neigh = np.int(
+                np.mod(np.floor(local_pos_neighbor_cell / 3), 3) - 1
+            )
+            # Local row position of the neighbor, going from -1 to 1 with the origin at the
+            # current cell
+            local_col_pos_neigh = np.int(np.mod(local_pos_neighbor_cell, 3) - 1)
+            # Local column position of the neighbor, going from -1 to 1 with the origin at
+            # the current cell
+            pos_neighbor_cell = np.int(
+                pos_current_cell
+                + local_col_pos_neigh
+                + local_row_pos_neigh * n_cells[0]
+            )
+            # Global position of the neighbor cell without enforcing periodic boundary
+            # conditions
+            if pos_current_cell < n_cells[0] and local_row_pos_neigh == -1:
+                # Lower row of the grid
+                pos_neighbor_cell = pos_neighbor_cell + n_cells[1] * n_cells[0]
+                # Enforcing the periodic boundary conditions
+            elif (
+                pos_current_cell >= n_cells[0] * (n_cells[1] - 1)
+                and local_row_pos_neigh == 1
+            ):
+                # Upper row of the grid
+                pos_neighbor_cell = pos_neighbor_cell - n_cells[1] * n_cells[0]
+                # Enforcing the periodic boundary conditions
+            if (
+                np.mod(pos_current_cell + 1, n_cells[0]) == 0
+                and local_col_pos_neigh == 1
+            ):
+                # Right column of the grid
+                pos_neighbor_cell = pos_neighbor_cell - n_cells[0]
+                # Enforcing the periodic boundary conditions
+            elif (
+                np.mod(pos_current_cell, n_cells[0]) == 0 and local_col_pos_neigh == -1
+            ):
+                # Left column of the grid
+                pos_neighbor_cell = pos_neighbor_cell + n_cells[0]
+                # Enforcing the periodic boundary conditions
+        elif dim == 3:
+            # 3D problem
+            local_row_pos_neigh = np.int(
+                np.mod(np.floor(local_pos_neighbor_cell / 3), 3) - 1
+            )
+            # Local row position of the neighbor, going from -1 to 1 with the origin at the
+            # current cell
+            local_col_pos_neigh = np.int(np.mod(local_pos_neighbor_cell, 3) - 1)
+            # Local column position of the neighbor, going from -1 to 1 with the origin at
+            # the current cell
+            local_lay_pos_neigh = np.int(
+                np.mod(np.floor(local_pos_neighbor_cell / 9), 3) - 1
+            )
+            # Local layer position of the neighbor, going from -1 to 1 with the origin at
+            # the current cell
+            pos_neighbor_cell = np.int(
+                pos_current_cell
+                + local_col_pos_neigh
+                + local_row_pos_neigh * n_cells[0]
+                + local_lay_pos_neigh * n_cells[0] * n_cells[1]
+            )
+            # Global position of the neighbor cell without enforcing periodic boundary
+            # conditions
+            if at_bottom() and local_row_pos_neigh == -1:
+                # Lower row of the grid
+                pos_neighbor_cell = pos_neighbor_cell + n_cells[1] * n_cells[0]
+                # Enforcing the periodic boundary conditions
+            elif at_top() and local_row_pos_neigh == 1:
+                # Upper row of the grid
+                pos_neighbor_cell = pos_neighbor_cell - n_cells[1] * n_cells[0]
+                # Enforcing the periodic boundary conditions
+            if at_right() and local_col_pos_neigh == 1:
+                # Right column of the grid
+                pos_neighbor_cell = pos_neighbor_cell - n_cells[0]
+                # Enforcing the periodic boundary conditions
+            elif at_left() and local_col_pos_neigh == -1:
+                # Left column of the grid
+                pos_neighbor_cell = pos_neighbor_cell + n_cells[0]
+                # Enforcing the periodic boundary conditions
+            if at_front() and local_lay_pos_neigh == -1:
+                # Firsl layer of the grid
+                pos_neighbor_cell = (
+                    pos_neighbor_cell + n_cells[1] * n_cells[0] * n_cells[2]
+                )
+                # Enforcing the periodic boundary conditions
+            elif at_back() and local_lay_pos_neigh == 1:
+                # Last layer of the grid
+                pos_neighbor_cell = (
+                    pos_neighbor_cell - n_cells[1] * n_cells[0] * n_cells[2]
+                )
+                # Enforcing the periodic boundary conditions
+
+        return pos_neighbor_cell
+
+
+class VerletList:
     """
     Class for the verlet list used to speed up force computation.
 
@@ -489,7 +639,7 @@ class VerletPartialUpdate(VerletList):
                         self.particle_list[j_particle_index].remove(i_particle_index)
 
 
-class Naive(MD_SpeedUpScheme):
+class Naive(SpeedUpScheme):
     """
     Class for the verlet list used to speed up force computation.
 
@@ -517,19 +667,4 @@ class Naive(MD_SpeedUpScheme):
         ----------
         Particles in the simulatin box, whose cell list is to be computed.
         """
-
         self.particle_list = [list(range(len(particles))) for _ in particles]
-
-    def new_list_new_particle(self, particles,new_particle):
-        """
-        Compute cell list for new_particle,
-        this is, get the indices of all the particles in the neighborhood of the new_particle according to the speed_up_scheme Naive
-
-        Parameters
-        ----------
-        Particles in the simulatin box, whose cell list is to be computed.
-        """
-
-        self.particle_list = [list(range(len(particles)))]
-
-

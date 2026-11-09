@@ -1,4 +1,4 @@
-"""Module for motion analysis for MD simulation."""
+"""Module for motion analysis."""
 
 import os
 

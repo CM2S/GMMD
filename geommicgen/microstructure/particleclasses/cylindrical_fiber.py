@@ -65,12 +65,12 @@ class CylindricalFiber(Disk):
 
     def __init__(self, phase, descriptors, rve_dims):
         """
-        Initialize a classe CylindricalFiber object.
+        Initialize a classe Ellipse obejct.
 
         Parameters
         ----------
         phase: string
-            Phase to which the cylindrical fiber belongs
+            Phase to which the ellipse belongs
 
         descriptors: dict
             Dictionary of the form *{descriptor_name: value}*
@@ -94,11 +94,3 @@ class CylindricalFiber(Disk):
         volume = np.pi * (self.radius + self.delta) ** 2 * self.length_dir_fibers
 
         return volume
-
-    @property
-    def real_volume(self):
-        """Real volume of the cylindrical fiber."""
-        volume = np.pi * (self.radius) ** 2 * self.length_dir_fibers
-
-        return volume
-
