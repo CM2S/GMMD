@@ -1,10 +1,21 @@
 import unittest
 from unittest.mock import sentinel, Mock, patch
 
+import numpy as np
+
 # from microstructure.phase import Phase
 
 
-from geommicgen.microstructure.microstructure import Microstructure
+import numpy as np
+
+from geommicgen.microstructure.microstructure import Microstructure, unit_scale
+from geommicgen.microstructure.particleclasses import CylindricalFiber, Disk, Sphere
+from geommicgen.microstructure.phase import Phase
+from geommicgen.tests.helpers import (
+    build_microstructure,
+    disk_microstructure,
+    sphere_microstructure,
+)
 
 
 class TestMicrostructure(unittest.TestCase):
@@ -46,7 +57,6 @@ class TestMicrostructure(unittest.TestCase):
         matrix_mock_2 = sentinel.matrix_2
         matrix_mock_2.type = Mock(__name__="Matrix")
         with self.assertRaises(ValueError):
-            # Number of RVE dimensions is not compatible with particle type
             self.microstructure_2D.add_phase(matrix_mock_1)
             self.microstructure_2D.add_phase(matrix_mock_2)
 
@@ -83,23 +93,289 @@ class TestMicrostructure(unittest.TestCase):
             self.microstructure_3D.add_phase(spheres_mock)
             self.microstructure_3D.add_phase(cylindricalfiber_mock)
 
-    # with self.assertRaises(ValueError):
-    #     # Number of RVE dimensions is not compatible with particle type
-    #     rve_dims = [1.0, 1.0]
-    #     descriptors = {
-    #         "1": {"Phase_Type": 1},
-    #         "2": {"Phase_Type": 4, "r": 0.1, "vf": 0.5},
-    #     }
-    #     _ = Microstructure(descriptors, rve_dims)
-    #
-    # with self.assertRaises(ValueError):
-    #     # Only one matrix phase can be specified
-    #     rve_dims = [1.0, 1.0, 1.0]
-    #     descriptors = {
-    #         "1": {"Phase_Type": 1},
-    #         "2": {"Phase_Type": 1},
-    #     }
-    #     _ = Microstructure(descriptors, rve_dims)
+    def test_add_phase_cylindricalfiber_compatible(self):
+        """Check that CylindricalFiber phases coexist with each other and the matrix."""
+        matrix_mock = sentinel.matrix
+        matrix_mock.type = Mock(__name__="Matrix")
+        cylindricalfiber_mock_1 = sentinel.cylindricalfiber_1
+        cylindricalfiber_mock_1.type = Mock(__name__="CylindricalFiber")
+        cylindricalfiber_mock_1.type.dim = 3
+        cylindricalfiber_mock_2 = sentinel.cylindricalfiber_2
+        cylindricalfiber_mock_2.type = Mock(__name__="CylindricalFiber")
+        cylindricalfiber_mock_2.type.dim = 3
+
+        self.microstructure_3D.add_phase(matrix_mock)
+        self.microstructure_3D.add_phase(cylindricalfiber_mock_1)
+        self.microstructure_3D.add_phase(cylindricalfiber_mock_2)
+
+        self.assertIn(cylindricalfiber_mock_2.name, self.microstructure_3D.phases)
+
+    def test_add_phase_cylindricalfiber_incompatible_with_other_particles(self):
+        """Check that a CylindricalFiber phase is rejected next to a non-fiber phase."""
+        spheres_mock = sentinel.spheres
+        spheres_mock.type = Mock(__name__="Sphere")
+        spheres_mock.type.dim = 3
+        cylindricalfiber_mock = sentinel.cylindricalfiber
+        cylindricalfiber_mock.type = Mock(__name__="CylindricalFiber")
+        cylindricalfiber_mock.type.dim = 3
+
+        self.microstructure_3D.add_phase(spheres_mock)
+        with self.assertRaises(ValueError):
+            self.microstructure_3D.add_phase(cylindricalfiber_mock)
+
+    def test_fibres_are_refused_beside_other_particles_in_either_order(self):
+        for i_first, i_second in (
+            (Sphere, CylindricalFiber),
+            (CylindricalFiber, Sphere),
+        ):
+            with self.subTest(first=i_first.__name__):
+                microstructure = Microstructure([1.0, 1.0, 1.0])
+                microstructure.add_phase(Phase.from_type("2", i_first))
+                with self.assertRaisesRegex(ValueError, "fibres go with no other"):
+                    microstructure.add_phase(Phase.from_type("3", i_second))
+                self.assertEqual(list(microstructure.phases), ["2"])
+        # Fibres were refused only when they came after the other particles, and the
+        # phase refused was added all the same
+
+    def test_particles_property(self):
+        """Check that particles aggregates the particles of every phase."""
+        phase_1 = Mock()
+        phase_1.particles = [sentinel.particle_1, sentinel.particle_2]
+        phase_2 = Mock()
+        phase_2.particles = [sentinel.particle_3]
+        self.microstructure_2D.phases = {"phase_1": phase_1, "phase_2": phase_2}
+
+        self.assertEqual(
+            self.microstructure_2D.particles,
+            [sentinel.particle_1, sentinel.particle_2, sentinel.particle_3],
+        )
+
+    def test_volume_fraction_property(self):
+        """Check that volume_fraction sums the volume fraction of every phase."""
+        phase_1 = Mock()
+        phase_1.volume_fraction = 0.2
+        phase_2 = Mock()
+        phase_2.volume_fraction = 0.3
+        self.microstructure_2D.phases = {"phase_1": phase_1, "phase_2": phase_2}
+
+        self.assertAlmostEqual(self.microstructure_2D.volume_fraction, 0.5)
+
+    def test_volume_fraction_circ_property(self):
+        """Check that volume_fraction_circ sums the circumscribed volume fraction of
+        every phase."""
+        phase_1 = Mock()
+        phase_1.volume_fraction_circ = 0.15
+        phase_2 = Mock()
+        phase_2.volume_fraction_circ = 0.1
+        self.microstructure_2D.phases = {"phase_1": phase_1, "phase_2": phase_2}
+
+        self.assertAlmostEqual(self.microstructure_2D.volume_fraction_circ, 0.25)
+
+    def test_inside_particle_phase(self):
+        """Check that points are correctly flagged as inside/outside the particle phase."""
+        disk = Disk("FakePhase", {"r": 0.1, "n": 1}, [1.0, 1.0])
+        disk.position_center = np.array([0.5, 0.5])
+        phase = Mock()
+        phase.particles = [disk]
+        self.microstructure_2D.phases = {"phase_1": phase}
+
+        pts = [[0.5, 0.5], [0.9, 0.9]]
+        self.assertEqual(self.microstructure_2D.inside_particle_phase(pts), [1, 0])
+
+
+class TestFromDescriptors(unittest.TestCase):
+    """Test class for the microstructure built from the descriptors of a deck."""
+
+    DESCRIPTORS = {"0": {"phase_type": 1}, "1": {"phase_type": 2, "vf": 0.2, "n": 4}}
+    # A matrix and a phase of disks, as the input data file reader hands them over
+
+    def test_the_phases_are_declared(self):
+        microstructure = Microstructure.from_descriptors([1.0, 1.0], self.DESCRIPTORS)
+        self.assertEqual(list(microstructure.phases), ["0", "1"])
+        self.assertEqual(microstructure.matrix_phase, "0")
+        self.assertEqual(microstructure.phases["1"].type.__name__, "Disk")
+        self.assertEqual(microstructure.phases["1"].descriptors["n"].value, 4)
+        self.assertEqual(microstructure.particles, [])
+        for i_phase in microstructure.phases.values():
+            self.assertIs(i_phase.microstructure, microstructure)
+
+    def test_a_deck_without_a_matrix_is_refused(self):
+        with self.assertRaises(ValueError) as context:
+            Microstructure.from_descriptors([1.0, 1.0], {"1": self.DESCRIPTORS["1"]})
+        self.assertIn("matrix", str(context.exception))
+
+    def test_a_deck_with_two_matrices_is_refused(self):
+        with self.assertRaises(ValueError):
+            Microstructure.from_descriptors(
+                [1.0, 1.0], {"0": {"phase_type": 1}, "2": {"phase_type": 1}}
+            )
+
+    def test_each_call_builds_a_microstructure_of_its_own(self):
+        first = Microstructure.from_descriptors([1.0, 1.0], self.DESCRIPTORS)
+        second = Microstructure.from_descriptors([1.0, 1.0], self.DESCRIPTORS)
+        self.assertIsNot(first.phases["1"], second.phases["1"])
+        # Each sample of a run is generated into a microstructure of its own
+
+    def test_fibres_run_in_one_direction(self):
+        fibres = {"phase_type": 6, "r": 0.05, "n": 2}
+        with self.assertRaisesRegex(ValueError, "have to run in one direction"):
+            Microstructure.from_descriptors(
+                [1.0, 1.0, 1.0],
+                {
+                    "0": {"phase_type": 1},
+                    "1": dict(fibres, direction=1),
+                    "2": dict(fibres, direction=2),
+                },
+            )
+        # An input file was refused them, and a microstructure built in Python took
+        # them, which the simulation then moved in the plane across the first
+
+    def test_an_inner_phase_has_to_be_inside_a_phase_of_particles(self):
+        with self.assertRaisesRegex(
+            ValueError,
+            "Phase 2: the phase it is inside, 0, is not another phase of particles",
+        ):
+            Microstructure.from_descriptors(
+                [1.0, 1.0],
+                {
+                    "0": {"phase_type": 1},
+                    "1": {"phase_type": 2, "r": 0.2, "n": 2},
+                    "2": {
+                        "phase_type": 2,
+                        "r": 0.05,
+                        "n": 2,
+                        "inner_phase": True,
+                        "outer_phase": "0",
+                    },
+                },
+            )
+        # An input file was refused it, and a microstructure built in Python took it
+
+
+class TestPacking(unittest.TestCase):
+    """Test class for the microstructure as the simulation packed it."""
+
+    def test_the_inner_phases_are_left_out_of_a_copy(self):
+        microstructure = Microstructure.from_descriptors(
+            [1.0, 1.0],
+            {
+                "0": {"phase_type": 1},
+                "1": {"phase_type": 2, "r": 0.2, "n": 2},
+                "2": {
+                    "phase_type": 2,
+                    "r": 0.05,
+                    "n": 2,
+                    "inner_phase": True,
+                    "outer_phase": "1",
+                },
+            },
+        )
+        packing = microstructure.packing()
+        self.assertEqual(list(packing.phases), ["0", "1"])
+        self.assertEqual(list(microstructure.phases), ["0", "1", "2"])
+        self.assertIs(packing.phases["1"], microstructure.phases["1"])
+        # The phases are shared, so the packing is the microstructure, less what was
+        # placed inside its particles
+
+
+class TestUnitScale(unittest.TestCase):
+    """Test class for the factor a stage scales a microstructure by."""
+
+    def test_the_shortest_side_is_brought_to_one(self):
+        for i_dims in (
+            [1.0, 1.0],
+            [2.0, 1.0, 3.0],
+            [3.0, 3.0],
+            [0.75, 4.0],
+            [1e-6, 2e-6],
+        ):
+            with self.subTest(rve_dims=i_dims):
+                self.assertAlmostEqual(min(i_dims) * unit_scale(i_dims), 1.0, places=15)
+        self.assertEqual(unit_scale([1.0, 1.0]), 1.0)
+        self.assertEqual(unit_scale([2.0**-20, 1.0]), 2.0**20)
+        # A unit RVE is left as it is, and a side that is a power of two gives a factor
+        # that is one too, which is multiplied out exactly
+
+
+class TestScaled(unittest.TestCase):
+    """Test class for a microstructure given in other units."""
+
+    def test_every_length_is_multiplied(self):
+        microstructure = sphere_microstructure()
+        microstructure.particles[0].dilate(0.01)
+        scaled = microstructure.scaled(2.0**-3)
+        self.assertEqual(
+            scaled.rve_dims, [i_dim * 2.0**-3 for i_dim in microstructure.rve_dims]
+        )
+        self.assertEqual(scaled.volume, microstructure.volume * 2.0**-9)
+        for i_original, i_scaled in zip(microstructure.particles, scaled.particles):
+            np.testing.assert_array_equal(
+                i_scaled.position_center, i_original.position_center * 2.0**-3
+            )
+            self.assertEqual(i_scaled.radius, i_original.radius * 2.0**-3)
+            self.assertEqual(i_scaled.delta, i_original.delta * 2.0**-3)
+        self.assertEqual(scaled.volume_fraction, microstructure.volume_fraction)
+        # The volume follows the dimensions, where it used to be kept from the
+        # construction and would have been that of the microstructure copied
+
+    def test_the_original_is_left_alone(self):
+        microstructure = disk_microstructure()
+        centers = [
+            i_particle.position_center for i_particle in microstructure.particles
+        ]
+        rve_dims = list(microstructure.rve_dims)
+        microstructure.scaled(8.0)
+        self.assertEqual(microstructure.rve_dims, rve_dims)
+        for i_particle, i_center in zip(microstructure.particles, centers):
+            np.testing.assert_array_equal(i_particle.position_center, i_center)
+
+
+class TestInsideParticlePhase(unittest.TestCase):
+    """Test class for telling the points inside a particle from the ones outside."""
+
+    def brute_force(self, microstructure, points):
+        """Test every point against every particle, with no cell list in between."""
+        return [
+            int(
+                any(
+                    i_particle.point_inside(i_point, microstructure.rve_dims)
+                    for i_particle in microstructure.particles
+                )
+            )
+            for i_point in points
+        ]
+
+    def check(self, microstructure):
+        """Check the lookup against the brute force on points all over and beyond."""
+        rng = np.random.RandomState(0)
+        dim = microstructure.dim
+        points = rng.uniform(-0.5, 1.5, size=(2000, dim))
+        # Beyond the RVE on both sides, so that the wrapping of the points is exercised
+        inside = microstructure.inside_particle_phase(list(points))
+        self.assertEqual(inside, self.brute_force(microstructure, points))
+        self.assertGreater(sum(inside), 0)
+        self.assertLess(sum(inside), len(inside))
+        # Both answers occur, so the equality is not two lists of the same constant
+
+    def test_two_dimensional(self):
+        self.check(disk_microstructure())
+        # One of the disks crosses a face of the RVE
+
+    def test_three_dimensional(self):
+        self.check(sphere_microstructure())
+        # One of the spheres crosses two faces
+
+    def test_centres_outside_the_rve(self):
+        rve_dims = [1.0, 1.0]
+        particles = []
+        for i_center in ([1.3, 0.3], [-0.4, 0.6], [0.2, 0.8]):
+            particle = Disk("2", {"r": 0.05}, rve_dims)
+            particle.position_center = np.array(i_center)
+            particles.append(particle)
+        self.check(build_microstructure(rve_dims, Disk, particles))
+        # The first two lie a period away from the RVE, which is ten cells across. They
+        # were put in the last cell along the first direction and in the cell a row
+        # below theirs, so the points around them were not tested against them
 
 
 if __name__ == "__main__":

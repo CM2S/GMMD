@@ -193,7 +193,8 @@ class Sphere(Ellipsoid):
     @property
     def volume(self):
         """Volume of the sphere."""
-        volume = 4 * np.pi / 3 * (self.radius + self.delta) ** 3
+        volume = 4 * np.pi / 3 * self.radius**3
+        # The radius holds the dilation already, and it was added a second time
 
         return volume
     
@@ -410,7 +411,8 @@ class Sphere(Ellipsoid):
         -------
         intersection_length: float
             Intersection length between the particles.
-        """
+        """ 
+        # d = distance between the 2 spheres
         d = np.linalg.norm(
             Particle.nearest_periodic_image(
                 self.position_center, other_sphere.position_center, box
@@ -418,44 +420,46 @@ class Sphere(Ellipsoid):
             - other_sphere.position_center
         )
         # Distance between the current sphere and the nearest image of the other sphere
-        if self.radius >= other_sphere.radius:
-            # The radius of the self is larger than the radius of the other sphere
-            r_1 = self.radius
-            # Sphere 1 is the sphere with the larger radius
-            r_2 = other_sphere.radius
-            # Sphere 2 is the sphere with the smaller radius
-        else:
-            # The radius of the other sphere is larger than the radius of the self
-            r_1 = other_sphere.radius
-            # Sphere 1 is the sphere with the larger radius
-            r_2 = self.radius
-            # Sphere 2 is the sphere with the smaller radius
-        if d >= (r_1 + r_2):
-            # The spheres intersect at most at one point
-            intersection_length = 0
-            # The intersection length of the spheres is zero
-        elif d <= r_1 - r_2:
-            # Sphere 2 is interely contained within Sphere 1
-            intersection_length = 2 * r_2
-            # The intersection length is the diameter of the smaller sphere
-        else:
-            intersection_length = r_1 + r_2 - d
-            # intersection length
+        intersection_length = max(0, self.radius + other_sphere.radius - d)
         return intersection_length
         # Returning the intersection length
 
     def point_inside(self, point: np.array, box: list, **kwargs) -> bool:
         """Check if point is inside the particle."""
-        tol = kwargs.get("tol", 1e-3)
+        tol = kwargs.get("tol", 1e-6)
         point_nearest_pbc = Particle.nearest_periodic_image(
             point, self.position_center, box
         )
         point_in = (
-            np.linalg.norm(self.position_center - point_nearest_pbc) - self.radius
+            np.linalg.norm(self.position_center - point_nearest_pbc) ** 2
+            / self.radius**2
+            - 1
             <= tol
         )
+        # The tolerance is on the square of the distance over the radius, as the
+        # ellipsoid's is, so it lets in the same share of any sphere. It was a length
+        # of 1e-3, which grew a sphere of radius 0.1 by a hundredth, and its stamped
+        # volume by three per cent, even at the unit scale the stages work at
 
         return point_in
+
+    def points_inside(self, points: np.array, box: list, tol: float = 1e-6) -> np.array:
+        """
+        Say which of *points* are inside the Sphere; see `.Particle.points_inside`.
+
+        Parameters
+        ----------
+        tol: float
+            Tolerance
+        """
+        points_nearest_pbc = self.nearest_periodic_images(points, box)
+
+        return (
+            np.linalg.norm(points_nearest_pbc - self.position_center, axis=1) ** 2
+            / self.radius**2
+            - 1
+            <= tol
+        )
 
     def generate_points_on_surface(
         self, n_points: int, erosion_thick: float = 0

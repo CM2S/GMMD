@@ -74,15 +74,15 @@ class SpeedUpScheme(abc.ABC):
 
         if dim == 2:
             # 2D problem
-            local_row_pos_neigh = np.int_(
+            local_row_pos_neigh = int(
                 np.mod(np.floor(local_pos_neighbor_cell / 3), 3) - 1
             )
             # Local row position of the neighbor, going from -1 to 1 with the origin at the
             # current cell
-            local_col_pos_neigh = np.int_(np.mod(local_pos_neighbor_cell, 3) - 1)
+            local_col_pos_neigh = int(np.mod(local_pos_neighbor_cell, 3) - 1)
             # Local column position of the neighbor, going from -1 to 1 with the origin at
             # the current cell
-            pos_neighbor_cell = np.int_(
+            pos_neighbor_cell = int(
                 pos_current_cell
                 + local_col_pos_neigh
                 + local_row_pos_neigh * n_cells[0]
@@ -115,20 +115,20 @@ class SpeedUpScheme(abc.ABC):
                 # Enforcing the periodic boundary conditions
         elif dim == 3:
             # 3D problem
-            local_row_pos_neigh = np.int_(
+            local_row_pos_neigh = int(
                 np.mod(np.floor(local_pos_neighbor_cell / 3), 3) - 1
             )
             # Local row position of the neighbor, going from -1 to 1 with the origin at the
             # current cell
-            local_col_pos_neigh = np.int_(np.mod(local_pos_neighbor_cell, 3) - 1)
+            local_col_pos_neigh = int(np.mod(local_pos_neighbor_cell, 3) - 1)
             # Local column position of the neighbor, going from -1 to 1 with the origin at
             # the current cell
-            local_lay_pos_neigh = np.int_(
+            local_lay_pos_neigh = int(
                 np.mod(np.floor(local_pos_neighbor_cell / 9), 3) - 1
             )
             # Local layer position of the neighbor, going from -1 to 1 with the origin at
             # the current cell
-            pos_neighbor_cell = np.int_(
+            pos_neighbor_cell = int(
                 pos_current_cell
                 + local_col_pos_neigh
                 + local_row_pos_neigh * n_cells[0]

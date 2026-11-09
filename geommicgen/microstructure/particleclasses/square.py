@@ -97,7 +97,7 @@ class Square(Particle):
     @property
     def real_volume(self):
         """Real volume/area of the square."""
-        volume =  (self.side - self.delta) ** 2
+        volume = (self.side - 2 * self.delta) ** 2
         return volume
     
     @property
@@ -252,15 +252,20 @@ class Square(Particle):
     def contract(self, distance):
         """Contract the particle."""
         self.side -= 2 * distance
-        self.delta -= 2 * distance
+        self.delta -= distance
         # Contracting the particle size subracting the minimum distance from the side
 
 
     def dilate(self, distance):
         """Dilate the particle."""
         self.side += 2 * distance
-        self.delta += 2 * distance
+        self.delta += distance
         # Dilating the particle size adding the minimum distance to the side
+
+    def rescale(self, rescale_parameter):
+        """Rescale all size parameters and the position according to *rescale_parameter*."""
+        self.side *= rescale_parameter
+        super().rescale(rescale_parameter)
 
 
     def compute_critical_erosion_thickness(self):

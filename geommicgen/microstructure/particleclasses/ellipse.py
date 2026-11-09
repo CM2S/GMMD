@@ -5,7 +5,7 @@ import numpy as np
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-from .particle import Particle, MINIMUM_SIZE
+from .particle import Particle, MINIMUM_SIZE, semi_axes_inflation
 
 
 class Ellipse(Particle):
@@ -71,11 +71,6 @@ class Ellipse(Particle):
                 "float",
             ),
             "angle": ("Angle", lambda angle, rve_dims: True, "float"),
-            "eccentricity": (
-                "Eccentricity",
-                lambda eccentricity, rve_dims: eccentricity >= 0,
-                "float",
-            ),
             "ratio": ("Ratio a/b", lambda ratio, rve_dims: ratio >= 1, "float"),
         },
         **Particle.possible_parameters,
@@ -178,26 +173,53 @@ class Ellipse(Particle):
 
     @property
     def real_volume(self):
-        """Real area(volume) of the ellipse."""
+        """Real area(volume) of the ellipse, the one before any dilation."""
         volume = (
             np.pi
-            * (self.semi_major_axis - self.delta)
-            * (self.semi_minor_axis - self.delta)
+            * (self.semi_major_axis - self.inflation)
+            * (self.semi_minor_axis - self.inflation)
         )
 
         return volume
-    
+
+    @property
+    def inflation(self):
+        """
+        Amount *t* the dilation *self.delta* has added to both semi-axes.
+
+        See `semi_axes_inflation`. The axes hold the dilation, and this is kept so that
+        it can be taken off again exactly.
+        """
+        return getattr(self, "_inflation", 0.0)
+
+    def set_dilation(self, delta):
+        """
+        Dilate the particle so that its total dilation is *delta*.
+
+        The axes are brought back to their undilated lengths and grown by the inflation
+        of *delta*, computed from the undilated ones, so that a dilation undone by a
+        contraction gives back the particle it started from.
+        """
+        undilated_semi_axes = [
+            self.major_axis / 2 - self.inflation,
+            self.minor_axis / 2 - self.inflation,
+        ]
+        inflation = semi_axes_inflation(undilated_semi_axes, delta)
+        self.major_axis = 2 * (undilated_semi_axes[0] + inflation)
+        self.minor_axis = 2 * (undilated_semi_axes[1] + inflation)
+        self.delta = delta
+        self._inflation = inflation
 
     @property
     def semi_major_axis(self):
-        """Semi major axis of the ellipse."""
+        """Semi major axis of the ellipse, including the dilation."""
         semi_major_axis = self.major_axis / 2
 
         return semi_major_axis
 
     @property
     def semi_minor_axis(self):
-        """Semi minor axis of the ellipse."""
+        """Semi minor axis of the ellipse, including the dilation."""
         semi_minor_axis = self.minor_axis / 2
 
         return semi_minor_axis
@@ -224,18 +246,12 @@ class Ellipse(Particle):
         return radius_insc
 
     def contract(self, distance):
-        """Contract the particle."""
-        self.delta -= distance
-        self.major_axis -= 2 * distance
-        self.minor_axis -= 2 * distance
-        # Contracting the particle size subracting the minimum distance from the semi-axis
+        """Contract the particle by *distance*, taking the inflation off its axes."""
+        self.set_dilation(self.delta - distance)
 
     def dilate(self, distance):
-        """Dilate the particle."""
-        self.delta += distance
-        self.major_axis += 2 * distance
-        self.minor_axis += 2 * distance
-        # Dilating the particle size adding the minimum distance to the semi-axis
+        """Dilate the particle by *distance*, adding the inflation to its axes."""
+        self.set_dilation(self.delta + distance)
 
     def point_inside(self, point: np.array, box: list, **kwargs) -> bool:
         """
@@ -266,7 +282,7 @@ class Ellipse(Particle):
         """
         # Collecting keyword arguments
         position = kwargs.get("position", "inside")
-        tol = kwargs.get("position", 1e-8)
+        tol = kwargs.get("tol", 1e-8)
         # Defininig the radius vector relative to the coordinate system of the ellipse
         point_nearest_pbc = Particle.nearest_periodic_image(
             point, self.position_center, box
@@ -289,6 +305,23 @@ class Ellipse(Particle):
             )
         return point_in
 
+    def points_inside(self, points: np.array, box: list, tol: float = 1e-8) -> np.array:
+        """
+        Say which of *points* are inside the Ellipse; see `.Particle.points_inside`.
+
+        Parameters
+        ----------
+        tol: float
+            Tolerance
+        """
+        points_nearest_pbc = self.nearest_periodic_images(points, box)
+        r_vectors = (points_nearest_pbc - self.position_center).dot(self.rot_mat.T)
+        # The radius vectors in the coordinate system of the ellipse, a row to a point
+
+        return (r_vectors[:, 0] / self.semi_major_axis) ** 2 + (
+            r_vectors[:, 1] / self.semi_minor_axis
+        ) ** 2 <= 1 + tol
+
     def intersection_area_ellipse_ellipse(
         self, other_ellipse: Ellipse, box: list
     ) -> float:
@@ -298,16 +331,7 @@ class Ellipse(Particle):
         diff_nearest_other = box * np.round(diff_in_box / box)
         # Vector from the position of the other ellipse to its nearest image to the current
         # ellipse
-        intersect_pts = intersection_points_ellipses(
-            self.major_axis / 2,
-            self.minor_axis / 2,
-            self.position_center,
-            self.angle,
-            other_ellipse.major_axis / 2,
-            other_ellipse.minor_axis / 2,
-            other_ellipse.position_center + diff_nearest_other,
-            other_ellipse.angle,
-        )
+        intersect_pts = self.intersection_points_ellipses(other_ellipse, box)
         # Computing the intersection points of the two ellipses
         intersection_area = 0
         if len(intersect_pts) == 0:
@@ -331,28 +355,7 @@ class Ellipse(Particle):
                     # The ellipses are disjoint
                     intersection_area = 0
                     # The intersection area is 0
-        elif len(intersect_pts) == 1:
-            # Either the ellipses are disjoint or one of them is completly inside the other,
-            # except for the intersection point
-            if self.volume >= other_ellipse.volume:
-                # The current ellipse is larger than the other ellipse
-                if self.point_inside(other_ellipse.position_center, box):
-                    # The other ellipse is completly inside the current ellipse
-                    intersection_area = other_ellipse.volume
-                    # The intersection area is the area of the smaller ellipse
-                else:
-                    # The ellipses are disjoint
-                    intersection_area = 0
-                    # The intersection area is 0
-            else:
-                if other_ellipse.point_inside(self.position_center, box):
-                    # The current ellipse is completly inside the other ellipse
-                    intersection_area = self.volume
-                    # The intersection area is the area of the smaller ellipse
-                else:
-                    # The ellipses are disjoint
-                    intersection_area = 0
-                    # The intersection area is 0
+        # len(intersect_pts) is never equal to 1, lets move on to len(intersect_pts) == 2
         elif len(intersect_pts) == 2:
             # The ellipses intersect in two points. The case where one of the ellipses is
             # inside the other and both are tangent at the intersection points is
@@ -624,16 +627,7 @@ class Ellipse(Particle):
         # Difference vector between the center of the two ellipses
         diff_nearest_other = box * np.round(diff_in_box / box)
         # Difference vector to the nearest image of the other particle
-        y_inter_sect = intersection_points_ellipses(
-            self.semi_major_axis,
-            self.semi_minor_axis,
-            self.position_center,
-            self.angle,
-            other_ellipse.semi_major_axis,
-            other_ellipse.semi_minor_axis,
-            other_ellipse.position_center + diff_nearest_other,
-            other_ellipse.angle,
-        )
+        y_inter_sect = self.intersection_points_ellipses(other_ellipse,box)
         if len(y_inter_sect) > 0:
             # There are intersection points betweeen the two neighborhoods
             intersection_bool = True
@@ -657,7 +651,7 @@ class Ellipse(Particle):
 
     def intersection(self, other_particle: Particle, box: list) -> bool:
         """Check this ellipses intersects the other particle."""
-        if isinstance(other_particle, Ellipse) and False:
+        if isinstance(other_particle, Ellipse):
             other_particle: Ellipse
             intersection_bool = self.intersection_ellipse_ellipse(other_particle, box)
         else:
@@ -796,11 +790,12 @@ class Ellipse(Particle):
             Method used for the intersection length computation. Exact or approximate.
         """
         dist_met = kwargs.get("dist_met", "dist_exact")
-        if True:
-            intersection = self.intersection_gjk(other_particle, box)
-        elif isinstance(other_particle, Ellipse):
+
+        if isinstance(other_particle, Ellipse):
             other_particle: Ellipse
             intersection = self.intersection_ellipse_ellipse(other_particle, box)
+        else:
+            intersection = self.intersection_gjk(other_particle, box)
         if intersection:
             intersection_length, unit_vector = self.intersection_length_mink_diff(
                 other_particle, box, dist_met=dist_met
@@ -828,167 +823,188 @@ class Ellipse(Particle):
                 + (dir_normal[1] / self.semi_minor_axis) ** 2
             )
         )
-        dir_nomal_unit = dir_normal / np.linalg.norm(dir_normal)
-        point_on_ellipse_loc = rescale_factor * dir_normal + self.delta * dir_nomal_unit
+        point_on_ellipse_loc = rescale_factor * dir_normal
         point_on_ellipse_glob = (
             self.rot_mat.T.dot(point_on_ellipse_loc) + self.position_center
         )
         return np.append(point_on_ellipse_glob, [0])
 
-def intersection_points_ellipses(
-    A1, B1, center_1, angle_1, A2, B2, center_2, angle_2, tol=1e-10
-):
-    """
-    Return the y coordinates of the intersection points between two ellipses.
+    def rescale(self, rescale_parameter):
+        """Rescale all size parameters and the position according to *rescale_parameter*."""
+        self.major_axis *= rescale_parameter
+        self.minor_axis *= rescale_parameter
+        self._inflation = self.inflation * rescale_parameter
+        # The inflation is a length the axes hold, scaled with them
+        super().rescale(rescale_parameter)
 
-    Parameters
-    ----------
-    A1: float
-        Semi-major axis of ellipse 1.
 
-    B1: float
-        Semi-minor axis of ellipse 1.
+    def intersection_points_ellipses(self, other_ellipse, box, tol=1e-10
+    ):
+        """
+        Return the y coordinates of the intersection points between two ellipses.
 
-    center_1: array
-        Coordinates of the center of ellipse 1.
+        Parameters
+        ----------
+        other_ellipse: object from class Ellipse
+            The other ellipse to compute the intersection points with.
 
-    angle_1: float
-        Angle in radians that the major axis of ellipse 1 forms with the x-axis.
+        box: list
+            Dimensions of the simulation box, used to account for periodic
+            boundary conditions when locating the nearest image of
+            *other_ellipse*.
 
-    A2: float
-        Semi-major axis of ellipse 2.
+        tol: float, optional
+            Numerical tolerance used when solving for the intersection
+            points. Default is 1e-10.
 
-    B2: float
-        Semi-minor axis of ellipse 2.
+        Returns
+        -------
+        intersect_points: list(array)
+            List of arrays containing the intersection points of the two ellipses in the
+            original coordinate system
+        """
+        diff_in_box = self.position_center - other_ellipse.position_center
+        # Difference vector between the center of the two ellipses
+        diff_nearest_other = box * np.round(diff_in_box / box)
+        # Difference vector to the nearest image of the other particle
+   
+        A1 = self.semi_major_axis
+        B1 = self.semi_minor_axis
+        center_1 = self.position_center
+        angle_1 = self.angle
+        A2 = other_ellipse.semi_major_axis
+        B2 = other_ellipse.semi_minor_axis
+        center_2 = other_ellipse.position_center + diff_nearest_other
+        angle_2 = other_ellipse.angle
 
-    center_2: array
-        Coordinates of the center of ellipse 2.
-
-    angle_2: float
-        Angle in radians that the major axis of ellipse 2 forms with the x-axis
-
-    Returns
-    -------
-    intersect_points: list(array)
-        List of arrays containing the intersection points of the two ellipses in the
-        original coordinate system
-    """
-    intersect_pts = []
-    # Initializing the array containing the intersection points
-    rot_mat = np.array(
-        [[np.cos(angle_1), np.sin(angle_1)], [-np.sin(angle_1), np.cos(angle_1)]]
-    )
-    rot_mat_back = rot_mat.T
-    # Rotation matrix that alignes ellipse 1 with the xy-axis
-    center_2_TR = rot_mat.dot(center_2 - center_1)
-    # Translation and rotation of ellipse 2 with the origin at the center of ellipse 1
-    # aligning with the xy axis
-    theta = angle_2 - angle_1
-    # Saving the angle between the axis of both ellipses
-    AA = A2 ** 2 * np.sin(theta) ** 2 + B2 ** 2 * np.cos(theta) ** 2
-    BB = 2 * (B2 ** 2 - A2 ** 2) * np.sin(theta) * np.cos(theta)
-    CC = A2 ** 2 * np.cos(theta) ** 2 + B2 ** 2 * np.sin(theta) ** 2
-    DD = -2 * AA * center_2_TR[0] - BB * center_2_TR[1]
-    EE = -BB * center_2_TR[0] - 2 * CC * center_2_TR[1]
-    FF = (
-        AA * center_2_TR[0] ** 2
-        + BB * center_2_TR[0] * center_2_TR[1]
-        + CC * center_2_TR[1] ** 2
-        - A2 ** 2 * B2 ** 2
-    )
-    # Coefficients defining ellipse 2 on the coordinate system of ellipse 1
-    p = np.zeros(5)
-    # Initializing the vector of the coefficients
-    p[0] = (
-        -(CC ** 2) * B1 ** 4
-        + 2 * (AA * CC - BB ** 2 / 2) * A1 ** 2 * B1 ** 2
-        - A1 ** 4 * AA ** 2
-    )
-    p[1] = (
-        -((-A1 * BB + EE) * CC + CC * (A1 * BB + EE)) * B1 ** 4
-        + 2 * (AA * EE - BB * DD) * A1 ** 2 * B1 ** 2
-    )
-    p[2] = (
-        -(
-            (A1 ** 2 * AA - A1 * DD + FF) * CC
-            + (-A1 * BB + EE) * (A1 * BB + EE)
-            + CC * (A1 ** 2 * AA + A1 * DD + FF)
+        intersect_pts = []
+        # Initializing the array containing the intersection points
+        rot_mat = np.array(
+            [[np.cos(angle_1), np.sin(angle_1)], [-np.sin(angle_1), np.cos(angle_1)]]
         )
-        * B1 ** 4
-        + 2 * (AA ** 2 * A1 ** 2 + AA * FF - 1 / 2 * DD ** 2) * A1 ** 2 * B1 ** 2
-    )
-    p[3] = (
-        -(
-            (A1 ** 2 * AA - A1 * DD + FF) * (A1 * BB + EE)
-            + (-A1 * BB + EE) * (A1 ** 2 * AA + A1 * DD + FF)
+        rot_mat_back = rot_mat.T
+        # Rotation matrix that alignes ellipse 1 with the xy-axis
+        center_2_TR = rot_mat.dot(center_2 - center_1)
+        # Translation and rotation of ellipse 2 with the origin at the center of ellipse 1
+        # aligning with the xy axis
+        theta = angle_2 - angle_1
+        # Saving the angle between the axis of both ellipses
+        AA = A2 ** 2 * np.sin(theta) ** 2 + B2 ** 2 * np.cos(theta) ** 2
+        BB = 2 * (B2 ** 2 - A2 ** 2) * np.sin(theta) * np.cos(theta)
+        CC = A2 ** 2 * np.cos(theta) ** 2 + B2 ** 2 * np.sin(theta) ** 2
+        DD = -2 * AA * center_2_TR[0] - BB * center_2_TR[1]
+        EE = -BB * center_2_TR[0] - 2 * CC * center_2_TR[1]
+        FF = (
+            AA * center_2_TR[0] ** 2
+            + BB * center_2_TR[0] * center_2_TR[1]
+            + CC * center_2_TR[1] ** 2
+            - A2 ** 2 * B2 ** 2
         )
-        * B1 ** 4
-    )
-    p[4] = -(A1 ** 2 * AA - A1 * DD + FF) * (A1 ** 2 * AA + A1 * DD + FF) * B1 ** 4
-    # Coefficients of the polynomial expressing the intersection of the two ellipses
-    y_pts = []
-    roots = set(np.roots(p))
-    # Roots of the polynomial, with positive values giving the y values of the
-    # intersection points in the coordinate system of ellipse 1
-    for i_root in roots:
-        # Running through all the roots
-        if np.abs(np.imag(i_root)) < tol:
-            # if the root is real, then it is the y-coordinate of an intersection point
-            y_pt = np.real(i_root)
-            disc = 1 - y_pt ** 2 / B1 ** 2
-            if disc < -1e-4:
-                continue
-            if np.abs((np.abs(y_pt) - B1) / B1) < 1e-4:
-                intersect_pts.append(rot_mat_back.dot(np.array([0, y_pt])) + center_1)
-            elif (
-                not np.any(np.isclose(y_pt * np.ones(len(y_pts)), y_pts))
-                or len(y_pts) == 0
-            ):
-                x_pt = A1 * np.sqrt(disc)
-                y_pts.append(y_pt)
-                # (x_pt, y_pt) and (-x_pt,y_pt) are the coordinates of the potential
-                # intersection points obtained assuming that they are on ellipse 1
-                on_ellipse_2_1 = (
-                    np.abs(
-                        AA * x_pt ** 2
-                        + BB * x_pt * y_pt
-                        + CC * y_pt ** 2
-                        + DD * x_pt
-                        + EE * y_pt
-                        + FF
+        # Coefficients defining ellipse 2 on the coordinate system of ellipse 1
+        p = np.zeros(5)
+        # Initializing the vector of the coefficients
+        p[0] = (
+            -(CC ** 2) * B1 ** 4
+            + 2 * (AA * CC - BB ** 2 / 2) * A1 ** 2 * B1 ** 2
+            - A1 ** 4 * AA ** 2
+        )
+        p[1] = (
+            -((-A1 * BB + EE) * CC + CC * (A1 * BB + EE)) * B1 ** 4
+            + 2 * (AA * EE - BB * DD) * A1 ** 2 * B1 ** 2
+        )
+        p[2] = (
+            -(
+                (A1 ** 2 * AA - A1 * DD + FF) * CC
+                + (-A1 * BB + EE) * (A1 * BB + EE)
+                + CC * (A1 ** 2 * AA + A1 * DD + FF)
+            )
+            * B1 ** 4
+            + 2 * (AA ** 2 * A1 ** 2 + AA * FF - 1 / 2 * DD ** 2) * A1 ** 2 * B1 ** 2
+        )
+        p[3] = (
+            -(
+                (A1 ** 2 * AA - A1 * DD + FF) * (A1 * BB + EE)
+                + (-A1 * BB + EE) * (A1 ** 2 * AA + A1 * DD + FF)
+            )
+            * B1 ** 4
+        )
+        p[4] = -(A1 ** 2 * AA - A1 * DD + FF) * (A1 ** 2 * AA + A1 * DD + FF) * B1 ** 4
+        # Coefficients of the polynomial expressing the intersection of the two ellipses
+        y_pts = []
+        roots = set(np.roots(p))
+        # Roots of the polynomial, with positive values giving the y values of the
+        # intersection points in the coordinate system of ellipse 1
+        for i_root in roots:
+            # Running through all the roots
+            if np.abs(np.imag(i_root)) < tol:
+                # if the root is real, then it is the y-coordinate of an intersection point
+                y_pt = np.real(i_root)
+                disc = 1 - y_pt ** 2 / B1 ** 2
+                if disc < -1e-4:
+                    continue
+                if np.abs((np.abs(y_pt) - B1) / B1) < 1e-4:
+                    intersect_pts.append(rot_mat_back.dot(np.array([0, y_pt])) + center_1)
+                elif (
+                    not np.any(np.isclose(y_pt * np.ones(len(y_pts)), y_pts))
+                    or len(y_pts) == 0
+                ):
+                    x_pt = A1 * np.sqrt(disc)
+                    y_pts.append(y_pt)
+                    # (x_pt, y_pt) and (-x_pt,y_pt) are the coordinates of the potential
+                    # intersection points obtained assuming that they are on ellipse 1
+                    on_ellipse_2_1 = (
+                        np.abs(
+                            AA * x_pt ** 2
+                            + BB * x_pt * y_pt
+                            + CC * y_pt ** 2
+                            + DD * x_pt
+                            + EE * y_pt
+                            + FF
+                        )
+                        < tol
                     )
-                    < tol
-                )
-                # Checking if (x_pt, y_pt) is also on ellispe 2 and so it's a real
-                # intersection point
-                on_ellipse_2_2 = (
-                    np.abs(
-                        AA * x_pt ** 2
-                        - BB * x_pt * y_pt
-                        + CC * y_pt ** 2
-                        - DD * x_pt
-                        + EE * y_pt
-                        + FF
+                    # Checking if (x_pt, y_pt) is also on ellispe 2 and so it's a real
+                    # intersection point
+                    on_ellipse_2_2 = (
+                        np.abs(
+                            AA * x_pt ** 2
+                            - BB * x_pt * y_pt
+                            + CC * y_pt ** 2
+                            - DD * x_pt
+                            + EE * y_pt
+                            + FF
+                        )
+                        < tol
                     )
-                    < tol
-                )
-                # Checking if (-x_pt, y_pt) is also on ellispe 2 and so it's a real
-                # intersection point
-                if on_ellipse_2_1:
-                    # (x_pt, y_pt) is a true intersection point
-                    intersect_pts.append(
-                        rot_mat_back.dot(np.array([x_pt, y_pt])) + center_1
-                    )
-                    # Append the point to the list of intersection points in the original
-                    # coordinate system
-                if on_ellipse_2_2:
-                    # (-x_pt, y_pt) is a true intersectio point
-                    intersect_pts.append(
-                        rot_mat_back.dot(np.array([-x_pt, y_pt])) + center_1
-                    )
-                    # Append the point to the list of intersection points in the original
-                    # coordinate system
-                # if on_ellipse_2_1 and on_ellipse_2_2 and np.abs(x_pt)<0.05:
-                #     intersect_pts.pop()
+                    # Checking if (-x_pt, y_pt) is also on ellispe 2 and so it's a real
+                    # intersection point
+                    if on_ellipse_2_1:
+                        # (x_pt, y_pt) is a true intersection point
+                        intersect_pts.append(
+                            rot_mat_back.dot(np.array([x_pt, y_pt])) + center_1
+                        )
+                        # Append the point to the list of intersection points in the original
+                        # coordinate system
+                    if on_ellipse_2_2:
+                        # (-x_pt, y_pt) is a true intersectio point
+                        intersect_pts.append(
+                            rot_mat_back.dot(np.array([-x_pt, y_pt])) + center_1
+                        )
+                        # Append the point to the list of intersection points in the original
+                        # coordinate system
+                    # if on_ellipse_2_1 and on_ellipse_2_2 and np.abs(x_pt)<0.05:
+                    #     intersect_pts.pop()
 
-    return intersect_pts
+        # If the two ellipses are tangent, they have a single intersection point. However, due to numerical errors, it is never (or rarely) the case that there is one intersection point. Usually, this function returns two points very close to each other or zero points for tangent ellipses. Thus, if the two intersection points are very close to each other, we will force the function to return zero intersection points.
+        if len(intersect_pts) == 2:
+            distance = np.linalg.norm( intersect_pts[0] - intersect_pts[1] )
+            minimum_radius = min(self.radius, other_ellipse.radius)
+            if distance < minimum_radius/10000:
+                intersect_pts = []
+
+        if len(intersect_pts) == 1:
+            # Due to numerical errors this is very unlikely to happen, however this scenario will be taken into consideration, otherwise errors will rise in intersection_area_ellipse_ellipse
+            intersect_pts = []
+
+
+        return intersect_pts

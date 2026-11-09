@@ -111,7 +111,9 @@ class CellList(RSA_SpeedUpScheme):
         if self.box is None:
             raise ValueError("The simulation box has not been defined")
         self.n_cell_dim = [
-            np.int_(np.floor(self.box[i_dim] / (2 * self.max_radius)))
+            max(1, int(np.floor(self.box[i_dim] / (2 * self.max_radius))))
+            # A particle wider than the box leaves room for no cell of its width; one
+            # cell across then holds every particle as a candidate of every other
             for i_dim in range(len(self.box))
         ]
 

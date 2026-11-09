@@ -1,0 +1,60 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata from this file."
+title: "GMMD: Geometric Methods for Microstructure Design"
+type: software
+authors:
+  - family-names: Vila-Chã
+    given-names: José Luís P.
+    orcid: "https://orcid.org/0009-0000-3812-8075"
+  - family-names: Cruz de Morais
+    given-names: João A. G.
+  - family-names: Coelho
+    given-names: Rui P. Cardoso
+    orcid: "https://orcid.org/0000-0001-9989-964X"
+  - family-names: Ferreira
+    given-names: Bernardo P.
+    orcid: "https://orcid.org/0000-0001-5956-3877"
+  - family-names: Pires
+    given-names: Francisco M. Andrade
+    orcid: "https://orcid.org/0000-0002-4802-6360"
+contact:
+  - family-names: Vila-Chã
+    given-names: José Luís P.
+    email: jvc@fe.up.pt
+    orcid: "https://orcid.org/0009-0000-3812-8075"
+repository-code: "https://github.com/CM2S/GMMD"
+doi: 10.5281/zenodo.24077934
+license: BSD-3-Clause
+keywords:
+  - microstructure generation
+  - representative volume element
+  - particle-reinforced materials
+  - molecular dynamics
+  - finite element meshing
+references:
+  - type: article
+    title: "An adaptive multi-temperature isokinetic method for the RVE generation of particle reinforced heterogeneous materials, Part I: Theoretical formulation and computational framework"
+    authors:
+      - family-names: Vila-Chã
+        given-names: José L. P.
+      - family-names: Ferreira
+        given-names: Bernardo P.
+      - family-names: Pires
+        given-names: F. M. Andrade
+    journal: Mechanics of Materials
+    volume: 163
+    year: 2021
+    doi: 10.1016/j.mechmat.2021.104069
+  - type: article
+    title: "An adaptive multi-temperature isokinetic method for the RVE generation of particle reinforced heterogeneous materials, Part II: Numerical assessment and statistical analysis"
+    authors:
+      - family-names: Ferreira
+        given-names: Bernardo P.
+      - family-names: Vila-Chã
+        given-names: José L. P.
+      - family-names: Pires
+        given-names: F. M. Andrade
+    journal: Mechanics of Materials
+    volume: 165
+    year: 2022
+    doi: 10.1016/j.mechmat.2021.104068

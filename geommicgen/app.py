@@ -1,369 +1,221 @@
 """Initialization module for the geommicgen module."""
 
 import os
+import sys
 
 # pylint: disable=import-error
 # import postproc.voronoimetrics.motion_analysis as motion_analysis
 # import postproc.voronoimetrics.stat_analysis as stat_analysis
 
-from geommicgen.micgenmethod.rand_seq_adsorption import RandomSequentialAdsorption
 import geommicgen.iofuncs.printing as print_funcs
 
 # from postproc.plotfuncs.plotting_functions import plot_particles
 
-from geommicgen.postproc.mshgen.meshing_interface import (
-    FEMMeshGenerator,
-    RegularGridMeshGenerator,
-)
+from geommicgen.pipeline import build_mesh_jobs
 
 from geommicgen.postproc.postproc import post_proc
 
 import geommicgen.iofuncs.file_handling as fileio
-from geommicgen.iofuncs.keywords import top_level_reader
+from geommicgen.config.base import ConfigError
+from geommicgen.config.run import read_config
+from geommicgen.iofuncs.convert_deck import convert_deck
 
 from geommicgen.microstructure.microstructure import Microstructure
-from geommicgen.microstructure.phase import Phase
 from geommicgen.micgenmethod.molecular_dynamics_sim import MolecularDynamicsSimulation
-from geommicgen.micgenmethod.thermostats import (
-    IsokineticThermostat,
-    MultiTemperatureIsokineticThermostat,
-    MicroCanonicalEnsemble,
-    BerendsenForceThermostat,
-)
+from geommicgen.micgenmethod.rand_seq_adsorption import RandomSequentialAdsorption
 
-import geommicgen.micgenmethod.speed_up_schemes.MD_speed_up_schemes as MD_speed_up_schemes
-import geommicgen.micgenmethod.speed_up_schemes.RSA_speed_up_schemes as RSA_speed_up_schemes
+GENERATION_METHODS = {
+    "molecular_dynamics": MolecularDynamicsSimulation,
+    "random_sequential_adsorption": RandomSequentialAdsorption,
+}
+# The class of each method a generation can be asked to use, under its name in the file
 
-# from geommicgen.micgenmethod.speed_up_schemes import (
-#     CellList,
-#     VerletList,
-#     VerletPartialUpdate,
-#     Naive,
-# )
+def read_input(path):
+    """
+    Read the run an input file, or a deck of the keyword format, asks for.
+
+    A deck is laid out as an input file and validated as one, and said to be of a
+    format that is on its way out.
+
+    Parameters
+    ----------
+    path: str
+        Path of the file.
+
+    Returns
+    -------
+    `.RunConfig`
+        The run.
+
+    Raises
+    ------
+    ConfigError:
+        If the file is of neither kind, or does not validate.
+    """
+    reader = INPUT_READERS.get(os.path.splitext(path)[1])
+    if reader is None:
+        raise ConfigError(
+            "{0} is neither an input file (.yaml) nor an old input data file "
+            "(.mdsim).".format(os.path.basename(path))
+        )
+
+    return reader(path)
 
 
-def run_program():
-    """Run program."""
-    (
-        input_file_path,
-        input_file_dir,
-        input_file_name,
-        ext,
-        previous_mic_path,
-    ) = fileio.get_arguments_from_command_line()
+def read_deck(path):
+    """Read a deck as the input file it lays out as, saying the format is going."""
+    print(
+        "geommicgen: {0} is an old input data file, which is read for now; "
+        "geommicgen-convert-mdsim turns it into an input file.".format(
+            os.path.basename(path)
+        ),
+        file=sys.stderr,
+    )
 
-    top_level_reader.read_input_file(input_file_path)
-    # Create results directory
-    # Generate corresponding mesh
+    return convert_deck(path)[1]
+
+
+INPUT_READERS = {".yaml": read_config, ".yml": read_config, ".mdsim": read_deck}
+# What reads a file, by its extension
+
+
+def run_program(argv=None):
+    """
+    Run the program.
+
+    Parameters
+    ----------
+    argv: list
+        Arguments, taken from the command line when they are not given.
+    """
+    print_funcs.log_to_terminal()
+    arguments = fileio.parse_arguments(argv)
+    input_file_path = arguments.input_file
+    input_file_dir = os.path.dirname(input_file_path)
+    input_file_name = os.path.splitext(os.path.basename(input_file_path))[0]
+    # The results go in a directory named after the input file, beside it
+
+    try:
+        run = read_input(input_file_path)
+    except (OSError, ValueError) as error:
+        print("geommicgen: {0}".format(error), file=sys.stderr)
+        raise SystemExit(2) from None
+    # The whole of the file is validated before anything is written, and what is
+    # wrong with it said at once, as a command line that cannot be carried out is
     results_folder = fileio.create_design_point_results_directory(
         input_file_dir, input_file_name
     )
-    fileio.RESULTS_FOLDER = results_folder
     fileio.copy_input_file(input_file_path, results_folder)
-    
-    if previous_mic_path is not None:
-        print_funcs.SCREEN_DIR = results_folder
+
+    options = run.to_options()
+    mic_gen_descriptors = options["mic_gen_descriptors"]
+    rve_dims = options["mic_gen_parameters"]["rve_dimensions"]
+    generation_method = GENERATION_METHODS[run.generation.method]
+    # The options the rest of the package is built from, as the reader of decks gave
+    # them
+
+    provenance = {"input_file": os.path.basename(input_file_path)}
+    # Carried by every microstructure file the run writes, so that a sample says
+    # what produced it: with the commit of GMMD and the versions of the libraries,
+    # which the file adds, the input file is the whole of the run
+
+    failed_jobs = []
+    failed_samples = []
+    failed_analyses = []
+    for i_sample in range(run.samples):
+        mic_gen_parameters = dict(options["mic_gen_parameters"])
+        if run.seed is not None:
+            mic_gen_parameters["fixed_seed"] = run.seed + i_sample
+            provenance["fixed_seed"] = run.seed + i_sample
+        # Each sample of a seeded run gets a seed of its own, the deck's plus its
+        # index, so the samples differ from each other and each is the same in
+        # every run -- one seed for all of them made every sample the same
+        sample_dir = fileio.create_sample_results_directory(results_folder)
+        # Producing the number of samples required
+
+        print_funcs.screen_to(sample_dir)
         print_funcs.print_initial_message(input_file_path)
-        print_funcs.print_analysis_previous(previous_mic_path)
-        # It is an action on a previously generated microstructure
-        current_sample, current_mic_generator = fileio.load_previous_sample(
-            previous_mic_path
-        )
-        rve_dims = current_sample.rve_dims
-        mesh_generators = set()
-        if "mesh_options" in top_level_reader.all_options:
-            for disc_ext in top_level_reader.all_options["mesh_options"]:
-                # For each file extension asked
-                if disc_ext == "femsh":
-                    femsh_options = top_level_reader.all_options["mesh_options"][
-                        "femsh"
-                    ]
-                    mesh_generators.add(
-                        FEMMeshGenerator(
-                            femsh_options["mesh_size"],
-                            femsh_options["element_type"],
-                            rve_dims,
-                        )
-                    )
-                elif disc_ext == "rgmsh":
-                    rgmsh_options = top_level_reader.all_options["mesh_options"][
-                        "rgmsh"
-                    ]
-                    for i_n_voxel_dims in rgmsh_options["n_voxels_dims"]:
-                        mesh_generators.add(
-                            RegularGridMeshGenerator(
-                                i_n_voxel_dims,
-                                rve_dims,
-                                slice_dir=rgmsh_options.get("slice_dir", None),
-                            )
-                        )
-                else:
-                    raise ValueError(
-                        "Specified mesh {0} is not supported.".format(disc_ext)
-                    )
-        print_funcs.print_output_header()
-        post_proc(
-            mesh_generators,
-            current_sample,
-            current_mic_generator,
-            results_folder,
-            top_level_reader.all_options["post_proc"],
-        )
+        # Printing initial message
 
+        mesh_jobs = build_mesh_jobs(
+            options.get("mesh_options", {}), input_file_name
+        )
         # Initializing the mesh generators
-    else:
-        try:  
-            n_dp_samples = top_level_reader.all_options["n_dp_samples"]
-            _ = top_level_reader.all_options["problem_type"]
-            mic_gen_descriptors = top_level_reader.all_options["mic_gen_descriptors"]
-            mic_gen_parameters = top_level_reader.all_options["mic_gen_parameters"]
-            post_proc_parameters = top_level_reader.all_options["post_proc"]
-            rve_dims = mic_gen_parameters["rve_dimensions"]
-            mic_gen_method = mic_gen_parameters["mic_gen_method"]
-            # Mandatory top level parameters
-        except KeyError:
-            print("Mandatory parameter not supplied.")
-            raise
 
-        if n_dp_samples < 1 and isinstance(n_dp_samples, int):
-            raise ValueError(
-                "Number of samples must be a positve integer larger than 1."
+        current_sample = Microstructure.from_descriptors(
+            rve_dims, mic_gen_descriptors
+        )
+        # A microstructure of the phases the input data file describes, built anew
+        # for each sample, since the generation fills it with particles
+
+        current_mic_generator = generation_method.from_options(mic_gen_parameters)
+        current_mic_generator.sample_dir = sample_dir
+        # The method the file names builds itself from the generation parameters,
+        # thermostat and speed up scheme included, and draws the frames of the GIF in
+        # the directory of the sample
+
+        try:
+            current_mic_generator.generate_microstructure(current_sample)
+        finally:
+            # Use in data-driven framework
+            fileio.save_mic(
+                sample_dir,
+                current_sample,
+                (
+                    None
+                    if options["save_min"]
+                    else current_mic_generator
+                ),
+                provenance=provenance,
             )
+            fileio.save_status(sample_dir, current_sample, current_mic_generator)
+            # Saving the RVE properties. The status is written here as well as
+            # after the meshing, so that a generation that raised still leaves one
 
-        for _ in range(n_dp_samples):
-            sample_dir, sample_file_path = fileio.create_sample_results_directory(
-                results_folder
-            )
-            fileio.SAMPLE_DIR = sample_dir
-            # Producing the number of samples required
-
-            print_funcs.SCREEN_DIR = sample_dir
-            print_funcs.print_initial_message(input_file_path)
-            # Printing initial message
-
-            mesh_generators = set()
-            if "mesh_options" in top_level_reader.all_options:
-                for disc_ext in top_level_reader.all_options["mesh_options"]:
-                    # For each file extension asked
-                    if disc_ext == "femsh":
-                        femsh_options = top_level_reader.all_options["mesh_options"][
-                            "femsh"
-                        ]
-                        mesh_generators.add(
-                            FEMMeshGenerator(
-                                femsh_options["mesh_size"],
-                                femsh_options["element_type"],
-                                rve_dims,
-                            )
-                        )
-                    elif disc_ext == "rgmsh":
-                        rgmsh_options = top_level_reader.all_options["mesh_options"][
-                            "rgmsh"
-                        ]
-                        for i_n_voxel_dims in rgmsh_options["n_voxels_dims"]:
-                            print(rgmsh_options.get("slice_dir", None), "\n\n")
-                            mesh_generators.add(
-                                RegularGridMeshGenerator(
-                                    i_n_voxel_dims,
-                                    rve_dims,
-                                    slice_dir=rgmsh_options.get("slice_dir", None),
-                                )
-                            )
-                    else:
-                        raise ValueError(
-                            "Specified mesh {0} is not supported.".format(disc_ext)
-                        )
-            # Initializing the mesh generators
-
-            current_sample = Microstructure(rve_dims)
-            # Initializing the current sample
-            
-            if ext == ".mgsim":
-                if mic_gen_method == "MD":
-                    # Molecular dynamics simulation
-                    md_kwargs_keys = {
-                        "damping_coeff",
-                        "particle_mass_opt",
-                        "force_option",
-                        "force_rescale",
-                        "dt_adapt",
-                        "offset",
-                        "fixed_seed",
-                        "initial_vel_coeff",
-                        "final_overlap_check",
-                        "sim_gif",
-                        "inner_phase_max_step",
-                    }
-                    md_kwargs = {
-                        key: value
-                        for key, value in mic_gen_parameters.items()
-                        if key in md_kwargs_keys
-                    }
-                    md_kwargs["sim_gif"] = post_proc_parameters.get("sim_gif", False)
-                    #if md_kwargs["sim_gif"]:
-                        #raise NotImplementedError("The simulation_gif option for MD simulations is not implemented yet.")
-                    try: 
-                        current_mic_generator = MolecularDynamicsSimulation(
-                            mic_gen_parameters["max_residue_per_particle"],
-                            mic_gen_parameters["max_step"],
-                            mic_gen_parameters["max_steps_to_relax"],
-                            mic_gen_parameters["dt"],
-                            mic_gen_parameters["min_distance"],
-                            mic_gen_parameters["type_initial_configuration"],
-                            mic_gen_parameters["save_history"],
-                            sample_dir,
-                            **md_kwargs
-                        )
-                    except KeyError:
-                        print("Missing mandatory parameter defining a MD simulation.")
-                        raise
-
-                    try:
-                        if mic_gen_parameters.get("thermostat") == "isokinetic":
-                            current_thermostat = IsokineticThermostat(
-                                mic_gen_parameters["initial_temp"]
-                            )
-                        elif mic_gen_parameters.get("thermostat") == "multi_temperature":
-                            if (
-                                mic_gen_parameters.get("lowering_temp_criterion")
-                                == "rolling_ave"
-                            ):
-                                kwargs = {
-                                    "criterion": "rolling_ave",
-                                    "average_window": mic_gen_parameters["average_window"],
-                                }
-                            elif (
-                                mic_gen_parameters.get("lowering_temp_criterion")
-                                == "ratio_in_out"
-                            ):
-                                kwargs = {
-                                    "criterion": "ratio_in_out",
-                                    "max_ratio_osc": mic_gen_parameters["max_ratio_osc"],
-                                }
-                            else:
-                                kwargs = {
-                                    "criterion": "original",
-                                    "min_eq_steps_at_temp": mic_gen_parameters[
-                                        "min_eq_steps_at_temp"
-                                    ],
-                                }
-                            kwargs.update(
-                                {"temp_low_ratio": mic_gen_parameters["temp_low_ratio"]}
-                            )
-                            current_thermostat = MultiTemperatureIsokineticThermostat(
-                                mic_gen_parameters["initial_temp"], **kwargs
-                            )
-                        elif mic_gen_parameters.get("thermostat") == "micro_canonical":
-                            current_thermostat = MicroCanonicalEnsemble()
-                        elif mic_gen_parameters.get("thermostat") == "berendsen":
-                            current_thermostat = BerendsenForceThermostat(
-                                mic_gen_parameters["initial_temp"],
-                                mic_gen_parameters["berendsen_coeff"],
-                            )
-                        else:
-                            current_thermostat = MicroCanonicalEnsemble()
-                    except KeyError:
-                        print(
-                            "Missing mandatory parameter defining the {0} thermostat.".format(
-                                mic_gen_parameters["thermostat"]
-                            )
-                        )
-                        raise
-
-                    current_mic_generator.set_thermostat(current_thermostat)
-                    # Adding a thermostat to the MD simulation
-
-
-                    if mic_gen_parameters.get("speed_up_scheme") == "Cell" or mic_gen_parameters.get("speed_up_scheme") == None:
-                        # CellList is the default
-                        current_speed_up_scheme = MD_speed_up_schemes.CellList()
-                    elif mic_gen_parameters.get("speed_up_scheme") == "Verlet":
-                        current_speed_up_scheme = MD_speed_up_schemes.VerletList(
-                            mic_gen_parameters["verlet_factor"]
-                        )
-                    elif mic_gen_parameters.get("speed_up_scheme") == "Verlet2":
-                        current_speed_up_scheme = MD_speed_up_schemes.VerletPartialUpdate(
-                            mic_gen_parameters["verlet_factor"]
-                        )
-                    elif mic_gen_parameters["speed_up_scheme"] == "Naive":
-                        current_speed_up_scheme = MD_speed_up_schemes.Naive()
-                    else:
-                        raise ValueError(f"Unknown speed up scheme for MD simulation: '{mic_gen_parameters['speed_up_scheme']}'. ")
-
-                    current_mic_generator.set_speed_up_scheme(current_speed_up_scheme)
-                    # Adding a speed up scheme to the MD simulation
-                elif mic_gen_method == "RSA":
-                    # Random sequential adsorption method
-                    rsa_kwargs_keys = {"sim_gif",
-                                       "offset",
-                                       "inner_phase_max_step"}
-                    rsa_kwargs = {
-                        key: value
-                        for key, value in mic_gen_parameters.items()
-                        if key in rsa_kwargs_keys
-                    }
-                    rsa_kwargs["sim_gif"] = post_proc_parameters.get("sim_gif", False)
-                    try:
-                        current_mic_generator = RandomSequentialAdsorption(
-                            mic_gen_parameters["max_step"],
-                            mic_gen_parameters["min_distance"],
-                            mic_gen_parameters["save_history"],
-                            sample_dir,
-                            **rsa_kwargs
-                            )
-                    except KeyError:
-                        print("Missing mandatory parameter defining the RSA simulation.")
-                        raise
-
-                    if mic_gen_parameters.get("speed_up_scheme") == "Cell" or mic_gen_parameters.get("speed_up_scheme") == None:
-                        current_speed_up_scheme = RSA_speed_up_schemes.CellList()
-                    elif mic_gen_parameters["speed_up_scheme"] == "Naive":
-                        current_speed_up_scheme = RSA_speed_up_schemes.Naive()
-                    else:
-                        raise ValueError(f"Unknown speed up scheme for RSA simulation: '{mic_gen_parameters['speed_up_scheme']}'. ")
-
-                    current_mic_generator.set_speed_up_scheme(current_speed_up_scheme)
-                    # Adding a speed up scheme to the RSA simulation
-
-                else:
-                    raise ValueError("Unknown microstructure generation method: {0}".format(mic_gen_method))
-            else:
-                raise ValueError("Unknown input file extension: {0}".format(ext))
-
-            for phase_name, phase_descriptors in mic_gen_descriptors.items():
-                current_phase = Phase(phase_name, phase_descriptors)
-                current_sample.add_phase(current_phase)
-                # Populating the microstructure sample with phases
-            if current_sample.matrix_phase is None:
-                raise ValueError("No matrix phase was specified.")
-
-            try:
-                current_mic_generator.generate_microstructure(current_sample)
-            finally:
-                # Use in data-driven framework
-                if top_level_reader.all_options["save_min"]:
-                    fileio.save_mic(sample_dir, current_sample, None)
-                    fileio.save_status(
-                        sample_dir, current_sample, current_mic_generator
-                    )
-
-                else:
-                    fileio.save_mic(sample_dir, current_sample, current_mic_generator)
-                # Saving the RVE properties
-
-            try:
-                times_dict = {}
-                times_dict = post_proc(
-                    mesh_generators,
+        try:
+            times_dict = {}
+            if current_mic_generator.status:
+                times_dict, analysis_failures = post_proc(
+                    mesh_jobs,
                     current_sample,
                     current_mic_generator,
                     sample_dir,
-                    top_level_reader.all_options["post_proc"],
+                    options["post_proc"],
                 )
+                failed_analyses.extend(
+                    (i_sample,) + i_failure for i_failure in analysis_failures
+                )
+            else:
+                total_overlap = getattr(current_sample, "total_overlap", None)
+                max_residue = getattr(current_mic_generator, "max_residue", None)
+                failed_samples.append((i_sample, total_overlap, max_residue))
+                print_funcs.print_failed_sample(total_overlap, max_residue)
+                # A random sequential adsorption fails by running out of steps before
+                # the phases are filled, and measures no overlap
+            # A sample whose particles still overlap is not meshed or analysed: a mesh
+            # of it is a wrong input to a solver, and the run says so instead
+        finally:
+            print_funcs.print_final_message(
+                print_funcs.step_times(current_mic_generator, mesh_jobs, times_dict)
+            )
+            fileio.save_status(
+                sample_dir, current_sample, current_mic_generator, mesh_jobs
+            )
+            if options["save_min"]:
+                fileio.delete_screen(sample_dir)
+            print_funcs.screen_to(None)
+            # Rewritten now that the discretisations have been attempted, so that
+            # the sample records which of them were produced. The screen file is
+            # then let go of, so that the summary of the batch that follows the
+            # loop is not written into the last sample
 
-            finally:
-                print_funcs.print_final_message(
-                    current_mic_generator, mesh_generators, times_dict
-                )
-                if top_level_reader.all_options["save_min"]:
-                    fileio.delete_screen(print_funcs.SCREEN_DIR)
+        failed_jobs.extend(i_job for i_job in mesh_jobs if i_job.error)
+        # Collected across the batch, so that one sample failing does not cost the
+        # samples after it
+
+    failed = print_funcs.print_failed_samples(failed_samples)
+    failed = print_funcs.print_failed_jobs(failed_jobs) or failed
+    failed = print_funcs.print_failed_analyses(failed_analyses) or failed
+    if failed:
+        raise SystemExit(1)
+    # Every kind is reported, whichever happened, and any of them fails the run

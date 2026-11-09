@@ -1,0 +1,35 @@
+# What the deck seeded.mdsim is converted into, with every default written out.
+
+samples: 2
+rve_dimensions: [1.0, 1.0]
+seed: 3
+save_min: false
+phases:
+  0: {type: matrix}
+  1:
+    type: disk
+    n: {distribution: fixed, value: 4}
+    vf: {distribution: fixed, value: 0.2}
+generation:
+  min_distance: 0.0
+  offset: true
+  inner_phase_max_step: 200
+  molecular_dynamics:
+    max_residue_per_particle: 0.0
+    max_step: 3
+    max_steps_to_relax: 0
+    dt: 0.05
+    dt_adapt: true
+    save_history: false
+    type_initial_configuration: random
+    initial_vel_coeff: 0.1
+    final_overlap_check: false
+    damping_coeff: 0.0
+    particle_mass_opt: radius
+    speed_up: {name: naive}
+    thermostat:
+      name: multi_temperature
+      criterion: {name: ratio_in_out, max_ratio_osc: 2}
+      temp_low_ratio: 0.25
+meshes: {}
+analyses: {}

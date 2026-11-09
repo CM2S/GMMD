@@ -2,7 +2,17 @@
 Module containing all the Particle abstract class and some particular subclasses.
 
 The subclasses include are the the Matrix, Point and Line subclasses.
+
+Adding a particle class
+-----------------------
+A subclass implements the abstract methods of `Particle`, `point_inside` among
+them: whether one point is inside the particle. `points_inside`, the same test
+over an array of points, it inherits, and the inherited one loops over
+`point_inside`; writing the test over the coordinates of an array of points
+instead makes the statistical descriptors of the post processing, which throw
+millions of points at the particles, orders of magnitude faster.
 """
+
 from __future__ import annotations
 from typing import Union
 
@@ -12,8 +22,62 @@ import numpy as np
 
 from scipy.optimize import fmin
 
-
 MINIMUM_SIZE = 0
+
+
+def semi_axes_inflation(semi_axes, delta):
+    """
+    Give the amount *t* to add to every semi-axis of an ellipse or ellipsoid to dilate it by *delta*.
+
+    Adding *delta* itself to every semi-axis moves the boundary out by *delta* only along
+    the axes, and by less in between, so two particles dilated that way could end up
+    closer than the minimum distance. *t* is the least amount for which the ellipse or
+    ellipsoid with every semi-axis grown by *t* holds every point at distance *delta*
+    from the original one (for a contraction, *delta* < 0, lies inside the inner offset
+    at distance |*delta*|).
+
+    For an ellipse with semi-axes a >= b, *t* is a root of
+    2s*t^3 + 4ab*t^2 - 2s*delta^2*t - s^2*delta^2 = 0, with s = a + b: the positive root
+    for a dilation and the negative root closest to zero for a contraction. The closest
+    approach of an ellipsoid is in the plane of its largest and smallest semi-axes, so
+    the ellipsoid takes the *t* of the ellipse with those two.
+
+    Parameters
+    ----------
+    semi_axes: list(float)
+        Semi-axes of the undilated ellipse or ellipsoid.
+
+    delta: float
+        Dilation (> 0) or contraction (< 0).
+
+    Returns
+    -------
+    float
+        *t*, of the sign of *delta*; *delta* itself for a circle or a sphere.
+
+    Raises
+    ------
+    ValueError:
+        If the particle is too slender to be contracted by |*delta*|.
+    """
+    if delta == 0:
+        return 0.0
+    a = max(semi_axes)
+    b = min(semi_axes)
+    s = a + b
+    roots = np.roots([2 * s, 4 * a * b, -2 * s * delta**2, -(s**2) * delta**2])
+    real_roots = roots[np.abs(roots.imag) < 1e-12].real
+    if delta > 0:
+        # Descartes' rule of signs guarantees exactly one positive real root
+        return float(max(real_roots))
+    negative_roots = real_roots[real_roots < 0]
+    if len(negative_roots) == 0:
+        raise ValueError(
+            "A particle with semi-axes {0} cannot be contracted by {1}".format(
+                list(semi_axes), -delta
+            )
+        )
+    return float(max(negative_roots))
 
 
 class Particle(abc.ABC):
@@ -81,6 +145,8 @@ class Particle(abc.ABC):
         self._radius = None
         self._volume = None
         self.delta = 0
+        self.parent = None
+        # Particle in which this one is placed, for coated inclusions
 
     def check_if_descriptor_values_are_valid(self, descriptors, rve_dims):
         """Check if the descriptor values are valid."""
@@ -127,7 +193,29 @@ class Particle(abc.ABC):
         volume = self._volume
 
         return volume
-    
+
+    def rescale(self, rescale_parameter):
+        """
+        Multiply the position of the particle and its dilation by *rescale_parameter*.
+
+        A subclass multiplies the lengths of its own shape and calls this for the ones
+        every particle has.
+
+        Parameters
+        ----------
+        rescale_parameter: float
+            Factor every length of the particle is multiplied by.
+        """
+        self.position_center = (
+            np.asarray(self.position_center, dtype=float) * rescale_parameter
+        )
+        self.delta *= rescale_parameter
+        # The particle is the same one in other units only if every length it has is
+        # scaled. The dilation that keeps the minimum distance used to be left out, so
+        # a simulation normalising its box kept the gap in the user's units inside a
+        # box of side one. A new array rather than an in place product, so that no
+        # record kept of the position is scaled behind its owner's back
+
     @staticmethod
     def nearest_periodic_image(
         point_1: np.array, point_2: np.array, box: list
@@ -172,7 +260,7 @@ class Particle(abc.ABC):
         self,
         particle_2: Particle,
         box: list,
-    ) -> tuple[bool, float]:
+    ) -> bool:
         """Check using a version of the GJK intersection method if the particles intersect.
 
         At the core of the algorithm is the theorem stating that if the two convex shapes
@@ -272,7 +360,7 @@ class Particle(abc.ABC):
         and *particle_2*.
 
         It is computed to a prescribed accuracy using a minimization algorithm (Nelder-Mead)
-        or an approximation is supplie whose error is not estimated.
+        or an approximation is supplied whose error is not estimated.
 
         Parameters
         ----------
@@ -292,7 +380,7 @@ class Particle(abc.ABC):
         Returns
         -------
         intersection_length: float
-            Intersection legnth between *self* and *particle_2*.
+            Intersection length between *self* and *particle_2*.
 
         intersection_dir: float
             Direction along which a displacement of magnitude *intersection_length* would
@@ -602,6 +690,60 @@ class Particle(abc.ABC):
     def dilate(self,distance):
         """Dilate the particle by a given distance."""
 
+    def points_inside(self, points: np.array, box: list) -> np.array:
+        """
+        Say, for each of a set of points, whether it is inside the particle.
+
+        A particle answers for one point at a time, which is what this does. A particle
+        whose test is an expression over the coordinates overrides this with the
+        expression written over an array of them, and the analyses that throw many
+        points at each particle -- the two point correlation function above all -- then
+        cost one array operation per particle instead of one call per point.
+
+        Parameters
+        ----------
+        points: array
+            Positions of the points, one to a row.
+
+        box: list(float)
+            Dimensions of the simulation box.
+
+        Returns
+        -------
+        array(bool)
+            True in the row of each point that is inside the particle.
+        """
+        return np.array(
+            [self.point_inside(i_point, box) for i_point in points], dtype=bool
+        )
+        # `point_inside` is the one kept for a single point: it is the inner call of
+        # `intersection_area_monte_carlo` below and of the intersection tests of the
+        # ellipse and the ellipsoid, which a generation run makes millions of, and
+        # wrapping each of them in an array costs more than the test itself
+
+    def nearest_periodic_images(self, points: np.array, box: list) -> np.array:
+        """
+        Give the nearest periodic image of each of a set of points to the particle.
+
+        Parameters
+        ----------
+        points: array
+            Positions of the points, one to a row.
+
+        box: list(float)
+            Dimensions of the simulation box.
+
+        Returns
+        -------
+        array
+            The image of each of them nearest the centre of the particle.
+        """
+        return Particle.nearest_periodic_image(
+            np.asarray(points, dtype=float), self.position_center, box
+        )
+        # What every `points_inside` opens with, so that the points come into the test
+        # as a float array whatever they were given as
+
     def intersection_area_monte_carlo(
         self, other_particle: Particle, box: list, **kwargs
     ) -> Union[float, float]:
@@ -687,36 +829,13 @@ class Particle(abc.ABC):
 
         return mass
 
-    def force_spring(self, other_particle, box, degree=2):
-        """Compute force due to non-linear spring at the intersection of degree *degree*."""
-        disp, unit_vector = self.intersection_length(other_particle, box)
-        dist = self.radius + other_particle.radius - disp
-        # Distance between the current sphere and the nearest image of the other sphere
-        r_min = (
-            self.radius
-            if self.radius < other_particle.radius
-            else other_particle.radius
-        )
-        r_max = (
-            other_particle.radius
-            if other_particle.radius > self.radius
-            else self.radius
-        )
-        if disp <= 0:
-            force = 0
-        elif disp >= r_min + r_max:
-            force = r_min + r_max
-        else:
-            force = (r_max + r_min) * (1 - (dist / (r_max + r_min)) ** degree)
-        return force, unit_vector
-
     @property
     def volume_circ(self):
         """Volme of the corresponding circumscribed spheres/disk."""
         if self.dim == 2:
-            volume = np.pi * self.radius ** 2
+            volume = np.pi * self.radius**2
         elif self.dim == 3:
-            volume = 4 / 3 * np.pi * self.radius ** 3
+            volume = 4 / 3 * np.pi * self.radius**3
 
         return volume
 

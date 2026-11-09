@@ -22,6 +22,46 @@ from geommicgen.microstructure.particleclasses import Matrix
 from geommicgen.micgenmethod.microstructure_gen_method import GenerationMethod
 from geommicgen.micgenmethod.speed_up_schemes import RSA_speed_up_schemes
 
+REQUIRED_OPTIONS = ("max_step", "min_distance", "save_history")
+
+OPTIONAL_OPTIONS = ("offset", "inner_phase_max_step", "sim_gif", "fixed_seed")
+# The generation parameters the simulation is built from, as `from_options` reads them:
+# the required ones in the order the initializer takes them
+
+SPEED_UP_SCHEMES = ("Cell", "Naive")
+# The speed up schemes the random sequential adsorption has, under the names an input
+# file asks with
+
+
+def speed_up_scheme_from_options(options):
+    """
+    Build the speed up scheme of a random sequential adsorption the options ask for.
+
+    Parameters
+    ----------
+    options: dict
+        Generation parameters, keyed as the input data file keys them.
+
+    Returns
+    -------
+    `.RSA_SpeedUpScheme`
+        The scheme, a cell list when none is named.
+
+    Raises
+    ------
+    ValueError:
+        If the scheme is not one the random sequential adsorption has.
+    """
+    name = options.get("speed_up_scheme", SPEED_UP_SCHEMES[0])
+    if name == "Cell":
+        return RSA_speed_up_schemes.CellList()
+    if name == "Naive":
+        return RSA_speed_up_schemes.Naive()
+    raise ValueError(
+        "{0} is not a speed up scheme of the random sequential adsorption. The "
+        "available options are {1}.".format(name, ", ".join(SPEED_UP_SCHEMES))
+    )
+
 
 class RandomSequentialAdsorption(GenerationMethod):
     """Class for the random sequential adsorption simulation class.
@@ -73,7 +113,7 @@ class RandomSequentialAdsorption(GenerationMethod):
 
     """
 
-    def __init__(self,max_step,min_distance,save_history, sample_dir, **kwargs):
+    def __init__(self, max_step, min_distance, save_history, sample_dir=None, **kwargs):
         """Initialize the random sequential adsorption simulation class.
         
         Parameters
@@ -89,8 +129,10 @@ class RandomSequentialAdsorption(GenerationMethod):
             Save all the trajectories of the particles, the history of the relative and
             kinetic energy.
 
-        sample_dir: str
-            Directory of the sample for which the microstructure is being generated.
+        sample_dir: str, optional
+            Directory of the sample for which the microstructure is being generated,
+            where the frames of the GIF are written. The program sets it once the
+            directory exists, after building the simulation from its options.
 
         Keyword Parameters
         ------------------
@@ -100,6 +142,12 @@ class RandomSequentialAdsorption(GenerationMethod):
     
         offset: bool
             Flag for the use of an offset to place the origin such a FEM is more easily created.
+
+        inner_phase_max_step: int
+            Most positions tried when placing the particles of an inner phase.
+
+        fixed_seed: int
+            Seed of the random draws, so that a run gives the same microstructure.
         """
         #self.mic_gen_parameters = mic_gen_parameters
         #self.mic_gen_descriptors = mic_gen_descriptors
@@ -114,14 +162,59 @@ class RandomSequentialAdsorption(GenerationMethod):
         self.intersection_check_history = []
         self.accepted_particles_history = []
         self.sample_dir = sample_dir
-        self.make_gif = kwargs.get("sim_gif")
+        self.sim_gif = kwargs.get("sim_gif", False)
+        self.make_gif = self.sim_gif
         self.offset = kwargs.get("offset", True)
-        self.inner_phase_max_step = kwargs.get("inner_phase_max_step")
+        self.inner_phase_max_step = kwargs.get("inner_phase_max_step", 200)
+        self.inner_phase_placements = []
+        # The steps and the time of the placement of each inner phase
+        self.fixed_seed = kwargs.get("fixed_seed", None)
+        self.step = 0
+        self.simulation_time = None
+
+    @classmethod
+    def from_options(cls, options):
+        """
+        Build the simulation an input file asks for, speed up scheme included.
+
+        Parameters
+        ----------
+        options: dict
+            Generation parameters, keyed as the input data file keys them.
+
+        Returns
+        -------
+        `.RandomSequentialAdsorption`
+            The simulation, ready to generate a microstructure.
+
+        Raises
+        ------
+        ValueError:
+            If a parameter the simulation needs is not given, or if the speed up
+            scheme named is not one there is.
+        """
+        missing = [i_name for i_name in REQUIRED_OPTIONS if i_name not in options]
+        if missing:
+            raise ValueError(
+                "The input file does not give {0}, which a random sequential "
+                "adsorption needs.".format(", ".join(missing))
+            )
+        simulation = cls(
+            *(options[i_name] for i_name in REQUIRED_OPTIONS),
+            **{i_name: options[i_name] for i_name in OPTIONAL_OPTIONS if i_name in options}
+        )
+        simulation.set_speed_up_scheme(speed_up_scheme_from_options(options))
+
+        return simulation
 
 
     def generate_microstructure(self, microstructure_sample):
         """Generate microstructure."""
         self.microstructure_sample = microstructure_sample
+        if self.fixed_seed is not None:
+            np.random.seed(self.fixed_seed)
+        # Seeded as the molecular dynamics simulation is, so that a seeded run gives
+        # the same microstructure every time
         start = time.time()
         n_particles_total = 0
         self.step = 0

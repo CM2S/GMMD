@@ -1,0 +1,32 @@
+# What the deck fibres.mdsim is converted into, with every default written out.
+
+samples: 1
+rve_dimensions: [1.0, 1.0, 1.0]
+save_min: false
+phases:
+  0: {type: matrix}
+  1:
+    type: cylindrical_fiber
+    area: {distribution: fixed, value: 0.01}
+    direction: {distribution: fixed, value: 1}
+    vf: {distribution: fixed, value: 0.2}
+generation:
+  min_distance: 0.0
+  offset: true
+  inner_phase_max_step: 200
+  molecular_dynamics:
+    max_residue_per_particle: 0.0
+    max_step: 10
+    max_steps_to_relax: 0
+    dt: 0.05
+    dt_adapt: true
+    save_history: false
+    type_initial_configuration: random
+    initial_vel_coeff: 0.1
+    final_overlap_check: false
+    damping_coeff: 0.0
+    particle_mass_opt: radius
+    speed_up: {name: cell}
+    thermostat: {name: isokinetic}
+meshes: {}
+analyses: {}

@@ -1,0 +1,35 @@
+# 3D example
+# A microstructure of ellipsoids filling a tenth of it, their first axis drawn about
+# 0.125 and 1.7 times each of the other two.
+
+samples: 5
+rve_dimensions: [1, 1, 1]
+
+phases:
+  0: {type: matrix}
+  1:
+    type: ellipsoid
+    vf: 0.1
+    axis_1: {distribution: normal, mean: 0.125, sigma: 0.025}
+    ratio_12: {distribution: normal, mean: 1.7, sigma: 0.1}
+    ratio_13: {distribution: normal, mean: 1.7, sigma: 0.1}
+    # The orientation: a rotation of an angle about an axis in the yz plane
+    rot_axis_comp_x: 0
+    rot_axis_comp_y: {distribution: uniform, low: -1, high: 1}
+    rot_axis_comp_z: {distribution: uniform, low: -1, high: 1}
+    angle: {distribution: normal, mean: 0.1, sigma: 0.2}
+
+generation:
+  min_distance: 0.002
+  molecular_dynamics:
+    max_residue_per_particle: 0
+    max_step: 20000
+    speed_up: {name: verlet, factor: 1.1}
+    save_history: true
+
+meshes:
+  voxel: {n_voxels_dims: [70, 70, 70]}
+
+analyses:
+  final_config: true
+  motion: true

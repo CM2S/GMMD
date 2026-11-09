@@ -1,4 +1,5 @@
 """Module containing Ellipoid particle class."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -8,7 +9,7 @@ from scipy import integrate
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 import geommicgen.microstructure.particleclasses.cylinder as cyl_cls
-from .particle import Particle, MINIMUM_SIZE
+from .particle import Particle, MINIMUM_SIZE, semi_axes_inflation
 
 
 class Ellipsoid(Particle):
@@ -108,7 +109,7 @@ class Ellipsoid(Particle):
             ),
             "ratio_21": (
                 "Ratio a2/a1",
-                lambda ratio_21, rve_dims: ratio_21 <= 1,
+                lambda ratio_21, rve_dims: 0 < ratio_21 <= 1,
                 "float",
             ),
             "ratio_13": (
@@ -118,12 +119,12 @@ class Ellipsoid(Particle):
             ),
             "ratio_32": (
                 "Ratio a3/a2",
-                lambda ratio_31, rve_dims: ratio_31 <= 1,
+                lambda ratio_32, rve_dims: 0 < ratio_32 <= 1,
                 "float",
             ),
             "ratio_321": (
                 "Ratio a3/a1 and a2/a1",
-                lambda ratio_321, rve_dims: ratio_321 <= 1,
+                lambda ratio_321, rve_dims: 0 < ratio_321 <= 1,
                 "float",
             ),
             "p_3": (
@@ -185,6 +186,7 @@ class Ellipsoid(Particle):
         {"vf", "semi_axis_1", "ratio_32", "ratio_21", "p_3", "phi_z"},
         {"vf", "axis_2", "ratio_32", "ratio_21", "p_3", "phi_z"},
         {"vf", "axis_1", "ratio_321", "p_3", "phi_z"},
+        {"vf", "axis_1", "axis_2", "axis_3", "p_3", "phi_z"},
     ]
     # List of acceptable collections of parameters
     dim = 3
@@ -261,23 +263,9 @@ class Ellipsoid(Particle):
             and "ratio_21" in descriptors
             and "axis_2" in descriptors
         ):
-            # file_path = (
-            #     "/home/jose/Documents/code/paper_results/stat_analysis/3D/Results.csv"
-            # )
-            # info = np.genfromtxt(file_path, delimiter=",", skip_header=1)
-            # visible_vars = info[:, 7:9] / 795
-            # # print(visible_vars)
-            # angles = info[:, -2] * np.pi / 180
-            # # for i_ind, i_angle in angles:
-            # #     if i_angle > n
-            # visible_vars = np.array([visible_vars[:, 1], visible_vars[:, 0]]).T
-            # ind = np.random.choice(np.arange(len(visible_vars[:, 1])))
-            # axis_2 = visible_vars[:, 1][ind]
-            # axis_3 = visible_vars[:, 0][ind]
-
-            axis_2 = min(descriptors["axis_2"], 0.2)
-            axis_1 = axis_2 / max(min(descriptors["ratio_21"], 1), 0.4)
-            axis_3 = max(min(descriptors["ratio_32"], 1), 0.4) * axis_2
+            axis_2 = descriptors["axis_2"]
+            axis_1 = axis_2 / descriptors["ratio_21"]
+            axis_3 = descriptors["ratio_32"] * axis_2
         if "angle" in descriptors:
             angle = descriptors["angle"]
         if (
@@ -292,16 +280,11 @@ class Ellipsoid(Particle):
         if "p_3" in descriptors and "phi_z" in descriptors:
             p_3 = descriptors["p_3"]
             phi_z = descriptors["phi_z"]
-            # phi_z = angles[ind]
 
             rot_mat_y = np.array(
                 [
                     [np.cos(p_3), 0, -np.sin(p_3)],
-                    [
-                        0,
-                        1,
-                        0,
-                    ],
+                    [0, 1, 0],
                     [np.sin(p_3), 0, np.cos(p_3)],
                 ],
             )
@@ -318,6 +301,19 @@ class Ellipsoid(Particle):
             rot_axis_comp_z = complete_rot_mat[1, 0] - complete_rot_mat[0, 1]
             angle = np.arccos((np.trace(complete_rot_mat) - 1) / 2)
 
+        axes = {"axis_1": axis_1, "axis_2": axis_2, "axis_3": axis_3}
+        for i_name, i_axis in axes.items():
+            if not Ellipsoid.possible_parameters[i_name][1](i_axis, rve_dims):
+                raise ValueError(
+                    "{0} is not an allowable value for {1}, which the descriptors "
+                    "give.".format(i_axis, i_name)
+                )
+        # The bounds of an axis given as a descriptor hold for one the descriptors give
+        # through a ratio or a volume. The second axis and its ratios were clamped
+        # instead, the axis to a fifth of the shortest side and the ratios to between
+        # 0.4 and 1, which bounded the first axis; the particle asked for was changed
+        # into another without a word, and a ratio outside the clamp could not be asked
+        # for at all
         self.axis_1 = np.abs(axis_1)
         self.axis_2 = np.abs(axis_2)
         self.axis_3 = np.abs(axis_3)
@@ -376,24 +372,52 @@ class Ellipsoid(Particle):
 
     @property
     def real_volume(self):
-        """Real volume of the ellipsoid."""
+        """Real volume of the ellipsoid, the one before any dilation."""
         volume = (
             4
             / 3
             * np.pi
-            * (self.semi_axis_1 - self.delta)
-            * (self.semi_axis_2 - self.delta)
-            * (self.semi_axis_3 - self.delta)
+            * (self.semi_axis_1 - self.inflation)
+            * (self.semi_axis_2 - self.inflation)
+            * (self.semi_axis_3 - self.inflation)
         )
 
         return volume
 
     @property
+    def inflation(self):
+        """
+        Amount *t* the dilation *self.delta* has added to every semi-axis.
+
+        See `semi_axes_inflation`. The axes hold the dilation, and this is kept so that
+        it can be taken off again exactly.
+        """
+        return getattr(self, "_inflation", 0.0)
+
+    def set_dilation(self, delta):
+        """
+        Dilate the particle so that its total dilation is *delta*.
+
+        The axes are brought back to their undilated lengths and grown by the inflation
+        of *delta*, computed from the undilated ones, so that a dilation undone by a
+        contraction gives back the particle it started from.
+        """
+        undilated_semi_axes = [
+            self.axis_1 / 2 - self.inflation,
+            self.axis_2 / 2 - self.inflation,
+            self.axis_3 / 2 - self.inflation,
+        ]
+        inflation = semi_axes_inflation(undilated_semi_axes, delta)
+        self.axis_1 = 2 * (undilated_semi_axes[0] + inflation)
+        self.axis_2 = 2 * (undilated_semi_axes[1] + inflation)
+        self.axis_3 = 2 * (undilated_semi_axes[2] + inflation)
+        self.delta = delta
+        self._inflation = inflation
+
+    @property
     def radius(self):
         """Radius of the circumscribed sphere to the ellipsoid."""
-        radius = (
-            np.max([self.semi_axis_1, self.semi_axis_3, self.semi_axis_3]) + self.delta
-        )
+        radius = np.max([self.semi_axis_1, self.semi_axis_2, self.semi_axis_3])
         # Radius of the circunscribed sphere
 
         return radius
@@ -401,49 +425,38 @@ class Ellipsoid(Particle):
     @property
     def radius_insc(self):
         """Radius of the inscribed circle to the ellipsoid."""
-        radius_insc = np.min([self.semi_axis_1, self.semi_axis_3, self.semi_axis_3])
+        radius_insc = np.min([self.semi_axis_1, self.semi_axis_2, self.semi_axis_3])
 
         return radius_insc
 
     @property
     def semi_axis_1(self):
-        """Semi principal axis along xx before aplying the rotation."""
+        """Semi principal axis along xx before aplying the rotation, including the dilation."""
         semi_axis_1 = self.axis_1 / 2
-        # Radius of the circunscribed sphere
 
         return semi_axis_1
 
     @property
     def semi_axis_2(self):
-        """Semi principal axis along yy before aplying the rotation."""
+        """Semi principal axis along yy before aplying the rotation, including the dilation."""
         semi_axis_2 = self.axis_2 / 2
-        # Radius of the circunscribed sphere
 
         return semi_axis_2
 
     @property
     def semi_axis_3(self):
-        """Semi principal axis along zz before aplying the rotation."""
+        """Semi principal axis along zz before aplying the rotation, including the dilation."""
         semi_axis_3 = self.axis_3 / 2
-        # Radius of the circunscribed sphere
 
         return semi_axis_3
 
     def contract(self, distance):
-        """Contract the particle."""
-        self.axis_1 -= 2 * distance
-        self.axis_2 -= 2 * distance
-        self.axis_3 -= 2 * distance
-        self.delta -= distance
-        # Contracting the particle size subracting the minimum distance from the semi-axis
+        """Contract the particle by *distance*, taking the inflation off its axes."""
+        self.set_dilation(self.delta - distance)
 
     def dilate(self, distance):
-        """Dilate the particle."""
-        self.axis_1 += 2 * distance
-        self.axis_2 += 2 * distance
-        self.axis_3 += 2 * distance
-        self.delta += distance
-        # Dilating the particle size adding the minimum distance to the semi-axis
+        """Dilate the particle by *distance*, adding the inflation to its axes."""
+        self.set_dilation(self.delta + distance)
 
     def M(self):
         """Get transformation matrix in homogeneous coordinates."""
@@ -485,9 +498,9 @@ class Ellipsoid(Particle):
         """Auxiliar matrix to determine intersection points."""
         A_loc = np.array(
             [
-                [1.0 / self.semi_axis_1 ** 2, 0.0, 0.0, 0.0],
-                [0.0, 1.0 / self.semi_axis_2 ** 2, 0.0, 0.0],
-                [0.0, 0.0, 1.0 / self.semi_axis_3 ** 2, 0.0],
+                [1.0 / self.semi_axis_1**2, 0.0, 0.0, 0.0],
+                [0.0, 1.0 / self.semi_axis_2**2, 0.0, 0.0],
+                [0.0, 0.0, 1.0 / self.semi_axis_3**2, 0.0],
                 [0.0, 0.0, 0.0, -1.0],
             ],
             dtype=float,
@@ -537,9 +550,9 @@ class Ellipsoid(Particle):
         if position == "inside":
             # Checking if the point is inside the ellipse
             point_in = (
-                point_loc[0] ** 2 / self.semi_axis_1 ** 2
-                + point_loc[1] ** 2 / self.semi_axis_2 ** 2
-                + point_loc[2] ** 2 / self.semi_axis_3 ** 2
+                point_loc[0] ** 2 / self.semi_axis_1**2
+                + point_loc[1] ** 2 / self.semi_axis_2**2
+                + point_loc[2] ** 2 / self.semi_axis_3**2
                 - 1
                 <= tol
             )
@@ -549,9 +562,9 @@ class Ellipsoid(Particle):
             # Checking if the point is on the ellipse
             point_in = (
                 np.abs(
-                    point_loc[0] ** 2 / self.semi_axis_1 ** 2
-                    + point_loc[1] ** 2 / self.semi_axis_2 ** 2
-                    + point_loc[2] ** 2 / self.semi_axis_3 ** 2
+                    point_loc[0] ** 2 / self.semi_axis_1**2
+                    + point_loc[1] ** 2 / self.semi_axis_2**2
+                    + point_loc[2] ** 2 / self.semi_axis_3**2
                     - 1
                 )
                 <= tol
@@ -559,6 +572,28 @@ class Ellipsoid(Particle):
             # Using the polar form of the ellipse checking if the point is inside the
             # ellipse
         return point_in
+
+    def points_inside(self, points, box, tol=1e-6):
+        """
+        Say which of *points* are inside the Ellipsoid; see `.Particle.points_inside`.
+
+        Parameters
+        ----------
+        tol: float
+            Tolerance
+        """
+        points_nearest_pbc = self.nearest_periodic_images(points, box)
+        points_loc = (points_nearest_pbc - self.position_center).dot(self.rotation_mat)
+        # The points in local coordinates, a row to a point: the rotation from local to
+        # global transposed onto each of them at once
+
+        return (
+            points_loc[:, 0] ** 2 / self.semi_axis_1**2
+            + points_loc[:, 1] ** 2 / self.semi_axis_2**2
+            + points_loc[:, 2] ** 2 / self.semi_axis_3**2
+            - 1
+            <= tol
+        )
 
     def intersection_volume_ellipsoid_other(
         self, other_particle, box, alg_type="random", tol=1, max_it=1000, seq_size=50
@@ -666,47 +701,15 @@ class Ellipsoid(Particle):
                 pointsInside,
                 -A,
                 A,
-                lambda x: -B * np.sqrt(1 - x ** 2 / A ** 2),
-                lambda x: B * np.sqrt(1 - x ** 2 / A ** 2),
-                lambda x, y: -C * np.sqrt(1 - x ** 2 / A ** 2 - y ** 2 / B ** 2),
-                lambda x, y: C * np.sqrt(1 - x ** 2 / A ** 2 - y ** 2 / B ** 2),
+                lambda x: -B * np.sqrt(1 - x**2 / A**2),
+                lambda x: B * np.sqrt(1 - x**2 / A**2),
+                lambda x, y: -C * np.sqrt(1 - x**2 / A**2 - y**2 / B**2),
+                lambda x, y: C * np.sqrt(1 - x**2 / A**2 - y**2 / B**2),
                 epsrel=0.1,
             )
 
         return np.round(overlap_volume, decimals=5)
-
-    def generate_regular_grid(self, n_samples):
-        """Generate a regular sample of points in the ellipsoid."""
-        n_theta = int(np.sqrt(n_samples ** (1)))
-        n_phi = int(np.cbrt(n_samples ** (1)))
-        # Number of sample points for the angle
-        n_r = int(np.round(n_samples / n_theta / n_phi))
-        # Number of sample points for the radius. Muliplied by the number of points for the
-        # angle gives the number of sample points
-        radius = (np.linspace(0.01, 1, n_r, endpoint=True)) ** (1 / 3)
-        theta = np.linspace(0, np.pi, n_theta, endpoint=False)
-        phi = np.linspace(0, 2 * np.pi, n_phi, endpoint=False)
-        # Regularly and uniformly sampling the angle and the radius
-        x_samples = []
-        for i_theta in theta:
-            for j_phi in phi:
-                for k_radius in radius:
-                    x_loc = np.array(
-                        [
-                            k_radius
-                            * self.semi_axis_1
-                            * np.sin(i_theta)
-                            * np.cos(j_phi),
-                            k_radius
-                            * self.semi_axis_2
-                            * np.sin(i_theta)
-                            * np.sin(j_phi),
-                            k_radius * self.semi_axis_3 * np.cos(i_theta),
-                        ]
-                    )
-                    x_glob = self.rotation_mat.dot(x_loc) + self.position_center
-                    x_samples.append(x_glob)
-        return x_samples
+    
 
     def generate_point_inside(self):
         """Generate a random point inside the ellipsoid.
@@ -720,9 +723,9 @@ class Ellipsoid(Particle):
         R = np.linalg.norm(w)
         x_loc = np.array(
             [
-                r * (self.semi_axis_1 + self.delta) * w[0] / R,
-                r * (self.semi_axis_2 + self.delta) * w[1] / R,
-                r * (self.semi_axis_3 + self.delta) * w[2] / R,
+                r * self.semi_axis_1 * w[0] / R,
+                r * self.semi_axis_2 * w[1] / R,
+                r * self.semi_axis_3 * w[2] / R,
             ]
         )
 
@@ -765,6 +768,21 @@ class Ellipsoid(Particle):
 
     def intersection_ellipsoid_ellipsoid(self, other_ellipsoid, box):
         """Check if the current and the other ellipsoid intersect."""
+        # TODO: the answer is wrong for 23 of 400 random pairs, mostly separated pairs
+        # called overlapping, some overlaps missed, and not only near tangency: 7 of the
+        # 344 pairs that would have to be scaled about their centres by more than 20% to
+        # touch were wrong, as are two concentric ellipsoids crossed like a plus sign.
+        # The coefficients of det(lambda*A_i + A_j) are right, to 1e-12 of the quartic
+        # fitted to the determinant; the conditions on the eta coefficients are what
+        # fail, 23 wrong again on the exact coefficients, some of them asking a float to
+        # be == 0. Counting the distinct positive real roots of the quartic, which
+        # separate the pair (Wang, Wang and Kim), got all 400 right, with a tolerance
+        # left to find for the double root at tangency. The truth was the Perram-Wertheim
+        # contact function, under which GJK got all 400 right too. The semi-axes it reads
+        # also leave out `delta`, which the support function adds. It decides nothing in
+        # a run, `intersection` and `intersection_length` going to GJK and its one
+        # caller, `intersection_area`, being called by tests alone; the pairs it gets
+        # wrong are in TestEllipsoidAlgebraicIntersection
 
         def coefficients_characteristic_equation(M_i, axis_lengths, A_j):
             """
@@ -856,23 +874,23 @@ class Ellipsoid(Particle):
             p_4_bar = p_5 / p_1
 
             beta_1 = (p_4_bar - p_1_bar * p_3_bar) + 3 * (
-                p_2_bar ** 2 - p_1_bar * p_3_bar
+                p_2_bar**2 - p_1_bar * p_3_bar
             )
             beta_2 = (
                 -p_3_bar * (p_3_bar - p_1_bar * p_2_bar)
-                - p_4_bar * (p_1_bar ** 2 - p_2_bar)
-                - p_2_bar * (p_2_bar ** 2 - p_1_bar * p_3_bar)
+                - p_4_bar * (p_1_bar**2 - p_2_bar)
+                - p_2_bar * (p_2_bar**2 - p_1_bar * p_3_bar)
             )
 
-            eta_1 = beta_1 ** 3 - 27 * beta_2 ** 2
+            eta_1 = beta_1**3 - 27 * beta_2**2
             eta_2 = (
                 -9 * (p_3_bar - p_1_bar * p_2_bar) ** 2
-                + 27 * (p_1_bar ** 2 - p_2_bar) * (p_2_bar ** 2 - p_1_bar * p_3_bar)
-                - 3 * (p_4_bar - p_1_bar * p_3_bar) * (p_1_bar ** 2 - p_2_bar)
+                + 27 * (p_1_bar**2 - p_2_bar) * (p_2_bar**2 - p_1_bar * p_3_bar)
+                - 3 * (p_4_bar - p_1_bar * p_3_bar) * (p_1_bar**2 - p_2_bar)
             )
             eta_3 = beta_1 * (p_3_bar - p_1_bar * p_2_bar) - 3 * p_1_bar * beta_2
             eta_4 = -(p_4_bar - p_1_bar * p_3_bar)
-            eta_5 = p_1_bar ** 2 - p_2_bar
+            eta_5 = p_1_bar**2 - p_2_bar
             return [eta_1, eta_2, eta_3, eta_4, eta_5]
 
         diff_in_box = self.position_center - other_ellipsoid.position_center
@@ -920,9 +938,9 @@ class Ellipsoid(Particle):
                 # For each point on the surface with its corresponding homogeneous angle
                 normal_vec = np.array(
                     [
-                        i_point[0] / self.semi_axis_1 ** 2,
-                        i_point[1] / self.semi_axis_2 ** 2,
-                        i_point[2] / self.semi_axis_3 ** 2,
+                        i_point[0] / self.semi_axis_1**2,
+                        i_point[1] / self.semi_axis_2**2,
+                        i_point[2] / self.semi_axis_3**2,
                     ]
                 )
                 unit_normal = normal_vec / np.linalg.norm(normal_vec)
@@ -947,7 +965,7 @@ class Ellipsoid(Particle):
         largest_semi_axis = np.max(
             [self.semi_axis_1, self.semi_axis_2, self.semi_axis_3]
         )
-        erosion_thickness = smallest_semi_axis ** 2 / largest_semi_axis
+        erosion_thickness = smallest_semi_axis**2 / largest_semi_axis
         # Semi-latus rectum
         return erosion_thickness
 
@@ -988,9 +1006,9 @@ class Ellipsoid(Particle):
         dir_local = self.rotation_mat.T.dot(direction)
         dir_normal = np.array(
             [
-                dir_local[0] * (self.semi_axis_1 ** 2),
-                dir_local[1] * (self.semi_axis_2 ** 2),
-                dir_local[2] * (self.semi_axis_3 ** 2),
+                dir_local[0] * (self.semi_axis_1**2),
+                dir_local[1] * (self.semi_axis_2**2),
+                dir_local[2] * (self.semi_axis_3**2),
             ]
         )
         rescale_factor = np.sqrt(
@@ -1001,10 +1019,7 @@ class Ellipsoid(Particle):
                 + (dir_normal[2] / self.semi_axis_3) ** 2
             )
         )
-        dir_normal_unit = dir_normal / np.linalg.norm(dir_normal)
-        point_on_ellipsoid_loc = (
-            rescale_factor * dir_normal + self.delta * dir_normal_unit
-        )
+        point_on_ellipsoid_loc = rescale_factor * dir_normal
         point_on_ellipsoid_glob = (
             self.rotation_mat.dot(point_on_ellipsoid_loc) + self.position_center
         )
@@ -1029,3 +1044,11 @@ class Ellipsoid(Particle):
             unit_vector = np.array([0, 0, 0])
         return intersection_length, unit_vector
 
+    def rescale(self, rescale_parameter):
+        """Rescale all size parameters and the position according to *rescale_parameter*."""
+        self.axis_1 *= rescale_parameter
+        self.axis_2 *= rescale_parameter
+        self.axis_3 *= rescale_parameter
+        self._inflation = self.inflation * rescale_parameter
+        # The inflation is a length the axes hold, scaled with them
+        super().rescale(rescale_parameter)

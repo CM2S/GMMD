@@ -1,40 +1,365 @@
-# import unittest
-# from unittest.mock import sentinel, Mock, patch, call
-#
-# # from microstructure.phase import Phase
-#
-#
-# from micgenmethod.microstructure_gen_method import GenerationMethod
-# from microstructure.phase import Phase
-#
-#
-# class TestPhase(unittest.TestCase):
-#     """Class for the unit test regarding the phase class"""
-#
-#     @patch("microstrucutre.phase.FixedValue")
-#     @patch("microstructure.particleclasses.Disk")
-#     def test_generate_particles_number(self, mock_fixed_value, mock_disk):
-#         mock_fixed_value.value = 0.1
-#         rve_dims = [1.0, 1.0]
-#         descriptors = {
-#             "phase_type": 2,
-#             "n": 10,
-#             "vf": 0.1,
-#         }
-#         phase = Phase("1", descriptors)
-#         particles = phase.generate_particles(rve_dims)
-#         for particle in particles:
-#             self.assertIsInstance(particle, mock_disk)
-#
-#     @patch("microstructure.phase.FixedValue")
-#     @patch("microstructure.particleclasses.Disk")
-#     def test_generate_particles_vf(self, mock_fixed_value, mock_disk):
-#         rve_dims = [1.0, 1.0]
-#         descriptors = {
-#             "phase_type": 2,
-#             "r": 10,
-#             "vf": 0.1,
-#         }
-#         phase = Phase("1", descriptors)
-#         particles = phase.generate_particles(rve_dims)
-#         self.assertEqual(len(particles), 10)
+"""Unit tests regarding the Phase class."""
+
+import unittest
+from unittest.mock import Mock, patch
+
+import numpy as np
+
+from geommicgen.microstructure import phase as phase_module
+from geommicgen.microstructure.phase import Phase
+from geommicgen.microstructure.particleclasses.particle import Particle
+from geommicgen.microstructure.particleclasses.disk import Disk
+
+
+class TestParticlesForAVolumeFraction(unittest.TestCase):
+    """Test class for the particles of a phase given by its volume fraction."""
+
+    def test_they_fill_the_fraction(self):
+        phase = Phase("1", {"phase_type": 2, "r": 0.1, "vf": 0.3})
+        phase.generate_particles([1.0, 1.0])
+        filled = sum(i_particle.volume for i_particle in phase.particles)
+        self.assertGreaterEqual(filled, 0.3)
+        self.assertLess(filled - phase.particles[-1].volume, 0.3)
+
+    @patch.object(phase_module, "MAX_PARTICLES", 50)
+    def test_particles_too_small_for_it_are_refused(self):
+        phase = Phase("1", {"phase_type": 2, "r": 0.001, "vf": 0.5})
+        with self.assertRaisesRegex(ValueError, "Phase 1 has 50 particles"):
+            phase.generate_particles([1.0, 1.0])
+        # A hundred and sixty thousand disks would fill it; with no bound, a
+        # description asking for far more built particles until the memory ran out
+
+
+class TestSpecifiedValues(unittest.TestCase):
+    """Test class for a descriptor given particle by particle."""
+
+    def test_a_phase_that_runs_out_of_them_is_refused(self):
+        phase = Phase(
+            "1",
+            {
+                "phase_type": 2,
+                "r_distribution": "specified",
+                "r": np.array([0.1, 0.1]),
+                "vf": 0.5,
+            },
+        )
+        with self.assertRaisesRegex(
+            ValueError, "r is specified for 2 particles, one value each, and 3 are"
+        ):
+            phase.generate_particles([1.0, 1.0])
+        # Two disks fill less than the fraction; the third went past the values, as
+        # an array index out of bounds
+
+
+class PhaseInit(unittest.TestCase):
+    from geommicgen.microstructure.particleclasses import Matrix, Disk
+    from geommicgen.microstructure.phase import (
+        FixedValue,
+        SpecifiedValue,
+        UniformDistribution,
+        NormalDistribution,
+        LogNormalDistribution,
+        VonMisesDistribution,
+        DiscreteDistribution,
+    )
+
+    def test_all_phase_types_are_particle_subclasses(self):
+        " Check that every class in Phase.phase_types is a subclass of Particle "
+        for particle_class in Phase.phase_types.values():
+            self.assertTrue(
+                issubclass(particle_class, Particle),
+                msg="{0} is not a subclass of Particle".format(particle_class.__name__),
+            )
+
+    def test_uniform_distribution_init(self):
+        descriptors = {
+            "phase_type": 2,
+            "n": 10,
+            "r_distribution": "uniform",
+            "r_low": 1,
+            "r_high": 2,
+        }
+        phase = Phase("name", descriptors)
+        self.assertIsInstance(phase.descriptors["r"], self.UniformDistribution)
+
+    def test_normal_distribution_init(self):
+        descriptors = {
+            "phase_type": 2,
+            "n": 10,
+            "r_distribution": "normal",
+            "r_mean": 1,
+            "r_sigma": 2,
+        }
+        phase = Phase("name", descriptors)
+        self.assertIsInstance(phase.descriptors["r"], self.NormalDistribution)
+
+    def test_log_normal_distribution_init(self):
+        descriptors = {
+            "phase_type": 2,
+            "n": 10,
+            "r_distribution": "lognormal",
+            "r_mean": 1,
+            "r_sigma": 2,
+        }
+        phase = Phase("name", descriptors)
+        self.assertIsInstance(phase.descriptors["r"], self.LogNormalDistribution)
+
+    def test_von_mises_distribution_init(self):
+        descriptors = {
+            "phase_type": 3,
+            "n": 10,
+            "major_axis": 0.2,
+            "minor_axis": 0.1,
+            "angle_distribution": "vonmises",
+            "angle_kappa": 1,
+            "angle_loc": 0,
+            "angle_scale": 1,
+        }
+        phase = Phase("name", descriptors)
+        self.assertIsInstance(phase.descriptors["angle"], self.VonMisesDistribution)
+
+    def test_discrete_distribution_init(self):
+        descriptors = {
+            "phase_type": 2,
+            "n": 10,
+            "r_distribution": "discrete",
+            "r_value_1": 1,
+            "r_prob_1": 0.5,
+            "r_value_2": 2,
+            "r_prob_2": 0.5,
+        }
+        phase = Phase("name", descriptors)
+        self.assertIsInstance(phase.descriptors["r"], self.DiscreteDistribution)
+
+
+    def test_specified_value_distribution_init(self):
+        descriptors = {
+            "phase_type": 2,
+            "n": 10,
+            "r_distribution": "specified",
+            "r": [1, 2, 3],
+        }
+        phase = Phase("name", descriptors)
+        self.assertIsInstance(phase.descriptors["r"], self.SpecifiedValue)
+
+    def test_fixed_value_distribution_init(self):
+        descriptors = {
+            "phase_type": 2,
+            "n": 10,
+            "r_distribution": "fixed",
+            "r": 1,
+        }
+        phase = Phase("name", descriptors)
+        self.assertIsInstance(phase.descriptors["r"], self.FixedValue)
+
+    def test_invalid_distribution_raises_valueerror(self):
+        descriptors = {
+            "phase_type": 2,
+            "n": 10,
+            "r_distribution": "invalid_distribution",
+            "r": 1,
+        }
+        with self.assertRaises(ValueError):
+            Phase("name", descriptors)
+
+
+
+class TestPhaseProperties(unittest.TestCase):
+
+    def setUp(self):
+        self.phase = Phase.__new__(Phase)
+        self.phase.microstructure = Mock(volume=1)
+               
+    def test_volume_fraction(self):
+        self.phase.particles = [Mock(volume=0.1), Mock(volume=0.2), Mock(volume=0.3)] 
+        self.assertAlmostEqual(self.phase.volume_fraction, 0.6)
+
+    def test_volume_fraction_circ(self):
+        self.phase.particles = [Mock(volume_circ = 0.1), Mock(volume_circ = 0.15), Mock(volume_circ = 0.2) ]
+        self.assertAlmostEqual(self.phase.volume_fraction_circ,0.45)
+
+    def test_number_particles(self):
+        self.phase.particles = [Mock() for _ in range(5)]
+        self.assertEqual(self.phase.number_particles,5)
+
+
+class GenerateParticles(unittest.TestCase):
+
+    def setUp(self):
+        self.phase = Phase.__new__(Phase)
+        self.phase.name = 'FakePhase'
+        self.rve_dims = [1,1]
+        self.phase.microstructure = Mock(volume = 1)
+
+    def test_generate_particles_n(self):
+        " Check if generating particles by specifying their number is working"
+        # add check to see if the radius of each particle is correct
+        self.phase.descriptors = {'n' : Mock(value=3) , 'radius': Mock()}
+        self.phase.descriptors['n'].generate_sample.return_value = [3,3,3]
+        self.phase.descriptors['radius'].generate_sample.return_value = [1,2,3]
+        self.phase.type = Mock()
+        self.phase.generate_particles(self.rve_dims)
+        self.assertIsInstance(self.phase.particles, list)
+        self.assertEqual( len(self.phase.particles) , 3)
+
+        # Edge case where n=1 and volume fraction was also specified. phase.generate_particles should ignore vf. If it does not, an error will appear because the volume of the particle is not specified.
+        self.phase.descriptors = {'n' : Mock(value=1), 'vf' : Mock()}
+        self.phase.descriptors['n'].generate_sample.return_value = [1]
+        self.phase.type = Mock()
+        self.phase.generate_particles(self.rve_dims)
+        self.assertEqual( len(self.phase.particles) , 1)       
+
+
+    def test_generate_particles_vf(self):
+        " Check if generating particles by specifying the volume fraction is working"    
+        self.phase.descriptors = {'vf' : Mock(value=0.3)}
+        self.phase.descriptors['vf'].generate_sample.return_value = [0.3,0.3,0.3]
+        self.phase.type = Mock()
+        self.phase.type.return_value.volume = 0.2
+        self.phase.generate_particles(self.rve_dims)
+        self.assertIsInstance(self.phase.particles, list)
+        self.assertEqual( len(self.phase.particles) , 2)
+        self.assertEqual( self.phase.volume_fraction , 0.4 )
+
+class DistributionTests(unittest.TestCase):
+    from geommicgen.microstructure.phase import SpecifiedValue, FixedValue, NormalDistribution, LogNormalDistribution, UniformDistribution, VonMisesDistribution, DiscreteDistribution
+
+    def test_specified_value_distribution(self):
+        distribution = self.SpecifiedValue("name",[1,2,3,4])
+        self.assertEqual(distribution.generate_sample(), 1)
+        self.assertEqual(distribution.generate_sample(2), [2,3])
+        self.assertEqual(distribution.generate_sample(), 4)
+
+    def test_fixed_value_distribution(self):
+        distribution = self.FixedValue("name",2)
+        self.assertEqual(distribution.generate_sample(), 2)
+        np.testing.assert_array_equal(distribution.generate_sample(3), np.array([2,2,2]))
+
+    def test_normal_distribution(self):
+        distribution = self.NormalDistribution("name", mean=2, sigma=0.5)
+        self.assertEqual(distribution.mean, 2)
+        self.assertEqual(distribution.sigma, 0.5)
+        self.assertIsInstance(distribution.generate_sample(), np.floating)
+        self.assertEqual(len(distribution.generate_sample(5)), 5)
+
+    def test_log_normal_distribution(self):
+        distribution = self.LogNormalDistribution("name", mean=2, sigma=0.5)
+        self.assertEqual(distribution.mean, 2)
+        self.assertEqual(distribution.sigma, 0.5)
+        self.assertIsInstance(distribution.generate_sample(), np.floating)
+        self.assertEqual(len(distribution.generate_sample(5)), 5)
+
+    def test_uniform_distribution(self):
+        distribution = self.UniformDistribution("name", 1, 2.5)
+        self.assertEqual(distribution.low, 1)
+        self.assertEqual(distribution.high, 2.5)
+        self.assertIsInstance(distribution.generate_sample(), np.floating)
+        self.assertEqual(len(distribution.generate_sample(5)), 5)
+        with self.assertRaises(ValueError):    
+            distribution = self.UniformDistribution("name", 2, 1)
+
+
+    def test_vonMises_distribution(self):
+        distribution = self.VonMisesDistribution("name", 2, 0.1,5)
+        self.assertEqual(distribution.kappa, 2)
+        self.assertEqual(distribution.loc, 0.1)
+        self.assertEqual(distribution.scale, 5)
+        self.assertIsInstance(distribution.generate_sample(), np.floating)
+        self.assertEqual(len(distribution.generate_sample(5)), 5)
+
+
+    def test_discrete_distribution(self):
+        distribution = self.DiscreteDistribution("name", [1,2,3], [0.2,0.3,0.5])
+        self.assertIn(distribution.generate_sample(), [1,2,3])
+        n_samples = 10000
+        sample = distribution.generate_sample(n_samples)
+        self.assertEqual(len(sample), n_samples)
+        # With a large sample, frequencies should approach the given
+        # probabilities. Using a tolerance instead of an exact count avoids
+        # flakiness that comes from checking the outcome of a small number of
+        # random draws.
+        counts = list(sample)
+        self.assertAlmostEqual(counts.count(1) / n_samples, 0.2, delta=0.03)
+        self.assertAlmostEqual(counts.count(2) / n_samples, 0.3, delta=0.03)
+        self.assertAlmostEqual(counts.count(3) / n_samples, 0.5, delta=0.03)
+                         
+        with self.assertRaises(ValueError):
+            distribution = self.DiscreteDistribution("name", [1,2,3], [0.2,0.3])  # Probabilities do not sum to 1
+        with self.assertRaises(ValueError):
+            distribution = self.DiscreteDistribution("name", [1,2,3], [0.2,0.9])  # Probabilities do not sum to 1
+
+
+class TestDescriptorKeys(unittest.TestCase):
+    """Test class for the keys of a phase and the parameters they give."""
+
+    def test_a_key_that_begins_as_another_gives_only_its_own(self):
+        phase = Phase(
+            "1",
+            {
+                "phase_type": 5,
+                "vf": 0.02,
+                "axis_1": 0.2,
+                "ratio_321_distribution": "uniform",
+                "ratio_321_low": 0.5,
+                "ratio_321_high": 0.5,
+                "p_3": 0.1,
+                "phi_z": 0.2,
+            },
+        )
+        self.assertEqual(
+            set(phase.descriptors), {"vf", "axis_1", "ratio_321", "p_3", "phi_z"}
+        )
+        phase.generate_particles([1.0, 1.0, 1.0])
+        self.assertEqual(
+            [phase.particles[0].axis_2, phase.particles[0].axis_3], [0.1, 0.1]
+        )
+        # ratio_321 gave ratio_32 as well, so no ellipsoid could be described by it
+
+    def test_a_key_that_gives_no_parameter_is_refused(self):
+        with self.assertRaisesRegex(ValueError, "Phase 1 gives major_axis"):
+            Phase("1", {"phase_type": 2, "r": 0.1, "n": 3, "major_axis": 0.2})
+        # It was ignored, so a misspelt key went unnoticed
+
+    def test_cylinders_by_the_ratio_of_their_length_to_their_radius(self):
+        angles = {"azimuth_angle": 0.1, "polar_angle": 0.2}
+        for i_descriptors in (
+            {"r_cyl": 0.05, "ratio": 4.0, "n": 2},
+            {"length": 0.2, "ratio": 4.0, "vf": 0.01},
+        ):
+            with self.subTest(descriptors=i_descriptors):
+                phase = Phase("1", dict(i_descriptors, phase_type=7, **angles))
+                phase.generate_particles([1.0, 1.0, 1.0])
+                self.assertAlmostEqual(phase.particles[0].r_cyl, 0.05, places=15)
+                self.assertAlmostEqual(phase.particles[0].length, 0.2, places=15)
+        with self.assertRaisesRegex(ValueError, "length"):
+            Phase(
+                "1", {"phase_type": 7, "r_cyl": 0.2, "ratio": 4.0, "n": 1, **angles}
+            ).generate_particles([1.0, 1.0, 1.0])
+        # The ratio was used by the cylinder and named in two of its descriptions, but
+        # not declared, so neither description was accepted. The length it gives is
+        # bounded as a length given is
+
+    def test_every_parameter_declared_is_in_a_description_and_the_other_way(self):
+        for i_type in Phase.phase_types.values():
+            with self.subTest(particle=i_type.__name__):
+                described = set().union(*i_type.acceptable_descriptions)
+                self.assertEqual(set(i_type.possible_parameters), described)
+        # The eccentricity of an ellipse was declared and in no description, and the
+        # ratio of a cylinder in two descriptions and not declared
+class TestDiscreteDistribution(unittest.TestCase):
+    """Test class for a descriptor that takes one of a few values."""
+
+    def test_the_parameters_of_one_are_its_own(self):
+        declared = set(phase_module.DiscreteDistribution.parameters)
+        distribution = phase_module.DiscreteDistribution("r", [0.1, 0.2], [0.5, 0.5])
+        self.assertEqual(
+            distribution.parameters, ["value_1", "prob_1", "value_2", "prob_2"]
+        )
+        self.assertEqual(set(phase_module.DiscreteDistribution.parameters), declared)
+        self.assertEqual(len(declared), 20)
+        # They were written over the class's, from which the input data file takes the
+        # keywords it reads
+
+
+if __name__ == "__main__":
+    unittest.main()
