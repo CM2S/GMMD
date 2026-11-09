@@ -17,7 +17,6 @@ The input files for the tutorials are located in the ``geommicgen/resources/exam
     MD_Ellipses/MD_Ellipses
     MD_Disks/MD_Disks
     RSA_Fibers/RSA_Fibers
-    MD_Inner_Outer_Disks/MD_Inner_Outer_Disks
     MD_Ellipsoids/MD_Ellipsoids
     MD_Spheres_Cylinders/MD_Spheres_Cylinders
     RSA_Squares/RSA_Squares
