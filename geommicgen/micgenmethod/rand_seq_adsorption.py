@@ -297,7 +297,7 @@ class RandomSequentialAdsorption(GenerationMethod):
 
                     # save image of every step of simulation
                     if self.make_gif:
-                        kwargs = {"sim_gif": True, "simulation_gif_dir" : self.gif_dir, "step": self.step, "save": False}
+                        kwargs = {"sim_gif": True, "simulation_gif_dir" : self.gif_dir, "iteration": self.step, "save": False}
                         plot_funcs.plot_particles(microstructure_sample.particles, microstructure_sample.rve_dims, self.sample_dir, **kwargs)
  
                 # Contract all the particles back to their original. If there is no minimum distance, the particles will not be contracted, since min_distance is 0.
