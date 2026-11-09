@@ -115,7 +115,7 @@ def print_initial_message(input_file_path, label="Input file"):
         mesh a command was given.
     """
     print_to_file("\n")
-    print_to_file("Geometrical microstructure generation")
+    print_to_file("Geometric Methods for Microstructure Design")
     print_to_file("=" * 80)
     print_to_file("Computational Multi-Scale Modelling of".rjust(80))
     print_to_file("Solids and Structures Research Group".rjust(80))

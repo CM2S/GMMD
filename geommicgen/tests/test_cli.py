@@ -475,7 +475,7 @@ class TestCommandReports(unittest.TestCase):
 
     def assert_framed(self, printed, label):
         """Check the heading, the file worked on and the table of times are there."""
-        self.assertIn("Geometrical microstructure generation", printed)
+        self.assertIn("Geometric Methods for Microstructure Design", printed)
         self.assertIn("{0}: ".format(label), printed)
         self.assertIn("Starting program execution at", printed)
         self.assertIn("Execution times:", printed)

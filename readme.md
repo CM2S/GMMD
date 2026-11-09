@@ -1,6 +1,6 @@
 # GMMD
 
-Geometrical microstructure generation by molecular dynamics.
+Geometric Methods for Microstructure Design.
 
 GMMD is a numerical tool developed in the context of computational mechanics to aid the design and development of advanced materials. Employing a time-driven molecular dynamics simulation, it generates microstructures of matrix-composite materials in a computationally **efficient** and **robust** way, meshes them, and analyses them.
 
