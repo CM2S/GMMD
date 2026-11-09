@@ -57,7 +57,6 @@ Many composites exceed these fractions; the carbon-fibre-reinforced metal compos
 In the MD method of GMMD, the particles move and repel each other until no overlap remains, with an adaptive time step and isokinetic thermostats that control their velocities [@VILACHA2021104069].
 This method reaches 80 % for identical disks and 60 % for identical spheres [@FERREIRA2022104068].
 For that composite and for a polycarbonate/acrylonitrile butadiene styrene (PC/ABS) blend, the two-point correlation functions of its RVEs agree with those measured on micrographs [@FERREIRA2022104068].
-GMMD also offers RSA, for volume fractions below its saturation limit.
 
 GMMD is meant for researchers in computational mechanics and materials design who need many RVEs and want a single tool that takes them from the statistical description of a microstructure to a mesh.
 The methods are purely geometric, in that they do not simulate how the microstructure forms.
@@ -129,9 +128,9 @@ Its MD method, the Adaptive Multi-temperature Isokinetic Method (AMINO), was dev
 In these papers, the code generated RVEs of up to 990 particles on a single core, in 11 s for 500 disks at 80 % and in 49 s for 500 spheres at 60 % [@FERREIRA2022104068].
 The rest of that PhD thesis, on the data-driven design of thermoplastic blends, also used RVEs generated with GMMD and its earlier versions.
 Since then, such RVEs have been used in six papers: on damage in PC/ABS blends [@Amaro2024], on composite Bayesian optimization of materials and structures [@Coelho2025], on the microstructural design of PC/ABS blends [@CarvalhoAlves2025], on clustering-based reduced-order models at finite strain [@Ferreira2025], on second-order homogenization with nonlocal damage [@Goncalves2026], and on curing-induced stresses in fibre-reinforced polymers [@CarvalhoAlves2026].
+By November 2026, at least ten publications by other research groups had cited one or both of the two papers, and five of these propose methods to generate RVEs.
 
 Since 2026, the code has been prepared for use outside the group that wrote it.
-A run is described by one validated input file and records the code that produced it.
 The documentation, with tutorials, is hosted at <https://gmmd.readthedocs.io>, and each release is archived on Zenodo.
 
 # AI usage disclosure
