@@ -41,9 +41,9 @@ Computational homogenization models the material's mechanical response by solvin
 GMMD (Geometric Methods for Microstructure Design) is an open-source Python package that generates periodic RVEs of particle-reinforced materials, meshes them for finite element and FFT-based solvers, and measures their spatial statistics.
 Its time-driven molecular dynamics (MD) method [@VILACHA2021104069; @FERREIRA2022104068] packs convex particles without overlap up to volume fractions of 80 % for identical disks and 60 % for identical spheres.
 As an alternative, GMMD can place them by random sequential adsorption (RSA).
-The meshes it builds are periodic and conform to the particle surfaces.
 The particles are disks, ellipses and squares in 2D, and spheres, ellipsoids, cylinders and long fibres in 3D.
 Their sizes, shapes and orientations follow statistical distributions given in a single YAML input file.
+The meshes GMMD builds are periodic and conform to the particle surfaces.
 
 # Statement of need
 
@@ -80,19 +80,16 @@ The generators closest to GMMD in purpose are MicroStructPy [@hart2020microstruc
 MicroStructPy places seeds with a tolerated overlap and meshes the power diagram they define, so a particle is meshed as a tessellation cell rather than as its own shape.
 MicroStructPy also has no cylinders.
 gmshModel meshes periodic RVEs with Gmsh but places only spheres and axis-aligned cylinders of identical radius.
-microgen meshes periodic geometries with Gmsh but takes the particle positions as input instead of placing the particles.
+microgen meshes periodic geometries with Gmsh but takes the particle positions as input.
 Mérope targets FFT-based solvers and packs spheres by RSA or, more densely, by the Williams–Philipse algorithm, under a noncommercial research licence.
 Commercial generators, such as those in Digimat-FE and GeoDict, offer similar functions, but their methods cannot be inspected or extended.
 
-Adding the capabilities of GMMD to one of these generators would mean replacing its core.
-In MicroStructPy and Kanapy, each particle becomes a cell of a space-filling tessellation instead of keeping its own shape in a matrix.
-gmshModel places its inclusions one at a time at random positions, as RSA does, so it saturates in the same way.
-The voxel grids of DREAM.3D and PoreSpy cannot hold exact particle surfaces.
+Adding the capabilities of GMMD to one of these generators would mean replacing its core: the space-filling tessellations of MicroStructPy and Kanapy, the voxel grids of DREAM.3D and PoreSpy, or the random placement of gmshModel, which saturates as RSA does.
 The licence of Mérope does not allow an open-source package to build on it.
 GMMD was therefore built as a package of its own, around three choices.
 First, its MD method separates particles of every convex shape with one contact measure, the intersection length, instead of a separate measure for each pair of shapes.
-Particles of different shapes can therefore share one RVE, as the spheres and ellipsoids of \autoref{fig:example} do.
 The intersection length is the shortest translation that separates two particles; GMMD computes it on their Minkowski difference once the GJK algorithm [@Gilbert1988] detects that they intersect.
+Particles of different shapes can therefore share one RVE, as the spheres and ellipsoids of \autoref{fig:example} do.
 Second, its meshes are periodic and conform to the exact particle surfaces, instead of approximating the particles by voxels or tessellation cells.
 @Amaro2024, for example, inserted cohesive elements along these surfaces to model interfacial damage.
 Third, its analysis tools measure the spatial statistics of the particles, including set-Voronoi Minkowski tensors, so that an RVE can be compared with the material it represents.
@@ -109,7 +106,7 @@ An RVE from another source enters the pipeline at the same point.
 The central abstraction is the particle.
 Each shape is implemented as a subclass of an abstract particle class and defines its size, its volume, its support function (the farthest point of the particle in a given direction) and a test for points inside it.
 The GJK test and the intersection length on the Minkowski difference use only the support function, so a new convex shape gains both by defining its support function.
-The iterative computation on the Minkowski difference is slower than a closed form, so GMMD uses closed-form tests instead for pairs of disks, pairs of spheres and pairs of ellipses.
+The iterative computation on the Minkowski difference is slower than a closed form, so GMMD uses closed-form tests instead for pairs of disks, of spheres and of ellipses.
 
 MD and RSA are implemented as subclasses of one abstract class for generation methods, so they read the same input file and write the same `mic.json`.
 The neighbour search is a separate choice in the input file, between a cell list, a Verlet list and a test of every pair, because the fastest scheme depends on the number of particles and their aspect ratios.
