@@ -36,56 +36,100 @@ bibliography: paper.bib
 
 # Summary
 
-The macroscopic behaviour of particle-reinforced composites, porous materials and polymer blends depends on how the particles of one phase, which may be voids, are arranged in the matrix of another. Computational homogenization predicts this behaviour by solving a boundary value problem on a representative volume element (RVE), a sample of the microstructure that represents the material in an average sense [@HILL1963357].
+The macroscopic behaviour of particle-reinforced composites, porous materials and polymer blends depends on how the particles of one phase, which may be voids, are arranged in the matrix of another.
+Computational homogenization predicts this behaviour by solving a boundary value problem on a representative volume element (RVE), a sample of the microstructure that represents the material in an average sense [@HILL1963357].
 GMMD (Geometric Methods for Microstructure Design) is an open-source Python package that generates periodic RVEs of particle-reinforced materials, meshes them for finite element and FFT-based solvers, and measures their spatial statistics.
-Its time-driven molecular dynamics (MD) method [@VILACHA2021104069; @FERREIRA2022104068] packs convex particles without overlap up to volume fractions of 80 % for identical disks and 60 % for identical spheres. The meshes it builds are periodic and conform to the particle surfaces.
-The particles are disks, ellipses and squares in 2D, and spheres, ellipsoids, cylinders and long fibres in 3D. Their sizes, shapes and orientations follow statistical distributions given in a single YAML input file. GMMD can also place them by random sequential adsorption (RSA).
+Its time-driven molecular dynamics (MD) method [@VILACHA2021104069; @FERREIRA2022104068] packs convex particles without overlap up to volume fractions of 80 % for identical disks and 60 % for identical spheres.
+The meshes it builds are periodic and conform to the particle surfaces.
+The particles are disks, ellipses and squares in 2D, and spheres, ellipsoids, cylinders and long fibres in 3D.
+Their sizes, shapes and orientations follow statistical distributions given in a single YAML input file.
+GMMD can also place them by random sequential adsorption (RSA).
 
 # Statement of need
 
-An RVE of a particle-reinforced material must reach the volume fraction of the real material, follow its measured distributions of particle size, shape and orientation, and be periodic, so that periodic boundary conditions apply. It must also be cheap enough to generate many times: to check that the RVE is large enough, to average over realizations, and to build the datasets of data-driven material design [@BESSA2017320].
-RSA places particles one at a time at random positions. It is fast, but it saturates at about 55 % for identical disks and 38 % for identical spheres [@Torquato2002, p. 88]. Many composites exceed these fractions; the carbon-fibre-reinforced metal composite reproduced by @FERREIRA2022104068, for instance, has a fibre volume fraction of 67 %.
-In the MD method of GMMD, the particles move and repel each other until no overlap remains, with an adaptive time step and isokinetic thermostats that control their velocities [@VILACHA2021104069]. This method reaches 80 % for identical disks and 60 % for identical spheres [@FERREIRA2022104068]. For that composite and for a polycarbonate/acrylonitrile butadiene styrene (PC/ABS) blend, the two-point correlation functions of its RVEs agree with those measured on micrographs [@FERREIRA2022104068]. GMMD also offers RSA, for volume fractions below its saturation limit.
+An RVE of a particle-reinforced material must reach the volume fraction of the real material, follow its measured distributions of particle size, shape and orientation, and be periodic, so that periodic boundary conditions apply.
+It must also be cheap enough to generate many times: to check that the RVE is large enough, to average over realizations, and to build the datasets of data-driven material design [@BESSA2017320].
+RSA places particles one at a time at random positions.
+It is fast, but it saturates at about 55 % for identical disks and 38 % for identical spheres [@Torquato2002, p. 88].
+Many composites exceed these fractions; the carbon-fibre-reinforced metal composite reproduced by @FERREIRA2022104068, for instance, has a fibre volume fraction of 67 %.
+In the MD method of GMMD, the particles move and repel each other until no overlap remains, with an adaptive time step and isokinetic thermostats that control their velocities [@VILACHA2021104069].
+This method reaches 80 % for identical disks and 60 % for identical spheres [@FERREIRA2022104068].
+For that composite and for a polycarbonate/acrylonitrile butadiene styrene (PC/ABS) blend, the two-point correlation functions of its RVEs agree with those measured on micrographs [@FERREIRA2022104068].
+GMMD also offers RSA, for volume fractions below its saturation limit.
 
-GMMD is meant for researchers in computational mechanics and materials design who need many RVEs and want a single tool that takes them from the statistical description of a microstructure to a mesh. The methods are purely geometric, in that they do not simulate how the microstructure forms.
-For finite element codes, GMMD builds periodic meshes that conform to the particle surfaces, using Gmsh [@Geuzaine2009]; for FFT-based solvers, it builds voxel grids. Its analysis tools compute the two-point correlation function, Ripley's $K$ function, nearest-neighbour distances, and Voronoi metrics based on Minkowski tensors [@SchroderTurk2011].
-GMMD also plots each RVE (PDF in 2D, VTK in 2D and 3D) and animates 2D generations. A fixed seed gives the same RVE on every run. \autoref{fig:example} shows an RVE of spheres and ellipsoids.
+GMMD is meant for researchers in computational mechanics and materials design who need many RVEs and want a single tool that takes them from the statistical description of a microstructure to a mesh.
+The methods are purely geometric, in that they do not simulate how the microstructure forms.
+For finite element codes, GMMD builds periodic meshes that conform to the particle surfaces, using Gmsh [@Geuzaine2009]; for FFT-based solvers, it builds voxel grids.
+Its analysis tools compute the two-point correlation function, Ripley's $K$ function, nearest-neighbour distances, and Voronoi metrics based on Minkowski tensors [@SchroderTurk2011].
+GMMD also plots each RVE (PDF in 2D, VTK in 2D and 3D) and animates 2D generations.
+A fixed seed gives the same RVE on every run.
+\autoref{fig:example} shows an RVE of spheres and ellipsoids.
 
 ![A periodic RVE of spheres (blue) and ellipsoids (red) generated by GMMD. \label{fig:example}](mic_example.png){width=50%}
 
 # State of the field
 
-Open-source microstructure generators mostly target polycrystals. Neper [@Neper2011; @Neper2018] builds Laguerre tessellations whose seeds are optimized to match target cell statistics, and Kanapy [@Kanapy2019] packs growing ellipsoids by particle dynamics and assigns the remaining space to the nearest grain. Both produce space-filling grains, not particles embedded in a matrix. DREAM.3D [@Groeber2014] and PoreSpy [@gostick2019porespy] place particles on a voxel grid, so the particle surfaces are not represented exactly and no conforming mesh can be built from them.
+Open-source microstructure generators mostly target polycrystals.
+Neper [@Neper2011; @Neper2018] builds Laguerre tessellations whose seeds are optimized to match target cell statistics, and Kanapy [@Kanapy2019] packs growing ellipsoids by particle dynamics and assigns the remaining space to the nearest grain.
+Both produce space-filling grains, not particles embedded in a matrix.
+DREAM.3D [@Groeber2014] and PoreSpy [@gostick2019porespy] place particles on a voxel grid, so the particle surfaces are not represented exactly and no conforming mesh can be built from them.
 
-The tools closest to GMMD in purpose are MicroStructPy [@hart2020microstructpy], gmshModel [@gmshModel], microgen [@microgen] and Mérope [@Josien2024]. MicroStructPy places seeds with a tolerated overlap and meshes the power diagram they define, so a particle is meshed as a tessellation cell rather than as its own shape. MicroStructPy also has no cylinders. gmshModel meshes periodic RVEs with Gmsh but places only spheres and axis-aligned cylinders of identical radius. microgen meshes periodic geometries with Gmsh but does not place particles: their positions are an input. Mérope packs spheres and polyhedra for FFT-based solvers, under a licence that restricts it to non-commercial research use.
+The tools closest to GMMD in purpose are MicroStructPy [@hart2020microstructpy], gmshModel [@gmshModel], microgen [@microgen] and Mérope [@Josien2024].
+MicroStructPy places seeds with a tolerated overlap and meshes the power diagram they define, so a particle is meshed as a tessellation cell rather than as its own shape.
+MicroStructPy also has no cylinders. gmshModel meshes periodic RVEs with Gmsh but places only spheres and axis-aligned cylinders of identical radius. microgen meshes periodic geometries with Gmsh but does not place particles: their positions are an input.
+Mérope packs spheres and polyhedra for FFT-based solvers, under a licence that restricts it to non-commercial research use.
 
-Adding the capabilities of GMMD to one of these packages would mean replacing its core. The tessellation pipeline of MicroStructPy and the grain model of Kanapy have no place for non-overlapping particles in a matrix, the voxel tools cannot hold exact particle surfaces, and the licence of Mérope does not allow an open-source package to build on it. GMMD was therefore built as its own package, around three choices. Its MD method separates any set of convex particles with one contact measure, the intersection length: the shortest translation that separates two particles, computed on their Minkowski difference once the GJK algorithm [@Gilbert1988] detects that they intersect. Its meshes are periodic and conform to the exact particle surfaces, and its voxel grids serve FFT-based solvers. Its analysis tools measure the spatial statistics of the particle set, including set-Voronoi Minkowski tensors. Commercial tools such as Digimat-FE and GeoDict cover similar ground, but their methods cannot be inspected or extended.
+Adding the capabilities of GMMD to one of these packages would mean replacing its core.
+The tessellation pipeline of MicroStructPy and the grain model of Kanapy have no place for non-overlapping particles in a matrix, the voxel tools cannot hold exact particle surfaces, and the licence of Mérope does not allow an open-source package to build on it.
+GMMD was therefore built as its own package, around three choices.
+Its MD method separates any set of convex particles with one contact measure, the intersection length: the shortest translation that separates two particles, computed on their Minkowski difference once the GJK algorithm [@Gilbert1988] detects that they intersect.
+Its meshes are periodic and conform to the exact particle surfaces, and its voxel grids serve FFT-based solvers.
+Its analysis tools measure the spatial statistics of the particle set, including set-Voronoi Minkowski tensors.
+Commercial tools such as Digimat-FE and GeoDict cover similar ground, but their methods cannot be inspected or extended.
 
 # Software design
 
-GMMD is a pipeline whose stages communicate through files, so that each stage can be rerun or replaced on its own. A run reads a YAML input file, which is validated in full before anything is generated, with every error reported at its place in the file. A generation method places the particles and writes them to `mic.json`, together with the GMMD version and commit, the library versions and the input file that produced them. Meshing, voxelization, plotting and the analyses read only this file. A microstructure can therefore be meshed for another solver, or analysed again, without being generated again, and a microstructure from another source enters the pipeline at the same point.
+GMMD is a pipeline whose stages communicate through files, so that each stage can be rerun or replaced on its own.
+A run reads a YAML input file, which is validated in full before anything is generated, with every error reported at its place in the file.
+A generation method places the particles and writes them to `mic.json`, together with the GMMD version and commit, the library versions and the input file that produced them.
+Meshing, voxelization, plotting and the analyses read only this file.
+A microstructure can therefore be meshed for another solver, or analysed again, without being generated again, and a microstructure from another source enters the pipeline at the same point.
 
-The central abstraction is the particle. Each shape is a subclass of an abstract particle class and defines its size, its volume, its support function (the farthest point of the particle in a given direction) and a test for points inside it. The GJK test and the intersection length on the Minkowski difference use only the support function, so a new convex shape gains both by defining it. The price is speed: the iterative computation on the Minkowski difference is slower than a closed form, so pairs of disks, spheres and ellipses keep closed-form tests.
+The central abstraction is the particle.
+Each shape is a subclass of an abstract particle class and defines its size, its volume, its support function (the farthest point of the particle in a given direction) and a test for points inside it.
+The GJK test and the intersection length on the Minkowski difference use only the support function, so a new convex shape gains both by defining it.
+The price is speed: the iterative computation on the Minkowski difference is slower than a closed form, so pairs of disks, spheres and ellipses keep closed-form tests.
 
-MD and RSA are subclasses of one abstract generation method, so they read the same input file and write the same `mic.json`. The neighbour search is a separate choice in the input file, between a cell list, a Verlet list and a test of every pair, because the fastest scheme depends on the number of particles and their aspect ratios.
+MD and RSA are subclasses of one abstract generation method, so they read the same input file and write the same `mic.json`.
+The neighbour search is a separate choice in the input file, between a cell list, a Verlet list and a test of every pair, because the fastest scheme depends on the number of particles and their aspect ratios.
 
-Meshing follows the same pattern. GMMD builds one periodic Gmsh model of the RVE. Translators write it in the formats of LINKS, CRATE and Abaqus, and meshio [@meshio] writes the formats that keep the phase of every cell, among them XDMF for FEniCS. A new solver needs a translator, not a new mesher.
+Meshing follows the same pattern.
+GMMD builds one periodic Gmsh model of the RVE.
+Translators write it in the formats of LINKS, CRATE and Abaqus, and meshio [@meshio] writes the formats that keep the phase of every cell, among them XDMF for FEniCS.
+A new solver needs a translator, not a new mesher.
 
 GMMD is tested on Linux and Windows with Python 3.10 to 3.13, and the tests cover 94 % of its lines.
 
 # Research impact statement
 
-GMMD began as the code written in an MSc thesis [@VilaCha2020]. Its MD method, the Adaptive Multi-temperature Isokinetic Method (AMINO), was developed jointly in that thesis and in a PhD thesis [@Ferreira2022thesis], and is presented in two papers whose RVEs were generated with this code [@VILACHA2021104069; @FERREIRA2022104068]. In these papers, it generated RVEs of disks, ellipses, spheres, ellipsoids and cylinders, at volume fractions up to 80 % in 2D and 60 % in 3D and with up to 990 particles, on a single core: 500 disks at 80 % took 11 s, and 500 spheres at 60 % took 49 s [@FERREIRA2022104068]. The RVEs were compared with micrographs of a carbon-fibre-reinforced metal composite and of a PC/ABS polymer blend.
+GMMD began as the code written in an MSc thesis [@VilaCha2020].
+Its MD method, the Adaptive Multi-temperature Isokinetic Method (AMINO), was developed jointly in that thesis and in a PhD thesis [@Ferreira2022thesis], and is presented in two papers whose RVEs were generated with this code [@VILACHA2021104069; @FERREIRA2022104068].
+In these papers, it generated RVEs of disks, ellipses, spheres, ellipsoids and cylinders, at volume fractions up to 80 % in 2D and 60 % in 3D and with up to 990 particles, on a single core: 500 disks at 80 % took 11 s, and 500 spheres at 60 % took 49 s [@FERREIRA2022104068].
+The RVEs were compared with micrographs of a carbon-fibre-reinforced metal composite and of a PC/ABS polymer blend.
 Microstructures generated with GMMD and its earlier versions were also used in the rest of that PhD thesis, on the data-driven design of thermoplastic blends, and have since been used in six papers: on damage in PC/ABS blends [@Amaro2024], on composite Bayesian optimization of materials and structures [@Coelho2025], on the microstructural design of PC/ABS blends [@CarvalhoAlves2025], on clustering-based reduced-order models at finite strain [@Ferreira2025], on second-order homogenization with nonlocal damage [@Goncalves2026], and on curing-induced stresses in fibre-reinforced polymers [@CarvalhoAlves2026].
 
-Since 2026, the code has been prepared for use outside the group that wrote it. A run is described by one validated input file and records the code that produced it. The meshes go directly to the open-source solvers CRATE [@Ferreira2023crate] and FEniCS, and to Abaqus. The documentation, with tutorials, is hosted at <https://gmmd.readthedocs.io>, and each release is archived on Zenodo.
+Since 2026, the code has been prepared for use outside the group that wrote it.
+A run is described by one validated input file and records the code that produced it.
+The meshes go directly to the open-source solvers CRATE [@Ferreira2023crate] and FEniCS, and to Abaqus.
+The documentation, with tutorials, is hosted at <https://gmmd.readthedocs.io>, and each release is archived on Zenodo.
 
 # AI usage disclosure
 
 The first version of GMMD was written in 2020 and 2021 without generative AI tools.
 Since 2026, generative AI tools have been used in its development:
 
-- Claude Code (Anthropic), with the models Claude Opus 4.6, Claude Opus 5, Claude Opus 5.5 and Claude Sonnet 5, was used to write and refactor code, to write tests, to review code, and to draft documentation (the README, the Sphinx documentation and the reference input file). It was also used to copy-edit this paper.
+- Claude Code (Anthropic), with the models Claude Opus 4.6, Claude Opus 5, Claude Opus 5.5 and Claude Sonnet 5, was used to write and refactor code, to write tests, to review code, and to draft documentation (the README, the Sphinx documentation and the reference input file).
+  It was also used to copy-edit this paper.
 - GitHub Copilot was used for code completion in the editor and, through Copilot Autofix, to propose fixes to code scanning alerts.
 
 The human authors reviewed, edited and validated all AI-assisted output, and made the core design decisions.
@@ -93,6 +137,8 @@ A commit made with an AI assistant names the tool and model in an `Assisted-by:`
 
 # Acknowledgements
 
-José L. P. Vila-Chã acknowledges the support provided by Fundação para a Ciência e a Tecnologia (FCT) through the scholarship [2021.07345.BD](https://doi.org/10.54499/2021.07345.BD), and by the Faculty of Engineering of the University of Porto through the project FEUP-MHFEM. Bernardo P. Ferreira acknowledges the support provided by FCT through the scholarships SFRH/BD/130593/2017 and [COVID/BD/152397/2022](https://doi.org/10.54499/COVID/BD/152397/2022). This research has also been supported by Instituto de Ciência e Inovação em Engenharia Mecânica e Engenharia Industrial (INEGI).
+José L. P. Vila-Chã acknowledges the support provided by Fundação para a Ciência e a Tecnologia (FCT) through the scholarship [2021.07345.BD](https://doi.org/10.54499/2021.07345.BD), and by the Faculty of Engineering of the University of Porto through the project FEUP-MHFEM.
+Bernardo P. Ferreira acknowledges the support provided by FCT through the scholarships SFRH/BD/130593/2017 and [COVID/BD/152397/2022](https://doi.org/10.54499/COVID/BD/152397/2022).
+This research has also been supported by Instituto de Ciência e Inovação em Engenharia Mecânica e Engenharia Industrial (INEGI).
 
 # References
