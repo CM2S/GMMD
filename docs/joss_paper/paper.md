@@ -86,11 +86,13 @@ Mérope packs spheres and polyhedra for FFT-based solvers, under a licence that 
 Commercial generators, such as those in Digimat-FE and GeoDict, offer similar functions, but their methods cannot be inspected or extended.
 
 Adding the capabilities of GMMD to one of these generators would mean replacing its core.
-The tessellation pipeline of MicroStructPy and the grain model of Kanapy have no place for nonoverlapping particles in a matrix.
+In MicroStructPy and Kanapy, each particle becomes a cell of a space-filling tessellation instead of keeping its own shape in a matrix.
+gmshModel places its inclusions one at a time at random positions, as RSA does, so it saturates in the same way.
 The voxel grids of DREAM.3D and PoreSpy cannot hold exact particle surfaces.
 The licence of Mérope does not allow an open-source package to build on it.
 GMMD was therefore built as a package of its own, around three choices.
 First, its MD method separates particles of every convex shape with one contact measure, the intersection length, instead of a separate measure for each pair of shapes.
+Particles of different shapes can therefore share one RVE, as the spheres and ellipsoids of \autoref{fig:example} do.
 The intersection length is the shortest translation that separates two particles; GMMD computes it on their Minkowski difference once the GJK algorithm [@Gilbert1988] detects that they intersect.
 Second, its meshes are periodic and conform to the exact particle surfaces, instead of approximating the particles by voxels or tessellation cells; voxel grids remain available for FFT-based solvers.
 Third, its analysis tools measure the spatial statistics of the particles, including set-Voronoi Minkowski tensors, so that an RVE can be compared with the material it represents.
