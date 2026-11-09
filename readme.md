@@ -1,6 +1,10 @@
 # GMMD
 
-Geometrical microstructure generation by molecular dynamics.
+[![Tests](https://github.com/CM2S/GMMD/actions/workflows/test.yaml/badge.svg?branch=master)](https://github.com/CM2S/GMMD/actions/workflows/test.yaml)
+[![Coverage](https://codecov.io/gh/CM2S/GMMD/graph/badge.svg)](https://codecov.io/gh/CM2S/GMMD)
+[![License](https://img.shields.io/github/license/CM2S/GMMD)](LICENSE)
+
+Geometric Methods for Microstructure Design.
 
 GMMD is a numerical tool developed in the context of computational mechanics to aid the design and development of advanced materials. Employing a time-driven molecular dynamics simulation, it generates microstructures of matrix-composite materials in a computationally **efficient** and **robust** way, meshes them, and analyses them.
 
@@ -42,6 +46,13 @@ The first version of GMMD, written in 2020 and 2021, was made without AI tools. 
 
 Bug reports, questions and pull requests are welcome on GitHub. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+### How to cite
+
+If you use GMMD in your work, please cite the software and the papers on its method. [CITATION.cff](CITATION.cff) gives the citation of the software, and GitHub formats it under "Cite this repository". The molecular dynamics method is described in:
+
+- J. L. P. Vila-Chã, B. P. Ferreira, F. M. Andrade Pires, "An adaptive multi-temperature isokinetic method for the RVE generation of particle reinforced heterogeneous materials, Part I: Theoretical formulation and computational framework", *Mechanics of Materials* 163 (2021) 104069. https://doi.org/10.1016/j.mechmat.2021.104069
+- B. P. Ferreira, J. L. P. Vila-Chã, F. M. Andrade Pires, "An adaptive multi-temperature isokinetic method for the RVE generation of particle reinforced heterogeneous materials, Part II: Numerical assessment and statistical analysis", *Mechanics of Materials* 165 (2022) 104068. https://doi.org/10.1016/j.mechmat.2021.104068
+
 ## Main features
 
 ### Phase descriptors
@@ -65,6 +76,7 @@ Bug reports, questions and pull requests are welcome on GitHub. See [CONTRIBUTIN
 - Starting configuration for the simulation found through a Poisson point process or placed on a regular grid.
 - Reproducible runs: a fixed seed gives the same microstructure on every run, and a different one for each sample of the set.
 - Lightweight output option for data-driven frameworks.
+- Each microstructure written as a human-readable, tool-agnostic JSON file listing the particles, one to a line, from which meshing and analysis start.
 
 ### Meshing
 
@@ -316,6 +328,8 @@ input_file/
 │   └── ...
 └── ...
 ```
+
+The microstructure file, `mic.json`, is a human-readable, tool-agnostic description of the microstructure: the dimensions of the RVE, the phases, and the list of the particles, one to a line, each with only what defines its geometry. Any program that reads JSON can use it, and `geommicgen-mesh` and `geommicgen-analyze` start from it.
 
 `save_min`, the lightweight mode geared towards data-driven frameworks, keeps only the microstructure and status files.
 
