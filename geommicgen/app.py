@@ -192,7 +192,6 @@ def run_program():
                         "initial_vel_coeff",
                         "final_overlap_check",
                         "sim_gif",
-                        "inner_phase_max_step",
                     }
                     md_kwargs = {
                         key: value
@@ -295,8 +294,7 @@ def run_program():
                 elif mic_gen_method == "RSA":
                     # Random sequential adsorption method
                     rsa_kwargs_keys = {"sim_gif",
-                                       "offset",
-                                       "inner_phase_max_step"}
+                                       "offset"}
                     rsa_kwargs = {
                         key: value
                         for key, value in mic_gen_parameters.items()
