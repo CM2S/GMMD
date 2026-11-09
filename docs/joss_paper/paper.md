@@ -72,6 +72,13 @@ Meshing follows the same pattern. GMMD builds one periodic Gmsh model of the RVE
 
 GMMD is tested on Linux and Windows with Python 3.10 to 3.13, and the tests cover 94 % of its lines.
 
+# Research impact statement
+
+GMMD began as the code of an MSc thesis [@VilaCha2020]. Its MD method, the Adaptive Multi-temperature Isokinetic Method (AMINO), is presented in two papers whose RVEs were generated with this code [@VILACHA2021104069; @FERREIRA2022104068]. In these papers, it generated RVEs of disks, ellipses, spheres, ellipsoids and cylinders, at volume fractions up to 80 % in 2D and 60 % in 3D and with up to 990 particles, on a single core: 500 disks at 80 % took 11 s, and 500 spheres at 60 % took 49 s [@FERREIRA2022104068]. The RVEs were compared with micrographs of a carbon-fibre-reinforced metal composite and of a PC/ABS polymer blend.
+Microstructures generated with GMMD and its earlier versions have since been used in a PhD thesis on the data-driven design of thermoplastic blends [@Ferreira2022thesis] and in six papers: on damage in PC/ABS blends [@Amaro2024], on composite Bayesian optimisation of materials and structures [@Coelho2025], on the microstructural design of PC/ABS blends [@CarvalhoAlves2025], on clustering-based reduced-order models at finite strain [@Ferreira2025], on second-order homogenisation with nonlocal damage [@Goncalves2026], and on curing-induced stresses in fibre-reinforced polymers [@CarvalhoAlves2026].
+
+Since 2026, the code has been prepared for use outside the group that wrote it. A run is described by one validated input file and records the code that produced it. The meshes go directly to the open-source solvers CRATE [@Ferreira2023crate] and FEniCS, and to Abaqus. The documentation, with tutorials, is hosted at <https://gmmd.readthedocs.io>, and each release is archived on Zenodo.
+
 # AI usage disclosure
 
 The first version of GMMD was written in 2020 and 2021 without generative AI tools.
