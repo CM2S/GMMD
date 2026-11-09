@@ -70,22 +70,28 @@ A fixed seed gives the same RVE on every run.
 # State of the field
 
 Open-source microstructure generators mostly target polycrystals.
-Neper [@Neper2011; @Neper2018] builds Laguerre tessellations whose seeds are optimized to match target cell statistics, and Kanapy [@Kanapy2019] packs growing ellipsoids by particle dynamics and assigns the remaining space to the nearest grain.
+Neper [@Neper2011; @Neper2018] builds Laguerre tessellations whose seeds are optimized to match target cell statistics.
+Kanapy [@Kanapy2019] packs growing ellipsoids by particle dynamics and assigns the remaining space to the nearest grain.
 Both produce space-filling grains, not particles embedded in a matrix.
 DREAM.3D [@Groeber2014] and PoreSpy [@gostick2019porespy] place particles on a voxel grid, so the particle surfaces are not represented exactly and no conforming mesh can be built from them.
 
-The tools closest to GMMD in purpose are MicroStructPy [@hart2020microstructpy], gmshModel [@gmshModel], microgen [@microgen] and Mérope [@Josien2024].
+The generators closest to GMMD in purpose are MicroStructPy [@hart2020microstructpy], gmshModel [@gmshModel], microgen [@microgen] and Mérope [@Josien2024].
 MicroStructPy places seeds with a tolerated overlap and meshes the power diagram they define, so a particle is meshed as a tessellation cell rather than as its own shape.
-MicroStructPy also has no cylinders. gmshModel meshes periodic RVEs with Gmsh but places only spheres and axis-aligned cylinders of identical radius. microgen meshes periodic geometries with Gmsh but does not place particles: their positions are an input.
-Mérope packs spheres and polyhedra for FFT-based solvers, under a licence that restricts it to non-commercial research use.
+MicroStructPy also has no cylinders.
+gmshModel meshes periodic RVEs with Gmsh but places only spheres and axis-aligned cylinders of identical radius.
+microgen meshes periodic geometries with Gmsh but takes the particle positions as input instead of placing the particles.
+Mérope packs spheres and polyhedra for FFT-based solvers, under a licence that restricts it to noncommercial research use.
+Commercial generators, such as those in Digimat-FE and GeoDict, offer similar functions, but their methods cannot be inspected or extended.
 
-Adding the capabilities of GMMD to one of these packages would mean replacing its core.
-The tessellation pipeline of MicroStructPy and the grain model of Kanapy have no place for non-overlapping particles in a matrix, the voxel tools cannot hold exact particle surfaces, and the licence of Mérope does not allow an open-source package to build on it.
-GMMD was therefore built as its own package, around three choices.
-Its MD method separates any set of convex particles with one contact measure, the intersection length: the shortest translation that separates two particles, computed on their Minkowski difference once the GJK algorithm [@Gilbert1988] detects that they intersect.
-Its meshes are periodic and conform to the exact particle surfaces, and its voxel grids serve FFT-based solvers.
-Its analysis tools measure the spatial statistics of the particle set, including set-Voronoi Minkowski tensors.
-Commercial tools such as Digimat-FE and GeoDict cover similar ground, but their methods cannot be inspected or extended.
+Adding the capabilities of GMMD to one of these generators would mean replacing its core.
+The tessellation pipeline of MicroStructPy and the grain model of Kanapy have no place for nonoverlapping particles in a matrix.
+The voxel grids of DREAM.3D and PoreSpy cannot hold exact particle surfaces.
+The licence of Mérope does not allow an open-source package to build on it.
+GMMD was therefore built as a package of its own, around three choices.
+First, its MD method separates particles of every convex shape with one contact measure, the intersection length, instead of a separate measure for each pair of shapes.
+The intersection length is the shortest translation that separates two particles; GMMD computes it on their Minkowski difference once the GJK algorithm [@Gilbert1988] detects that they intersect.
+Second, its meshes are periodic and conform to the exact particle surfaces, instead of approximating the particles by voxels or tessellation cells; voxel grids remain available for FFT-based solvers.
+Third, its analysis tools measure the spatial statistics of the particles, including set-Voronoi Minkowski tensors, so that an RVE can be compared with the material it represents.
 
 # Software design
 
@@ -93,19 +99,21 @@ GMMD is a pipeline whose stages communicate through files, so that each stage ca
 A run reads a YAML input file, which is validated in full before anything is generated, with every error reported at its place in the file.
 A generation method places the particles and writes them to `mic.json`, together with the GMMD version and commit, the library versions and the input file that produced them.
 Meshing, voxelization, plotting and the analyses read only this file.
-A microstructure can therefore be meshed for another solver, or analysed again, without being generated again, and a microstructure from another source enters the pipeline at the same point.
+An RVE can therefore be meshed for another solver, or analysed again, without being generated again.
+An RVE from another source enters the pipeline at the same point.
 
 The central abstraction is the particle.
-Each shape is a subclass of an abstract particle class and defines its size, its volume, its support function (the farthest point of the particle in a given direction) and a test for points inside it.
-The GJK test and the intersection length on the Minkowski difference use only the support function, so a new convex shape gains both by defining it.
-The price is speed: the iterative computation on the Minkowski difference is slower than a closed form, so pairs of disks, spheres and ellipses keep closed-form tests.
+Each shape is implemented as a subclass of an abstract particle class and defines its size, its volume, its support function (the farthest point of the particle in a given direction) and a test for points inside it.
+The GJK test and the intersection length on the Minkowski difference use only the support function, so a new convex shape gains both by defining its support function.
+The iterative computation on the Minkowski difference is slower than a closed form, so GMMD uses closed-form tests instead for pairs of disks, pairs of spheres and pairs of ellipses.
 
-MD and RSA are subclasses of one abstract generation method, so they read the same input file and write the same `mic.json`.
+MD and RSA are implemented as subclasses of one abstract class for generation methods, so they read the same input file and write the same `mic.json`.
 The neighbour search is a separate choice in the input file, between a cell list, a Verlet list and a test of every pair, because the fastest scheme depends on the number of particles and their aspect ratios.
 
-Meshing follows the same pattern.
+Meshing separates the model from its output formats in the same way.
 GMMD builds one periodic Gmsh model of the RVE.
-Translators write it in the formats of LINKS, CRATE and Abaqus, and meshio [@meshio] writes the formats that keep the phase of every cell, among them XDMF for FEniCS.
+Translators write it in the formats of LINKS, CRATE [@Ferreira2023crate] and Abaqus.
+The meshio library [@meshio] writes the formats that keep the phase of every cell, among them XDMF for FEniCS.
 A new solver needs a translator, not a new mesher.
 
 GMMD is tested on Linux and Windows with Python 3.10 to 3.13, and the tests cover 94 % of its lines.
@@ -113,14 +121,13 @@ GMMD is tested on Linux and Windows with Python 3.10 to 3.13, and the tests cove
 # Research impact statement
 
 GMMD began as the code written in an MSc thesis [@VilaCha2020].
-Its MD method, the Adaptive Multi-temperature Isokinetic Method (AMINO), was developed jointly in that thesis and in a PhD thesis [@Ferreira2022thesis], and is presented in two papers whose RVEs were generated with this code [@VILACHA2021104069; @FERREIRA2022104068].
-In these papers, it generated RVEs of disks, ellipses, spheres, ellipsoids and cylinders, at volume fractions up to 80 % in 2D and 60 % in 3D and with up to 990 particles, on a single core: 500 disks at 80 % took 11 s, and 500 spheres at 60 % took 49 s [@FERREIRA2022104068].
-The RVEs were compared with micrographs of a carbon-fibre-reinforced metal composite and of a PC/ABS polymer blend.
-Microstructures generated with GMMD and its earlier versions were also used in the rest of that PhD thesis, on the data-driven design of thermoplastic blends, and have since been used in six papers: on damage in PC/ABS blends [@Amaro2024], on composite Bayesian optimization of materials and structures [@Coelho2025], on the microstructural design of PC/ABS blends [@CarvalhoAlves2025], on clustering-based reduced-order models at finite strain [@Ferreira2025], on second-order homogenization with nonlocal damage [@Goncalves2026], and on curing-induced stresses in fibre-reinforced polymers [@CarvalhoAlves2026].
+Its MD method, the Adaptive Multi-temperature Isokinetic Method (AMINO), was developed jointly in that thesis and in a PhD thesis [@Ferreira2022thesis] and is presented in two papers whose RVEs were generated with this code [@VILACHA2021104069; @FERREIRA2022104068].
+In these papers, the code generated RVEs of up to 990 particles on a single core, in 11 s for 500 disks at 80 % and in 49 s for 500 spheres at 60 % [@FERREIRA2022104068].
+The rest of that PhD thesis, on the data-driven design of thermoplastic blends, also used RVEs generated with GMMD and its earlier versions.
+Since then, such RVEs have been used in six papers: on damage in PC/ABS blends [@Amaro2024], on composite Bayesian optimization of materials and structures [@Coelho2025], on the microstructural design of PC/ABS blends [@CarvalhoAlves2025], on clustering-based reduced-order models at finite strain [@Ferreira2025], on second-order homogenization with nonlocal damage [@Goncalves2026], and on curing-induced stresses in fibre-reinforced polymers [@CarvalhoAlves2026].
 
 Since 2026, the code has been prepared for use outside the group that wrote it.
 A run is described by one validated input file and records the code that produced it.
-The meshes go directly to the open-source solvers CRATE [@Ferreira2023crate] and FEniCS, and to Abaqus.
 The documentation, with tutorials, is hosted at <https://gmmd.readthedocs.io>, and each release is archived on Zenodo.
 
 # AI usage disclosure
