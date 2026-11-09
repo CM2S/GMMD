@@ -18,7 +18,6 @@ Subpackages
     geommicgen.micgenmethod
     geommicgen.microstructure
     geommicgen.postproc
-    geommicgen.tests
     geommicgen.translators
 
 Submodules

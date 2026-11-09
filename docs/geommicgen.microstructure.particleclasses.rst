@@ -2,9 +2,6 @@ geommicgen.microstructure.particleclasses package
 =================================================
 
 .. automodule:: geommicgen.microstructure.particleclasses
-    :members:
-    :undoc-members:
-    :show-inheritance:
 
 Submodules
 ----------

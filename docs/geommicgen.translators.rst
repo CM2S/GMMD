@@ -2,9 +2,6 @@ geommicgen.translators package
 ==============================
 
 .. automodule:: geommicgen.translators
-    :members:
-    :undoc-members:
-    :show-inheritance:
 
 Submodules
 ----------
