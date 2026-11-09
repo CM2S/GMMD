@@ -35,7 +35,6 @@ Save_History True
 final_config True
 voronoi_analysis True
 plot_voronoi True
-plot_imts True
 
 # Mesh generation
 # ------------------------------------------------------------------------------------------
