@@ -35,9 +35,8 @@ Save_History True
 final_config True
 voronoi_analysis True
 plot_voronoi True
-voronoi_type set
+#voronoi_type set
 plot_imts True
-n_surf_points 25
 
 # Mesh generation
 # ------------------------------------------------------------------------------------------
