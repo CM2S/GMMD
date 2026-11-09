@@ -74,7 +74,14 @@ language = "en"
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = [
+    "_build",
+    "Thumbs.db",
+    ".DS_Store",
+    # The user guide's own index and build, used only when it is built on its own
+    "Documentation/index.rst",
+    "Documentation/_build",
+]
 
 # Copy buttons only on the terminal commands of the user guide (console blocks)
 copybutton_selector = "div.highlight-console pre"

@@ -10,9 +10,10 @@ Welcome to GMMD's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   User guide <Documentation/index>
-   input_file
-   modules
+   GMMD <Documentation/introduction>
+   Documentation/Input_file_options/index
+   Documentation/tutorials/index
+   Documentation/papers
 
 
 
