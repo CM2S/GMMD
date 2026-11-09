@@ -78,7 +78,6 @@ DREAM.3D [@Groeber2014] and PoreSpy [@gostick2019porespy] place particles on a v
 
 The generators closest to GMMD in purpose are MicroStructPy [@hart2020microstructpy], gmshModel [@gmshModel], microgen [@microgen] and Mérope [@Josien2024].
 MicroStructPy places seeds with a tolerated overlap and meshes the power diagram they define, so a particle is meshed as a tessellation cell rather than as its own shape.
-MicroStructPy also has no cylinders.
 gmshModel meshes periodic RVEs with Gmsh but places only spheres and axis-aligned cylinders of identical radius.
 microgen meshes periodic geometries with Gmsh but takes the particle positions as input.
 Mérope targets FFT-based solvers and packs spheres by RSA or, more densely, by the Williams–Philipse algorithm, under a noncommercial research licence.
