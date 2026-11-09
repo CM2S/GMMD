@@ -4,12 +4,13 @@ Data-Driven Framework Options
 Produce Minimal Output (O)
 -----------------------------
 
-**Meaning:** Produce minimal output. To be used in data-driven frameworks.
+**Meaning:** Keep only the minimal output of each sample, the microstructure
+file and the status. To be used in data-driven frameworks.
 
 **Syntax:**
 
-.. code-block:: text
+.. code-block:: yaml
 
-   save_min x
+   save_min: x
 
-- ``x``: bool
+- ``x``: bool (default: ``false``)

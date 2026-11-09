@@ -1,110 +1,93 @@
 Statistical Analysis
 ------------------------------------
 
-Ripley's K Statistical Descriptor (O)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Statistical Descriptors (O)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Meaning:** Compute and plot the Ripley's K function of the microstructure.
-
-**Syntax:**
-
-.. code-block:: text
-
-   stat_ripleys_k x
-
-- ``x``: bool
-
-Nearest Neighbor Statistical Descriptor (O)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-**Meaning:** Compute and plot the nearest neighbor function of the
-microstructure.
+**Meaning:** Compute and plot statistical descriptors of the arrangement of
+the particles.
 
 **Syntax:**
 
-.. code-block:: text
+.. code-block:: yaml
 
-   stat_nearest_neighbor x
+   analyses:
+     statistics:
+       descriptors: [x1, x2]
+       seed: y
 
-- ``x``: bool
+or, with its options at their defaults:
 
-Two Point Correlation Statistical Descriptor (O)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. code-block:: yaml
 
-**Meaning:** Compute and plot the two point correlation function of the
-microstructure.
+   analyses:
+     statistics: true
 
-**Syntax:**
+- ``descriptors``: the descriptors to compute (default:
+  ``[nearest_neighbor, ripleys_k, two_pt_corr]``). ``xi``:
 
-.. code-block:: text
+  - ``nearest_neighbor`` - the distribution of the distance from each
+    particle to its nearest neighbor.
+  - ``ripleys_k`` - the Ripley's K function of the microstructure.
+  - ``two_pt_corr`` - the two point correlation function of the
+    microstructure.
 
-   stat_two_pt_corr x
-
-- ``x``: bool
+- ``seed``: seed of the random draws used to estimate the Ripley's K function
+  and the two point correlation function, so that the analysis gives the same
+  values every time. ``y``: int (default: none)
 
 Voronoi Analysis (O)
 ~~~~~~~~~~~~~~~~~~~~~~
 
-**Meaning:** Do a Voronoi analysis.
+**Meaning:** Do a Voronoi analysis: compute the Voronoi diagram of the
+particles and the Irreducible Minkowski Tensors of its cells.
 
 **Syntax:**
 
-.. code-block:: text
+.. code-block:: yaml
 
-   voronoi_analysis x
+   analyses:
+     voronoi:
+       type: x
+       n_surf_points: y
+       plot: z
+       plot_imts: w
 
-- ``x``: bool
+or, with its options at their defaults:
+
+.. code-block:: yaml
+
+   analyses:
+     voronoi: true
 
 Voronoi Type (O)
-~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^
 
-**Meaning:** Voronoi type to be used in the Voronoi analysis.
+**Meaning:** Voronoi type to be used in the Voronoi analysis: ``standard``,
+of the centers of the particles, or ``set``, of points on the surfaces of the
+particles.
 
-**Syntax:**
-
-.. code-block:: text
-
-   voronoi_type x
-
-- ``x``: ``{"standard", "set"}`` (default: ``"standard"``)
+- ``x``: ``{standard, set}`` (default: ``standard``)
 
 Number of Points for Set Voronoi (O)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-**Meaning:** Number of points on the surface used to construct the set
-Voronoi diagram.
+**Meaning:** Number of points on the surface of each particle used to
+construct the set Voronoi diagram.
 
-**Syntax:**
-
-.. code-block:: text
-
-   n_surf_points x
-
-- ``x``: int (default: ``10``)
+- ``y``: int (default: ``10``)
 
 Plot the Voronoi Diagrams (O)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 **Meaning:** Flag used to plot the Voronoi diagrams.
 
-**Syntax:**
-
-.. code-block:: text
-
-   plot_voronoi x
-
-- ``x``: bool
+- ``z``: bool (default: ``false``)
 
 Plot the Voronoi Diagram with the IMTs (O)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 **Meaning:** Plot the Voronoi diagram including the values of the
 Irreducible Minkowski Tensors corresponding to each cell.
 
-**Syntax:**
-
-.. code-block:: text
-
-   plot_imts x
-
-- ``x``: booll
+- ``w``: bool (default: ``false``)

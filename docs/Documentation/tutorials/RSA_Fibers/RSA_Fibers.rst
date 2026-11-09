@@ -9,14 +9,14 @@ The file for this tutorial is named ``RSA_fiber.mgsim``. The input file can be r
 
 .. code-block:: console
 
-    python3 -m geommicgen 'geommicgen/resources/examples/RSA_fiber.mgsim'
+    geommicgen 'geommicgen/resources/examples/RSA_fiber.yaml'
 
 Replacing with the path to the input file according to the location of the GMMD repository in your computer.
 
 The full text of the input file is:
 
-.. literalinclude:: ../../../../geommicgen/resources/examples/RSA_fiber.mgsim
-    :language: xml
+.. literalinclude:: ../../../../geommicgen/resources/examples/RSA_fiber.yaml
+    :language: yaml
 
 
 Phases

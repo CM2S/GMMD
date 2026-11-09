@@ -9,12 +9,12 @@ The file for this tutorial is located in the ``geommicgen/resources/examples/`` 
 
 .. code-block:: console
 
-    python3 -m geommicgen 'geommicgen/resources/examples/MD_Disks.mgsim'
+    geommicgen 'geommicgen/resources/examples/MD_Disks.yaml'
 
 The full text of the input file is:
 
-.. literalinclude:: ../../../../geommicgen/resources/examples/MD_Disks.mgsim
-    :language: xml
+.. literalinclude:: ../../../../geommicgen/resources/examples/MD_Disks.yaml
+    :language: yaml
 
 
 Phases

@@ -1,59 +1,53 @@
-Problem Type
+General Options
 =====================
 
-Options that define the general nature of the problem to be solved.
+Options that define the general nature of the problem to be solved. They are
+given at the top level of the input file.
 
-Problem Type (M)
------------------
+.. note::
+   The problem type of the old input file (``Problem_Type``) no longer exists.
+   Whether the problem is 2D or 3D follows from the number of RVE dimensions.
 
-**Meaning:** Problem type (2D: plain strain, plain stress or axisymmetric and
-3D).
+Number of Samples (M)
+----------------------
 
-**Syntax:**
-
-.. code-block:: text
-
-   Problem_Type x
-
-.. list-table::
-   :header-rows: 1
-
-   * - Value of ``x``
-     - Meaning
-   * - ``1``
-     - 2D problem (plain strain)
-   * - ``2``
-     - 2D problem (plain stress)
-   * - ``3``
-     - 2D problem (axisymmetric)
-   * - ``4``
-     - 3D problem
-
-Number of Samples for the Current Design Point (M)
-----------------------------------------------------
-
-**Meaning:** Number of samples to be generated with the specified
-microstructural descriptors corresponding to the current design point.
+**Meaning:** Number of microstructures to be generated, each one a sample of
+the same description.
 
 **Syntax:**
 
-.. code-block:: text
+.. code-block:: yaml
 
-   N_DP_Samples n
+   samples: n
 
-- ``n``: integer
+- ``n``: integer, at least ``1``
 
 RVE Dimensions (M)
 --------------------
 
 **Meaning:** Dimensions of the quadrilateral (2D) or parallelepipedic (3D)
-RVE.
+RVE. Two dimensions make a 2D problem and three a 3D problem.
 
 **Syntax:**
 
-.. code-block:: text
+.. code-block:: yaml
 
-   RVE_Dimensions
-   [x1, x2] (2D) / [x1, x2, x3] (3D)
+   rve_dimensions: [x1, x2]        # 2D
+   rve_dimensions: [x1, x2, x3]    # 3D
 
-- ``xi``: float
+- ``xi``: float, above ``0``
+
+Seed (O)
+---------
+
+**Meaning:** Seed of the first sample, each sample after it taking the next
+one, so that a run gives the same microstructures every time. Without a
+seed, every run gives different microstructures.
+
+**Syntax:**
+
+.. code-block:: yaml
+
+   seed: x
+
+- ``x``: integer (default: none)

@@ -1,36 +1,42 @@
 .. _md_motion_analysis:
+
 Molecular Dynamics - Motion Analysis
 ------------------------------------------------------
 
 Save the Complete Motion (O)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Meaning:** If ``True``, all the positions of all the particles through the
-complete motion are saved; otherwise only the initial and final
-configurations are saved.
+**Meaning:** If ``true``, all the positions of all the particles through the
+complete motion are saved, for the motion analysis to draw their paths;
+otherwise only the initial and final configurations are saved. It is given in
+the ``molecular_dynamics`` section of ``generation``.
 
 **Syntax:**
 
-.. code-block:: text
+.. code-block:: yaml
 
-   Save_History x
+   generation:
+     molecular_dynamics:
+       save_history: x
 
-- ``x``: ``{'True', 'False'}`` (default: ``'False'``)
+- ``x``: bool (default: ``false``)
 
 
 .. note::
-   This option shares its keyword with the ``Save_History`` option described in :ref:`rsa_post_processing_options`, but has a slightly different meaning.
+   This option shares its name with the ``save_history`` option described in :ref:`rsa_post_processing_options`, but has a slightly different meaning.
 
 Motion Analysis (O)
 ~~~~~~~~~~~~~~~~~~~~~
 
-**Meaning:** Do motion analysis, including plotting the particle paths,
-kinetic energy, total overlap and time step used.
+**Meaning:** Do motion analysis, plotting what the simulation recorded: the
+total overlap, the kinetic energy, the time step used and, with
+``save_history``, the particle paths.
 
 **Syntax:**
 
-.. code-block:: text
+.. code-block:: yaml
 
-   Motion_Analysis x
+   analyses:
+     motion: x
 
-- ``x``: bool
+- ``x``: bool (default: not carried out)

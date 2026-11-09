@@ -8,53 +8,41 @@ Final Configuration (O)
 
 **Syntax:**
 
-.. code-block:: text
+.. code-block:: yaml
 
-   final_config x
+   analyses:
+     final_config: x
 
-- ``x``: bool
+- ``x``: bool (default: not carried out)
 
 
 Simulation GIF (O)
 ~~~~~~~~~~~~~~~~~~~~
 
-**Meaning:** If ``True``, creates a GIF of the simulation.
+**Meaning:** Put the frames the generation draws at every step together into
+a GIF of the simulation, in 2D. Asking for it has the generation draw the
+frames, which slows it down.
 
 **Syntax:**
 
-.. code-block:: text
+.. code-block:: yaml
 
-   sim_gif x
+   analyses:
+     simulation_gif: {frame_duration: x, cleanup_frames: y}
 
-- ``x``: bool (default: ``False``)
+or, with its options at their defaults:
+
+.. code-block:: yaml
+
+   analyses:
+     simulation_gif: true
+
+- ``frame_duration``: duration of each frame in milliseconds. ``x``: int
+  (default: ``200``)
+- ``cleanup_frames``: if ``true``, deletes the frame PNG files used to
+  generate the GIF. ``y``: bool (default: ``true``)
 
 .. note::
    In case a minimum distance between particles is imposed, dilating and
    contracting of the particles is not included in the GIF, and the
    animation is made for the virtual particle sizes.
-
-Simulation GIF Frame Duration (O)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-**Meaning:** Duration of each frame in milliseconds.
-
-**Syntax:**
-
-.. code-block:: text
-
-   sim_gif_frame_duration x
-
-- ``x``: int (default: ``200``)
-
-Simulation GIF Cleanup Frames (O)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-**Meaning:** If ``True``, deletes frame PNG files used to generate the GIF.
-
-**Syntax:**
-
-.. code-block:: text
-
-   sim_gif_cleanup_frames x
-
-- ``x``: bool (default: ``True``)

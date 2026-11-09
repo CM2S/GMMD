@@ -6,53 +6,75 @@ General generation parameters
 
 GMMD generates microstructure geometry depending on the user input, such as particle (or void) shape, volume fraction and other descriptors. The generation of the microstructure is not based on the physical process from which it arose, it is purely geometric. GMMD can currently use one of two methods for generating the RVE: molecular dynamics (MD) or random sequential addition (RSA). In this page, it is laid out the general parameters that are common to both methods. The specific parameters for each method are described in the corresponding pages.
 
+All the generation parameters are given in the ``generation`` section of the input file. The general parameters are given directly in it, and the parameters of the method under the name of the method:
+
+.. code-block:: yaml
+
+   generation:
+     min_distance: 0.005
+     molecular_dynamics:
+       max_residue_per_particle: 0
+       max_step: 100
+
 Microstructure Generation Method (M)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Meaning:** Microstructure generation method to be used.
-
+**Meaning:** Microstructure generation method to be used. The method is
+chosen by giving its section; exactly one method is given.
 
 **Syntax:**
 
-.. code-block:: text
+.. code-block:: yaml
 
-   Mic_Gen_Method x
+   generation:
+     x:
+       method_parameter_1: y
+       method_parameter_2: y
 
-- ``x``: ``{'MD', 'RSA'}``
+- ``x``: ``{molecular_dynamics, random_sequential_adsorption}``
 
-  - ``'MD'`` - a Molecular Dynamics simulation is used.
-  - ``'RSA'`` - a Random Sequential Adsorption simulation is used.
+  - ``molecular_dynamics`` - a Molecular Dynamics simulation is used (see
+    `Molecular Dynamics Generation Parameters`_).
+  - ``random_sequential_adsorption`` - a Random Sequential Adsorption
+    simulation is used (see `Random Sequential Addition Generation
+    Parameters`_).
 
 .. note::
    Generally, RSA is faster for smaller volume fractions and MD is faster
    for larger volume fractions.
 
-Maximum Number of Iterations (M)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-**Meaning:** The maximum number of iterations for a given microstructure
-generation method.
-
-**Syntax:**
-
-.. code-block:: text
-
-   Max_Step x
-
-- ``x``: integer
-
 Minimum Distance Between Particles (O)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Meaning:** Minimum distance between particles.
+**Meaning:** Minimum distance between particles, a length in the units of the
+RVE.
 
 **Syntax:**
 
-.. code-block:: text
+.. code-block:: yaml
 
-   Min_Distance x
+   generation:
+     min_distance: x
 
-- ``x``: float (default: ``0``)
+- ``x``: float, not below ``0`` (default: ``0``)
+
+.. _offset_for_better_meshing:
+
+Offset Use for Better Meshing (O)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Meaning:** Flag for the use of an offset for better FEM meshing. The origin
+of the RVE is moved to where its sides pass furthest from the particles,
+which gives a mesh the least distorted elements.
+
+**Syntax:**
+
+.. code-block:: yaml
+
+   generation:
+     offset: x
+
+- ``x``: bool (default: ``true``)
 
 Inner Phase Maximum Number of Steps (O)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -66,9 +88,10 @@ one specified. A message is printed when this happens.
 
 **Syntax:**
 
-.. code-block:: text
+.. code-block:: yaml
 
-   Inner_Phase_Max_Step x
+   generation:
+     inner_phase_max_step: x
 
 - ``x``: integer (default: ``200``)
 
@@ -77,18 +100,28 @@ Speed-Up Scheme (O)
 
 **Meaning:** Speed-up scheme for particle interaction, avoiding computing
 interactions between particles that can be shown a priori not to interact.
+It is given in the section of the generation method.
 
 **Syntax:**
 
-.. code-block:: text
+.. code-block:: yaml
 
-   Speed_Up_Scheme x
-       parameter_scheme_1 y
-       parameter_scheme_2 y
+   generation:
+     method:
+       speed_up: x
 
-- ``x``: ``{'Naive', 'Cell', 'Verlet'}`` (default: ``'Cell'``)
+or, for a scheme with parameters:
 
-  - ``'Naive'`` - no scheme is used. It doesn't need any extra parameters.
+.. code-block:: yaml
+
+   generation:
+     method:
+       speed_up: {name: x, parameter_scheme_1: y}
+
+- ``x``: ``{naive, cell, verlet}`` (default: ``cell``). A name alone stands
+  for the scheme with its default parameters.
+
+  - ``naive`` - no scheme is used. It doesn't need any extra parameters.
 
     - For MD simulations, interaction checks are computed for every pair of
       particles: O(N\ :sup:`2`\ ), where N is the number of particles.
@@ -96,42 +129,41 @@ interactions between particles that can be shown a priori not to interact.
       against every other particle: O(N), where N is the number of
       particles.
 
-    .. code-block:: text
+    .. code-block:: yaml
 
-       Speed_Up_Scheme Naive
+       speed_up: naive
 
-  - ``'Cell'`` - the cell list scheme is used. It doesn't need any extra
-    parameters.
+  - ``cell`` - the cell list scheme is used. Only the particles in
+    neighbouring cells are checked. It doesn't need any extra parameters.
 
     - For MD simulations: O(N), where N is the number of particles.
     - For RSA simulations: O(1).
 
-    .. code-block:: text
+    .. code-block:: yaml
 
-       Speed_Up_Scheme Cell
+       speed_up: cell
 
-  - ``'Verlet'`` - the Verlet list method is used, computing each Verlet
+  - ``verlet`` - the Verlet list method is used, computing each Verlet
     list from a cell list. Only applicable to MD simulations. An extra
     parameter must be specified:
 
-    .. code-block:: text
+    .. code-block:: yaml
 
-       Speed_Up_Scheme Verlet
-       Verlet_Factor y
+       speed_up: {name: verlet, factor: y}
 
 - ``parameter_scheme_Y``: str. The mandatory and optional parameters to be
   specified depend on the speed-up scheme chosen.
 
-  - ``'Naive'`` and ``'Cell'`` - no extra parameters needed.
-  - ``'Verlet'`` - requires:
+  - ``naive`` and ``cell`` - no extra parameters needed.
+  - ``verlet`` - requires:
 
-    - ``Verlet_Factor``: the Verlet neighborhood has the shape of the
+    - ``factor``: the Verlet neighborhood has the shape of the
       particle increased by the specified factor. Larger factors imply
       fewer computations of the Verlet list, but larger Verlet lists for
       each particle; a smaller factor has the opposite effect. To achieve
       an improvement in the CPU time of the molecular dynamics simulation,
       a compromise must be struck between these two tendencies. (``y``:
-      float, default: ``1.5``)
+      float, above ``1``. Mandatory.)
 
 - ``y``: depends on the corresponding ``parameter_scheme_Y``.
 
@@ -143,6 +175,17 @@ Molecular Dynamics Generation Parameters
 .. specific to microstructure generation using a Molecular Dynamics
 .. simulation, including the thermostat and deep cuts options.
 
+The parameters of the Molecular Dynamics simulation are given in the
+``molecular_dynamics`` section of ``generation``:
+
+.. code-block:: yaml
+
+   generation:
+     molecular_dynamics:
+       max_residue_per_particle: 0
+       max_step: 100
+       speed_up: {name: verlet, factor: 1.1}
+
 .. toctree::
    :maxdepth: 3
 
@@ -151,4 +194,45 @@ Molecular Dynamics Generation Parameters
 
 Random Sequential Addition Generation Parameters
 ------------------------------------------------------
-No extra parameters beyond the general ones are needed for microstructure generation using a Random Sequential Addition simulation
+
+The parameters of the Random Sequential Addition simulation are given in the
+``random_sequential_adsorption`` section of ``generation``. Particles are
+drawn one at a time at random places, and each is kept when it intersects
+none of the particles kept before it, until every phase has its number of
+particles or its volume fraction. The particles never move, so a dense
+packing is out of its reach.
+
+.. code-block:: yaml
+
+   generation:
+     random_sequential_adsorption:
+       max_step: 10000
+       save_history: false
+       speed_up: cell
+
+Maximum Number of Iterations (M)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Meaning:** The maximum number of particles drawn. The simulation fails when
+the phases are not filled by then.
+
+**Syntax:**
+
+.. code-block:: yaml
+
+   generation:
+     random_sequential_adsorption:
+       max_step: x
+
+- ``x``: integer
+
+Save History (O)
+~~~~~~~~~~~~~~~~~~
+
+See :ref:`rsa_post_processing_options`.
+
+RSA Speed-Up Scheme (O)
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+As described in `Speed-Up Scheme (O)`_, with ``naive`` or ``cell`` (default:
+``cell``). There is no Verlet list for RSA simulations.

@@ -14,14 +14,14 @@ To run this example, open a termial inside the ``GMMD`` repository and run the f
 
 .. code-block:: console
 
-    python3 -m geommicgen 'geommicgen/resources/examples/MD_Ellipses_voronoi.mgsim'
+    geommicgen 'geommicgen/resources/examples/MD_Ellipses_voronoi.yaml'
 
 
 
 The full text of the input file is:
 
-.. literalinclude:: ../../../../geommicgen/resources/examples/MD_Ellipses_voronoi.mgsim
-    :language: xml
+.. literalinclude:: ../../../../geommicgen/resources/examples/MD_Ellipses_voronoi.yaml
+    :language: yaml
 
 
 

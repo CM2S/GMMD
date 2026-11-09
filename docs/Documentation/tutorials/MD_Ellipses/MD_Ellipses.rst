@@ -10,15 +10,15 @@ To run this example, open a termial inside the ``GMMD`` repository and run the f
 
 .. code-block:: console
 
-    python3 -m geommicgen 'geommicgen/resources/examples/MD_Ellipses.mgsim'
+    geommicgen 'geommicgen/resources/examples/MD_Ellipses.yaml'
 
 In order for you to run any other file of your making, you just need to run the command with the location of your input file.
 
 
 The full text of the input file is:
 
-.. literalinclude:: ../../../../geommicgen/resources/examples/MD_Ellipses.mgsim
-    :language: xml
+.. literalinclude:: ../../../../geommicgen/resources/examples/MD_Ellipses.yaml
+    :language: yaml
 
 
 Phases

@@ -9,14 +9,14 @@ The file for this tutorial is named ``MD_Ellipsoids.mgsim``. The input file can 
 
 .. code-block:: console
 
-    python3 -m geommicgen 'geommicgen/resources/examples/MD_Ellipsoids.mgsim'
+    geommicgen 'geommicgen/resources/examples/MD_Ellipsoids.yaml'
 
 Replacing with the path to the input file according to the location of the GMMD repository in your computer.
 
 The full text of the input file is:
 
-.. literalinclude:: ../../../../geommicgen/resources/examples/MD_Ellipsoids.mgsim
-    :language: xml
+.. literalinclude:: ../../../../geommicgen/resources/examples/MD_Ellipsoids.yaml
+    :language: yaml
 
 Phases
 ======
