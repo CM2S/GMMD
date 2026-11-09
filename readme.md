@@ -2,7 +2,7 @@
 
 [![Tests](https://github.com/CM2S/GMMD/actions/workflows/test.yaml/badge.svg?branch=master)](https://github.com/CM2S/GMMD/actions/workflows/test.yaml)
 [![Coverage](https://codecov.io/gh/CM2S/GMMD/graph/badge.svg)](https://codecov.io/gh/CM2S/GMMD)
-[![Documentation](https://readthedocs.org/projects/gmmd/badge/?version=latest)](https://gmmd.readthedocs.io)
+[![Documentation](https://img.shields.io/readthedocs/gmmd)](https://gmmd.readthedocs.io)
 [![License](https://img.shields.io/github/license/CM2S/GMMD)](LICENSE)
 
 Geometric Methods for Microstructure Design.
