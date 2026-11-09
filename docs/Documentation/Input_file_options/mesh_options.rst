@@ -91,4 +91,4 @@ Offset Use for Better Meshing (O)
 
    offset x
 
-- ``x``: bool (default: ``True``)
+- ``x``: bool
