@@ -309,8 +309,10 @@ class RandomSequentialAdsorption(GenerationMethod):
             offset = self.compute_rve_offset(microstructure_sample.particles, self.box)
             for i_particle in microstructure_sample.particles:
                 # Running through all the particles
-                i_particle.position_center -= np.array(offset)[: len(self.box)]
-                # Applying the offset to the particles
+                i_particle.position_center = (
+                    i_particle.position_center - np.array(offset)[: len(self.box)]
+                ) % np.asarray(self.box, dtype=float)
+                # Applying the offset to the particles, and wrapping the centre back into the RVE. Without it a centre can sit almost a full box length outside, and the mesher only builds the periodic images one box away from it
 
         self.simulation_name = "RSA simulation"
         self.simulation_time = time.time() - start
