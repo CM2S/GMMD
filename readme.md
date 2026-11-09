@@ -2,8 +2,9 @@
 
 [![Tests](https://github.com/CM2S/GMMD/actions/workflows/test.yaml/badge.svg?branch=master)](https://github.com/CM2S/GMMD/actions/workflows/test.yaml)
 [![Coverage](https://codecov.io/gh/CM2S/GMMD/graph/badge.svg)](https://codecov.io/gh/CM2S/GMMD)
-[![Documentation](https://readthedocs.org/projects/gmmd/badge/?version=latest)](https://gmmd.readthedocs.io)
+[![Documentation](https://img.shields.io/readthedocs/gmmd)](https://gmmd.readthedocs.io)
 [![License](https://img.shields.io/github/license/CM2S/GMMD)](LICENSE)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24077934.svg)](https://doi.org/10.5281/zenodo.24077934)
 
 Geometric Methods for Microstructure Design.
 
@@ -49,7 +50,7 @@ Bug reports, questions and pull requests are welcome on GitHub. See [CONTRIBUTIN
 
 ### How to cite
 
-If you use GMMD in your work, please cite the software and the papers on its method. [CITATION.cff](CITATION.cff) gives the citation of the software, and GitHub formats it under "Cite this repository". The molecular dynamics method is described in:
+If you use GMMD in your work, please cite the software and the papers on its method. [CITATION.cff](CITATION.cff) gives the citation of the software, and GitHub formats it under "Cite this repository". The software's DOI, [10.5281/zenodo.24077934](https://doi.org/10.5281/zenodo.24077934), always resolves to the latest version. The molecular dynamics method is described in:
 
 - J. L. P. Vila-Chã, B. P. Ferreira, F. M. Andrade Pires, "An adaptive multi-temperature isokinetic method for the RVE generation of particle reinforced heterogeneous materials, Part I: Theoretical formulation and computational framework", *Mechanics of Materials* 163 (2021) 104069. https://doi.org/10.1016/j.mechmat.2021.104069
 - B. P. Ferreira, J. L. P. Vila-Chã, F. M. Andrade Pires, "An adaptive multi-temperature isokinetic method for the RVE generation of particle reinforced heterogeneous materials, Part II: Numerical assessment and statistical analysis", *Mechanics of Materials* 165 (2022) 104068. https://doi.org/10.1016/j.mechmat.2021.104068

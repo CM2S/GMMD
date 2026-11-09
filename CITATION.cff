@@ -23,6 +23,7 @@ contact:
     email: jvc@fe.up.pt
     orcid: "https://orcid.org/0009-0000-3812-8075"
 repository-code: "https://github.com/CM2S/GMMD"
+doi: 10.5281/zenodo.24077934
 license: BSD-3-Clause
 keywords:
   - microstructure generation
