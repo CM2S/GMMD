@@ -1,5 +1,9 @@
 # GMMD
 
+[![Tests](https://github.com/CM2S/GMMD/actions/workflows/test.yaml/badge.svg?branch=master)](https://github.com/CM2S/GMMD/actions/workflows/test.yaml)
+[![Coverage](https://codecov.io/gh/CM2S/GMMD/graph/badge.svg)](https://codecov.io/gh/CM2S/GMMD)
+[![License](https://img.shields.io/github/license/CM2S/GMMD)](LICENSE)
+
 Geometric Methods for Microstructure Design.
 
 GMMD is a numerical tool developed in the context of computational mechanics to aid the design and development of advanced materials. Employing a time-driven molecular dynamics simulation, it generates microstructures of matrix-composite materials in a computationally **efficient** and **robust** way, meshes them, and analyses them.
@@ -72,6 +76,7 @@ If you use GMMD in your work, please cite the software and the papers on its met
 - Starting configuration for the simulation found through a Poisson point process or placed on a regular grid.
 - Reproducible runs: a fixed seed gives the same microstructure on every run, and a different one for each sample of the set.
 - Lightweight output option for data-driven frameworks.
+- Each microstructure written as a human-readable, tool-agnostic JSON file listing the particles, one to a line, from which meshing and analysis start.
 
 ### Meshing
 
@@ -323,6 +328,8 @@ input_file/
 │   └── ...
 └── ...
 ```
+
+The microstructure file, `mic.json`, is a human-readable, tool-agnostic description of the microstructure: the dimensions of the RVE, the phases, and the list of the particles, one to a line, each with only what defines its geometry. Any program that reads JSON can use it, and `geommicgen-mesh` and `geommicgen-analyze` start from it.
 
 `save_min`, the lightweight mode geared towards data-driven frameworks, keeps only the microstructure and status files.
 
