@@ -135,4 +135,6 @@ examples/*/
 mic.screen
 # Results folder
 geommicgen/resources/examples/Results
-Result_analysis
+/Result_analysis
+
+/docs/Documentation/_build
