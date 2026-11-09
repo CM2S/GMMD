@@ -93,7 +93,8 @@ GMMD was therefore built as a package of its own, around three choices.
 First, its MD method separates particles of every convex shape with one contact measure, the intersection length, instead of a separate measure for each pair of shapes.
 Particles of different shapes can therefore share one RVE, as the spheres and ellipsoids of \autoref{fig:example} do.
 The intersection length is the shortest translation that separates two particles; GMMD computes it on their Minkowski difference once the GJK algorithm [@Gilbert1988] detects that they intersect.
-Second, its meshes are periodic and conform to the exact particle surfaces, instead of approximating the particles by voxels or tessellation cells; voxel grids remain available for FFT-based solvers.
+Second, its meshes are periodic and conform to the exact particle surfaces, instead of approximating the particles by voxels or tessellation cells.
+@Amaro2024, for example, inserted cohesive elements along these surfaces to model interfacial damage.
 Third, its analysis tools measure the spatial statistics of the particles, including set-Voronoi Minkowski tensors, so that an RVE can be compared with the material it represents.
 
 # Software design
