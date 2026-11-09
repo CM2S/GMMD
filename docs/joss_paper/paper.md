@@ -81,7 +81,7 @@ MicroStructPy places seeds with a tolerated overlap and meshes the power diagram
 MicroStructPy also has no cylinders.
 gmshModel meshes periodic RVEs with Gmsh but places only spheres and axis-aligned cylinders of identical radius.
 microgen meshes periodic geometries with Gmsh but takes the particle positions as input instead of placing the particles.
-Mérope packs spheres and polyhedra for FFT-based solvers, under a licence that restricts it to noncommercial research use.
+Mérope targets FFT-based solvers and packs spheres by RSA or, more densely, by the Williams–Philipse algorithm, under a noncommercial research licence.
 Commercial generators, such as those in Digimat-FE and GeoDict, offer similar functions, but their methods cannot be inspected or extended.
 
 Adding the capabilities of GMMD to one of these generators would mean replacing its core.
