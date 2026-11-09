@@ -40,7 +40,7 @@ The macroscopic behaviour of particle-reinforced composites, porous materials an
 Computational homogenization models the material's mechanical response by solving a boundary value problem on a representative volume element (RVE), a sample of the microstructure that represents the material in an average sense [@HILL1963357].
 GMMD (Geometric Methods for Microstructure Design) is an open-source Python package that generates periodic RVEs of particle-reinforced materials, meshes them for finite element and FFT-based solvers, and measures their spatial statistics.
 Its time-driven molecular dynamics (MD) method [@VILACHA2021104069; @FERREIRA2022104068] packs convex particles without overlap up to volume fractions of 80 % for identical disks and 60 % for identical spheres.
-GMMD can also place them by random sequential adsorption (RSA).
+As an alternative, GMMD can place them by random sequential adsorption (RSA).
 The meshes it builds are periodic and conform to the particle surfaces.
 The particles are disks, ellipses and squares in 2D, and spheres, ellipsoids, cylinders and long fibres in 3D.
 Their sizes, shapes and orientations follow statistical distributions given in a single YAML input file.
