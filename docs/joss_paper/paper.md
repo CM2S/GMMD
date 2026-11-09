@@ -60,6 +60,18 @@ The tools closest to GMMD in purpose are MicroStructPy [@hart2020microstructpy],
 
 Adding the capabilities of GMMD to one of these packages would mean replacing its core. The tessellation pipeline of MicroStructPy and the grain model of Kanapy have no place for non-overlapping particles in a matrix, the voxel tools cannot hold exact particle surfaces, and the licence of Mérope does not allow an open-source package to build on it. GMMD was therefore built as its own package, around three choices. Its MD method separates any set of convex particles with one contact measure, the intersection length: the shortest translation that separates two particles, computed on their Minkowski difference once the GJK algorithm [@Gilbert1988] detects that they intersect. Its meshes are periodic and conform to the exact particle surfaces, and its voxel grids serve FFT-based solvers. Its analysis tools measure the spatial statistics of the particle set, including set-Voronoi Minkowski tensors. Commercial tools such as Digimat-FE and GeoDict cover similar ground, but their methods cannot be inspected or extended.
 
+# Software design
+
+GMMD is a pipeline whose stages communicate through files, so that each stage can be rerun or replaced on its own. A run reads a YAML input file, which is validated in full before anything is generated, with every error reported at its place in the file. A generation method places the particles and writes them to `mic.json`, together with the GMMD version and commit, the library versions and the input file that produced them. Meshing, voxelization, plotting and the analyses read only this file. A microstructure can therefore be meshed for another solver, or analysed again, without being generated again, and a microstructure from another source enters the pipeline at the same point.
+
+The central abstraction is the particle. Each shape is a subclass of an abstract particle class and defines its size, its volume, its support function (the farthest point of the particle in a given direction) and a test for points inside it. The GJK test and the intersection length on the Minkowski difference use only the support function, so a new convex shape gains both by defining it. The price is speed: the iterative computation on the Minkowski difference is slower than a closed form, so pairs of disks, spheres and ellipses keep closed-form tests.
+
+MD and RSA are subclasses of one abstract generation method, so they read the same input file and write the same `mic.json`. The neighbour search is a separate choice in the input file, between a cell list, a Verlet list and a test of every pair, because the fastest scheme depends on the number of particles and their aspect ratios.
+
+Meshing follows the same pattern. GMMD builds one periodic Gmsh model of the RVE. Translators write it in the formats of LINKS, CRATE and Abaqus, and meshio [@meshio] writes the formats that keep the phase of every cell, among them XDMF for FEniCS. A new solver needs a translator, not a new mesher.
+
+GMMD is tested on Linux and Windows with Python 3.10 to 3.13, and the tests cover 94 % of its lines.
+
 # AI usage disclosure
 
 The first version of GMMD was written in 2020 and 2021 without generative AI tools.
