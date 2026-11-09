@@ -33,10 +33,13 @@ Verlet_Factor 1.1
 # -----------------------------------------------------------------------------------------
 Save_History True
 final_config True
+voronoi_analysis True
+plot_voronoi True
+plot_imts True
 
 # Mesh generation
 # ------------------------------------------------------------------------------------------
-#Mesh_Options
+Mesh_Options
 
-#rgmsh
-#n_voxels_dims [1000, 1000]
+rgmsh
+n_voxels_dims [1000, 1000]

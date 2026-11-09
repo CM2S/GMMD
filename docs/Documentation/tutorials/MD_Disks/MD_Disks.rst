@@ -1,5 +1,5 @@
 ==============
-MD Disks
+Basic tutorial
 ==============
 
 Input file

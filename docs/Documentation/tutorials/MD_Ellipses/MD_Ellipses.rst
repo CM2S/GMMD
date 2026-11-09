@@ -1,6 +1,5 @@
-.. _example_MD_Ellipses:
 =================================
-MD Ellipses
+MD Ellipses with voronoi analysis
 =================================
 
 Input file
@@ -53,7 +52,7 @@ This example uses a molecular dynamics simulation to generate the microstructure
 Output files
 ============
 After running the command, a folder named ``MD_Ellipses`` will be created in the same directory as the input file
-A .pdf file of the final microstructure is created.
+A .pdf file of the final microstructure is created and a Voronoi diagram is plotted.
 
 
 .. figure:: final_config.svg
@@ -62,7 +61,13 @@ A .pdf file of the final microstructure is created.
 
     Final configuration of the microstructure.
 
+.. figure:: voronoi.svg
+    :width: 400px
+    :alt: Voronoi diagram of the final microstructure configuration
+
+    Voronoi diagram of the final microstructure configuration.
 
 
+.. include:: /_includes/previous_button.inc
 
 .. include:: /_includes/next_button.inc
