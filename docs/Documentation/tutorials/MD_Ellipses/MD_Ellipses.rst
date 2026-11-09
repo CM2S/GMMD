@@ -66,8 +66,3 @@ A .pdf file of the final microstructure is created and a Voronoi diagram is plot
     :alt: Voronoi diagram of the final microstructure configuration
 
     Voronoi diagram of the final microstructure configuration.
-
-
-.. include:: /_includes/previous_button.inc
-
-.. include:: /_includes/next_button.inc

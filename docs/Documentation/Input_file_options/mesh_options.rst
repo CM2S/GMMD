@@ -77,9 +77,6 @@ Element Type (M)
 
 - ``y``: depends on the corresponding ``mesh_option_Y``.
 
-
-.. _offset_for_better_meshing:
-
 Offset Use for Better Meshing (O)
 ------------------------------------
 

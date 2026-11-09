@@ -14,6 +14,7 @@ The input files for the tutorials are located in the ``geommicgen/resources/exam
 
 .. toctree::
     :maxdepth: 1
+    :numbered:
 
     MD_Disks/MD_Disks
     MD_Ellipses/MD_Ellipses
@@ -25,6 +26,7 @@ The input files for the tutorials are located in the ``geommicgen/resources/exam
 
 .. toctree::
     :maxdepth: 1
+    :numbered:
 
     RSA_Fibers/RSA_Fibers
     MD_Ellipsoids/MD_Ellipsoids
