@@ -37,7 +37,6 @@ Save_History True
 final_config True
 sim_gif True
 
-
 # Mesh generation
 # ------------------------------------------------------------------------------------------
 #Mesh_Options
