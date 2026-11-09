@@ -71,6 +71,6 @@ The volume fraction as a function of the step is also plotted.
 
     Volume fraction as a function of the step.
 
-.. include:: /_includes/previous_button.inc
+.. include:: ../../_includes/previous_button.inc
     
-.. include:: /_includes/next_button.inc
+.. include:: ../../_includes/next_button.inc

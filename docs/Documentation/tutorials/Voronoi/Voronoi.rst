@@ -177,6 +177,6 @@ For more information on the Minkowski structure metrics, see
 :ref:`AMINO- Part II <amino-part-ii>` paper.
 
 
-.. include:: /_includes/previous_button.inc
+.. include:: ../../_includes/previous_button.inc
 
 

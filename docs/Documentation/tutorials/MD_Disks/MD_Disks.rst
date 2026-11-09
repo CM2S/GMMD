@@ -72,6 +72,6 @@ As you can note, the final frame of the gif is different from the final configur
           Molecular dynamics simulation animation
 
 
-.. include:: /_includes/previous_button.inc
+.. include:: ../../_includes/previous_button.inc
 
-.. include:: /_includes/next_button.inc
+.. include:: ../../_includes/next_button.inc

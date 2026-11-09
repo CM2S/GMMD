@@ -83,6 +83,6 @@ In this example, 57 inner disks are distributed among 20 outer disks. Each outer
     Final configuration of the microstructure. The inner disks (light blue) are placed inside the outer disks (dark blue).
 
 
-.. include:: /_includes/previous_button.inc
+.. include:: ../../_includes/previous_button.inc
 
-.. include:: /_includes/next_button.inc
+.. include:: ../../_includes/next_button.inc

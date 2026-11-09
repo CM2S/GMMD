@@ -49,6 +49,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "myst_parser",
     "sphinx_favicon",
+    "sphinx_copybutton",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -74,6 +75,9 @@ language = "en"
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+
+# Copy buttons only on the terminal commands of the user guide (console blocks)
+copybutton_selector = "div.highlight-console pre"
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = None

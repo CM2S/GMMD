@@ -1,10 +1,11 @@
 .. "Next" button linking to the next page of the documentation.
 .. It can be added to any page, at the bottom, with:
 ..
-..     .. include:: /_includes/next_button.inc
+..     .. include:: ../../_includes/next_button.inc
 ..
-.. (the leading "/" makes the path relative to the docs root, so the same line
-.. works from any folder). Pages that do not include this file get no button.
+.. (the path is relative to the page, here a page in tutorials/<name>/; it must
+.. not start with "/", which Read the Docs resolves from docs/, not from here).
+.. Pages that do not include this file get no button.
 ..
 .. The link is filled in when the page loads, from the next page in the
 .. toctree, so reordering an index needs no changes here. The button is hidden

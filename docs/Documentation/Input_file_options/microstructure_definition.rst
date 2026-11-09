@@ -435,4 +435,4 @@ The microstructure is generated in two stages. First, all phases except the inne
      particles are left out of them. They are drawn in the final
      configuration.
 
-For an example, see :doc:`/tutorials/MD_Inner_Outer_Disks/MD_Inner_Outer_Disks`.
+For an example, see :doc:`../tutorials/MD_Inner_Outer_Disks/MD_Inner_Outer_Disks`.

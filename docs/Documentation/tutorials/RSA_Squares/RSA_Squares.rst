@@ -112,6 +112,6 @@ Two-point correlation function
 The two point correlation function, :math:`S_2(r)`, is the probability that two points a distance :math:`r` apart both lie in the particle phase. It is estimated by randomly placing point pairs in the RVE and is plotted against :math:`r/r_m`, where :math:`r_m` is the mean particle radius. At :math:`r = 0` it equals the particle volume fraction :math:`\phi`, and for large :math:`r` it tends to :math:`\phi^2`. Currently only available for 2D microstructures.
 
 
-.. include:: /_includes/previous_button.inc
+.. include:: ../../_includes/previous_button.inc
     
-.. include:: /_includes/next_button.inc
+.. include:: ../../_includes/next_button.inc
