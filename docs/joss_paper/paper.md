@@ -36,20 +36,22 @@ bibliography: paper.bib
 
 # Summary
 
-The macroscopic behaviour of particle-reinforced composites, porous materials and polymer blends depends on how the particles of one phase, which may be voids, are arranged in the matrix of another.
-Computational homogenization predicts this behaviour by solving a boundary value problem on a representative volume element (RVE), a sample of the microstructure that represents the material in an average sense [@HILL1963357].
+The macroscopic behaviour of particle-reinforced composites, porous materials and polymer blends depends on how the particles, or voids, are arranged in the matrix.
+Computational homogenization models the material's mechanical response by solving a boundary value problem on a representative volume element (RVE), a sample of the microstructure that represents the material in an average sense [@HILL1963357].
 GMMD (Geometric Methods for Microstructure Design) is an open-source Python package that generates periodic RVEs of particle-reinforced materials, meshes them for finite element and FFT-based solvers, and measures their spatial statistics.
 Its time-driven molecular dynamics (MD) method [@VILACHA2021104069; @FERREIRA2022104068] packs convex particles without overlap up to volume fractions of 80 % for identical disks and 60 % for identical spheres.
+GMMD can also place them by random sequential adsorption (RSA).
 The meshes it builds are periodic and conform to the particle surfaces.
 The particles are disks, ellipses and squares in 2D, and spheres, ellipsoids, cylinders and long fibres in 3D.
 Their sizes, shapes and orientations follow statistical distributions given in a single YAML input file.
-GMMD can also place them by random sequential adsorption (RSA).
 
 # Statement of need
 
 An RVE of a particle-reinforced material must reach the volume fraction of the real material, follow its measured distributions of particle size, shape and orientation, and be periodic, so that periodic boundary conditions apply.
-It must also be cheap enough to generate many times: to check that the RVE is large enough, to average over realizations, and to build the datasets of data-driven material design [@BESSA2017320].
-RSA places particles one at a time at random positions.
+It must also be cheap enough to generate many samples, for example to check that the RVE is large enough, to average over realizations, and to build the datasets of data-driven material design [@BESSA2017320].
+
+RSA is a common method for placing particles.
+It places them one at a time at random positions.
 It is fast, but it saturates at about 55 % for identical disks and 38 % for identical spheres [@Torquato2002, p. 88].
 Many composites exceed these fractions; the carbon-fibre-reinforced metal composite reproduced by @FERREIRA2022104068, for instance, has a fibre volume fraction of 67 %.
 In the MD method of GMMD, the particles move and repel each other until no overlap remains, with an adaptive time step and isokinetic thermostats that control their velocities [@VILACHA2021104069].
@@ -114,7 +116,7 @@ Meshing separates the model from its output formats in the same way.
 GMMD builds one periodic Gmsh model of the RVE.
 Translators write it in the formats of LINKS, CRATE [@Ferreira2023crate] and Abaqus.
 The meshio library [@meshio] writes the formats that keep the phase of every cell, among them XDMF for FEniCS.
-A new solver needs a translator, not a new mesher.
+An interface to a new solver therefore needs only a new translator.
 
 GMMD is tested on Linux and Windows with Python 3.10 to 3.13, and the tests cover 94 % of its lines.
 
