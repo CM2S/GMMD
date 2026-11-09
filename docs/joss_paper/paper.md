@@ -14,6 +14,7 @@ authors:
     orcid: 0000-0001-9989-964X
     affiliation: 1
   - name: Bernardo P. Ferreira
+    orcid: 0000-0001-5956-3877
     affiliation: 2
   - name: Francisco M. Andrade Pires
     orcid: 0000-0002-4802-6360
