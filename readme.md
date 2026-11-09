@@ -2,6 +2,7 @@
 
 [![Tests](https://github.com/CM2S/GMMD/actions/workflows/test.yaml/badge.svg?branch=master)](https://github.com/CM2S/GMMD/actions/workflows/test.yaml)
 [![Coverage](https://codecov.io/gh/CM2S/GMMD/graph/badge.svg)](https://codecov.io/gh/CM2S/GMMD)
+[![Documentation](https://readthedocs.org/projects/gmmd/badge/?version=latest)](https://gmmd.readthedocs.io)
 [![License](https://img.shields.io/github/license/CM2S/GMMD)](LICENSE)
 
 Geometric Methods for Microstructure Design.
@@ -181,7 +182,7 @@ pytest geommicgen/tests
 GEOMMICGEN_DOLFINX_PYTHON=/path/to/envs/dolfinx/bin/python pytest geommicgen/tests/test_solvers.py
 ```
 
-The documentation is built with Sphinx, installed by the `docs` extra:
+The documentation is at https://gmmd.readthedocs.io. To build it locally, install Sphinx with the `docs` extra:
 
 ```bash
 pip install -e '.[docs]'
