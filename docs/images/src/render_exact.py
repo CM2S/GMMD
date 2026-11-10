@@ -5,8 +5,8 @@
 
 Each particle and each of its periodic images is drawn from its parameters in mic.json
 and clipped to the RVE, in 3D with a flat cap where it is cut. The matrix is a frosted
-box in 3D and a grey rectangle in 2D. The image is square in 3D and has the proportions
-of the RVE in 2D; compose.py crops and scales it.
+box in 3D and a grey rectangle in 2D. The background is transparent. The image is
+square in 3D and has the proportions of the RVE in 2D; compose.py crops and scales it.
 """
 import argparse
 import itertools
@@ -177,7 +177,9 @@ try:
 except AttributeError:
     pass
 view.OrientationAxesVisibility = 0
-view.UseFXAA = 1
+# No FXAA: on a transparent background it would blend the edges with white. The
+# image is rendered large and scaled down by compose.py instead
+view.UseFXAA = 0
 view.DepthPeeling = 1
 view.MaximumNumberOfPeels = 8
 
@@ -277,5 +279,5 @@ else:
     view.CameraViewUp = [0, 1, 0]
     view.CameraParallelScale = L[1] / 2
 Render(view)
-SaveScreenshot(a.out, view, ImageResolution=shape_px, TransparentBackground=0)
+SaveScreenshot(a.out, view, ImageResolution=shape_px, TransparentBackground=1)
 print("wrote", a.out)
