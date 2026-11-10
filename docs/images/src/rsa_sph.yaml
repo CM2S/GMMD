@@ -1,0 +1,19 @@
+# Spheres of two sizes, 25 % in all, placed by random sequential adsorption, meshed with
+# tetrahedra
+samples: 1
+rve_dimensions: [1, 1, 1]
+seed: 29
+
+phases:
+  0: {type: matrix}
+  1: {type: sphere, r: 0.1, vf: 0.15}
+  2: {type: sphere, r: 0.06, vf: 0.1}
+
+generation:
+  min_distance: 0.02
+  random_sequential_adsorption:
+    max_step: 20000
+    speed_up: cell
+
+meshes:
+  gmsh: {elements_per_particle: 6, element_type: tetra4, formats: []}

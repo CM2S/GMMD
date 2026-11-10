@@ -8,7 +8,7 @@
 
 Geometric Methods for Microstructure Design.
 
-![Microstructures generated with GMMD: disks and ellipses, spheres and ellipsoids, short cylinders and spheres, long fibres, squares, spheres of three sizes, aligned ellipsoids, and a mesh of the spheres and ellipsoids](docs/images/banner.png)
+![Microstructures generated with GMMD: disks and ellipses, spheres and ellipsoids, short cylinders and spheres, long fibres, squares, spheres of three sizes, aligned ellipsoids, and a mesh of spheres of two sizes placed by random sequential adsorption](docs/images/banner.png)
 
 GMMD is a numerical tool developed in the context of computational mechanics to aid the design and development of advanced materials. Employing a time-driven molecular dynamics simulation or a random sequential adsorption, it generates microstructures of matrix-composite materials in a computationally **efficient** and **robust** way, meshes them, and analyses them.
 

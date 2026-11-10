@@ -1,4 +1,4 @@
-# Spheres and randomly oriented ellipsoids, 13 % each, meshed with tetrahedra
+# Spheres and randomly oriented ellipsoids, 13 % each
 samples: 1
 rve_dimensions: [1, 1, 1]
 seed: 11
@@ -23,6 +23,3 @@ generation:
     max_residue_per_particle: 0
     max_step: 5000
     speed_up: {name: verlet, factor: 1.1}
-
-meshes:
-  gmsh: {elements_per_particle: 8, element_type: tetra4, formats: []}

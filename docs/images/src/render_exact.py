@@ -5,8 +5,9 @@
 
 Each particle and each of its periodic images is drawn from its parameters in mic.json
 and clipped to the RVE, in 3D with a flat cap where it is cut. The matrix is a frosted
-box in 3D and a grey rectangle in 2D. The background is transparent. The image is
-square in 3D and has the proportions of the RVE in 2D; compose.py crops and scales it.
+box in 3D and a see-through grey rectangle with an outline in 2D, so that both suit
+light and dark pages. The background is transparent. The image is square in 3D and has
+the proportions of the RVE in 2D; compose.py crops and scales it.
 """
 import argparse
 import itertools
@@ -260,7 +261,13 @@ else:
     pl.SetPoint1(L[0], 0, -0.01)
     pl.SetPoint2(0, L[1], -0.01)
     pl.Update()
-    show_poly(pl.GetOutput(), MATRIX, flat=True)
+    show_poly(pl.GetOutput(), rgb("#808080"), 0.2, flat=True)
+    # A mid grey a fifth opaque: the light grey of the 3D box faces on a white page,
+    # and a dark one on a dark page, where an opaque grey stood out as a bright tile
+    out = vtkOutlineSource()
+    out.SetBounds(0, L[0], 0, L[1], 0, 0)
+    out.Update()
+    show_poly(out.GetOutput(), rgb("#7A7A7A"), 1.0, flat=True, line=a.line_width)
 
 ResetCamera(view)
 if dim == 3:
@@ -277,7 +284,8 @@ else:
     view.CameraFocalPoint = [L[0] / 2, L[1] / 2, 0]
     view.CameraPosition = [L[0] / 2, L[1] / 2, 5]
     view.CameraViewUp = [0, 1, 0]
-    view.CameraParallelScale = L[1] / 2
+    view.CameraParallelScale = L[1] / 2 * 1.01
+    # A little wider than the RVE, so that the whole width of the outline is drawn
 Render(view)
 SaveScreenshot(a.out, view, ImageResolution=shape_px, TransparentBackground=1)
 print("wrote", a.out)
