@@ -153,7 +153,8 @@ save_min: false
 #   r: {distribution: fixed, value: 0.05}
 #       the same, written out
 #   r: {distribution: specified, values: [0.04, 0.05, 0.06]}
-#       one value per particle, in the order given, as many as n
+#       one value per particle, in the order given, as many as n; a random sequential
+#       adsorption takes it only in an inner phase
 #   r: {distribution: normal, mean: 0.05, sigma: 0.005}
 #       sigma not below zero
 #   r: {distribution: lognormal, mean: 0.05, sigma: 0.1}

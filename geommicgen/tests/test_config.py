@@ -640,6 +640,63 @@ class TestRun(unittest.TestCase):
             lines[0],
         )
 
+    def test_what_the_method_or_the_rve_cannot_do_is_refused(self):
+        specified = {"distribution": "specified", "values": [0.02, 0.03, 0.04]}
+
+        def by_rsa(data):
+            data["generation"] = {"random_sequential_adsorption": {"max_step": 10}}
+
+        def specified_radii(data):
+            data["phases"][1] = {"type": "disk", "n": 3, "r": specified}
+
+        def specified_inner_radii(data):
+            data["phases"][2] = {"type": "disk", "n": 3, "r": specified, "inside": 1}
+
+        def gif(data):
+            data["analyses"] = {"simulation_gif": True}
+
+        def in_3d(data):
+            data["rve_dimensions"] = [1, 1, 1]
+            data["phases"][1] = {"type": "sphere", "r": 0.1, "n": 4}
+
+        def changed(*changes):
+            """The minimal run, changed by each of *changes* in turn."""
+            data = copy.deepcopy(MINIMAL_RUN)
+            for i_change in changes:
+                i_change(data)
+            return data
+
+        for i_changes, i_lines in (
+            (
+                (by_rsa, specified_radii),
+                [
+                    "  - phases.1.r: is specified particle by particle, which a random "
+                    "sequential adsorption cannot follow: it draws a new particle at "
+                    "every try"
+                ],
+            ),
+            (
+                (in_3d, gif),
+                [
+                    "  - analyses.simulation_gif: is drawn for a 2D RVE only, and this "
+                    "one is 3D"
+                ],
+            ),
+        ):
+            with self.subTest(lines=i_lines):
+                with self.assertRaises(ConfigError) as context:
+                    read_model(RunConfig, changed(*i_changes), "run.yaml")
+                self.assertEqual(str(context.exception).splitlines()[1:], i_lines)
+        for i_changes in (
+            (specified_radii,),
+            (by_rsa, specified_inner_radii),
+            (gif,),
+        ):
+            with self.subTest(read=[i_change.__name__ for i_change in i_changes]):
+                read_model(RunConfig, changed(*i_changes), "run.yaml")
+        # Specified values with a molecular dynamics simulation or in an inner phase,
+        # whose particles are drawn all at once, and the GIF of a 2D RVE are read
+
     def test_the_simulation_is_refused_what_it_would_stop_on(self):
         for i_generation, i_line in (
             (
