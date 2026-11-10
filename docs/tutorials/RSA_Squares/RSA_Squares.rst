@@ -9,13 +9,13 @@ The file for this tutorial is named ``RSA_Squares.mgsim``. The input file can be
 
 .. code-block:: console
 
-    geommicgen 'geommicgen/resources/examples/RSA_Squares.yaml'
+    geommicgen examples/RSA_Squares.yaml
 
 Replacing with the path to the input file according to the location of the GMMD repository in your computer.
 
 The full text of the input file is:
 
-.. literalinclude:: ../../../../geommicgen/resources/examples/RSA_Squares.yaml
+.. literalinclude:: ../../../examples/RSA_Squares.yaml
     :language: yaml
 
 

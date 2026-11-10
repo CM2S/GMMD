@@ -5,15 +5,15 @@ MD Inner Outer Disks
 Input file
 ==========
 
-The file for this tutorial is located in the ``geommicgen/resources/examples/`` directory and is named ``MD_Inner_Outer_Disks.mgsim``. To run this example, open a terminal inside the ``GMMD`` repository and run the following command:
+The file for this tutorial is located in the ``examples/`` directory and is named ``MD_Inner_Outer_Disks.mgsim``. To run this example, open a terminal inside the ``GMMD`` repository and run the following command:
 
 .. code-block:: console
 
-    geommicgen 'geommicgen/resources/examples/MD_Inner_Outer_Disks.yaml'
+    geommicgen examples/MD_Inner_Outer_Disks.yaml
 
 The full text of the input file is:
 
-.. literalinclude:: ../../../../geommicgen/resources/examples/MD_Inner_Outer_Disks.yaml
+.. literalinclude:: ../../../examples/MD_Inner_Outer_Disks.yaml
     :language: yaml
 
 

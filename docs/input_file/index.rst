@@ -91,5 +91,5 @@ Every key
 values it takes and its default -- and runs as it is written. The test suite holds it
 to the models the file is read into.
 
-.. literalinclude:: ../../../examples/reference.yaml
+.. literalinclude:: ../../examples/reference.yaml
    :language: yaml

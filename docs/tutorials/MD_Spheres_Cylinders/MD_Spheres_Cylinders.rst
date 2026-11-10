@@ -5,15 +5,15 @@ MD Spheres and Cylinders
 Input file
 ==========
 
-The file for this tutorial is located in the ``geommicgen/resources/examples/`` directory and is named ``MD_sphere_cylinder.mgsim``. To run this example, open a terminal inside the ``GMMD`` repository and run the following command:
+The file for this tutorial is located in the ``examples/`` directory and is named ``MD_sphere_cylinder.mgsim``. To run this example, open a terminal inside the ``GMMD`` repository and run the following command:
 
 .. code-block:: console
 
-    geommicgen 'geommicgen/resources/examples/MD_sphere_cylinder.yaml'
+    geommicgen examples/MD_sphere_cylinder.yaml
 
 The full text of the input file is:
 
-.. literalinclude:: ../../../../geommicgen/resources/examples/MD_sphere_cylinder.yaml
+.. literalinclude:: ../../../examples/MD_sphere_cylinder.yaml
     :language: yaml
 
 Phases
