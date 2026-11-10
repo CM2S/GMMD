@@ -4,8 +4,9 @@
         [--colors 1=#0072B2,2=#D55E00] [--matrix-opacity 0.25] [--edge-shade 0.4]
 
 In 3D the matrix is drawn as the faces of the RVE, see-through, and each phase as the
-surface of its elements. In 2D every element is drawn, the matrix in grey. The image is
-square in 3D and has the proportions of the RVE in 2D; compose.py crops and scales it.
+surface of its elements. In 2D every element is drawn, the matrix in grey. The
+background is transparent. The image is square in 3D and has the proportions of the RVE
+in 2D; compose.py crops and scales it.
 """
 import argparse
 import math
@@ -62,7 +63,9 @@ try:
 except AttributeError:
     pass
 view.OrientationAxesVisibility = 0
-view.UseFXAA = 1
+# No FXAA: on a transparent background it would blend the edges with white. The
+# image is rendered large and scaled down by compose.py instead
+view.UseFXAA = 0
 view.DepthPeeling = 1
 view.MaximumNumberOfPeels = 8
 
@@ -104,5 +107,5 @@ else:
     view.CameraViewUp = [0, 1, 0]
     view.CameraParallelScale = (b[3] - b[2]) / 2
 Render(view)
-SaveScreenshot(a.out, view, ImageResolution=px, TransparentBackground=0)
+SaveScreenshot(a.out, view, ImageResolution=px, TransparentBackground=1)
 print("wrote", a.out)
