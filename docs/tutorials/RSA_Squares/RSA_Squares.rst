@@ -5,7 +5,7 @@ RSA Squares with statistical analysis
 Input file
 ==========
 
-The file for this tutorial is named ``RSA_Squares.mgsim``. The input file can be run by executing the following command in a terminal console window:
+The file for this tutorial is named ``RSA_Squares.yaml``. The input file can be run by executing the following command in a terminal console window:
 
 .. code-block:: console
 
@@ -24,20 +24,20 @@ Phases
 
 The microstructure has two phases:
 
-- a matrix phase, described by::
+- a matrix phase, described by:
 
-    Phase 0
-    Phase_Type 1
+  .. code-block:: yaml
 
-- and a square phase, described by::
+     0: {type: matrix}
 
-    Phase 2
-    Phase_Type 8
-    vf 0.2
-    side_distribution normal
-        side_mean 0.1
-        side_sigma 0.01
+- and a square phase, described by:
 
+  .. code-block:: yaml
+
+     2:
+       type: square
+       vf: 0.4
+       side: {distribution: normal, mean: 0.1, sigma: 0.01}
 
 In this example, the RVE has dimensions [1.9, 1.0].
 
@@ -51,8 +51,8 @@ This example uses a Random Sequential Adsorption simulation to generate the micr
 
 Output files
 ============
-After running the command, a folder named ``RSA_Disks_Squares`` will be created in the same directory as the input file. This folder contains all the output data related to the microstructure generation.
-A .pdf file of the final microstructure is created with the line ``final_config True`` in the input file. Moreover, some statistical analysis tools are used: Ripley's K function, the nearest neighbor distance distribution and the two-point correlation function of the microstructure are computed and plotted.
+After running the command, a folder named ``RSA_Squares`` will be created in the same directory as the input file. This folder contains all the output data related to the microstructure generation.
+A .pdf file of the final microstructure is created with ``final_config: true`` under ``analyses`` in the input file. Moreover, some statistical analysis tools are used: Ripley's K function, the nearest neighbor distance distribution and the two-point correlation function of the microstructure are computed and plotted.
 
 
 .. figure:: final_config.svg

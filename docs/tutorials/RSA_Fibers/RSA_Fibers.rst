@@ -5,7 +5,7 @@ RSA Fibers
 Input file
 ==========
 
-The file for this tutorial is named ``RSA_fiber.mgsim``. The input file can be run by executing the following command in a terminal console window:
+The file for this tutorial is named ``RSA_fiber.yaml``. The input file can be run by executing the following command in a terminal console window:
 
 .. code-block:: console
 
@@ -24,18 +24,17 @@ Phases
 
 The microstructure has two phases:
 
-- a matrix phase, described by::
+- a matrix phase, described by:
 
-    Phase 0
-    Phase_Type 1
+  .. code-block:: yaml
 
-- and a long cylindrical fiber phase, described by::
+     0: {type: matrix}
 
-    Phase 1
-    Phase_Type 6
-    r 0.05
-    vf 0.3
-    direction 2
+- and a long cylindrical fiber phase, described by:
+
+  .. code-block:: yaml
+
+     1: {type: cylindrical_fiber, r: 0.05, vf: 0.3, direction: 2}
 
 The fibers have a fixed radius of 0.05 and a volume fraction of 0.3. They are all aligned along direction 2, the third dimension of the RVE.
 
@@ -55,7 +54,7 @@ The maximum number of iterations, 10000, is significantly larger than the number
 Output files
 ============
 After running the command, a folder named ``RSA_fiber`` will be created in the same directory as the input file. This folder contains all the output data related to the microstructure generation.
-A .vtk file of the final microstructure is created with the line ``final_config True`` in the input file. This file can be opened in a 3D visualization tool, such as ParaView, which was used to produce the image below.
+A .vtk file of the final microstructure is created with ``final_config: true`` under ``analyses`` in the input file. This file can be opened in a 3D visualization tool, such as ParaView, which was used to produce the image below.
 The volume fraction as a function of the step is also plotted.
 
 

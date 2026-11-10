@@ -5,7 +5,7 @@ MD Disks
 Input file
 ==========
 
-The file for this tutorial is located in the ``examples/`` directory and is named ``MD_Disks.mgsim``. To run this example, open a termial inside the ``GMMD`` repository and run the following command:
+The file for this tutorial is located in the ``examples/`` directory and is named ``MD_Disks.yaml``. To run this example, open a termial inside the ``GMMD`` repository and run the following command:
 
 .. code-block:: console
 
@@ -22,23 +22,20 @@ Phases
 
 The microstructure has two phases:
 
-- a matrix phase, described by::
+- a matrix phase, described by:
 
-    Phase 0
-    Phase_Type 1
+  .. code-block:: yaml
 
-- and a disk phase, described by::
+     0: {type: matrix}
 
-    Phase 1
-    Phase_Type 2
-    r_distribution discrete
-        r_value_1 0.05
-        r_prob_1 0.4
-        r_value_2 0.02
-        r_prob_2 0.5
-        r_value_3 0.1
-        r_prob_3 0.1
-    vf 0.5
+- and a disk phase, described by:
+
+  .. code-block:: yaml
+
+     1:
+       type: disk
+       vf: 0.5
+       r: {distribution: discrete, values: [0.05, 0.02, 0.1], probabilities: [0.4, 0.5, 0.1]}
 
 The disks have a volume fraction of 0.5 and their radius follows a discrete distribution.
 
@@ -54,7 +51,7 @@ The speed up scheme used is Verlet.
 Output files
 ============
 After running the command, a folder named ``MD_Disks`` will be created in the same directory as the input file. This folder contains all the output data related to the microstructure generation.
-A .pdf file of the final microstructure is created with the line ``final_config True`` in the input file and a gif of the molecular dynamics simulation is created. It is important to note that the gif frames are created in each step of the simulation, which increases the simulation time. The default setting is to not create the gif.
+A .pdf file of the final microstructure is created with ``final_config: true`` under ``analyses`` in the input file and a gif of the molecular dynamics simulation is created. It is important to note that the gif frames are created in each step of the simulation, which increases the simulation time. The default setting is to not create the gif.
 
 As you can note, the final frame of the gif is different from the final configuration image. This is because, after the simulation, it is applied an offset that minimizes particles sitting tangent to the boundary (see :ref:`offset_for_better_meshing`). This ensures that the FEM mesh is the least distorted possible. Besides this, in order to guarentee the minimum distance between particles, GMMD first dilates them, runs the simulation and then contracts the particles. This dilation and contraction steps are also not seen in the gif, eventhough hardly noticeable in this example.
 

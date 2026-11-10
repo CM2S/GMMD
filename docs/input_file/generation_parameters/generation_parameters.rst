@@ -79,12 +79,11 @@ which gives a mesh the least distorted elements.
 Inner Phase Maximum Number of Steps (O)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Meaning:** The maximum number of steps for placing each inner phase inside
-its outer phase (see :doc:`../microstructure_definition`). Each random
-position tried for an inner particle counts as one step. When this number is
-reached, the placement stops and the inner particles not yet placed are
-removed, so the inner phase may end up with a volume fraction smaller than the
-one specified. A message is printed when this happens.
+**Meaning:** The maximum number of positions tried for each particle of an
+inner phase inside its outer phase (see :doc:`../microstructure_definition`).
+An inner particle not placed after this many tries is removed, so the inner
+phase may end up with a volume fraction smaller than the one specified. A
+message says how many particles were removed.
 
 **Syntax:**
 

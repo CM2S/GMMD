@@ -25,5 +25,4 @@ generation:
 
 analyses:
   final_config: true
-  # The GIF of the simulation is not in master yet:
-  # simulation_gif: {}
+  simulation_gif: {}

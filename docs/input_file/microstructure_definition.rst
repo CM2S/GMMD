@@ -333,6 +333,8 @@ One value per particle, in the order given, as many values as ``n``:
 
    parameter: {distribution: specified, values: [0.04, 0.05, 0.06]}
 
+A random sequential adsorption takes specified values only in an inner phase.
+
 Discrete distribution
 ^^^^^^^^^^^^^^^^^^^^^^
 

@@ -5,7 +5,7 @@ MD Inner Outer Disks
 Input file
 ==========
 
-The file for this tutorial is located in the ``examples/`` directory and is named ``MD_Inner_Outer_Disks.mgsim``. To run this example, open a terminal inside the ``GMMD`` repository and run the following command:
+The file for this tutorial is located in the ``examples/`` directory and is named ``MD_Inner_Outer_Disks.yaml``. To run this example, open a terminal inside the ``GMMD`` repository and run the following command:
 
 .. code-block:: console
 
@@ -24,33 +24,27 @@ This example shows how to place the particles of one phase inside the particles 
 
 The microstructure has three phases:
 
-- a matrix phase, described by::
+- a matrix phase, described by:
 
-    Phase 0
-    Phase_Type 1
+  .. code-block:: yaml
 
-- an outer phase of disks, described by::
+     0: {type: matrix}
 
-    Phase 1
-    Phase_Type 2
-    r 0.08
-    vf 0.4
+- an outer phase of disks, described by:
 
-- and an inner phase of smaller disks, described by::
+  .. code-block:: yaml
 
-    Phase 2
-    Phase_Type 2
-    inner_phase True
-    outer_phase 1
-    r 0.015
-    vf 0.04
+     1: {type: disk, r: 0.08, vf: 0.4}
+
+- and an inner phase of smaller disks, described by:
+
+  .. code-block:: yaml
+
+     2: {type: disk, r: 0.015, vf: 0.04, inside: 1}
 
 The outer disks have a radius of 0.08 and a volume fraction of 0.4. The inner disks have a radius of 0.015 and a volume fraction of 0.04.
 
-Two keywords turn a phase into an inner phase:
-
-- ``inner_phase True`` marks the phase as an inner phase;
-- ``outer_phase 1`` gives the ``phase_id`` of the phase whose particles will contain it.
+The key ``inside: 1`` makes phase 2 an inner phase, placed inside the particles of phase 1.
 
 The volume fraction of the inner phase is relative to the whole RVE, not to the outer phase. It must therefore be smaller than the volume fraction of the outer phase.
 
@@ -65,14 +59,14 @@ The generation is done in two steps:
 1. The molecular dynamics simulation is run with the outer phase only. The inner phase does not take part in it.
 2. After the simulation, the inner particles are placed inside the outer particles using RSA.
 
-The maximum number of steps of the inner phase placement can be set with ``Inner_Phase_Max_Step``. It is not specified in this example, so the default of 200 is used. See :ref:`input_file_options` for more details.
+The number of positions tried for each inner particle can be set with ``inner_phase_max_step`` under ``generation``. It is not specified in this example, so the default of 200 is used. See :ref:`input_file_options` for more details.
 
 
 Output files
 ============
 
 After running the command, a folder named ``MD_Inner_Outer_Disks`` will be created in the same directory as the input file. This folder contains all the output data related to the microstructure generation.
-A .pdf file of the final microstructure is created with the line ``final_config True`` in the input file.
+A .pdf file of the final microstructure is created with ``final_config: true`` under ``analyses`` in the input file.
 
 In this example, 57 inner disks are distributed among 20 outer disks. Each outer disk contains a different number of inner disks, and some may contain none, since the inner disks are assigned to the outer disks at random.
 

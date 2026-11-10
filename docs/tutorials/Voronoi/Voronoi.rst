@@ -62,7 +62,7 @@ After running the command, a folder named ``MD_Ellipses_voronoi`` will be create
 A .pdf file of the final microstructure is created along with several files regarding the Voronoi analysis.
 
 
-The line ``plot_imts True`` plots the Voronoi diagram including the values of the Minkowski structure metrics corresponding to each cell along with its histograms.
+The option ``plot_imts: true`` of ``voronoi`` plots the Voronoi diagram including the values of the Minkowski structure metrics corresponding to each cell along with its histograms.
 
 
 

@@ -26,21 +26,22 @@ Phases
 
 The microstructure has two phases:
 
-- a matrix phase, described by::
+- a matrix phase, described by:
 
-    Phase 0
-    Phase_Type 1
+  .. code-block:: yaml
 
-- and an ellipse phase, described by::
+     0: {type: matrix}
 
-    Phase 1
-    Phase_Type 3
-    n 100
-    vf 0.5
-    angle_distribution normal
-        angle_mean 0
-        angle_sigma 0.2
-    ratio 2
+- and an ellipse phase, described by:
+
+  .. code-block:: yaml
+
+     1:
+       type: ellipse
+       n: 100
+       vf: 0.5
+       angle: {distribution: normal, mean: 0, sigma: 0.2}
+       ratio: 2
 
 The microstructure contains 100 ellipses with a volume fraction of 0.5. The ratio between the major and minor axis of the ellipses is 2, and their orientation angle follows a normal distribution with mean 0 and standard deviation 0.2.
 
