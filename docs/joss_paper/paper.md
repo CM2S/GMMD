@@ -45,6 +45,9 @@ As an alternative, GMMD can place them by random sequential adsorption (RSA).
 The particles are disks, ellipses and squares in 2D, and spheres, ellipsoids, cylinders and long fibres in 3D.
 Their sizes, shapes and orientations follow statistical distributions given in a single YAML input file.
 The meshes GMMD builds are periodic and conform to the particle surfaces.
+They can be written in the input formats of several solvers and in general-purpose mesh formats.
+Custom mesh translators can be easily added by users to support new solvers.
+
 
 # Statement of need
 
@@ -76,6 +79,7 @@ Neper [@Neper2011; @Neper2018] builds Laguerre tessellations whose seeds are opt
 Kanapy [@Kanapy2019] packs growing ellipsoids by particle dynamics and assigns the remaining space to the nearest grain.
 Both produce space-filling grains, not particles embedded in a matrix.
 DREAM.3D [@Groeber2014] and PoreSpy [@gostick2019porespy] place particles on a voxel grid, so the particle surfaces are not represented exactly and no conforming mesh can be built from them.
+MCRpy [@Seibert2022mcrpy] reconstructs voxel microstructures, in 2D and 3D, by optimizing them to match target descriptors such as $n$-point correlations, so it also yields no explicit particle surfaces.
 
 The generators closest to GMMD in purpose are MicroStructPy [@hart2020microstructpy], gmshModel [@gmshModel], microgen [@microgen] and Mérope [@Josien2024].
 MicroStructPy places seeds with a tolerated overlap and meshes the power diagram they define, so a particle is meshed as a tessellation cell rather than as its own shape.
@@ -84,7 +88,7 @@ microgen meshes periodic geometries with Gmsh but takes the particle positions a
 Mérope targets FFT-based solvers and packs spheres by RSA or, more densely, by the Williams–Philipse algorithm, under a noncommercial research licence.
 Commercial generators, such as those in Digimat-FE and GeoDict, offer similar functions, but their methods cannot be inspected or extended.
 
-Adding the capabilities of GMMD to one of these generators would mean replacing its core: the space-filling tessellations of MicroStructPy and Kanapy, the voxel grids of DREAM.3D and PoreSpy, or the random placement of gmshModel, which saturates as RSA does.
+Adding the capabilities of GMMD to one of these generators would mean replacing its core: the space-filling tessellations of MicroStructPy and Kanapy, the voxel grids of DREAM.3D, PoreSpy and MCRpy, or the random placement of gmshModel, which saturates as RSA does.
 The licence of Mérope does not allow an open-source package to build on it.
 GMMD was therefore built as a package of its own, around three choices.
 First, its MD method separates particles of every convex shape with one contact measure, the intersection length, instead of a separate measure for each pair of shapes.
