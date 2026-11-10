@@ -136,3 +136,5 @@ mic.screen
 # Results folder
 geommicgen/resources/examples/Results
 /Result_analysis
+# Where docs/images/src/make_figures.sh works
+/docs/images/src/build/

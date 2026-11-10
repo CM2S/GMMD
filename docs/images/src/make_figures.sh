@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 # Remake the banner of the readme and the figure of the JOSS paper from the inputs here.
 # Needs GMMD with Gmsh, ParaView's pvbatch, and Python with Pillow and NumPy; pngquant
-# makes the files smaller. Run it from this folder; it works in ./build.
+# makes the files smaller. Run it from this folder; it starts ./build afresh and works
+# there, where each input is copied, since GMMD writes the results beside the input.
 set -euo pipefail
 PVBATCH=${PVBATCH:-pvbatch}
 PYTHON=${PYTHON:-python}
-mkdir -p build
+rm -rf build
+mkdir build
 cd build
 for n in disk_ell squares sph_ell cyl_sph poly_sph aligned_ell fibres rect2d; do
-    geommicgen ../$n.yaml
+    cp ../$n.yaml .
+    geommicgen $n.yaml
 done
 
 exact() { "$PVBATCH" ../render_exact.py "$1/mic_0/mic.json" "$1.png" "${@:2}"; }
