@@ -14,6 +14,7 @@ authors:
     corresponding: true
     affiliation: "1, 2"
   - name: João A. G. Cruz de Morais
+    orcid: 0009-0001-7037-8717
     affiliation: 2
   - name: Rui P. Cardoso Coelho
     orcid: 0000-0001-9989-964X
