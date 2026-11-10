@@ -300,6 +300,9 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
     ax.set_ylim(0, rve_dims[1])
     ax.set_xlim(0, rve_dims[0])
     # Setting the correct proportions
+    ax.set_xticks([])
+    ax.set_yticks([])
+    # The frame is the RVE; ticks and their labels would only add coordinates
 
     if kwargs.get("sim_gif", False):
         step = kwargs.get("iteration", 0)
