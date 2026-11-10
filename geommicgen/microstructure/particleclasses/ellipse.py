@@ -5,7 +5,7 @@ import numpy as np
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-from .particle import Particle, MINIMUM_SIZE
+from .particle import Particle, MINIMUM_SIZE, semi_axes_inflation
 
 
 class Ellipse(Particle):
@@ -90,7 +90,7 @@ class Ellipse(Particle):
 
     def __init__(self, phase, descriptors, rve_dims):
         """
-        Initialize a classe Ellipse obejct.
+        Initialize a classe Ellipse object.
 
         Parameters
         ----------
@@ -159,13 +159,25 @@ class Ellipse(Particle):
         )
         super().__init__(2, phase)
 
+
     @property
     def volume(self):
-        """Area(volume) of the ellipse. Only approximate if *self.delta*!=0."""
+        """Area(volume) of the real ellipse."""
         volume = (
             np.pi
             * (self.semi_major_axis)
             * (self.semi_minor_axis)
+        )
+        return volume
+
+
+    @property
+    def real_volume(self):
+        """Real area(volume) of the ellipse, the one before any dilation."""
+        volume = (
+            np.pi
+            * (self.semi_major_axis - self.inflation)
+            * (self.semi_minor_axis - self.inflation)
         )
 
         return volume
@@ -173,53 +185,42 @@ class Ellipse(Particle):
     @property
     def inflation(self):
         """
-        Amount *t* added to both semi-axes to account for the dilation *self.delta*.
+        Amount *t* the dilation *self.delta* has added to both semi-axes.
 
-        *t* is a root of 2s*t^3 + 4ab*t^2 - 2s*delta^2*t - s^2*delta^2 = 0, with s = a + b
-        and a, b the undilated semi-axes. For a dilation (delta > 0) it is the positive root.
-        For a contraction (delta < 0) the same equation written with the shrunk semi-axes
-        a + t, b + t reduces to this cubic, and *t* is its negative root closest to zero.
-        A contraction has no such root when the ellipse is too slender for its inner offset
-        curve at distance |delta| to be an ellipse with equally shrunk semi-axes.
+        See `semi_axes_inflation`. The axes hold the dilation, and this is kept so that
+        it can be taken off again exactly.
         """
-        key = (self.major_axis, self.minor_axis, self.delta)
-        if getattr(self, "_inflation_cache", (None,))[0] != key:
-            if self.delta == 0:
-                inflation = 0.0
-            else:
-                a = self.major_axis / 2
-                b = self.minor_axis / 2
-                s = a + b
-                roots = np.roots(
-                    [2 * s, 4 * a * b, -2 * s * self.delta ** 2, -(s ** 2) * self.delta ** 2]
-                )
-                real_roots = roots[np.abs(roots.imag) < 1e-12].real
-                if self.delta > 0:
-                    # Descartes' rule of signs guarantees exactly one positive real root
-                    inflation = max(real_roots)
-                else:
-                    negative_roots = real_roots[real_roots < 0]
-                    if len(negative_roots) == 0:
-                        raise ValueError(
-                            "Ellipse with semi-axes {0} and {1} cannot be contracted by "
-                            "{2}".format(a, b, -self.delta)
-                        )
-                    inflation = max(negative_roots)
-            self._inflation_cache = (key, inflation)
+        return getattr(self, "_inflation", 0.0)
 
-        return self._inflation_cache[1]
+    def set_dilation(self, delta):
+        """
+        Dilate the particle so that its total dilation is *delta*.
+
+        The axes are brought back to their undilated lengths and grown by the inflation
+        of *delta*, computed from the undilated ones, so that a dilation undone by a
+        contraction gives back the particle it started from.
+        """
+        undilated_semi_axes = [
+            self.major_axis / 2 - self.inflation,
+            self.minor_axis / 2 - self.inflation,
+        ]
+        inflation = semi_axes_inflation(undilated_semi_axes, delta)
+        self.major_axis = 2 * (undilated_semi_axes[0] + inflation)
+        self.minor_axis = 2 * (undilated_semi_axes[1] + inflation)
+        self.delta = delta
+        self._inflation = inflation
 
     @property
     def semi_major_axis(self):
-        """Semi major axis of the ellipse, including the dilation *self.delta*."""
-        semi_major_axis = self.major_axis / 2 + self.inflation
+        """Semi major axis of the ellipse, including the dilation."""
+        semi_major_axis = self.major_axis / 2
 
         return semi_major_axis
 
     @property
     def semi_minor_axis(self):
-        """Semi minor axis of the ellipse, including the dilation *self.delta*."""
-        semi_minor_axis = self.minor_axis / 2 + self.inflation
+        """Semi minor axis of the ellipse, including the dilation."""
+        semi_minor_axis = self.minor_axis / 2
 
         return semi_minor_axis
 
@@ -245,14 +246,12 @@ class Ellipse(Particle):
         return radius_insc
 
     def contract(self, distance):
-        """Contract the particle."""
-        self.delta -= distance
-        # Contracting the particle size subracting the minimum distance from the semi-axis
+        """Contract the particle by *distance*, taking the inflation off its axes."""
+        self.set_dilation(self.delta - distance)
 
     def dilate(self, distance):
-        """Dilate the particle."""
-        self.delta += distance
-        # Dilating the particle size adding the minimum distance to the semi-axis
+        """Dilate the particle by *distance*, adding the inflation to its axes."""
+        self.set_dilation(self.delta + distance)
 
     def point_inside(self, point: np.array, box: list, **kwargs) -> bool:
         """
@@ -834,6 +833,8 @@ class Ellipse(Particle):
         """Rescale all size parameters and the position according to *rescale_parameter*."""
         self.major_axis *= rescale_parameter
         self.minor_axis *= rescale_parameter
+        self._inflation = self.inflation * rescale_parameter
+        # The inflation is a length the axes hold, scaled with them
         super().rescale(rescale_parameter)
 
 

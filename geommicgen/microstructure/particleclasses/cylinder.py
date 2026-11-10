@@ -126,8 +126,18 @@ class Cylinder(Particle):
 
     @property
     def volume(self):
-        """Particle volume. Only approximate if *self.delta !=0."""
-        volume = (self.length + 2 * self.delta) * np.pi * (self.r_cyl + self.delta) ** 2
+        """Particle volume."""
+        volume = self.length * np.pi * self.r_cyl**2
+        # The length and the radius hold the dilation
+        return volume
+
+    @property
+    def real_volume(self):
+        """Particle real volume."""
+        volume = (
+            (self.length - 2 * self.delta) * np.pi * (self.r_cyl - self.delta) ** 2
+        )
+        # The cylinder before the dilation
         return volume
 
     @property
@@ -139,7 +149,7 @@ class Cylinder(Particle):
     @property
     def radius(self):
         """Radius of the circumscribed sphere to the cylinder."""
-        radius = np.sqrt((self.length / 2) ** 2 + self.r_cyl ** 2) + self.delta
+        radius = np.sqrt((self.length / 2) ** 2 + self.r_cyl ** 2)
         return radius
 
     @property
@@ -218,23 +228,25 @@ class Cylinder(Particle):
         radial_offset = (
             self.r_cyl * normal / normal_norm if normal_norm != 0 else np.zeros(3)
         )
-        dir_unit = direction / np.linalg.norm(direction)
 
-        return (
-            self.position_center + axial_offset + radial_offset + self.delta * dir_unit
-        )
+        return self.position_center + axial_offset + radial_offset
         # The point is on the rim of the cap that *direction* points to, or of the top
-        # cap when it is normal to the axis, pushed out by the dilation
+        # cap when it is normal to the axis. The length and the radius hold the
+        # dilation
 
     def contract(self, distance: float):
-        """Contract the particle."""
+        """Contract the particle by *distance*, off its radius and each of its caps."""
+        self.r_cyl -= distance
+        self.length -= 2 * distance
         self.delta -= distance
-        # Contracting the particle size subracting the minimum distance from the semi-axis
 
     def dilate(self, distance: float):
-        """Dilate the particle."""
+        """Dilate the particle by *distance*, onto its radius and each of its caps."""
+        self.r_cyl += distance
+        self.length += 2 * distance
         self.delta += distance
-        # Dilating the particle size adding the minimum distance to the semi-axis
+        # The dilated cylinder holds every point at *distance* from the original one,
+        # with some to spare at the rims of its caps
 
     def rescale(self, rescale_parameter):
         """Rescale all size parameters and the position according to *rescale_parameter*."""

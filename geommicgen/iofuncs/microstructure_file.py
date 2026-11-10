@@ -171,6 +171,8 @@ def _shape_parameters(particle):
             "minor_axis": particle.minor_axis,
             "angle": particle.angle,
         }
+    elif shape == "Square":
+        parameters = {"side": particle.side}
     elif shape == "Sphere":
         parameters = {"r": particle.axis_1 / 2}
     elif shape == "Ellipsoid":
@@ -416,6 +418,8 @@ def particle_from_record(record, rve_dims):
         descriptors = {"r": record["r"]}
     elif shape == "CylindricalFiber":
         descriptors = {"r": record["r"], "direction": int(record["direction"])}
+    elif shape == "Square":
+        descriptors = {"side": record["side"]}
     elif shape == "Ellipse":
         descriptors = {
             "major_axis": record["major_axis"],

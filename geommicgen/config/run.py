@@ -25,7 +25,7 @@ from geommicgen.config.base import (
 )
 from geommicgen.config.generation import Generation
 from geommicgen.config.meshes import MeshesConfig, to_mesh_options
-from geommicgen.config.phases import Fixed, PhaseModel, PhaseName
+from geommicgen.config.phases import Fixed, PhaseModel, PhaseName, Specified
 from geommicgen.microstructure.microstructure import DIRECTION_VARIES, phase_problems
 from geommicgen.microstructure.particleclasses import Matrix
 
@@ -62,7 +62,12 @@ class RunConfig(ConfigModel):
     @pydantic.model_validator(mode="after")
     def sections_agree(self):
         """Refuse phases that do not fit the RVE or each other, or meshes the phases."""
-        problems = self.phases_problems() + self.mesh_problems()
+        problems = (
+            self.phases_problems()
+            + self.mesh_problems()
+            + self.generation_problems()
+            + self.analysis_problems()
+        )
         if problems:
             raise Problems(problems)
 
@@ -117,6 +122,40 @@ class RunConfig(ConfigModel):
 
         return problems
 
+    def generation_problems(self):
+        """Give what the method of generation cannot do with the phases."""
+        problems = []
+        if self.generation.method != "random_sequential_adsorption":
+            return problems
+        for i_name, i_phase in self.phases.items():
+            if i_phase.particle_class is Matrix or i_phase.inside is not None:
+                continue
+            # The particles of an inner phase are drawn all at once, as a molecular
+            # dynamics simulation draws them
+            for j_name, j_descriptor in i_phase.descriptors.items():
+                if isinstance(j_descriptor, Specified):
+                    problems.append(
+                        (
+                            ("phases", i_name, j_name),
+                            "is specified particle by particle, which a random "
+                            "sequential adsorption cannot follow: it draws a new "
+                            "particle at every try",
+                        )
+                    )
+        return problems
+
+    def analysis_problems(self):
+        """Give what the analyses cannot do with the RVE."""
+        problems = []
+        if self.analyses.simulation_gif is not None and len(self.rve_dimensions) == 3:
+            problems.append(
+                (
+                    ("analyses", "simulation_gif"),
+                    "is drawn for a 2D RVE only, and this one is 3D",
+                )
+            )
+        return problems
+
     def to_options(self):
         """
         Give the run as the input data file keys it.
@@ -140,6 +179,9 @@ class RunConfig(ConfigModel):
             },
             "post_proc": self.analyses.to_options(),
         }
+        options["mic_gen_parameters"]["sim_gif"] = options["post_proc"]["sim_gif"]
+        # The GIF is put together after the run from frames the generation draws, so
+        # asking for it has the generation draw them
         mesh_options = self.meshes.to_options()
         if mesh_options:
             options["mesh_options"] = mesh_options

@@ -14,7 +14,7 @@ import pydantic
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-from geommicgen.config.base import ConfigModel, named
+from geommicgen.config.base import ConfigModel, Problems, named
 from geommicgen.micgenmethod.molecular_dynamics_sim import INITIAL_CONFIGURATIONS
 
 
@@ -57,6 +57,15 @@ SPEED_UP_SCHEMES = (CellList, NaiveList, VerletList)
 
 SpeedUp = Annotated[
     Union[SPEED_UP_SCHEMES],
+    pydantic.Field(discriminator="name"),
+    pydantic.BeforeValidator(named),
+]
+
+RSA_SPEED_UP_SCHEMES = (CellList, NaiveList)
+# The schemes of the random sequential adsorption, which has no Verlet list
+
+RsaSpeedUp = Annotated[
+    Union[RSA_SPEED_UP_SCHEMES],
     pydantic.Field(discriminator="name"),
     pydantic.BeforeValidator(named),
 ]
@@ -228,6 +237,39 @@ class MolecularDynamics(ConfigModel):
         return options
 
 
+class RandomSequentialAdsorption(ConfigModel):
+    """Model of the generation by a random sequential adsorption."""
+
+    max_step: int = pydantic.Field(
+        ge=0, description="most particles the adsorption tries to place"
+    )
+    save_history: bool = pydantic.Field(
+        False,
+        description="keep the volume fraction, the particles accepted and the checks "
+        "made at every step",
+    )
+    speed_up: RsaSpeedUp = CellList(name="cell")
+
+    def to_options(self):
+        """
+        Give the parameters of the adsorption as the input data file keys them.
+
+        Returns
+        -------
+        dict
+            Every parameter of the adsorption, whether the file names it or not.
+        """
+        return {
+            "max_step": self.max_step,
+            "save_history": self.save_history,
+            **self.speed_up.to_options(),
+        }
+
+
+GENERATION_METHOD_NAMES = ("molecular_dynamics", "random_sequential_adsorption")
+# The fields of the generation section that name a method, one of which is given
+
+
 class Generation(ConfigModel):
     """
     Model of the generation section: the options every method takes, and the options
@@ -241,17 +283,58 @@ class Generation(ConfigModel):
         "the RVE",
     )
     offset: bool = True
-    molecular_dynamics: MolecularDynamics = pydantic.Field(
-        description="the generation by a molecular dynamics simulation, the one "
-        "method there is"
+    inner_phase_max_step: int = pydantic.Field(
+        200,
+        ge=1,
+        description="most positions tried for each particle of an inner phase",
     )
-    # A field for each method, which a section names by giving its options; with one
-    # method, a section that names none is refused as missing it
+    molecular_dynamics: Optional[MolecularDynamics] = pydantic.Field(
+        None, description="the generation by a molecular dynamics simulation"
+    )
+    random_sequential_adsorption: Optional[RandomSequentialAdsorption] = pydantic.Field(
+        None, description="the generation by a random sequential adsorption"
+    )
+    # A field for each method, which a section names by giving its options; exactly one
+    # of them is given
+
+    @pydantic.model_validator(mode="after")
+    def one_method(self):
+        """Refuse a section that names no method, or more than one."""
+        given = [
+            i_name for i_name in GENERATION_METHOD_NAMES if getattr(self, i_name) is not None
+        ]
+        if not given:
+            raise Problems(
+                [
+                    (
+                        (GENERATION_METHOD_NAMES[0],),
+                        "is missing: the section names one method, {0}".format(
+                            " or ".join(GENERATION_METHOD_NAMES)
+                        ),
+                    )
+                ]
+            )
+        if len(given) > 1:
+            raise Problems(
+                [
+                    (
+                        (i_name,),
+                        "is given beside {0}: the section names one method".format(
+                            " and ".join(j for j in given if j != i_name)
+                        ),
+                    )
+                    for i_name in given[1:]
+                ]
+            )
+
+        return self
 
     @property
     def method(self):
         """Name of the method the section names."""
-        return "molecular_dynamics"
+        return next(
+            i_name for i_name in GENERATION_METHOD_NAMES if getattr(self, i_name) is not None
+        )
 
     def to_options(self):
         """
@@ -267,5 +350,6 @@ class Generation(ConfigModel):
         return {
             "min_distance": self.min_distance,
             "offset": self.offset,
-            **self.molecular_dynamics.to_options(),
+            "inner_phase_max_step": self.inner_phase_max_step,
+            **getattr(self, self.method).to_options(),
         }

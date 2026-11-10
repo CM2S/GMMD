@@ -20,7 +20,7 @@ from geommicgen.micgenmethod.molecular_dynamics_sim import (
     grid_side,
 )
 from geommicgen.config.generation import Generation
-from geommicgen.micgenmethod.speed_up_schemes import CellList, Naive
+from geommicgen.micgenmethod.speed_up_schemes.MD_speed_up_schemes import CellList, Naive
 from geommicgen.micgenmethod.thermostats import (
     IsokineticThermostat,
     MultiTemperatureIsokineticThermostat,

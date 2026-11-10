@@ -15,4 +15,5 @@ Submodules
    geommicgen.microstructure.particleclasses.ellipsoid
    geommicgen.microstructure.particleclasses.particle
    geommicgen.microstructure.particleclasses.sphere
+   geommicgen.microstructure.particleclasses.square
 

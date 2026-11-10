@@ -11,7 +11,7 @@ import numpy as np
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-from geommicgen.micgenmethod.speed_up_schemes import CellList
+from geommicgen.micgenmethod.speed_up_schemes.MD_speed_up_schemes import CellList
 from geommicgen.microstructure.phase import FixedValue, Phase
 
 
@@ -195,7 +195,7 @@ class Microstructure:
         Parameters
         ----------
         rve_dims: array
-            Array containing the dimnesions of the microstructure in each spatial direction.
+            Array containing the dimensions of the microstructure in each spatial direction.
         """
         self.matrix_phase = None
         self.rve_dims = rve_dims
@@ -437,6 +437,15 @@ class Microstructure:
         return vf
 
     @property
+    def real_volume_fraction(self):
+        """Real volume fraction of particles in the microstructure."""
+        vf = 0
+        for i_phase in self.phases.values():
+            vf += i_phase.real_volume_fraction
+
+        return vf
+
+    @property
     def volume_fraction_circ(self):
         """Volume fraction of circumscribed sphesres/disks to the particles."""
         vf = 0
@@ -444,3 +453,4 @@ class Microstructure:
             vf += i_phase.volume_fraction_circ
 
         return vf
+

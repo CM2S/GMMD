@@ -101,6 +101,12 @@ class TestExamples(unittest.TestCase):
         self.assertIn("example_16_16_16.vti", os.listdir(os.path.join(sample, "meshes")))
         # A three dimensional final configuration, the motion analysis and a grid
 
+    def test_the_random_sequential_adsorption_example(self):
+        sample = self.run_example("RSA_disk", {("phases", 1, "vf"): 0.1})
+        self.assertTrue(os.path.exists(os.path.join(sample, "final_config.pdf")))
+        self.assertTrue(os.path.exists(os.path.join(sample, "RSA_vf_history.pdf")))
+        # A final configuration, and the volume fraction plotted step by step
+
 
 if __name__ == "__main__":
     unittest.main()

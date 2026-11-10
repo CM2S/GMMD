@@ -65,12 +65,12 @@ class CylindricalFiber(Disk):
 
     def __init__(self, phase, descriptors, rve_dims):
         """
-        Initialize a classe Ellipse obejct.
+        Initialize a classe CylindricalFiber object.
 
         Parameters
         ----------
         phase: string
-            Phase to which the ellipse belongs
+            Phase to which the cylindrical fiber belongs
 
         descriptors: dict
             Dictionary of the form *{descriptor_name: value}*
@@ -95,6 +95,15 @@ class CylindricalFiber(Disk):
         # The radius holds the dilation already, and it was added a second time
 
         return volume
+
+    @property
+    def real_volume(self):
+        """Real volume of the cylindrical fiber."""
+        volume = np.pi * (self.radius - self.inflation) ** 2 * self.length_dir_fibers
+        # The disk before the dilation; the length along the fibres is not dilated
+
+        return volume
+
 
     def rescale(self, rescale_parameter):
         """Rescale all size parameters and the position by *rescale_parameter*."""

@@ -1,6 +1,8 @@
 """Module for the GenerationMethod abstract class."""
 
 import abc
+from contextlib import contextmanager
+import time
 import numpy as np
 
 # pylint: disable=import-error
@@ -10,10 +12,15 @@ from geommicgen.microstructure.particleclasses import (
     Point,
     Line,
 )
+import geommicgen.iofuncs.printing as print_funcs
+import geommicgen.postproc.plotfuncs.plotting_functions as plot_funcs
 
 
 class GenerationMethod(abc.ABC):
     """This is the abstract class for generation methods."""
+
+    box_scale = 1
+    # Factor the method scaled its box by; one for a method that does not scale it
 
     @abc.abstractmethod
     def generate_microstructure(self, microstructure_sample):
@@ -104,3 +111,183 @@ class GenerationMethod(abc.ABC):
             # middle of a lone particle
 
         return offset
+    
+
+    def contract_all_particles(self, particles):
+        """Contract all the particles in the simulation box by their dilation."""
+        for i_particle in particles:
+            # Running through all the particles
+            i_particle.contract(self.min_distance / 2 * self.box_scale)
+            # The half distance as the box scaled it with the dilation; a method that
+            # does not scale its box keeps box_scale at one
+
+    def dilate_all_particles(self, particles):
+        """Dilate all the particles in the simulation box."""
+        for i_particle in particles:
+            # Running through all the particles
+            i_particle.dilate(self.min_distance / 2)
+            # Dilate i_particle
+
+    def set_box(self, particles, rve_dims):
+        """
+        Set the dimensions of the simulation box.
+
+        Set the dimensions of the box according to the particles present and the
+        dimensions of the microstructure.
+
+        It is assumed that there are no incompatible particles.
+
+        Parameters
+        ----------
+        particles: list(`.Particle`)
+            List of particles in the simulation.
+
+        rve_dims: list(floats)
+            Dimensions of the microstructure in each spatial direction.
+        """
+        if any(
+            [
+                particle.__class__.__name__ == "CylindricalFiber"
+                for particle in particles
+            ]
+        ):
+            self.box = list(rve_dims)
+            del self.box[particles[0].direction_fibers]
+        else:
+            self.box = list(rve_dims)
+
+
+    def place_inner_phase_rsa(self, inner_phase, outer_phase):
+        """Place inner phase."""
+        start = time.time()
+        rve_dims = np.array(inner_phase.microstructure.rve_dims)
+        # Pairing inner phase particles w/ outer phase particles
+        # ----------------------------------------------------------------------------------
+        out_part_in_part = [[] for _ in outer_phase.particles]
+        available_volume = [particle.volume for particle in outer_phase.particles]
+        for i_particle_ind, i_inner_particle in enumerate(inner_phase.particles):
+            while True:
+                outer_particle_ind = np.random.choice(
+                    list(range(len(outer_phase.particles))),
+                    p=[
+                        particle.volume
+                        / (
+                            outer_phase.volume_fraction
+                            * inner_phase.microstructure.volume
+                        )
+                        for particle in outer_phase.particles
+                    ],
+                )
+                if i_inner_particle.volume < 0.5 * available_volume[outer_particle_ind]:
+                    available_volume[outer_particle_ind] -= i_inner_particle.volume
+                    out_part_in_part[outer_particle_ind].append(i_inner_particle)
+                    i_inner_particle.parent = outer_phase.particles[outer_particle_ind]
+                    # The outer particle that holds it, which the mesher and the
+                    # microstructure file need
+                    break
+        # Placing inner phase particles in each outer phase particle 1-by-1
+        # ----------------------------------------------------------------------------------
+        make_gif = getattr(self, "make_gif", False)
+        if make_gif:
+            microstructure = inner_phase.microstructure
+            gif_particles = [
+                particle
+                for particle in microstructure.particles
+                if particle.phase != inner_phase.name
+            ]
+            # Particles drawn in the gif frames: all but the inner phase being placed
+            self.gif_frame = getattr(self, "gif_frame", self.step)
+            # Gif frames of the inner phase placement continue after the last frame
+        n_placed = 0
+        n_steps = 0
+        print_funcs.print_to_terminal_refresh_inner_phase(
+            inner_phase.name,
+            outer_phase.name,
+            n_placed,
+            len(inner_phase.particles),
+            n_steps,
+            first=True,
+        )
+        not_placed_particles = []
+        for i_outer_particle, i_list_inner_particles in zip(
+            outer_phase.particles, out_part_in_part
+        ):
+            placed_particles = []
+            for j_inner_particle in i_list_inner_particles:
+                clearance = 0.01 * j_inner_particle.radius
+                j_inner_particle.dilate(clearance)
+                i_outer_particle.contract(j_inner_particle.radius * 1.05)
+                placed = False
+                for _ in range(self.inner_phase_max_step):
+                    n_steps += 1
+                    # Each particle has its own tries; n_steps counts those of the
+                    # whole phase
+                    j_inner_particle.position_center = (
+                        i_outer_particle.generate_point_inside()
+                    )
+                    j_inner_particle.position_center = np.squeeze(
+                        j_inner_particle.position_center
+                        - rve_dims
+                        * np.floor(j_inner_particle.position_center / rve_dims)
+                    )
+                    intersect = False
+                    for k_particle in placed_particles:
+                        if k_particle.intersection(j_inner_particle, rve_dims):
+                            intersect = True
+                            break
+                    if not intersect:
+                        placed_particles.append(j_inner_particle)
+                        placed = True
+                        break
+
+                i_outer_particle.dilate(j_inner_particle.radius * 1.05)
+                j_inner_particle.contract(clearance)
+                # Contracted by what it was dilated by: a hundredth of the radius the
+                # dilation had grown left every inner particle a little smaller than
+                # generated
+                if not placed:
+                    not_placed_particles.append(j_inner_particle)
+                    continue
+                    # The particle's tries ran out before it was placed
+                n_placed += 1
+                print_funcs.print_to_terminal_refresh_inner_phase(
+                    inner_phase.name,
+                    outer_phase.name,
+                    n_placed,
+                    len(inner_phase.particles),
+                    n_steps,
+                )
+                if make_gif:
+                    gif_particles.append(j_inner_particle)
+                    self.gif_frame += 1
+                    plot_funcs.plot_particles(
+                        gif_particles,
+                        microstructure.rve_dims,
+                        self.sample_dir,
+                        sim_gif=True,
+                        simulation_gif_dir=self.gif_dir,
+                        iteration=self.gif_frame,
+                        save=False,
+                    )
+                    # Saving a gif frame after each inner phase particle is placed
+        if not_placed_particles:
+            print_funcs.print_to_file(
+                "{0} of the {1} particles of phase {2} could not be placed inside phase "
+                "{3} in {4} tries each, and are left out.\n".format(
+                    len(not_placed_particles),
+                    len(inner_phase.particles),
+                    inner_phase.name,
+                    outer_phase.name,
+                    self.inner_phase_max_step,
+                )
+            )
+        inner_phase.particles = [
+            particle
+            for particle in inner_phase.particles
+            if not any(particle is not_placed for not_placed in not_placed_particles)
+        ]
+        # Removing the particles whose tries ran out before they were placed
+        self.inner_phase_placements.append(
+            {"phase": inner_phase.name, "steps": n_steps, "time": time.time() - start}
+        )
+        # Saving the number of steps and time of the inner phase placement
