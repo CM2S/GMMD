@@ -78,6 +78,27 @@ ANALYSES = {
             },
         },
     },
+    "rsa_history": {
+        "help": "plot the volume fraction the random sequential adsorption reached at "
+        "every step, which the run keeps when it saves its history",
+        "options": {},
+    },
+    "simulation_gif": {
+        "help": "put the frames the generation drew at every step together into a "
+        "GIF; asked for in an input file, it has the generation draw them",
+        "options": {
+            "frame_duration": {
+                "type": "int",
+                "default": 200,
+                "help": "time each frame is shown for, in milliseconds",
+            },
+            "cleanup_frames": {
+                "type": "bool",
+                "default": True,
+                "help": "delete the frames once the GIF is written",
+            },
+        },
+    },
 }
 # Each analysis by its name, with the line that describes it and its options: each
 # option with the type it is read as, the value it has when it is not given, the names
@@ -87,6 +108,8 @@ POST_PROC_FLAGS = {
     "final_config": "final_config",
     "motion": "motion_analysis",
     "voronoi": "voronoi_analysis",
+    "rsa_history": "plot_rsa_vf_history",
+    "simulation_gif": "sim_gif",
 }
 # The key the post processing asks for each analysis by; the statistics are asked for
 # a descriptor at a time
@@ -98,6 +121,12 @@ VORONOI_OPTION_NAMES = {
     "plot_imts": "plot_imts",
 }
 # The key the post processing reads each option of the Voronoi analysis by
+
+GIF_OPTION_NAMES = {
+    "frame_duration": "sim_gif_frame_duration",
+    "cleanup_frames": "sim_gif_cleanup_frames",
+}
+# The key the post processing reads each option of the simulation GIF by
 
 STAT_FLAGS = tuple("stat_" + i_name for i_name in DESCRIPTORS)
 # The keys the post processing asks for each statistical descriptor by
@@ -140,6 +169,11 @@ def post_proc_options(asked):
     for i_name in DESCRIPTORS:
         options["stat_" + i_name] = i_name in descriptors
     options["stat_seed"] = None if statistics is None else statistics.get("seed")
+    gif = asked.get("simulation_gif", {})
+    for i_option, i_key in GIF_OPTION_NAMES.items():
+        options[i_key] = gif.get(
+            i_option, ANALYSES["simulation_gif"]["options"][i_option]["default"]
+        )
 
     return options
     # The options of an analysis not asked for are at their defaults, as they were when

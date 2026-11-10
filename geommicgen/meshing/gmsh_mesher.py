@@ -72,6 +72,7 @@ from geommicgen.microstructure.particleclasses import (
     Ellipse,
     Ellipsoid,
     Sphere,
+    Square,
 )
 
 ELEMENT_DESCRIPTORS = {
@@ -1037,6 +1038,21 @@ class GmshMesher(Mesher):
                     ),
                 )
             ]
+
+        if isinstance(particle, Square):
+            return [
+                (
+                    2,
+                    factory.addRectangle(
+                        center_x - particle.side / 2,
+                        center_y - particle.side / 2,
+                        center_z,
+                        particle.side,
+                        particle.side,
+                    ),
+                )
+            ]
+            # The square is not turned, so its sides are along the axes
 
         if isinstance(particle, Ellipse):
             tag = factory.addDisk(

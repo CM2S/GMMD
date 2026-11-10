@@ -209,16 +209,19 @@ class TestCylinder(unittest.TestCase):
         cyl.position_center = np.zeros(3)
         with self.subTest("dilate"):
             cyl.dilate(0.05)
-            # The dilation is kept apart from the radius and the length, and added to
-            # the reach of the cylinder in every direction
-            self.assertAlmostEqual(cyl.r_cyl, 0.1)
-            self.assertAlmostEqual(cyl.length, 0.2)
+            # The dilation grows the radius, and the length by as much at each cap; the
+            # grown cylinder holds every point at 0.05 from the original
+            self.assertAlmostEqual(cyl.r_cyl, 0.15)
+            self.assertAlmostEqual(cyl.length, 0.3)
+            self.assertAlmostEqual(cyl.real_volume, 0.2 * np.pi * 0.1 ** 2)
             self.assertAlmostEqual(cyl.support_function(np.array([1, 0, 0]))[0], 0.15)
             self.assertAlmostEqual(cyl.support_function(np.array([0, 0, 1]))[2], 0.15)
             self.assertAlmostEqual(cyl.volume, 0.3 * np.pi * 0.15 ** 2)
         with self.subTest("contract back to the original size"):
             cyl.contract(0.05)
             self.assertAlmostEqual(cyl.delta, 0)
+            self.assertAlmostEqual(cyl.r_cyl, 0.1)
+            self.assertAlmostEqual(cyl.length, 0.2)
             self.assertAlmostEqual(cyl.support_function(np.array([1, 0, 0]))[0], 0.1)
 
     def test_rescale(self):
@@ -336,17 +339,17 @@ class TestCylinder(unittest.TestCase):
                 along = i_direction.dot(axis)
                 support = (
                     i_direction.dot(cyl.position_center)
-                    + 0.15 * np.abs(along)
-                    + 0.1 * np.linalg.norm(i_direction - along * axis)
-                    + 0.02 * np.linalg.norm(i_direction)
+                    + 0.17 * np.abs(along)
+                    + 0.12 * np.linalg.norm(i_direction - along * axis)
                 )
                 with self.subTest(polar=i_polar, azimuth=i_azimuth, d=i_direction):
                     point = cyl.support_function(i_direction)
                     self.assertEqual(point.shape, (3,))
                     self.assertAlmostEqual(i_direction.dot(point), support, places=12)
-        # The support function of a cylinder dilated by delta is the reach of the
-        # centre, plus half the length times the share of the direction along the axis,
-        # the radius times the share across it, and delta times its length. Directions
+        # The support function of a cylinder dilated by delta is that of the cylinder
+        # it grows into: the reach of the centre, plus half the grown length times the
+        # share of the direction along the axis, and the grown radius times the share
+        # across it. Directions
         # along the axis and normal to it are among those tried, because rounding can
         # throw the point off the cap for the first
 

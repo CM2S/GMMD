@@ -30,7 +30,7 @@ from geommicgen.config.generation import (
 from geommicgen.config.phases import type_name
 from geommicgen.config.run import RunConfig
 from geommicgen.iofuncs.legacy_deck import read_legacy_deck
-from geommicgen.micgenmethod.speed_up_schemes import SPEED_UP_SCHEMES
+from geommicgen.micgenmethod.speed_up_schemes.MD_speed_up_schemes import SPEED_UP_SCHEMES
 from geommicgen.micgenmethod.thermostats import LOWERING_TEMP_CRITERIA, THERMOSTATS
 from geommicgen.microstructure.phase import PHASE_KEYS, Phase, gives_parameter
 from geommicgen.postproc.options import (
@@ -39,6 +39,7 @@ from geommicgen.postproc.options import (
     POST_PROC_FLAGS,
     STAT_FLAGS,
     VORONOI_OPTION_NAMES,
+    GIF_OPTION_NAMES,
 )
 
 THERMOSTAT_PARAMETERS = {
@@ -285,7 +286,12 @@ def legacy_generation(parameters, notes):
         (MolecularDynamics, simulation),
     ):
         for i_name, i_field in i_model.model_fields.items():
-            if i_name in ("molecular_dynamics", "speed_up", "thermostat"):
+            if i_name in (
+                "molecular_dynamics",
+                "random_sequential_adsorption",
+                "speed_up",
+                "thermostat",
+            ):
                 continue
             if i_name not in parameters:
                 continue
@@ -371,6 +377,22 @@ def legacy_analyses(post_proc, notes):
             "stat_seed {0}, which seeds the statistics the old file does not ask for, "
             "is left out".format(seed)
         )
+
+    gif = {
+        i_option: plain(post_proc[i_keyword])
+        for i_option, i_keyword in GIF_OPTION_NAMES.items()
+        if i_keyword in post_proc
+        and post_proc[i_keyword]
+        != ANALYSES["simulation_gif"]["options"][i_option]["default"]
+    }
+    if post_proc.get(POST_PROC_FLAGS["simulation_gif"]):
+        analyses["simulation_gif"] = gif or True
+    else:
+        for i_option, i_value in gif.items():
+            notes.append(
+                "{0} {1}, which configures the simulation GIF the old file does not "
+                "ask for, is left out".format(GIF_OPTION_NAMES[i_option], i_value)
+            )
 
     return analyses
 

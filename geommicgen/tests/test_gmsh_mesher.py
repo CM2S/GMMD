@@ -16,7 +16,7 @@ from geommicgen.meshing.images import periodic_images
 from geommicgen.meshing.mesher import get_mesher
 from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.microstructure.phase import Phase
-from geommicgen.microstructure.particleclasses import Cylinder, Disk, Point, Sphere
+from geommicgen.microstructure.particleclasses import Cylinder, Disk, Point, Sphere, Square
 from geommicgen.tests.helpers import (
     ENDING_SIGNAL,
     FailingMesher,
@@ -277,6 +277,23 @@ class TestGmshMesherMeshes(unittest.TestCase):
         self.assertAlmostEqual(sum(measures.values()), 1.0, places=9)
         self.assertGreater(measures[1], 0.9)
         self.assertGreater(measures[2], 0.0)
+
+    def test_squares_are_meshed_with_their_exact_area(self):
+        rve_dims = [1.0, 1.0]
+        particles = []
+        for i_center in ([0.3, 0.3], [0.95, 0.7]):
+            particle = Square("2", {"side": 0.2}, rve_dims)
+            particle.position_center = np.array(i_center)
+            particles.append(particle)
+        mesh = GmshMesher(mesh_size=0.08, element_type="tri3").mesh(
+            build_microstructure(rve_dims, Square, particles)
+        )
+        measures = cell_measures(mesh)
+        self.assertAlmostEqual(measures[2], 2 * 0.2**2, places=9)
+        self.assertAlmostEqual(sum(measures.values()), 1.0, places=9)
+        mesh.check_periodic_conformity()
+        # The sides are straight, so the mesh holds the area of the squares exactly,
+        # the one crossing a face of the RVE included
 
     def test_no_node_is_left_unused(self):
         mesh = GmshMesher(mesh_size=0.08, element_type="tri3").mesh(

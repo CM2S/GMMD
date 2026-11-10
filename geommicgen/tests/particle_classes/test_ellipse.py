@@ -116,10 +116,10 @@ class TestEllipse(unittest.TestCase):
             self.assertAlmostEqual(gap, 0.03, places=4)
             ellipse.dilate(0.03)
         with self.subTest("contraction too large for a slender ellipse"):
-            ellipse.contract(0.08)
             with self.assertRaises(ValueError):
-                ellipse.semi_minor_axis
-            ellipse.dilate(0.08)
+                ellipse.contract(0.08)
+            self.assertAlmostEqual(ellipse.semi_minor_axis, 0.1)
+            # Refused when it is asked for, and the ellipse is left as it was
 
     def test_point_inside(self):
         rve_dims = [1, 1]
@@ -172,12 +172,18 @@ class TestEllipse(unittest.TestCase):
         t = ellipse.inflation
         # t is the thickness from inflation, read before the rescale
         ellipse.rescale(2)
-        # the major axis are not affected by dilate, only the semi_axis. This is because only the semi_axis are used during the simulation. Thus, major axis store user input and the rescale parameter.
+        # The dilation grows the axes by the inflation, and the rescale scales the axes
+        # and the inflation alike
+        self.assertAlmostEqual(ellipse.major_axis, 2 * (0.4 + 2 * t))
+        self.assertAlmostEqual(ellipse.minor_axis, 2 * (0.2 + 2 * t))
+        self.assertAlmostEqual(ellipse.semi_major_axis, 0.4 + 2 * t)
+        self.assertAlmostEqual(ellipse.semi_minor_axis, 0.2 + 2 * t)
+        self.assertAlmostEqual(ellipse.inflation, 2 * t)
+        ellipse.contract(0.1)
         self.assertAlmostEqual(ellipse.major_axis, 0.8)
         self.assertAlmostEqual(ellipse.minor_axis, 0.4)
-        # test semi_axis, that are affected by both dilate and rescale
-        self.assertAlmostEqual(ellipse.semi_major_axis, 0.4+2*t)
-        self.assertAlmostEqual(ellipse.semi_minor_axis, 0.2+2*t)
+        # Contracted by the dilation as the rescale scaled it, it is the original
+        # ellipse in the new units
         np.testing.assert_allclose(ellipse.position_center, np.array([0.6, 0.8]))
 
     def test_generate_point_inside(self):

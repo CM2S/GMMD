@@ -196,8 +196,12 @@ def save_mic(
     """
     file_path = os.path.join(sample_dir, MIC_FILE_NAME)
     write_microstructure_file(current_sample, file_path, provenance=provenance)
-    if current_mic_generator is not None:
+    if current_mic_generator is not None and hasattr(
+        current_mic_generator, "total_overlap_history"
+    ):
         save_md_state(sample_dir, current_mic_generator)
+    # The state is that of a molecular dynamics simulation, its overlaps, energies and
+    # paths; a random sequential adsorption keeps none of them
     if print_out:
         print_output(file_path)
     # Saving the configuration for later use
@@ -231,12 +235,15 @@ def save_status(sample_dir, current_sample, current_mic_generator, mesh_jobs=())
         time_line = "Time: {0}\n".format(
             _status_value(current_mic_generator.time, "{0:.3f}s")
         )
-        overlap_line = "Overlap: {0}\n".format(
-            _status_value(current_sample.total_overlap, "{0:.3e}")
-        )
         status_line = "Status: {0}\n".format(current_mic_generator.status)
         status.writelines(time_line)
-        status.writelines(overlap_line)
+        if hasattr(current_mic_generator, "total_overlap"):
+            overlap_line = "Overlap: {0}\n".format(
+                _status_value(current_sample.total_overlap, "{0:.3e}")
+            )
+            status.writelines(overlap_line)
+        # A method that does not measure an overlap, the random sequential adsorption,
+        # has no line for it
         status.writelines(status_line)
         for i_job in mesh_jobs:
             status.writelines("Mesh {0}\n".format(i_job.summary()))

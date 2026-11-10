@@ -7,6 +7,7 @@ from unittest.mock import Mock
 import numpy as np
 import time
 from geommicgen.microstructure.particleclasses import Ellipsoid, Cylinder
+from geommicgen.microstructure.particleclasses.particle import semi_axes_inflation
 
 
 class TestEllipsoid(unittest.TestCase):
@@ -188,11 +189,27 @@ class TestEllipsoid(unittest.TestCase):
 
     def test_contract_and_dilate(self):
         with self.subTest("dilate"):
+            t = semi_axes_inflation([0.2, 0.15, 0.1], 0.05)
+            self.assertGreater(t, 0.05)
+            # Every semi-axis grows by the inflation, which keeps the whole surface at
+            # least 0.05 away, where 0.05 itself does only along the axes
             self.ellipsoid.dilate(0.05)
-            self.assertAlmostEqual(self.ellipsoid.semi_axis_1, 0.25)
-            self.assertAlmostEqual(self.ellipsoid.semi_axis_2, 0.2)
-            self.assertAlmostEqual(self.ellipsoid.semi_axis_3, 0.15)
-            self.assertAlmostEqual(self.ellipsoid.volume, (4/3)*np.pi * 0.25*0.2*0.15)
+            self.assertAlmostEqual(self.ellipsoid.semi_axis_1, 0.2 + t)
+            self.assertAlmostEqual(self.ellipsoid.semi_axis_2, 0.15 + t)
+            self.assertAlmostEqual(self.ellipsoid.semi_axis_3, 0.1 + t)
+            self.assertAlmostEqual(
+                self.ellipsoid.volume, (4 / 3) * np.pi * (0.2 + t) * (0.15 + t) * (0.1 + t)
+            )
+            self.assertAlmostEqual(
+                self.ellipsoid.real_volume, (4 / 3) * np.pi * 0.2 * 0.15 * 0.1
+            )
+            directions = np.random.default_rng(0).normal(size=(2000, 3))
+            directions /= np.linalg.norm(directions, axis=1)[:, None]
+            dilated = np.sqrt((directions**2 * np.array([0.2 + t, 0.15 + t, 0.1 + t]) ** 2).sum(1))
+            original = np.sqrt((directions**2 * np.array([0.2, 0.15, 0.1]) ** 2).sum(1))
+            self.assertGreaterEqual((dilated - original).min(), 0.05 - 1e-12)
+            # The support of the dilated ellipsoid is at least 0.05 beyond the original's
+            # in every direction
         with self.subTest("contract back to the original size"):
             self.ellipsoid.contract(0.05)
             self.assertAlmostEqual(self.ellipsoid.semi_axis_1, 0.2)

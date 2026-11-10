@@ -197,7 +197,7 @@ class Sphere(Ellipsoid):
         # The radius holds the dilation already, and it was added a second time
 
         return volume
-
+    
     def intersection(self, other_particle: Particle, box: list, **kwargs) -> bool:
         """
         Check if the Sphere intersects the other particle.

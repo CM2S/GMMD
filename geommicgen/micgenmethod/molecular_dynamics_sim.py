@@ -10,6 +10,7 @@ Thermostat and SpeedUpScheme abstract classes to work.
 """
 
 from contextlib import contextmanager
+import os
 import itertools
 import time
 import numpy as np
@@ -22,7 +23,10 @@ from geommicgen.microstructure.microstructure import unit_scale
 from geommicgen.microstructure.particleclasses import Matrix
 from geommicgen.micgenmethod.microstructure_gen_method import GenerationMethod
 from geommicgen.micgenmethod.integration_methods import verlet_sync_integration
-from geommicgen.micgenmethod.speed_up_schemes import speed_up_scheme_from_options
+import geommicgen.postproc.plotfuncs.plotting_functions as plot_funcs
+from geommicgen.micgenmethod.speed_up_schemes.MD_speed_up_schemes import (
+    speed_up_scheme_from_options,
+)
 from geommicgen.micgenmethod.thermostats import thermostat_from_options
 
 REQUIRED_OPTIONS = (
@@ -47,6 +51,8 @@ OPTIONAL_OPTIONS = (
     "fixed_seed",
     "initial_vel_coeff",
     "final_overlap_check",
+    "inner_phase_max_step",
+    "sim_gif",
 )
 # The generation parameters the initializer takes by keyword, and has a default for
 
@@ -99,7 +105,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
     ----------
     box: list
         List of the dimensions of the simulation box. Almost always equal to the the
-        dimensions of the micrrostructure, except for CylindricalFibers.
+        dimensions of the microstructure, except for CylindricalFibers.
 
     particle_velocities: list(array)
         List containing the velocities of the particles in the simulation box.
@@ -224,6 +230,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
         min_distance,
         type_init_conf,
         save_history,
+        sample_dir=None,
         **kwargs
     ):
         """
@@ -254,6 +261,11 @@ class MolecularDynamicsSimulation(GenerationMethod):
         save_history: bool
             Save all the trajectories of the particles, the history of the relative and
             kinetic energy.
+        
+        sample_dir: str, optional
+            Directory of the sample for which the microstructure is being generated,
+            where the frames of the GIF are written. The program sets it once the
+            directory exists, after building the simulation from its options.
 
         Keyword Parameters
         ------------------
@@ -286,6 +298,9 @@ class MolecularDynamicsSimulation(GenerationMethod):
 
         final_overlap_check: bool
             Do a final check using a naive approach for the particle overlap.
+
+        simulation_gif: bool
+            Make a gif of the simulation.
         """
         self.box = None
         self.particle_velocities = None
@@ -335,17 +350,22 @@ class MolecularDynamicsSimulation(GenerationMethod):
         # one, the lines that changed it having been commented out
         self.dt_adapt = kwargs.get("dt_adapt", True)
         self.offset = kwargs.get("offset", True)
+        self.inner_phase_max_step = kwargs.get("inner_phase_max_step", 200)
+        self.inner_phase_placements = []
+        # The steps and the time of the placement of each inner phase
         self.fixed_seed = kwargs.get("fixed_seed", None)
         self.initial_vel_coeff = kwargs.get("initial_vel_coeff", 0.1)
         # The default of the input data file. It was 0.25 here, so a simulation built
         # without the option started its particles two and a half times as fast as one
         # built from a file
         self.final_overlap_check = kwargs.get("final_overlap_check", False)
+        self.sim_gif = kwargs.get("sim_gif", False)
+        self.make_gif = self.sim_gif
+        self.sample_dir = sample_dir
         self.microstructure_sample = None
         self.coord_number = None
         self.thermic_energy_history = []
         self.all_dt = []
-
         self.status = False
         self._original_box = None
         self.box_scale = 1
@@ -363,6 +383,12 @@ class MolecularDynamicsSimulation(GenerationMethod):
         microstructure_sample: `.Microstructure`
             Microstructure sample to be generated
         """
+        
+        if self.make_gif:
+            # Create folder for the gif if it does not exist
+            self.gif_dir = os.path.join(self.sample_dir, "sim_gif")
+            os.makedirs(self.gif_dir)
+
         self.microstructure_sample = microstructure_sample
         if self.fixed_seed is not None:
             np.random.seed(self.fixed_seed)
@@ -383,11 +409,16 @@ class MolecularDynamicsSimulation(GenerationMethod):
         self.set_box(microstructure_sample.particles, microstructure_sample.rve_dims)
         self.generate_initial_configuration(microstructure_sample.particles)
         print_funcs.print_microstructure_info(microstructure_sample)
+        self.inner_phase_placements = []
         try:
             start = time.time()
             self.run_molecular_dynamics_simulation(microstructure_sample.particles)
             self.time = time.time() - start
+            self.simulation_name = "MD simulation"
+            self.simulation_time = self.time
+            self.simulation_steps = len(self.total_overlap_history)
             microstructure_sample.total_overlap = self.total_overlap
+
             # Placing inner phases
             # ------------------------------------------------------------------------------
             for phase in microstructure_sample.phases.values():
@@ -402,43 +433,10 @@ class MolecularDynamicsSimulation(GenerationMethod):
                         )
                     print_funcs.print_microstructure_info(microstructure_sample)
                     self.place_inner_phase_rsa(phase, outer_phase)
+            self.time = time.time() - start
+
         except KeyboardInterrupt as error:
             raise error
-        else:
-            print_funcs.print_final_message_md(
-                self.time,
-                microstructure_sample.total_overlap,
-                len(self.total_overlap_history),
-                self.max_residue,
-            )
-
-    def set_box(self, particles, rve_dims):
-        """
-        Set the dimensions of the simulation box.
-
-        Set the dimensions of the box according to the particles present and the
-        dimensions of the microstructure.
-
-        It is assumed that there are no incompatible particles.
-
-        Parameters
-        ----------
-        particles: list(`.Particle`)
-            List of particles in the simulation.
-
-        rve_dims: list(floats)
-            Dimensions of the microstructure in each spatial direction.
-        """
-        if any(
-            [
-                particle.__class__.__name__ == "CylindricalFiber"
-                for particle in particles
-            ]
-        ):
-            self.box = list(rve_dims)
-            del self.box[particles[0].direction_fibers]
-        else:
-            self.box = list(rve_dims)
 
     @classmethod
     def from_options(cls, options):
@@ -775,20 +773,6 @@ class MolecularDynamicsSimulation(GenerationMethod):
         """
         return self.box_scale
 
-    def contract_all_particles(self, particles):
-        """Contract all the particles in the simulation box by their dilation."""
-        for i_particle in particles:
-            # Running through all the particles
-            i_particle.contract(self.min_distance / 2 * self.box_scale)
-            # The half distance as the box scaled it with the dilation, computed alike
-
-    def dilate_all_particles(self, particles):
-        """Dilate all the particles in the simulation box."""
-        for i_particle in particles:
-            # Running through all the particles
-            i_particle.dilate(self.min_distance / 2)
-            # Dilate i_particle
-
     def resize_sim_box_and_all_particles_inside(self, particles, size):
         """Resize the simulation box and all the particles inside."""
         if size == "unitary":
@@ -870,7 +854,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
             self.compute_kinetic_energy(particles)
             self.set_initial_temp(particles)
 
-            print_funcs.print_to_terminal_refresh(
+            print_funcs.print_to_terminal_refresh_md(
                 self.step,
                 self.total_overlap / overlap_units,
                 first=True,
@@ -904,7 +888,7 @@ class MolecularDynamicsSimulation(GenerationMethod):
                 else:
                     n_steps_relax = 0
                     # Restarting the count
-                print_funcs.print_to_terminal_refresh(
+                print_funcs.print_to_terminal_refresh_md(
                     self.step,
                     self.total_overlap / overlap_units,
                 )
@@ -924,6 +908,10 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     # configuration
                     print_funcs.print_to_file("Failed sample")
                     break
+                if self.make_gif:
+                        kwargs = {"sim_gif": True, "simulation_gif_dir" : self.gif_dir, "iteration": self.step, "save": False}
+                        plot_funcs.plot_particles(self.microstructure_sample.particles, self.box, self.sample_dir, **kwargs)
+
             if self.final_overlap_check:
                 self.check_overlap_naive(particles)
             self.status = self.total_overlap <= self.max_residue + 1e-12
@@ -1042,6 +1030,8 @@ class MolecularDynamicsSimulation(GenerationMethod):
                     self.particle_overlap_areas_dict[
                         (i_particle_index, j_particle_index)
                     ] += [intersection_area]
+
+                    
                     # Intersection area between particle i and j
                     self.particle_overlap_areas[i_particle_index] += intersection_area
                     self.particle_overlap_areas[j_particle_index] += intersection_area
@@ -1212,69 +1202,4 @@ class MolecularDynamicsSimulation(GenerationMethod):
         if self.save_history:
             self.thermic_energy_history.append(thermic_energy)
 
-    def place_inner_phase_rsa(self, inner_phase, outer_phase):
-        """Place inner phase."""
-        rve_dims = np.array(inner_phase.microstructure.rve_dims)
-        # Pairing inner phase particles w/ outer phase particles
-        # ----------------------------------------------------------------------------------
-        out_part_in_part = [[] for _ in outer_phase.particles]
-        available_volume = [particle.volume for particle in outer_phase.particles]
-        for i_particle_ind, i_inner_particle in enumerate(inner_phase.particles):
-            while True:
-                outer_particle_ind = np.random.choice(
-                    list(range(len(outer_phase.particles))),
-                    p=[
-                        particle.volume
-                        / (
-                            outer_phase.volume_fraction
-                            * inner_phase.microstructure.volume
-                        )
-                        for particle in outer_phase.particles
-                    ],
-                )
-                if i_inner_particle.volume < 0.5 * available_volume[outer_particle_ind]:
-                    available_volume[outer_particle_ind] -= i_inner_particle.volume
-                    out_part_in_part[outer_particle_ind].append(i_inner_particle)
-                    i_inner_particle.parent = outer_phase.particles[outer_particle_ind]
-                    print(i_particle_ind)
-                    break
-        # Placing inner phase particles in each outer phase particle 1-by-1
-        # ----------------------------------------------------------------------------------
-        k_part = 0
-        for i_outer_particle, i_list_inner_particles in zip(
-            outer_phase.particles, out_part_in_part
-        ):
-            placed_particles = []
-            for j_inner_particle in i_list_inner_particles:
-                clearance = 0.01 * j_inner_particle.radius
-                j_inner_particle.dilate(clearance)
-                i_outer_particle.contract(j_inner_particle.radius * 1.05)
-                p_iter = 0
-                while p_iter < 200:
-                    p_iter += 1
-                    j_inner_particle.position_center = (
-                        i_outer_particle.generate_point_inside()
-                    )
-                    j_inner_particle.position_center = np.squeeze(
-                        j_inner_particle.position_center
-                        - rve_dims
-                        * np.floor(j_inner_particle.position_center / rve_dims)
-                    )
-                    intersect = False
-                    for k_particle in placed_particles:
-                        if k_particle.intersection(j_inner_particle, rve_dims):
-                            intersect = True
-                            break
-                    if not intersect:
-                        placed_particles.append(j_inner_particle)
-                        k_part += 1
-                        print(k_part, "\n\n")
-                        break
-
-                i_outer_particle.dilate(j_inner_particle.radius * 1.05)
-                j_inner_particle.contract(clearance)
-                # The particle is contracted by what it was dilated by. It was contracted
-                # by a hundredth of the radius the dilation had grown, so every inner
-                # particle ended a ten thousandth of its radius smaller than generated,
-                # and the file, which does not keep the dilation, disagreed with the
-                # microstructure in memory
+    

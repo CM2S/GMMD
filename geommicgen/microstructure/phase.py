@@ -22,6 +22,7 @@ from .particleclasses import (
     Ellipsoid,
     CylindricalFiber,
     Cylinder,
+    Square,
 )
 
 MAX_PARTICLES = 100000
@@ -107,6 +108,7 @@ class Phase:
         5: Ellipsoid,
         6: CylindricalFiber,
         7: Cylinder,
+        8: Square,
     }
     # Correspondence between phase type and phase type class
 
@@ -290,12 +292,32 @@ class Phase:
 
     @property
     def volume_fraction(self):
-        """Volume fraction in decimal."""
+        """
+        Volume fraction in decimal.
+
+        When a minimum distance between paeticles is imposed, the algorithm dilates the particles, runs the generation method and then contracts the particles.
+        The volume fraction accounts for the dilated particles.
+        """
+
         volume_fraction = 0
         for particle in self.particles:
             volume_fraction += particle.volume / self.microstructure.volume
 
         return volume_fraction
+    
+    @property
+    def real_volume_fraction(self):
+        """
+        Real volume fraction in decimal.
+
+        When a minimum distance between paeticles is imposed, the algorithm dilates the particles, runs the generation method and then contracts the particles.
+        The real volume fraction accounts for the non dilated particles.
+        """
+        real_volume_fraction = 0
+        for particle in self.particles:
+            real_volume_fraction += particle.real_volume / self.microstructure.volume
+
+        return real_volume_fraction
 
     @property
     def volume_fraction_circ(self):
@@ -310,10 +332,11 @@ class Phase:
     def number_particles(self):
         """Get number of particles."""
         return len(self.particles)
-
+    
     def generate_particles(self, rve_dims):
         """
         Generate particles for a microstructure.
+        Used in molecular dynamics simulation.
 
         Parameters
         ----------
@@ -351,7 +374,7 @@ class Phase:
                 particles.append(self.type(self.name, current_sample, rve_dims))
                 vf_real += particles[-1].volume / np.prod(rve_dims)
         else:
-            # The desired number of disks was specified
+            # The desired number of particles was specified
             samples = {}
             # Initializing the dictionary containing the samples for each parameter used
             for i_descriptor_name, i_descriptor in self.descriptors.items():
@@ -370,6 +393,49 @@ class Phase:
                 particles.append(self.type(self.name, i_particle_descriptors, rve_dims))
 
         self.particles = particles
+
+
+
+    def generate_single_particle(self, rve_dims, box):
+        """
+        Output: an object from class particle with the descriptors according to the input and a random position.
+        Used in random sequential adsorption method.
+
+        Parameters
+        ----------
+        rve_dims: list
+            Full dimensions of the microstructure. Needed to construct the particle (e.g. a
+            CylindricalFiber needs the microstructure's extent along its own axis, which is
+            not part of the reduced simulation box).
+
+        box: list
+            Simulation box used for the random sequential adsorption method. Equal to
+            *rve_dims*, except for CylindricalFibers, for which it has the fiber direction
+            removed (see `.GenerationMethod.set_box`).
+        """
+        current_sample = {}
+        for i_descriptor_name, i_descriptor in self.descriptors.items():
+            current_sample[i_descriptor_name] = i_descriptor.generate_sample()
+        new_particle = self.type(self.name, current_sample, rve_dims)
+
+        # Assign a random center position to the single new particle
+        new_particle.position_center = np.random.rand( new_particle.dim ) * box
+
+        return new_particle
+
+        ##  Prints bellow for debugging. Delete later.  ##
+        # print the position of the particles in self.particles
+        #print("Current particles in the phase (in phase.py):")
+        #for i_particle in self.particles:
+        #    print("\t- Particle position:")
+        #    print("\t\tPosition: {0}".format(i_particle.position_center))
+        
+        # print attributes of particles in self.particles
+        #print("Current particles in the phase with attributes:")
+        #for i_particle in self.particles:       
+        #    print("\t- Particle with descriptors:")
+        #    for i_descriptor_name, i_descriptor in vars(i_particle).items():
+        #        print("\t\t- {0}: {1}".format(i_descriptor_name, i_descriptor))
 
 
 class PhaseDescriptor(abc.ABC):
@@ -512,6 +578,7 @@ class FixedValue(PhaseDescriptor):
         """Return the fixed value of the descriptor."""
         sample = np.full((int(n_samples)), self.value)
         return sample if len(sample) > 1 else sample[0]
+
 
 
 class NormalDistribution(PhaseDescriptor):

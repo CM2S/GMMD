@@ -46,8 +46,7 @@ class Disk(Ellipse):
             ),
         },
     }
-    #
-    # )
+
     # all possible_parameters
     acceptable_descriptions = [
         {"r", "n"},
@@ -197,13 +196,11 @@ class Disk(Ellipse):
                 other_particle, box, inside=inside
             )
             # Computing the intersection area
-        elif isinstance(other_particle, Ellipse):
-            # The other particle is an Ellipse
-            other_particle: Ellipse
+        else:
+            # The other particle is not a Disk
             intersection = other_particle.intersection(self, box)
-            # Computing the intersection area
         return intersection
-        # Returning the intersection area
+        # Returning the intersection boolean
 
     def point_inside(self, point, box):
         """Check if some point is inside the Disk."""
@@ -247,10 +244,14 @@ class Disk(Ellipse):
     @property
     def volume(self):
         """Volume/area of the disk."""
-        volume = np.pi * self.radius**2
-        # The radius holds the dilation already; it was added a second time, so a
-        # dilated disk weighed, and filled the virtual volume fraction, as one dilated
-        # by twice as much
+        volume = np.pi * (self.radius) ** 2
+
+        return volume
+    
+    @property
+    def real_volume(self):
+        """Real volume/area of the disk."""
+        volume = np.pi * (self.radius - self.inflation) ** 2
 
         return volume
 

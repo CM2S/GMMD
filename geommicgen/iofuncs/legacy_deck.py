@@ -560,6 +560,10 @@ ANALYSIS_KEYWORDS = {
     "stat_ripleys_k": ("bool", False),
     "stat_two_pt_corr": ("bool", False),
     "stat_seed": ("int", None),
+    "plot_rsa_vf_history": ("bool", False),
+    "sim_gif": ("bool", False),
+    "sim_gif_frame_duration": ("int", 200),
+    "sim_gif_cleanup_frames": ("bool", True),
 }
 # The analyses a deck asks for, by keyword, with the type each is read as and the value
 # it has when the deck does not give it
@@ -735,6 +739,12 @@ def build_reader():
             default_value=None,
             type_str="int",
         ),
+        KeywordTypeA(
+            "Inner_Phase_Max_Step",
+            "Mic_Gen_Parameters",
+            default_value=200,
+            type_str="int",
+        ),
         KeywordTypeA("RVE_Dimensions", "Mic_Gen_Parameters", type_str="float"),
     )
 
@@ -817,5 +827,9 @@ def read_legacy_deck(path):
     """
     reader = build_reader()
     reader.read_input_file(path)
+    options = reader.all_options
+    options["mic_gen_parameters"]["sim_gif"] = options["post_proc"]["sim_gif"]
+    # The frames of the GIF are drawn by the generation, which is told to as an input
+    # file tells it
 
-    return reader.all_options
+    return options

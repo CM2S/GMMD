@@ -24,6 +24,7 @@ phases:
 generation:
   min_distance: 0.001
   offset: false
+  inner_phase_max_step: 150
   molecular_dynamics:
     max_residue_per_particle: 0.0001
     max_step: 50
@@ -67,3 +68,5 @@ analyses:
   statistics:
     descriptors: [nearest_neighbor, ripleys_k, two_pt_corr]
     seed: 3
+  rsa_history: {}
+  simulation_gif: {frame_duration: 50, cleanup_frames: false}

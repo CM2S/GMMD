@@ -9,7 +9,7 @@ from scipy import integrate
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
 import geommicgen.microstructure.particleclasses.cylinder as cyl_cls
-from .particle import Particle, MINIMUM_SIZE
+from .particle import Particle, MINIMUM_SIZE, semi_axes_inflation
 
 
 class Ellipsoid(Particle):
@@ -358,17 +358,61 @@ class Ellipsoid(Particle):
 
     @property
     def volume(self):
-        """Volume of the ellipsoid. Only approximate if *self.delta*!=0."""
+        """Volume of the ellipsoid."""
         volume = (
             4
             / 3
             * np.pi
-            * self.semi_axis_1
-            * self.semi_axis_2
-            * self.semi_axis_3
+            * (self.semi_axis_1)
+            * (self.semi_axis_2)
+            * (self.semi_axis_3)
         )
 
         return volume
+
+    @property
+    def real_volume(self):
+        """Real volume of the ellipsoid, the one before any dilation."""
+        volume = (
+            4
+            / 3
+            * np.pi
+            * (self.semi_axis_1 - self.inflation)
+            * (self.semi_axis_2 - self.inflation)
+            * (self.semi_axis_3 - self.inflation)
+        )
+
+        return volume
+
+    @property
+    def inflation(self):
+        """
+        Amount *t* the dilation *self.delta* has added to every semi-axis.
+
+        See `semi_axes_inflation`. The axes hold the dilation, and this is kept so that
+        it can be taken off again exactly.
+        """
+        return getattr(self, "_inflation", 0.0)
+
+    def set_dilation(self, delta):
+        """
+        Dilate the particle so that its total dilation is *delta*.
+
+        The axes are brought back to their undilated lengths and grown by the inflation
+        of *delta*, computed from the undilated ones, so that a dilation undone by a
+        contraction gives back the particle it started from.
+        """
+        undilated_semi_axes = [
+            self.axis_1 / 2 - self.inflation,
+            self.axis_2 / 2 - self.inflation,
+            self.axis_3 / 2 - self.inflation,
+        ]
+        inflation = semi_axes_inflation(undilated_semi_axes, delta)
+        self.axis_1 = 2 * (undilated_semi_axes[0] + inflation)
+        self.axis_2 = 2 * (undilated_semi_axes[1] + inflation)
+        self.axis_3 = 2 * (undilated_semi_axes[2] + inflation)
+        self.delta = delta
+        self._inflation = inflation
 
     @property
     def radius(self):
@@ -387,43 +431,32 @@ class Ellipsoid(Particle):
 
     @property
     def semi_axis_1(self):
-        """Semi principal axis along xx before aplying the rotation, including *self.delta*."""
-        semi_axis_1 = self.axis_1 / 2 + self.delta
-        # Radius of the circunscribed sphere
+        """Semi principal axis along xx before aplying the rotation, including the dilation."""
+        semi_axis_1 = self.axis_1 / 2
 
         return semi_axis_1
 
     @property
     def semi_axis_2(self):
-        """Semi principal axis along yy before aplying the rotation, including *self.delta*."""
-        semi_axis_2 = self.axis_2 / 2 + self.delta
-        # Radius of the circunscribed sphere
+        """Semi principal axis along yy before aplying the rotation, including the dilation."""
+        semi_axis_2 = self.axis_2 / 2
 
         return semi_axis_2
 
     @property
     def semi_axis_3(self):
-        """Semi principal axis along zz before aplying the rotation, including *self.delta*."""
-        semi_axis_3 = self.axis_3 / 2 + self.delta
-        # Radius of the circunscribed sphere
+        """Semi principal axis along zz before aplying the rotation, including the dilation."""
+        semi_axis_3 = self.axis_3 / 2
 
         return semi_axis_3
 
     def contract(self, distance):
-        """Contract the particle."""
-        # self.axis_1 -= 2 * distance
-        # self.axis_2 -= 2 * distance
-        # self.axis_3 -= 2 * distance
-        self.delta -= distance
-        # Contracting the particle size subracting the minimum distance from the semi-axis
+        """Contract the particle by *distance*, taking the inflation off its axes."""
+        self.set_dilation(self.delta - distance)
 
     def dilate(self, distance):
-        """Dilate the particle."""
-        # self.axis_1 += 2 * distance
-        # self.axis_2 += 2 * distance
-        # self.axis_3 += 2 * distance
-        self.delta += distance
-        # Dilating the particle size adding the minimum distance to the semi-axis
+        """Dilate the particle by *distance*, adding the inflation to its axes."""
+        self.set_dilation(self.delta + distance)
 
     def M(self):
         """Get transformation matrix in homogeneous coordinates."""
@@ -1016,4 +1049,6 @@ class Ellipsoid(Particle):
         self.axis_1 *= rescale_parameter
         self.axis_2 *= rescale_parameter
         self.axis_3 *= rescale_parameter
+        self._inflation = self.inflation * rescale_parameter
+        # The inflation is a length the axes hold, scaled with them
         super().rescale(rescale_parameter)

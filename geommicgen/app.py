@@ -22,8 +22,12 @@ from geommicgen.iofuncs.convert_deck import convert_deck
 
 from geommicgen.microstructure.microstructure import Microstructure
 from geommicgen.micgenmethod.molecular_dynamics_sim import MolecularDynamicsSimulation
+from geommicgen.micgenmethod.rand_seq_adsorption import RandomSequentialAdsorption
 
-GENERATION_METHODS = {"molecular_dynamics": MolecularDynamicsSimulation}
+GENERATION_METHODS = {
+    "molecular_dynamics": MolecularDynamicsSimulation,
+    "random_sequential_adsorption": RandomSequentialAdsorption,
+}
 # The class of each method a generation can be asked to use, under its name in the file
 
 def read_input(path):
@@ -145,8 +149,10 @@ def run_program(argv=None):
         # for each sample, since the generation fills it with particles
 
         current_mic_generator = generation_method.from_options(mic_gen_parameters)
+        current_mic_generator.sample_dir = sample_dir
         # The method the file names builds itself from the generation parameters,
-        # thermostat and speed up scheme included
+        # thermostat and speed up scheme included, and draws the frames of the GIF in
+        # the directory of the sample
 
         try:
             current_mic_generator.generate_microstructure(current_sample)
@@ -180,12 +186,12 @@ def run_program(argv=None):
                     (i_sample,) + i_failure for i_failure in analysis_failures
                 )
             else:
-                failed_samples.append(
-                    (i_sample, current_sample.total_overlap, current_mic_generator.max_residue)
-                )
-                print_funcs.print_failed_sample(
-                    current_sample.total_overlap, current_mic_generator.max_residue
-                )
+                total_overlap = getattr(current_sample, "total_overlap", None)
+                max_residue = getattr(current_mic_generator, "max_residue", None)
+                failed_samples.append((i_sample, total_overlap, max_residue))
+                print_funcs.print_failed_sample(total_overlap, max_residue)
+                # A random sequential adsorption fails by running out of steps before
+                # the phases are filled, and measures no overlap
             # A sample whose particles still overlap is not meshed or analysed: a mesh
             # of it is a wrong input to a solver, and the run says so instead
         finally:

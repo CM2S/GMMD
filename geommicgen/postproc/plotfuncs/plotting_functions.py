@@ -22,7 +22,7 @@ from matplotlib import cm
 # Finite element mesh conversor to LINKS
 
 
-from geommicgen.microstructure.particleclasses import Ellipse, Particle
+from geommicgen.microstructure.particleclasses import Ellipse, Particle, Square
 
 from geommicgen._process import in_own_process
 from geommicgen.meshing.gmsh_mesher import GmshMesher, gmsh_session
@@ -276,10 +276,10 @@ def colors_of_phases(particles):
 def plot_particles(particles, rve_dims, sample_dir, **kwargs):
     """Plot the particles."""
     if len(rve_dims) == 2:
-        plot_particles_2d(particles, rve_dims, sample_dir)
+        plot_particles_2d(particles, rve_dims, sample_dir,**kwargs)
     elif len(rve_dims) == 3:
         # plot_particles_3d_one_by_one(particles, rve_dims, sample_dir)
-        plot_particles_3d(particles, rve_dims, sample_dir)
+        plot_particles_3d(particles, rve_dims, sample_dir,**kwargs)
 
 
 def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
@@ -301,24 +301,70 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
     ax.set_xlim(0, rve_dims[0])
     # Setting the correct proportions
 
+    if kwargs.get("sim_gif", False):
+        step = kwargs.get("iteration", 0)
+        ax.text(
+            1.05, 0.5, 
+            f"Step: {step:04d}",  # Pad to 4 digits (0000, 0001, ..., 0999, 1000)
+            transform=ax.transAxes, 
+            verticalalignment='center', 
+            horizontalalignment='left',
+            fontsize=12, 
+            fontweight='bold',
+            bbox=dict(boxstyle="square,pad=0.3", facecolor="white", edgecolor="gray", alpha=0.5)
+        )
+    # Adding a text box with the step number for the gif images
+
     phase_colors = colors_of_phases(particles)
 
-    for i_particle in particles:
+    for idx, i_particle in enumerate(particles):
         for j_dim, k_dim in [
             (j_dim, k_dim) for j_dim in range(-1, 2) for k_dim in range(-1, 2)
         ]:
-            ellip = mpatches.Ellipse(
-                i_particle.position_center
-                + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),
-                i_particle.semi_major_axis*2,
-                i_particle.semi_minor_axis*2,
-                angle=180 / np.pi * i_particle.angle,
-                alpha=0.8,
-                edgecolor=None,
-                facecolor=phase_colors[i_particle.phase],
-            )
-            ax.add_artist(ellip)
-            # plt.annotate(str(k), tuple(i_particle.position_center))
+            if isinstance(i_particle, Square):
+                square = mpatches.Rectangle(
+                    i_particle.position_center
+                    - np.array([i_particle.side, i_particle.side]) / 2
+                    + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),
+                    i_particle.side,
+                    i_particle.side,
+                    angle=0,
+                    alpha=0.8,
+                    edgecolor=None,
+                    facecolor=phase_colors[i_particle.phase],
+                )
+                ax.add_artist(square)
+            else:  # particle is a disk or an ellipse
+                ellip = mpatches.Ellipse(
+                    i_particle.position_center
+                    + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),
+                    i_particle.semi_major_axis * 2,
+                    i_particle.semi_minor_axis * 2,
+                    angle=180 / np.pi * i_particle.angle,
+                    alpha=0.8,
+                    edgecolor=None,
+                    facecolor=phase_colors[i_particle.phase],
+                )
+
+                ax.add_artist(ellip)
+
+            ####    Comment or uncomment to show particle index at the center   #####
+            # plt.annotate(
+            #     str(idx), 
+            #     tuple(i_particle.position_center + np.array(rve_dims) * np.array([j_dim, k_dim])), 
+            #     fontsize=6,
+            #     clip_on=False
+            #     )
+            ####    end particle indexing   ####
+
+
+    if kwargs.get("sim_gif", False):
+        gif_dir = kwargs.get("simulation_gif_dir")
+        step = kwargs.get("iteration", 0)
+        plt.savefig(
+            os.path.join(gif_dir, "iteration_{0}.png".format(step)), bbox_inches="tight"
+        )
+        # A frame of the GIF; the figure is closed below, with the others drawn here
 
     if kwargs.get("save", True):
         plt.savefig(os.path.join(sample_dir, "final_config.pdf"), bbox_inches="tight")
@@ -592,6 +638,9 @@ def write_gmsh_view(gmsh, results_dir, name):
 
 @in_own_process("drawing the particles with gmsh")
 def plot_particles_3d(particles, rve_dims, sample_dir, **kwargs):
+    if kwargs.get("sim_gif", False):
+        raise NotImplementedError("Simulation GIF for 3D particles is not implemented.")
+
 
     particles, rve_dims, scale = at_unit_scale(particles, rve_dims)
     dim = len(rve_dims)
@@ -1096,21 +1145,33 @@ def plot_voronoi_2d(
         for j_dim, k_dim in [
             (j_dim, k_dim) for j_dim in range(-1, 2) for k_dim in range(-1, 2)
         ]:
-            ellip = mpatches.Ellipse(
-                i_particle.position_center
-                + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),
-                i_particle.major_axis,
-                i_particle.minor_axis,
-                angle=180 / np.pi * i_particle.angle,
-                alpha=0.8,
-                edgecolor=None,
-                facecolor=phase_colors[i_particle.phase],
-            )
-            ax.add_artist(ellip)
+            if isinstance(i_particle, Square):
+                square = mpatches.Rectangle(
+                    i_particle.position_center
+                    - np.array([i_particle.side, i_particle.side]) / 2
+                    + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),
+                    i_particle.side,
+                    i_particle.side,
+                    angle=0,
+                    alpha=0.8,
+                    edgecolor=None,
+                    facecolor=phase_colors[i_particle.phase],
+                )
+                ax.add_artist(square)
+            else:  # particle is a disk or an ellipse
+                ellip = mpatches.Ellipse(
+                    i_particle.position_center
+                    + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),
+                    i_particle.major_axis,
+                    i_particle.minor_axis,
+                    angle=180 / np.pi * i_particle.angle,
+                    alpha=0.8,
+                    edgecolor=None,
+                    facecolor=phase_colors[i_particle.phase],
+                )
+                ax.add_artist(ellip)
             # plt.annotate(str(k), tuple(i_particle.position_center))
 
-    # print("here2")
-    # voronoi_type = "standard"
     if voronoi_type == "set":
         set_voronoi_plot_2d(
             voronoi, ax=plt.gca(), show_vertices=False, point_size=0, line_width=0.1
@@ -1277,19 +1338,35 @@ def plot_voronoi_2d_with_imts(
             for j_dim, k_dim in [
                 (j_dim, k_dim) for j_dim in range(-1, 2) for k_dim in range(-1, 2)
             ]:
-                ellip = mpatches.Ellipse(
-                    i_particle.position_center
-                    + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),
-                    i_particle.major_axis,
-                    i_particle.minor_axis,
-                    angle=180 / np.pi * i_particle.angle,
-                    alpha=0.5,
-                    edgecolor="k",
-                    linewidth=0.1,
-                    linestyle="-.",
-                    facecolor="None",  # phase_colors[i_particle.phase],
-                )
-                ax.add_artist(ellip)
+                if isinstance(i_particle, Square):
+                    square = mpatches.Rectangle(
+                        i_particle.position_center
+                        - np.array([i_particle.side, i_particle.side]) / 2
+                        + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),
+                        i_particle.side,
+                        i_particle.side,
+                        angle=0,
+                        alpha=0.5,
+                        edgecolor="k",
+                        linewidth=0.1,
+                        linestyle="-.",
+                        facecolor="None",  # phase_colors[i_particle.phase],
+                    )
+                    ax.add_artist(square)
+                else:  # particle is a disk or an ellipse
+                    ellip = mpatches.Ellipse(
+                        i_particle.position_center
+                        + np.array(rve_dims) * np.array([1 * j_dim, 1 * k_dim]),
+                        i_particle.major_axis,
+                        i_particle.minor_axis,
+                        angle=180 / np.pi * i_particle.angle,
+                        alpha=0.5,
+                        edgecolor="k",
+                        linewidth=0.1,
+                        linestyle="-.",
+                        facecolor="None",  # phase_colors[i_particle.phase],
+                    )
+                    ax.add_artist(ellip)
                 # plt.annotate(str(k), tuple(i_particle.position_center))
 
         if voronoi_type == "set":
@@ -1732,5 +1809,33 @@ def plot_voronoi_3d_with_imts(
         plt.close()
 
 
-# def rescaleAxis(ax):
-#     for line in ax.lines:
+def plot_RSA_history(
+    RSA_vf_history,
+    sample_dir,
+    save=True,
+    show=False
+):
+    """Plot the number of particles history as a function of the iteration step."""
+    graph_RSA_vf_history, ax, (w_fig, h_fig) = create_figure(nrows=3, ncols=2)
+
+    ax.plot(
+        range(len(RSA_vf_history)),
+        RSA_vf_history,
+        color=(68 / 255, 119 / 255, 170 / 255, 1)
+    )
+
+    # --- Added Axis Labels ---
+    # Using LaTeX syntax as your create_figure function enables usetex=True
+    ax.set_xlabel(r"Iteration Step")
+    ax.set_ylabel(r"Volume fraction")
+    ax.grid(True, linestyle='--', alpha=0.6)
+
+    if save:
+        # Use fig (graph_RSA_particle_history) to save to ensure the whole canvas is captured
+        plt.savefig(os.path.join(sample_dir, "RSA_vf_history.pdf"), bbox_inches="tight")
+
+        if show:
+            plt.show()
+        plt.close()
+    else:
+        return graph_RSA_vf_history

@@ -245,10 +245,9 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
             mock_microstructure_sample.rve_dims
         )
 
-    @patch("geommicgen.iofuncs.printing.print_final_message_md")
     @patch("geommicgen.iofuncs.printing.print_microstructure_info")
     def test_generate_microstructure_success_path_places_inner_phases(
-        self, mock_print_info, mock_print_final
+        self, mock_print_info
     ):
         """Check the full successful path: particles generated, the simulation run, the
         total overlap saved, and inner phases placed once the outer phases are done."""
@@ -301,10 +300,9 @@ class TestMolecularDynamicSimulation(unittest.TestCase):
             inner_phase, outer_phase
         )
 
-    @patch("geommicgen.iofuncs.printing.print_final_message_md")
     @patch("geommicgen.iofuncs.printing.print_microstructure_info")
     def test_generate_microstructure_inner_phase_volume_fraction_over_outer_raises(
-        self, mock_print_info, mock_print_final
+        self, mock_print_info
     ):
         """Check that an inner phase with a volume fraction over its outer phase's raises,
         without ever placing it."""
@@ -1052,7 +1050,7 @@ class TestMolecularDynamicSimulationRun(unittest.TestCase):
         }
 
     @patch("geommicgen.iofuncs.file_handling.save_mic")
-    @patch("geommicgen.iofuncs.printing.print_to_terminal_refresh")
+    @patch("geommicgen.iofuncs.printing.print_to_terminal_refresh_md")
     def test_stops_after_configuration_stays_legal_for_max_steps_to_relax(
         self, mock_print_refresh, mock_save_mic
     ):
@@ -1131,3 +1129,44 @@ class TestPlaceInnerPhaseRSA(unittest.TestCase):
         inner_particle.contract.assert_called_once_with(0.01 * 0.05)
         outer_particle.contract.assert_called_once_with(0.05 * 1.05)
         outer_particle.dilate.assert_called_once_with(0.05 * 1.05)
+
+    def inner_phase_of(self, n_inner, intersects):
+        """An outer phase of one particle, and an inner phase of *n_inner* particles."""
+        outer_particle = Mock(volume=1.0)
+        outer_particle.generate_point_inside.return_value = np.array([0.5, 0.5])
+        inner_particles = [Mock(volume=0.01, radius=0.05) for _ in range(n_inner)]
+        for i_particle in inner_particles:
+            i_particle.intersection.return_value = intersects
+        outer_phase = Mock(particles=[outer_particle], volume_fraction=1.0)
+        inner_phase = Mock(particles=list(inner_particles))
+        inner_phase.microstructure.rve_dims = [1, 1]
+        inner_phase.microstructure.volume = 1.0
+
+        return outer_phase, inner_phase
+
+    def test_every_particle_has_its_own_tries(self):
+        """Check that a phase of more particles than the tries of one is placed."""
+        current_generation_method = MolecularDynamicsSimulation(
+            *self.md_init_mock_kwargs.values()
+        )
+        current_generation_method.inner_phase_max_step = 2
+        outer_phase, inner_phase = self.inner_phase_of(5, intersects=False)
+
+        current_generation_method.place_inner_phase_rsa(inner_phase, outer_phase)
+
+        self.assertEqual(len(inner_phase.particles), 5)
+        self.assertEqual(current_generation_method.inner_phase_placements[0]["steps"], 5)
+
+    def test_a_particle_whose_tries_run_out_is_left_out(self):
+        """Check that a particle that meets another at every try is left out."""
+        current_generation_method = MolecularDynamicsSimulation(
+            *self.md_init_mock_kwargs.values()
+        )
+        current_generation_method.inner_phase_max_step = 3
+        outer_phase, inner_phase = self.inner_phase_of(2, intersects=True)
+        first_particle = inner_phase.particles[0]
+
+        current_generation_method.place_inner_phase_rsa(inner_phase, outer_phase)
+
+        self.assertEqual(inner_phase.particles, [first_particle])
+        self.assertEqual(current_generation_method.inner_phase_placements[0]["steps"], 4)

@@ -13,6 +13,7 @@ phases:
 generation:
   min_distance: 0.0
   offset: true
+  inner_phase_max_step: 200
   molecular_dynamics:
     max_residue_per_particle: 0.0
     max_step: 3

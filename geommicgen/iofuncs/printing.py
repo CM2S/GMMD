@@ -135,25 +135,13 @@ def print_output(filepath):
     print_to_file("Microstructure output file: {0}\n".format(filepath))
 
 
-def print_final_message_md(time, total_overlap, number_iterations, max_overlap):
-    """Print final message for molecular dynamics simulation."""
-    print_to_file("")
-    print_to_file("MD simulation results")
-    print_to_file("=" * 80 + "\n")
-    print_to_file("Total iterations: {0}".format(number_iterations))
-    print_to_file("Simulation time: {:.3f} s".format(time))
-    print_to_file("Total overlap: {:.2e}".format(total_overlap))
-    print_to_file("Maximum overlap: {:.2e}".format(max_overlap))
-    print_to_file("\n")
-
-
 def print_to_file(message):
     """Report a line, to the terminal and to the screen file of the current run."""
     LOGGER.info(message)
 
 
-def print_to_terminal_refresh(step, total_overlap, **kwargs):
-    """Print info about the current iteration."""
+def print_to_terminal_refresh_md(step, total_overlap, **kwargs):
+    """Print info about the current iteration of MD simulation."""
     if kwargs.get("first"):
         # First meassage containing information about the iteration
         print("MD simulation info")
@@ -169,6 +157,42 @@ def print_to_terminal_refresh(step, total_overlap, **kwargs):
         print("Total Overlap: {:.2e}".format(total_overlap))
         # print("Relative Energy: {:.2e}".format(relative_energy))
         # print("Kinetic Energy: {:.2e}".format(kin_energy))
+
+def print_to_terminal_refresh_rsa(step, number_particles, **kwargs):
+    """Print info about the current iteration of RSA simulation."""
+    if kwargs.get("first"):
+        # First meassage containing information about the iteration
+        print("RSA simulation info")
+        print("=" * 80 + "\n")
+        print("Step: {0}".format(step))
+        print("Number of particles: {0}".format(number_particles))
+
+
+    else:
+        for _ in range(2):
+            print("\033[F\033[K", end="")
+        print("Step: {0}".format(step))
+        print("Number of particles: {0}".format(number_particles))
+
+
+def print_to_terminal_refresh_inner_phase(
+    inner_phase_name, outer_phase_name, n_placed, n_particles, n_steps, **kwargs
+):
+    """Print info about the current state of the inner phase placement."""
+    if kwargs.get("first"):
+        # First meassage containing information about the inner phase placement
+        print("\n\n")
+        print("Inner phase placement info")
+        print("=" * 80 + "\n")
+        print("Step: {0}".format(n_steps))
+        print("Placed particles: {0}".format(n_placed))
+        
+    else:
+        for _ in range(2):
+            print("\033[F\033[K", end="")
+        print("Step {0}".format(n_steps))
+        print("Placed particles: {0}".format(n_placed))
+        
 
 
 def print_microstructure_info(microstructure):
@@ -227,7 +251,7 @@ def print_virtual_total_volume_fraction(real_vf, virtual_vf, min_distance):
     print_to_file("=" * 80 + "\n")
     print_to_file("Total real volume fraction: {0:.3f}%".format(real_vf * 100))
     print_to_file(
-        "Total vitual volume fraction: {0:.3f}% (minimum distance: {1:.4g})\n".format(
+        "Total virtual volume fraction: {0:.3f}% (minimum distance: {1:.4g})\n".format(
             virtual_vf * 100, min_distance
         )
     )
@@ -260,16 +284,28 @@ def print_final_message(times):
     Parameters
     ----------
     times: dict
-        Dictionary of the form *{step: seconds}*, in the order the steps are to be
-        reported. A step that did not finish is left out by the caller rather than
-        given a time of nothing: this runs in a finally block, and an error raised
-        here would replace the error that stopped the run.
+        Dictionary of the form *{step: seconds}* or *{step: (seconds, steps)}*, in the
+        order the steps are to be reported. A step named with a leading "- " is a part
+        of the step before it, shown under it and left out of the total. A step that
+        did not finish is left out by the caller rather than given a time of nothing:
+        this runs in a finally block, and an error raised here would replace the error
+        that stopped the run.
     """
     print_to_file(80 * "-")
 
     print_to_file("Ending program execution at : {0}\n".format(datetime.datetime.now()))
 
-    total_time = sum(times.values())
+    def split(value):
+        """Give the seconds and the number of steps, if any, of a step."""
+        if isinstance(value, tuple):
+            return value[0], value[1]
+        return value, None
+
+    total_time = sum(
+        split(i_value)[0]
+        for i_step, i_value in times.items()
+        if not str(i_step).startswith("- ")
+    )
 
     hours = int(total_time // 3600)
     minutes_rem = int(total_time // 60 - hours * 60)
@@ -285,16 +321,59 @@ def print_final_message(times):
         """Give the percentage of the total a duration is."""
         return round(duration / total_time * 100, ndigits=2) if total_time else 0.0
 
-    data_to_print = [
-        [i_step, "{0:.2e}".format(i_time), share(i_time)]
-        for i_step, i_time in times.items()
-    ]
-    formated_data = tabulate(data_to_print, headers=["Phase", "Duration(s)", "%"])
+    with_steps = any(split(i_value)[1] is not None for i_value in times.values())
+    data_to_print = []
+    for i_step, i_value in times.items():
+        i_time, i_steps = split(i_value)
+        row = [i_step, "{0:.2e}".format(i_time), share(i_time)]
+        if with_steps:
+            row.insert(1, "" if i_steps is None else i_steps)
+        data_to_print.append(row)
+    headers = ["Phase", "Duration(s)", "%"]
+    if with_steps:
+        headers.insert(1, "Steps")
+        # The steps of the simulation and of the placement of each inner phase
+    formated_data = tabulate(data_to_print, headers=headers)
     for row in formated_data.split("\n"):
         print_to_file("\t" + row)
 
     print_to_file("\n")
     print_to_file("{0: ^80}\n".format("Program Completed"))
+
+
+def generation_times(mic_generator):
+    """
+    Give the time of the generation of a microstructure, and of the parts it was made of.
+
+    Parameters
+    ----------
+    mic_generator: `.GenerationMethod`
+        The generation method, which has run.
+
+    Returns
+    -------
+    dict
+        The generation under "Microstructure generation", then its simulation and the
+        placement of each inner phase, each with the steps it took, named with a
+        leading "- " as parts of it.
+    """
+    times = {"Microstructure generation": mic_generator.time}
+    simulation_time = getattr(mic_generator, "simulation_time", None)
+    if isinstance(simulation_time, (int, float)):
+        times["- {0}".format(mic_generator.simulation_name)] = (
+            simulation_time,
+            mic_generator.simulation_steps,
+        )
+    placements = getattr(mic_generator, "inner_phase_placements", None)
+    for i_placement in placements if isinstance(placements, list) else []:
+        times["- Inner phase {0} placement".format(i_placement["phase"])] = (
+            i_placement["time"],
+            i_placement["steps"],
+        )
+    # Checked for being numbers and a list, so that a generator that does not keep
+    # them, a stand in among them, is reported by its time alone
+
+    return times
 
 
 def step_times(mic_generator, mesh_generators, times_dict):
@@ -303,7 +382,7 @@ def step_times(mic_generator, mesh_generators, times_dict):
 
     Parameters
     ----------
-    mic_generator: `.MolecularDynamicsSimulation`
+    mic_generator: `.GenerationMethod`
         The generation method, or None when nothing was generated.
 
     mesh_generators: list
@@ -315,11 +394,12 @@ def step_times(mic_generator, mesh_generators, times_dict):
     Returns
     -------
     dict
-        Dictionary of the form *{step: seconds}* over the steps that finished.
+        Dictionary of the form *{step: seconds}*, or *{step: (seconds, steps)}* for
+        the parts of the generation, over the steps that finished.
     """
     times = {}
     if mic_generator is not None and mic_generator.time is not None:
-        times["Molecular Dynamics Simulation"] = mic_generator.time
+        times.update(generation_times(mic_generator))
     for i_generator in mesh_generators:
         if i_generator.time is None:
             continue
@@ -352,6 +432,15 @@ def print_failed_sample(total_overlap, max_residue):
     """
     print_to_file("Sample not generated")
     print_to_file("=" * 80 + "\n")
+    if total_overlap is None or max_residue is None:
+        print_to_file(
+            "The run reached its maximum number of steps before every phase got the "
+            "particles or the volume fraction asked for. It is written, but not "
+            "meshed or analysed.\n"
+        )
+        return
+    # A random sequential adsorption measures no overlap: it fails by running out of
+    # steps
     print_to_file(
         "The run ended with an overlap of {0:.2e} where {1:.2e} was allowed, so the "
         "microstructure is not legal. It is written, but not meshed or "
@@ -381,6 +470,11 @@ def print_failed_samples(samples):
         "{0} of the samples asked for could not be generated:\n".format(len(samples))
     )
     for i_index, i_overlap, i_max_residue in samples:
+        if i_overlap is None or i_max_residue is None:
+            print_to_file(
+                "\t- mic_{0}: the maximum number of steps was reached".format(i_index)
+            )
+            continue
         print_to_file(
             "\t- mic_{0}: overlap {1:.2e} where {2:.2e} was allowed".format(
                 i_index, i_overlap, i_max_residue

@@ -25,6 +25,61 @@ from scipy.optimize import fmin
 MINIMUM_SIZE = 0
 
 
+def semi_axes_inflation(semi_axes, delta):
+    """
+    Give the amount *t* to add to every semi-axis of an ellipse or ellipsoid to dilate it by *delta*.
+
+    Adding *delta* itself to every semi-axis moves the boundary out by *delta* only along
+    the axes, and by less in between, so two particles dilated that way could end up
+    closer than the minimum distance. *t* is the least amount for which the ellipse or
+    ellipsoid with every semi-axis grown by *t* holds every point at distance *delta*
+    from the original one (for a contraction, *delta* < 0, lies inside the inner offset
+    at distance |*delta*|).
+
+    For an ellipse with semi-axes a >= b, *t* is a root of
+    2s*t^3 + 4ab*t^2 - 2s*delta^2*t - s^2*delta^2 = 0, with s = a + b: the positive root
+    for a dilation and the negative root closest to zero for a contraction. The closest
+    approach of an ellipsoid is in the plane of its largest and smallest semi-axes, so
+    the ellipsoid takes the *t* of the ellipse with those two.
+
+    Parameters
+    ----------
+    semi_axes: list(float)
+        Semi-axes of the undilated ellipse or ellipsoid.
+
+    delta: float
+        Dilation (> 0) or contraction (< 0).
+
+    Returns
+    -------
+    float
+        *t*, of the sign of *delta*; *delta* itself for a circle or a sphere.
+
+    Raises
+    ------
+    ValueError:
+        If the particle is too slender to be contracted by |*delta*|.
+    """
+    if delta == 0:
+        return 0.0
+    a = max(semi_axes)
+    b = min(semi_axes)
+    s = a + b
+    roots = np.roots([2 * s, 4 * a * b, -2 * s * delta**2, -(s**2) * delta**2])
+    real_roots = roots[np.abs(roots.imag) < 1e-12].real
+    if delta > 0:
+        # Descartes' rule of signs guarantees exactly one positive real root
+        return float(max(real_roots))
+    negative_roots = real_roots[real_roots < 0]
+    if len(negative_roots) == 0:
+        raise ValueError(
+            "A particle with semi-axes {0} cannot be contracted by {1}".format(
+                list(semi_axes), -delta
+            )
+        )
+    return float(max(negative_roots))
+
+
 class Particle(abc.ABC):
     """
     This is the class for particles.
@@ -109,15 +164,32 @@ class Particle(abc.ABC):
     @property
     @abc.abstractmethod
     def radius(self):
-        """Radius of the circumscribed circle to the ellipse."""
+        """Radius of the circumscribed circle to the particle."""
         radius = self._radius
 
         return radius
+    
+    @property
+    @abc.abstractmethod
+    def real_volume(self):
+        """
+        Real volume/area of the particle.
+        When a minimum distance between paeticles is imposed, the algorithm dilates the particles, runs the generation method and then contracts the particles.
+        The real volume is the volume of the non dilated particles.
+        """
+        real_volume = self._real_volume
+        return real_volume
 
     @property
     @abc.abstractmethod
     def volume(self):
-        """Area(volume) of the particle."""
+        """
+        Volume/area of the particle.
+        When a minimum distance between paeticles is imposed, the algorithm dilates the particles, runs the generation method and then contracts the particles.
+        The volume is the volume of the dilated particles.
+        
+        If the particles are not dilated, real_volume = volume.
+        """
         volume = self._volume
 
         return volume
@@ -571,6 +643,7 @@ class Particle(abc.ABC):
         unit_vector_i_j: array
             Unit vector from the center of *self* to *other_particle*
         """
+
         vector_centers = other_particle.position_center - self.position_center
         vector_centers = vector_centers - box * np.round(vector_centers / box)
         # Vector connecting the centers of the current particle and the nearest image of
@@ -609,6 +682,13 @@ class Particle(abc.ABC):
     @abc.abstractmethod
     def generate_point_inside(self):
         """Generate a random point inside the particle."""
+
+    @abc.abstractmethod
+    def contract(self,distance):
+        """Contract the particle by a given distance."""
+
+    def dilate(self,distance):
+        """Dilate the particle by a given distance."""
 
     def points_inside(self, points: np.array, box: list) -> np.array:
         """
@@ -784,17 +864,21 @@ class Point(Particle):
 
     radius = 0
     volume = 0
+    real_volume = 0
 
     def intersection(self, other_particle: Particle, box: list) -> bool:
         """Check if the two particles intersect."""
+        pass
 
     def intersection_area(self, other_particle: Particle, box: list) -> float:
         """Compute the interesection area/volume between two particles."""
+        pass
 
     def intersection_length(
         self, other_particle: Particle, box: list
     ) -> Union[float, np.array]:
         """Compute the interesection length between two particles."""
+        pass
 
     def support_function(self, direction: np.array) -> np.array:
         """Compute the interesection length between two particles."""
@@ -810,6 +894,15 @@ class Point(Particle):
 
     def generate_point_inside(self):
         """Generate a random point inside the particle."""
+        pass
+
+    def contract(self, distance):
+        """Contract the particle by a given distance."""
+        pass
+
+    def dilate(self, distance):
+        """Dilate the particle by a given distance."""
+        pass
 
 
 class Line(Particle):

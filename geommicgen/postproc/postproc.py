@@ -10,8 +10,12 @@ composition the deck runs.
 
 import contextlib
 import os
+import re
+import shutil
 import time
 import traceback
+
+from PIL import Image
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
@@ -24,13 +28,16 @@ from geommicgen.postproc.options import STAT_FLAGS, VORONOI_OPTION_NAMES, VORONO
 import geommicgen.postproc.voronoimetrics.motion_analysis as motion_analysis
 import geommicgen.postproc.voronoimetrics.stat_analysis as stat_analysis
 import geommicgen.postproc.voronoimetrics.voronoi_analysis as voronoi_analysis
-
+import geommicgen.postproc.plotfuncs.plotting_functions as plot_funcs
 from geommicgen.postproc.plotfuncs.plotting_functions import plot_particles
 
 FINAL_CONFIG_STEP = "Generating final configuration for visualization"
 MOTION_STEP = "Generating simulation plots"
 VORONOI_STEP = "Voronoi analysis"
 STAT_STEP = "Statistical analysis"
+RSA_HISTORY_STEP = "Plotting the RSA volume fraction history"
+GIF_STEP = "Generating GIF from simulation frames"
+GIF_FRAMES_DIRECTORY = "sim_gif"
 # Names the analyses are announced under, and the time each of them took reported
 # under in the summary that closes a run
 
@@ -162,7 +169,7 @@ def needs_gmsh(microstructure, state, options):
     return False
 
 
-def check_analyses(microstructure, state, options):
+def check_analyses(microstructure, state, options, sample_dir=None):
     """
     Refuse an analysis that cannot be carried out, before anything is written.
 
@@ -176,6 +183,10 @@ def check_analyses(microstructure, state, options):
 
     options: dict
         The analyses asked for, keyed as the input data file keys them.
+
+    sample_dir: str, optional
+        Directory of the sample, where the frames of the simulation GIF are looked
+        for. Without it they are not looked for.
 
     Raises
     ------
@@ -200,6 +211,21 @@ def check_analyses(microstructure, state, options):
                     voronoi_type, ", ".join(VORONOI_TYPES)
                 )
             )
+    if options.get("plot_rsa_vf_history", False) and (
+        getattr(state, "RSA_vf_history", None) is None
+    ):
+        raise ValueError(
+            "The RSA volume fraction history is plotted from the random sequential "
+            "adsorption that produced the microstructure, and the run has none."
+        )
+    if options.get("sim_gif", False) and sample_dir is not None and not os.path.isdir(
+        os.path.join(sample_dir, GIF_FRAMES_DIRECTORY)
+    ):
+        raise ValueError(
+            "The simulation GIF is made of the frames the run draws in {0}, and there "
+            "is no such directory: the generation has to be run asking for the "
+            "GIF.".format(os.path.join(sample_dir, GIF_FRAMES_DIRECTORY))
+        )
     if needs_gmsh(microstructure, state, options):
         require_gmsh()
     # Asked before anything is written, so that a request that cannot be honoured
@@ -239,7 +265,7 @@ def run_analyses(microstructure, state, sample_dir, options):
     ValueError:
         If an analysis is asked for that cannot be carried out; see `check_analyses`.
     """
-    check_analyses(microstructure, state, options)
+    check_analyses(microstructure, state, options, sample_dir)
     packing = microstructure.packing()
     # What the analyses of the arrangement of the particles describe: the particles the
     # simulation packed, without those it placed inside them afterwards. The final
@@ -256,6 +282,14 @@ def run_analyses(microstructure, state, sample_dir, options):
         with announced(FINAL_CONFIG_STEP, times, failures):
             plot_particles(
                 microstructure.particles, microstructure.rve_dims, sample_dir
+            )
+
+    # RSA volume fraction history
+    # --------------------------------------------------------------------------------------
+    if options.get("plot_rsa_vf_history", False):
+        with announced(RSA_HISTORY_STEP, times, failures):
+            plot_funcs.plot_RSA_history(
+                state.RSA_vf_history, sample_dir, save=True, show=False
             )
 
     # Motion analysis
@@ -318,7 +352,66 @@ def run_analyses(microstructure, state, sample_dir, options):
                 packing, sample_dir, stat_options, seed=options.get("stat_seed")
             )
 
+    # GIF of the simulation
+    # --------------------------------------------------------------------------
+    if options.get("sim_gif", False):
+        with announced(GIF_STEP, times, failures):
+            make_simulation_gif(
+                sample_dir,
+                options.get("sim_gif_frame_duration", 200),
+                options.get("sim_gif_cleanup_frames", True),
+            )
+
     return times, failures
+
+
+def make_simulation_gif(sample_dir, frame_duration, cleanup_frames):
+    """
+    Put the frames the generation drew together into a GIF of the simulation.
+
+    Parameters
+    ----------
+    sample_dir: str
+        Directory of the sample, where the frames are, in their own directory, and
+        where the GIF is written.
+
+    frame_duration: int
+        Time each frame is shown for, in milliseconds.
+
+    cleanup_frames: bool
+        Delete the frames once the GIF is written.
+    """
+    input_folder = os.path.join(sample_dir, GIF_FRAMES_DIRECTORY)
+    output_gif_path = os.path.join(sample_dir, "Simulation.gif")
+
+    def frame_number(filename):
+        """Give the number of the step a frame was drawn at."""
+        match = re.search(r"iteration_(\d+)", filename)
+        return int(match.group(1)) if match else 0
+
+    images = sorted(
+        (i_file for i_file in os.listdir(input_folder) if i_file.lower().endswith(".png")),
+        key=frame_number,
+    )
+    if not images:
+        raise ValueError("No frames were drawn in {0}.".format(input_folder))
+    frames = [Image.open(os.path.join(input_folder, i_image)) for i_image in images]
+    print_funcs.print_to_file("\t> Generating GIF.")
+    print_funcs.print_to_file("\t\t- {0}".format(output_gif_path))
+    frames[0].save(
+        output_gif_path,
+        format="GIF",
+        append_images=frames[1:],
+        save_all=True,
+        duration=frame_duration,
+        loop=0,
+    )
+    # loop=0 plays it over and over
+    for i_frame in frames:
+        i_frame.close()
+    if cleanup_frames:
+        print_funcs.print_to_file("\t> Deleting individual PNG files.")
+        shutil.rmtree(input_folder)
 
 
 def post_proc(
@@ -352,7 +445,7 @@ def post_proc(
     list
         The analyses that failed, as *(name, error, traceback)*.
     """
-    check_analyses(current_sample, current_mic_generator, post_proc_opts)
+    check_analyses(current_sample, current_mic_generator, post_proc_opts, sample_dir)
     run_mesh_jobs(mesh_jobs, current_sample, sample_dir)
     # The meshes come first, and the analyses are checked before them: an analysis
     # that cannot be carried out is found out at once rather than after the meshing,

@@ -84,6 +84,7 @@ KITCHEN_SINK_2D = """
     Damping_Coeff 0.1
     Particle_Mass_Opt volume
     offset False
+    Inner_Phase_Max_Step 150
     Force_Option intersection_length
     Force_Rescale False
     Thermostat multi_temperature
@@ -107,6 +108,10 @@ KITCHEN_SINK_2D = """
     stat_ripleys_k True
     stat_two_pt_corr True
     stat_seed 3
+    plot_rsa_vf_history True
+    sim_gif True
+    sim_gif_frame_duration 50
+    sim_gif_cleanup_frames False
     Mesh_Options
     gmsh
     mesh_size 0.05

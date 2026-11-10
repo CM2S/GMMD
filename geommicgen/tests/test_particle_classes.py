@@ -20,6 +20,7 @@ from geommicgen.microstructure.particleclasses import (
     Sphere,
     Point,
     Line,
+    Square,
 )
 from geommicgen.postproc.plotfuncs.plotting_functions import (
     plot_particles_3d,
@@ -107,7 +108,9 @@ class TestRescale(unittest.TestCase):
                 if isinstance(i_particle, CylindricalFiber):
                     i_particle.position_center = np.array([0.3, 0.4])
                 i_particle.dilate(0.01)
-                lengths = set(i_lengths) | {"position_center", "delta"}
+                lengths = set(i_lengths) | {"position_center", "delta", "_inflation"}
+                # The inflation an ellipse or an ellipsoid has grown its axes by, which
+                # it keeps to take off again, is a length as well
                 before = {
                     i_name: np.array(i_value, dtype=float)
                     for i_name, i_value in vars(i_particle).items()
@@ -2519,3 +2522,134 @@ class TestDiskAndEllipse(unittest.TestCase):
                     np.testing.assert_allclose(direction, -other_direction, atol=1e-4)
         # A disk asked about an ellipse raised, since it gave the test of intersection
         # a tolerance that test does not take
+
+
+class TestSquare(unittest.TestCase):
+
+    def test_intersection_area_square_square(self):
+        """Checks if the intersection area between two squares is correct."""
+        box = [1,1]
+        square = Square("1",{"side":0.1,"n":1}, box)
+        square.side = 0.1
+        square.position_center = np.array([0.4,0.4])
+        other_square1 = Mock(side = 0.1, position_center = np.array([0.41,0.45]))
+        # other_square2 is completely inside square
+        other_square2 = Mock(side = 0.05, position_center = np.array([0.39,0.42]))
+        other_square3 = Mock(side = 0.1, position_center = np.array([0.61,0.3]))
+
+        self.assertAlmostEqual( square.intersection_area_square_square(other_square1,box), 0.0045)
+        self.assertAlmostEqual( square.intersection_area_square_square(other_square2,box), 0.0025)
+        self.assertEqual( square.intersection_area_square_square(other_square3,box), 0)
+
+
+    def test_intersection_check_square_square(self):
+        """Checks if the intersection check between two squares is correct."""
+        
+        box = [1,1]
+        # This first set of tests do not require the use of the nearest periodic image function.
+        square = Square("1",{"side":0.1,"n":1}, box)
+        square.position_center = np.array([0.4,0.4])
+        other_square1 = Mock(side = 0.1, position_center = np.array([0.4,0.45]))
+        other_square2 = Mock(side = 0.1, position_center = np.array([0.4,0.35]))
+        other_square3 = Mock(side = 0.1, position_center = np.array([0.45,0.4]))
+        other_square4 = Mock(side = 0.1, position_center = np.array([0.35,0.4]))
+        other_square5 = Mock(side = 0.1, position_center = np.array([0.51,0.40]))
+        other_square6 = Mock(side = 0.1, position_center = np.array([0.4,0.29]))
+
+        self.assertTrue(square.intersection_square_square(other_square1,box))
+        self.assertTrue(square.intersection_square_square(other_square2,box))
+        self.assertTrue(square.intersection_square_square(other_square3,box))
+        self.assertTrue(square.intersection_square_square(other_square4,box))
+        self.assertFalse(square.intersection_square_square(other_square5,box))
+        self.assertFalse(square.intersection_square_square(other_square6,box))
+
+        # Now we test the periodic boundary conditions. The nearest periodic image function should be used in this case.
+        square.position_center = np.array([0.95,0.95])
+        other_square7 = Mock(side = 0.1, position_center = np.array([0.04,0.95]))
+        other_square8 = Mock(side = 0.1, position_center = np.array([0.95,0.04]))
+        other_square9 = Mock(side = 0.1, position_center = np.array([0.06,0.06]))
+
+        self.assertTrue(square.intersection_square_square(other_square7,box))
+        self.assertTrue(square.intersection_square_square(other_square8,box))
+        self.assertFalse(square.intersection_square_square(other_square9,box))
+
+    def test_intersection_length_square_square(self):
+        """Checks the intersection length between two squares for overlaps in different directions."""
+        box = [1, 1]
+        square = Square("1", {"side": 0.1, "n": 1}, box)
+        square.position_center = np.array([0.5, 0.5])
+
+        # Overlap purely along the y-direction: full overlap in x (0.1), overlap of 0.05 in y.
+        other_square_y = Mock(side=0.1, position_center=np.array([0.5, 0.55]))
+        self.assertAlmostEqual(
+            square.intersection_length_square_square(other_square_y, box), 0.05
+        )
+
+        # Overlap purely along the x-direction: full overlap in y (0.1), overlap of 0.05 in x.
+        other_square_x = Mock(side=0.1, position_center=np.array([0.55, 0.5]))
+        self.assertAlmostEqual(
+            square.intersection_length_square_square(other_square_x, box), 0.05
+        )
+
+        # Overlap along a diagonal direction: overlap of 0.07 in x, 0.04 in y.
+        other_square_diag = Mock(side=0.1, position_center=np.array([0.53, 0.56]))
+        self.assertAlmostEqual(
+            square.intersection_length_square_square(other_square_diag, box), 0.04
+        )
+
+        # No overlap: squares are far enough apart in both directions.
+        other_square_none = Mock(side=0.1, position_center=np.array([0.8, 0.8]))
+        self.assertEqual(
+            square.intersection_length_square_square(other_square_none, box), 0
+        )
+
+    def test_generate_point_inside_square(self):
+        """Checks that the points drawn inside a square fill it and stay in it."""
+        square = Square("1", {"side": 0.1, "n": 1}, [1, 1])
+        square.position_center = np.array([0.2, 0.3])
+        np.random.seed(0)
+
+        points = np.array([square.generate_point_inside() for _ in range(1000)])
+
+        np.testing.assert_array_less(np.abs(points - [0.2, 0.3]), 0.05)
+        np.testing.assert_array_less(0.045, np.max(np.abs(points - [0.2, 0.3]), axis=0))
+
+    def test_support_function_square(self):
+        square = Square("1",{"side":0.1,"n":1}, [1,1])
+        square.position_center = np.array([0.2,0.3])
+        direction1 = np.array([1,0.5])
+        direction2 = np.array([0.7,-1])
+        direction3 = np.array([-0.5,1])
+        direction4 = np.array([-1,-0.7])
+
+        np.testing.assert_allclose(
+            square.support_function(direction1), np.array([0.25, 0.35, 0])
+        )
+        np.testing.assert_allclose(
+            square.support_function(direction2), np.array([0.25, 0.25, 0])
+        )
+        np.testing.assert_allclose(
+            square.support_function(direction3), np.array([0.15, 0.35, 0])
+        )
+        np.testing.assert_allclose(
+            square.support_function(direction4), np.array([0.15, 0.25, 0])
+        )
+
+        # Edge cases
+        direction5 = np.array([1,0])
+        direction6 = np.array([-1,0])
+        direction7 = np.array([0,1])
+        direction8 = np.array([0,-1])
+
+        np.testing.assert_allclose(
+            square.support_function(direction5), np.array([0.25, 0.35, 0])
+        )
+        np.testing.assert_allclose(
+            square.support_function(direction6), np.array([0.15, 0.35, 0])
+        )
+        np.testing.assert_allclose(
+            square.support_function(direction7), np.array([0.25, 0.35, 0])
+        )
+        np.testing.assert_allclose(
+            square.support_function(direction8), np.array([0.25, 0.25, 0])
+        )
