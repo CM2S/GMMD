@@ -299,12 +299,14 @@ class RandomSequentialAdsorption(GenerationMethod):
                     if self.make_gif:
                         kwargs = {"sim_gif": True, "simulation_gif_dir" : self.gif_dir, "iteration": self.step, "save": False}
                         plot_funcs.plot_particles(microstructure_sample.particles, microstructure_sample.rve_dims, self.sample_dir, **kwargs)
- 
-                # Contract all the particles back to their original. If there is no minimum distance, the particles will not be contracted, since min_distance is 0.
-                real_vf = self.microstructure_sample.real_volume_fraction
-                virtual_vf = self.microstructure_sample.volume_fraction
-                self.contract_all_particles(i_phase.particles)
-        
+
+        real_vf = microstructure_sample.real_volume_fraction
+        virtual_vf = microstructure_sample.volume_fraction
+        self.contract_all_particles(microstructure_sample.particles)
+        # Contracted all at once, after the last phase, so that each phase is placed
+        # against the dilated particles of the phases before it and keeps the minimum
+        # distance from them as well. With no minimum distance the contraction is by zero
+
         if self.offset:
             offset = self.compute_rve_offset(microstructure_sample.particles, self.box)
             for i_particle in microstructure_sample.particles:

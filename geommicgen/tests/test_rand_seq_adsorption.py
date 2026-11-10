@@ -5,12 +5,17 @@ RandomSequentialAdsorption. Behavior shared with other generation methods (e.g. 
 tested in test_generation_method.py instead.
 """
 
+import itertools
+import os
+import tempfile
 import unittest
 from unittest.mock import Mock
 
 import numpy as np
 
+from geommicgen.config.run import read_config
 from geommicgen.micgenmethod.rand_seq_adsorption import RandomSequentialAdsorption
+from geommicgen.microstructure.microstructure import Microstructure
 
 
 class TestRandomSequentialAdsorption(unittest.TestCase):
@@ -78,3 +83,52 @@ class TestRandomSequentialAdsorption(unittest.TestCase):
         self.rsa_sim.check_intersection(trial_particle, [1])
 
         trial_particle.intersection.assert_called_once_with(existing_particle_2, [1.0, 1.0])
+
+
+class TestRandomSequentialAdsorptionRun(unittest.TestCase):
+    """Test class for whole generations by a random sequential adsorption."""
+
+    def generate(self, input_file):
+        """Generate the microstructure an input file describes, seeded."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = os.path.join(temp_dir, "input.yaml")
+            with open(path, "w") as file:
+                file.write(input_file)
+            options = read_config(path).to_options()
+        microstructure = Microstructure.from_descriptors(
+            options["mic_gen_parameters"]["rve_dimensions"],
+            options["mic_gen_descriptors"],
+        )
+        simulation = RandomSequentialAdsorption.from_options(
+            {**options["mic_gen_parameters"], "fixed_seed": 3}
+        )
+        simulation.generate_microstructure(microstructure)
+        self.assertTrue(simulation.status)
+
+        return microstructure
+
+    def test_the_minimum_distance_holds_between_phases(self):
+        """Check that disks of two phases are kept the minimum distance apart."""
+        microstructure = self.generate(
+            "samples: 1\n"
+            "rve_dimensions: [1, 1]\n"
+            "phases:\n"
+            "  0: {type: matrix}\n"
+            "  1: {type: disk, r: 0.05, vf: 0.15}\n"
+            "  2: {type: disk, r: 0.05, vf: 0.15}\n"
+            "generation:\n"
+            "  min_distance: 0.02\n"
+            "  random_sequential_adsorption: {max_step: 100000}\n"
+        )
+        box = np.array(microstructure.rve_dims)
+        gaps = []
+        for i_particle, j_particle in itertools.combinations(microstructure.particles, 2):
+            if i_particle.phase == j_particle.phase:
+                continue
+            centres = i_particle.position_center - j_particle.position_center
+            centres = centres - box * np.round(centres / box)
+            gaps.append(
+                np.linalg.norm(centres) - i_particle.radius - j_particle.radius
+            )
+
+        self.assertGreaterEqual(min(gaps), 0.02 - 1e-9)
