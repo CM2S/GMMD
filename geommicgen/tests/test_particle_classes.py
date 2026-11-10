@@ -956,7 +956,9 @@ class EllipseTestIntersectionLength_3(unittest.TestCase):
             rve_dims,
         )
         ellipse_1.position_center = np.array([0.5, 0.5])
-        ellipse_2.position_center = np.array([0.5, 0.5])
+        ellipse_2.position_center = np.array([0.51, 0.5])
+        # The centres are apart, so that the search for the intersection length starts
+        # from the direction between them, and not from a random one
         (
             intersection_length,
             unit_vector,
@@ -978,12 +980,16 @@ class EllipseTestIntersectionLength_4(unittest.TestCase):
             rve_dims,
         )
         ellipse_1.position_center = np.array([0.5, 0.5])
-        ellipse_2.position_center = np.array([0.5, 0.5])
+        ellipse_2.position_center = np.array([0.51, 0.5])
+        # The centres are apart, so that the search for the intersection length starts
+        # from the direction between them, and not from a random one
         (
             intersection_length,
             unit_vector,
         ) = ellipse_1.intersection_length_mink_diff(ellipse_2, rve_dims)
-        ellipse_1.position_center += intersection_length * unit_vector
+        ellipse_1.position_center -= intersection_length * unit_vector
+        # The direction is the one to move ellipse_2 along, so ellipse_1 is moved
+        # against it
         intersection = ellipse_1.intersection_gjk(ellipse_2, rve_dims)
         self.assertTrue(not intersection)
 
