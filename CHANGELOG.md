@@ -26,6 +26,7 @@ The notable changes to GMMD, newest first. Versions follow [Semantic Versioning]
 
 - The documentation badge, which GitHub could not display ([#17](https://github.com/CM2S/GMMD/pull/17)).
 - Ellipsoids kept `min_distance` apart could end up closer than that between their axes. They are now dilated by the amount that keeps the whole gap, as ellipses already were ([#20](https://github.com/CM2S/GMMD/pull/20)).
+- The plot of the kinetic energy drew the kinetic energy at the reference temperature one step early ([#25](https://github.com/CM2S/GMMD/pull/25)).
 
 ### Removed
 

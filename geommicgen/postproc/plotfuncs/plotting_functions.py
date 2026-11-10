@@ -82,6 +82,12 @@ def styled(plot):
     return wrapper
 
 
+def start_at_zero(axes):
+    """Start the horizontal axis at zero and end it at the last point drawn."""
+    axes.margins(x=0)
+    axes.set_xlim(left=0)
+
+
 def label_history(axes, vertical, title, legend=False):
     """
     Label a plot of a quantity against the step of the generation.
@@ -103,6 +109,7 @@ def label_history(axes, vertical, title, legend=False):
     axes.set_xlabel("Step")
     axes.set_ylabel(vertical)
     axes.set_title(title)
+    start_at_zero(axes)
     if legend:
         axes.legend()
 
@@ -731,16 +738,22 @@ def plot_kinetic_energy_history(
         plt.sca(kwargs["axes"])
     else:
         plt.figure()
+    steps = np.arange(len(kinetic_energy_history))
     plt.semilogy(
-        range(len(kinetic_energy_history)), kinetic_energy_history, label="Kinetic energy"
+        steps,
+        np.ma.masked_less_equal(kinetic_energy_history, 0),
+        label="Kinetic energy",
     )
+    # Particles that start at rest have no kinetic energy at step 0, which a logarithmic
+    # axis cannot show, so that value is left out
     plt.semilogy(
-        range(len(thermic_energy_history)),
+        steps[len(steps) - len(thermic_energy_history) :],
         thermic_energy_history,
         label="At the reference temperature",
     )
     # The second is the kinetic energy of the particles at the reference temperature of
-    # the thermostat, which the first is driven towards
+    # the thermostat, which the first is driven towards. It is recorded from step 1 on,
+    # so it is drawn against the last steps
     label_history(plt.gca(), "Energy", "Kinetic energy", legend=True)
     if "axes" not in kwargs:
         if save:
@@ -798,12 +811,12 @@ def plot_overlap_history(
                 label="Change of temperature" if i_ind == 0 else None,
             )
         # Named once, in the legend, as the steps at which the thermostat changed the
-        # temperature; they were hairlines nothing explained
-    energy_axes = plt.gca()
+        # temperature
+    overlap_axes = plt.gca()
     # Plotting the maximum residue if it is larger than 0
     if max_residue != 0:
         plt.semilogy(
-            [0, len(total_overlap_history)],
+            [0, len(total_overlap_history) - 1],
             [max_residue, max_residue],
             color="0.4",
             linestyle="--",
@@ -814,13 +827,13 @@ def plot_overlap_history(
         range(len(total_overlap_history)),
         total_overlap_history,
         color=kwargs.get("color", OKABE_ITO[0]),
-        label="Relative energy",
+        label="Total overlap",
     )
-    label_history(energy_axes, "Relative energy", "Relative energy")
-    handles, legend_axes = energy_axes.get_legend_handles_labels()[0], energy_axes
+    label_history(overlap_axes, "Total overlap", "Total overlap")
+    handles, legend_axes = overlap_axes.get_legend_handles_labels()[0], overlap_axes
 
     if "overlap_ratio" in kwargs:
-        ratio_axes = plt.twinx(energy_axes)
+        ratio_axes = plt.twinx(overlap_axes)
         ratio_axes.grid(False)
         graph_ratio = plt.semilogy(
             [None, None] + kwargs["overlap_ratio"],
@@ -836,7 +849,11 @@ def plot_overlap_history(
         # own, swings about one. The legend goes on that axis, which is drawn over the
         # other and would hide a legend of it
     if len(handles) > 1:
-        legend_axes.legend(handles=handles)
+        legend_axes.legend(
+            handles=handles, loc="upper center", bbox_to_anchor=(0.5, -0.18), ncol=2
+        )
+        # Below the plot: the place matplotlib finds for a legend is clear of the lines
+        # of one axis only, and the lines of the other ran under it
 
     # Save and/or show if no axes was supplied
     if "axes" not in kwargs:
@@ -1090,6 +1107,7 @@ def plot_ripleys_k_func(vals, radii_vec, **kwargs):
     )
     # The second is the K function of a process with no interaction between the
     # points, which is what the first is read against
+    start_at_zero(plt.gca())
 
     closed = finish_statistical_plot(
         kwargs,
@@ -1125,6 +1143,7 @@ def plot_two_point_correlation(vals, radii_vec, **kwargs):
         )
     # The estimate is a Monte Carlo one, so it is drawn as the points it is and the
     # line through them is said to be a smoothing
+    start_at_zero(plt.gca())
 
     closed = finish_statistical_plot(
         kwargs,

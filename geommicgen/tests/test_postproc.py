@@ -39,6 +39,8 @@ from geommicgen.postproc.plotfuncs.plotting_functions import (
     plot_particles_3d,
     plot_paths,
     plot_RSA_history,
+    plot_ripleys_k_func,
+    plot_two_point_correlation,
 )
 from geommicgen.postproc.voronoimetrics.voronoi_analysis import do_voronoi_analysis
 from geommicgen.postproc.postproc import (
@@ -357,13 +359,15 @@ class TestPlotStyle(unittest.TestCase):
         steps = list(np.geomspace(1.0, 1e-3, 20))
         return {
             "kinetic energy": lambda **k: plot_kinetic_energy_history(
-                steps, [0.5] * 20, "", **k
+                [0.0] + steps[1:], [0.5] * 19, "", **k
             ),
             "time step": lambda **k: plot_delta_t_history([0.1] * 20, "", **k),
-            "relative energy": lambda **k: plot_overlap_history(
+            "total overlap": lambda **k: plot_overlap_history(
                 steps, 1e-3, "", overlap_ratio=[1.2, 0.8] * 9, **k
             ),
         }
+        # Recorded as a run records them: the kinetic energy from step 0, where the
+        # particles are at rest, and the reference from step 1
 
     def test_every_history_is_labelled(self):
         for i_name, i_plot in self.histories().items():
@@ -372,20 +376,37 @@ class TestPlotStyle(unittest.TestCase):
                 self.assertEqual(axes.get_xlabel(), "Step")
                 self.assertTrue(axes.get_ylabel())
                 self.assertTrue(axes.get_title())
-        # The three were drawn with no label, no title and no legend
+                self.assertEqual(axes.get_xlim(), (0, 19))
+        # The three were drawn with no label, no title and no legend, and with a margin
+        # before step 0
 
     def test_the_lines_of_a_history_are_named(self):
         axes = self.axes_of(self.histories()["kinetic energy"])
         self.assertEqual(len(axes.get_legend_handles_labels()[1]), 2)
         figure, axes = plt.subplots()
         self.addCleanup(plt.close, figure)
-        self.histories()["relative energy"](axes=axes)
+        self.histories()["total overlap"](axes=axes)
         legends = [i_axes.get_legend() for i_axes in figure.axes]
         named = [i_legend for i_legend in legends if i_legend is not None]
         self.assertEqual(len(named), 1)
         self.assertEqual(len(named[0].get_texts()), 3)
-        # The relative energy, the maximum residue and the ratio of the overlap created
-        # to the overlap removed, which is on an axis of its own
+        # The total overlap, the maximum residue and the ratio of the overlap created to
+        # the overlap removed, which is on an axis of its own
+
+    def test_the_kinetic_energy_is_drawn_at_the_steps_it_was_recorded_at(self):
+        axes = self.axes_of(self.histories()["kinetic energy"])
+        kinetic, reference = axes.get_lines()
+        self.assertTrue(np.ma.getmaskarray(kinetic.get_ydata())[0])
+        self.assertEqual(list(reference.get_xdata()), list(range(1, 20)))
+        # The zero of step 0 was drawn as a drop to the bottom of the logarithmic axis,
+        # and the reference was drawn one step early
+
+    def test_the_distances_start_at_zero(self):
+        radii = np.linspace(0.05, 0.5, 46)
+        for i_plot in (plot_ripleys_k_func, plot_two_point_correlation):
+            with self.subTest(plot=i_plot.__name__):
+                axes = self.axes_of(lambda **k: i_plot(np.pi * radii**2, radii, **k))
+                self.assertEqual(axes.get_xlim(), (0, 0.5))
 
     def test_the_text_is_serif_and_the_style_is_left_as_it_was(self):
         family = list(matplotlib.rcParams["font.family"])
