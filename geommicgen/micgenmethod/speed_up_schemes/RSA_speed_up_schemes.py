@@ -208,7 +208,7 @@ class Naive(RSA_SpeedUpScheme):
     The trial particle is checked for intersection against all the particles in the simulation box. The entire Random Sequential Adsorption method has a computational complexity of O(n), where n is the number of particles in the simulation box.
 
     Attributes
-    ----------.
+    ----------
     particle_list: list(set)
         List containing the set of particles in the neighborhood of each particle.
     """

@@ -34,7 +34,7 @@ def semi_axes_inflation(semi_axes, delta):
     closer than the minimum distance. *t* is the least amount for which the ellipse or
     ellipsoid with every semi-axis grown by *t* holds every point at distance *delta*
     from the original one (for a contraction, *delta* < 0, lies inside the inner offset
-    at distance |*delta*|).
+    at distance -*delta*).
 
     For an ellipse with semi-axes a >= b, *t* is a root of
     2s*t^3 + 4ab*t^2 - 2s*delta^2*t - s^2*delta^2 = 0, with s = a + b: the positive root
@@ -58,7 +58,7 @@ def semi_axes_inflation(semi_axes, delta):
     Raises
     ------
     ValueError:
-        If the particle is too slender to be contracted by |*delta*|.
+        If the particle is too slender to be contracted by -*delta*.
     """
     if delta == 0:
         return 0.0

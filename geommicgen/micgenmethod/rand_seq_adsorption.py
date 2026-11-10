@@ -101,10 +101,9 @@ class RandomSequentialAdsorption(GenerationMethod):
         Number of particles accepeted in the microstructure per step
     
     Keyword Parameters
-        ------------------
-
+    ------------------
     simulation_gif: bool
-            If true, creates a gif of the simulation.
+        If true, creates a gif of the simulation.
 
     """
 

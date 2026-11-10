@@ -188,6 +188,8 @@ autosummary_generate = True
 # The attributes a class docstring lists are shown as fields of the class, not as entries
 # of their own, which would duplicate the properties of the same name
 napoleon_use_ivar = True
+# The keyword arguments a docstring lists under "Keyword Parameters" are shown as parameters
+napoleon_custom_sections = [("Keyword Parameters", "params_style")]
 add_module_names = False
 
 intersphinx_mapping = {

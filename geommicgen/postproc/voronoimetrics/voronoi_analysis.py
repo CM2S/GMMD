@@ -105,7 +105,7 @@ def pos_vec(phi, coeffs):
 
 
 class Set2DVoronoi:
-    """Class for the set Voronoi.
+    r"""Class for the set Voronoi.
 
     Attributes
     ----------
@@ -115,10 +115,10 @@ class Set2DVoronoi:
     vertices: ndarray of double, shape(nvertices, ndim)
         Coordinates of the Voronoi vertices.
 
-    ridge_vertices: ndarray of double, shape (nrdiges, *)
+    ridge_vertices: ndarray of double, shape (nridges, \*)
         Indices of the Voronoi vertices forming a Voronoi ridge.
 
-    regions: list of list of ints, shape (nregions, *)
+    regions: list of list of ints, shape (nregions, \*)
         Indices of the Voronoi vertices forming each Voronoi region. -1 indicates vertex
         outside the Vornoi diagram.
 
@@ -209,7 +209,7 @@ class Set2DVoronoi:
 
 
 class Set3DVoronoi:
-    """Class for the set Voronoi.
+    r"""Class for the set Voronoi.
 
     Attributes
     ----------
@@ -219,10 +219,10 @@ class Set3DVoronoi:
     vertices: ndarray of double, shape(nvertices, ndim)
         Coordinates of the Voronoi vertices.
 
-    ridge_vertices: ndarray of double, shape (nrdiges, *)
+    ridge_vertices: ndarray of double, shape (nridges, \*)
         Indices of the Voronoi vertices forming a Voronoi ridge.
 
-    regions: list of list of ints, shape (nregions, *)
+    regions: list of list of ints, shape (nregions, \*)
         Indices of the Voronoi vertices forming each Voronoi region. -1 indicates vertex
         outside the Vornoi diagram.
 
