@@ -1,0 +1,75 @@
+==========
+RSA Fibers
+==========
+
+Input file
+==========
+
+The file for this tutorial is named ``RSA_fiber.yaml``. The input file can be run by executing the following command in a terminal console window:
+
+.. code-block:: console
+
+    geommicgen examples/RSA_fiber.yaml
+
+Replacing with the path to the input file according to the location of the GMMD repository in your computer.
+
+The full text of the input file is:
+
+.. literalinclude:: ../../../examples/RSA_fiber.yaml
+    :language: yaml
+
+
+Phases
+======
+
+The microstructure has two phases:
+
+- a matrix phase, described by:
+
+  .. code-block:: yaml
+
+     0: {type: matrix}
+
+- and a long cylindrical fiber phase, described by:
+
+  .. code-block:: yaml
+
+     1: {type: cylindrical_fiber, r: 0.05, vf: 0.3, direction: 2}
+
+The fibers have a fixed radius of 0.05 and a volume fraction of 0.3. They are all aligned along direction 2, the third dimension of the RVE.
+
+
+Generation Method
+=================
+
+Since the fibers are long and all aligned along the same direction, the simulation is done in 2D: each fiber is a circle in the cross-section perpendicular to the fiber direction. Once the simulation has finished, the circles are extruded along the fiber direction to obtain the cylindrical fibers.
+
+This example uses a Random Sequential Adsorption simulation to generate the microstructure. In a given simulation step, this method places a new particle in a random position inside the simulation box. If the new particle does not overlap with any particle already in the simulation box, it is accepted, otherwise it is rejected.
+The speed up scheme used is Cell and a minimum distance of 0.002 between particles is imposed.
+The maximum number of iterations, 10000, is significantly larger than the number used for MD simulations in the previous tutorials. This is beacuse RSA simulations take more, but faster, iterations than MD simulations.
+
+
+
+
+Output files
+============
+After running the command, a folder named ``RSA_fiber`` will be created in the same directory as the input file. This folder contains all the output data related to the microstructure generation.
+A .vtk file of the final microstructure is created with ``final_config: true`` under ``analyses`` in the input file. This file can be opened in a 3D visualization tool, such as ParaView, which was used to produce the image below.
+The volume fraction as a function of the step is also plotted.
+
+
+.. figure:: final_config.png
+    :width: 350px
+    :alt: Final microstructure configuration
+
+    Final configuration of the microstructure.
+
+.. figure:: RSA_vf_history.svg
+    :width: 350px
+    :alt: Volume fraction history
+
+    Volume fraction as a function of the step.
+
+.. include:: ../../_includes/previous_button.inc
+    
+.. include:: ../../_includes/next_button.inc

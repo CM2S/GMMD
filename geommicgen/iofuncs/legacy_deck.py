@@ -241,7 +241,7 @@ class KeywordTypeB(Keyword):
 class KeywordTypeC(Keyword):
     """This the class for keywords of the type C.
 
-        Keyword of type C formatted in the input file as:
+    Keyword of type C formatted in the input file as::
 
         keyword.name
         header_key_1 val
@@ -251,12 +251,11 @@ class KeywordTypeC(Keyword):
         sub_key_3 val
         sub_key_4 val
 
-    store as
+    stored as::
 
-
-    ``{'keyword.name':
-        {head_key_val_1: {sub_key_1: val, sub_key_2: val}}
-        {head_key_val_2: {sub_key_3: val, sub_key_4: val}}}``
+        {'keyword.name':
+            {head_key_val_1: {sub_key_1: val, sub_key_2: val}}
+            {head_key_val_2: {sub_key_3: val, sub_key_4: val}}}
 
     Attributes
     ----------

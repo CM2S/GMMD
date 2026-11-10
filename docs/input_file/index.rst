@@ -1,11 +1,18 @@
+.. _input_file_options:
+
+Input file options
+===================
+
 The input file
-==============
+--------------
 
 A run of GMMD is described by an input file, a YAML file holding the phases of the
 microstructure and their descriptors, the parameters of the generation, and the meshes
-and analyses to make of each sample::
+and analyses to make of each sample:
 
-    geommicgen input_file.yaml
+.. code-block:: console
+
+   geommicgen input_file.yaml
 
 Each phase is keyed by a whole number, which the meshes label it with, and gives the
 type of its particles and a descriptor for each parameter of one of the descriptions
@@ -20,11 +27,13 @@ The file is validated whole before anything is generated or written. A key the f
 does not take is refused, and so is a key given twice; values a run would stop on are
 refused, and so are sections that do not agree with each other, such as particles of
 another dimension than the RVE. Every problem is named at once, by its path in the
-file::
+file:
 
-    geommicgen: input_file.yaml has 2 problems:
-      - generation.molecular_dynamics.max_step: is missing
-      - phases.1.axis_1.sigma: Input should be greater than or equal to 0 (given -0.025)
+.. code-block:: text
+
+   geommicgen: input_file.yaml has 2 problems:
+     - generation.molecular_dynamics.max_step: is missing
+     - phases.1.axis_1.sigma: Input should be greater than or equal to 0 (given -0.025)
 
 The results folder holds a copy of the input file. Each microstructure file records
 the git commit of GMMD the run used, whether the package had uncommitted changes, and
@@ -35,6 +44,46 @@ An old input data file (``.mdsim``) is still run, with a line saying that the fo
 on its way out. ``geommicgen-convert-mdsim`` writes the equivalent input file beside it,
 and says what the old file gave that nothing read.
 
+Writing an input file
+---------------------
+
+In this input file, # is used for comments.
+
+The input file is organised in sections: a few general options at the top level of the file, followed by the ``phases``, ``generation``, ``meshes`` and ``analyses`` sections. A minimal input file looks like this:
+
+.. code-block:: yaml
+
+   samples: 1
+   rve_dimensions: [1, 1]
+
+   phases:
+     0: {type: matrix}
+     1: {type: disk, r: 0.05, vf: 0.3}
+
+   generation:
+     molecular_dynamics:
+       max_residue_per_particle: 0
+       max_step: 100
+
+   analyses:
+     final_config: true
+
+This documentation describes all parameters (either mandatory or optional) and all possible parameter specifications.
+Mandatory parameters are denoted **(M)** and optional ones **(O)**. When a
+default value exists for an optional parameter, it is stated in the
+corresponding ``Syntax`` block.
+
+
+.. toctree::
+   :maxdepth: 2
+
+   problem_type
+   microstructure_definition
+   generation_parameters/generation_parameters
+   post_processing/post_processing
+   mesh_options
+   data_driven
+
 Every key
 ---------
 
@@ -42,5 +91,5 @@ Every key
 values it takes and its default -- and runs as it is written. The test suite holds it
 to the models the file is read into.
 
-.. literalinclude:: ../examples/reference.yaml
+.. literalinclude:: ../../examples/reference.yaml
    :language: yaml

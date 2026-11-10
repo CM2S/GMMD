@@ -1,0 +1,74 @@
+==============
+MD Disks
+==============
+
+Input file
+==========
+
+The file for this tutorial is located in the ``examples/`` directory and is named ``MD_Disks.yaml``. To run this example, open a termial inside the ``GMMD`` repository and run the following command:
+
+.. code-block:: console
+
+    geommicgen examples/MD_Disks.yaml
+
+The full text of the input file is:
+
+.. literalinclude:: ../../../examples/MD_Disks.yaml
+    :language: yaml
+
+
+Phases
+======
+
+The microstructure has two phases:
+
+- a matrix phase, described by:
+
+  .. code-block:: yaml
+
+     0: {type: matrix}
+
+- and a disk phase, described by:
+
+  .. code-block:: yaml
+
+     1:
+       type: disk
+       vf: 0.5
+       r: {distribution: discrete, values: [0.05, 0.02, 0.1], probabilities: [0.4, 0.5, 0.1]}
+
+The disks have a volume fraction of 0.5 and their radius follows a discrete distribution.
+
+Generation Method
+=================
+
+This example uses a molecular dynamics simulation to generate the microstructure.
+The maximum number of iterations is set to 100 and a minimum distance between particles of 0.005 is imposed.
+The speed up scheme used is Verlet. 
+
+
+
+Output files
+============
+After running the command, a folder named ``MD_Disks`` will be created in the same directory as the input file. This folder contains all the output data related to the microstructure generation.
+A .pdf file of the final microstructure is created with ``final_config: true`` under ``analyses`` in the input file and a gif of the molecular dynamics simulation is created. It is important to note that the gif frames are created in each step of the simulation, which increases the simulation time. The default setting is to not create the gif.
+
+As you can note, the final frame of the gif is different from the final configuration image. This is because, after the simulation, it is applied an offset that minimizes particles sitting tangent to the boundary (see :ref:`offset_for_better_meshing`). This ensures that the FEM mesh is the least distorted possible. Besides this, in order to guarentee the minimum distance between particles, GMMD first dilates them, runs the simulation and then contracts the particles. This dilation and contraction steps are also not seen in the gif, eventhough hardly noticeable in this example.
+
+.. list-table:: 
+   :widths: 45 55
+   :align: center
+
+   * - .. figure:: final_config.png
+          :alt: Final microstructure configuration
+
+          Final microstructure configuration
+     - .. figure:: Simulation.gif
+          :alt: Molecular dynamics simulation animation
+
+          Molecular dynamics simulation animation
+
+
+.. include:: ../../_includes/previous_button.inc
+
+.. include:: ../../_includes/next_button.inc

@@ -49,6 +49,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "myst_parser",
     "sphinx_favicon",
+    "sphinx_copybutton",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -74,6 +75,9 @@ language = "en"
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+
+# Copy buttons only on the terminal commands of the user guide (console blocks)
+copybutton_selector = "div.highlight-console pre"
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = None
@@ -184,6 +188,8 @@ autosummary_generate = True
 # The attributes a class docstring lists are shown as fields of the class, not as entries
 # of their own, which would duplicate the properties of the same name
 napoleon_use_ivar = True
+# The keyword arguments a docstring lists under "Keyword Parameters" are shown as parameters
+napoleon_custom_sections = [("Keyword Parameters", "params_style")]
 add_module_names = False
 
 intersphinx_mapping = {
@@ -208,3 +214,6 @@ myst_enable_extensions = [
     "tasklist",
 ]
 
+# Anchors on the headings of the readme, which the user guide includes, so that its
+# links to its own sections resolve as they do on GitHub
+myst_heading_anchors = 2

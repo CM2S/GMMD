@@ -33,7 +33,7 @@ dependencies = [
 [project.optional-dependencies]
 gmsh = ["gmsh>=4.15"]
 xdmf = ["h5py"]
-docs = ["sphinx", "myst-parser", "sphinx-rtd-theme", "sphinx-favicon"]
+docs = ["sphinx", "myst-parser", "sphinx-rtd-theme", "sphinx-favicon", "sphinx-copybutton"]
 test = ["pytest", "pytest-cov", "coverage"]
 
 [project.urls]
