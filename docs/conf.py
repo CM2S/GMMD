@@ -212,7 +212,6 @@ myst_enable_extensions = [
     "tasklist",
 ]
 
-myst_heading_anchors = 2
 # Anchors on the headings of the readme, which the user guide includes, so that its
 # links to its own sections resolve as they do on GitHub
-
+myst_heading_anchors = 2
