@@ -12,11 +12,14 @@ The notable changes to GMMD, newest first. Versions follow [Semantic Versioning]
 - Squares, in two dimensions ([#20](https://github.com/CM2S/GMMD/pull/20)).
 - `generation.inner_phase_max_step`, the positions tried for each particle of a phase placed inside another, which were 200 ([#20](https://github.com/CM2S/GMMD/pull/20)).
 - Two analyses: `rsa_history`, the volume fraction a random sequential adsorption reached at every step, and `simulation_gif`, a GIF of a two-dimensional generation ([#20](https://github.com/CM2S/GMMD/pull/20)).
+- A user guide in the documentation, with tutorials and the options of the input file, whose inputs are in `examples/` ([#21](https://github.com/CM2S/GMMD/pull/21)).
+- A banner of generated microstructures in the readme, made by the inputs and scripts in `docs/images/src` ([#22](https://github.com/CM2S/GMMD/pull/22)).
 
 ### Changed
 
 - The documentation is titled GMMD. Its API pages no longer document the test modules, and document the classes that `particleclasses` and `translators` re-export only once ([#18](https://github.com/CM2S/GMMD/pull/18)).
 - The speed up schemes are a package, `geommicgen.micgenmethod.speed_up_schemes`. Those of the molecular dynamics simulation are imported from `geommicgen.micgenmethod.speed_up_schemes.MD_speed_up_schemes` ([#20](https://github.com/CM2S/GMMD/pull/20)).
+- The two-dimensional plots of the particles, the final configuration and the frames of the GIF, no longer draw ticks and labels ([#22](https://github.com/CM2S/GMMD/pull/22)).
 
 ### Fixed
 
