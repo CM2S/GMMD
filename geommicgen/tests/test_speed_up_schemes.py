@@ -632,16 +632,27 @@ class TestRSASpeedUpScheme(unittest.TestCase):
     #     cell_list = RSACellList()
     #     self.assertIsNone(cell_list.box)
 
-    # def test_update_max_radius_initial(self):
-    #     """Test that the first call to update_max_radius uses the particles already in the box."""
-    #     particles = [Mock(radius=0.1), Mock(radius=0.3), Mock(radius=0.2)]
-    #     trial_particle = Mock(radius=0.15)
-    #     cell_list = RSACellList()
+    def test_update_max_radius_initial(self):
+        """Test that the first call to update_max_radius uses the particles already in the box."""
+        particles = [Mock(radius=0.1), Mock(radius=0.3), Mock(radius=0.2)]
+        trial_particle = Mock(radius=0.15)
+        cell_list = RSACellList()
 
-    #     was_updated = cell_list.update_max_radius(particles, trial_particle)
+        was_updated = cell_list.update_max_radius(particles, trial_particle)
 
-    #     self.assertTrue(was_updated)
-    #     self.assertEqual(cell_list.max_radius, 0.3)
+        self.assertTrue(was_updated)
+        self.assertEqual(cell_list.max_radius, 0.3)
+
+    def test_update_max_radius_initial_trial_particle_larger(self):
+        """Test that the first call to update_max_radius counts a larger trial particle."""
+        particles = [Mock(radius=0.1), Mock(radius=0.3), Mock(radius=0.2)]
+        trial_particle = Mock(radius=0.5)
+        cell_list = RSACellList()
+
+        was_updated = cell_list.update_max_radius(particles, trial_particle)
+
+        self.assertTrue(was_updated)
+        self.assertEqual(cell_list.max_radius, 0.5)
 
     def test_update_max_radius_trial_particle_larger(self):
         """Test that max_radius is updated when the trial particle is bigger."""

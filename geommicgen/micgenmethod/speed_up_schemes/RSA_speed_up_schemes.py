@@ -93,8 +93,10 @@ class CellList(RSA_SpeedUpScheme):
             bool: True if there has been an update
         """
         if self.max_radius is None:
-            self.max_radius = max(p.radius for p in particles)
-            return True       
+            self.max_radius = max(p.radius for p in [*particles, trial_particle])
+            return True
+            # The trial particle counts from the first call: cells sized without it
+            # can be narrower than its reach, and miss an overlap two cells away
         if trial_particle.radius > self.max_radius:
             self.max_radius = trial_particle.radius
             return True
