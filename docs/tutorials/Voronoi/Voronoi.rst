@@ -31,7 +31,7 @@ Voronoi diagrams
 
 
 
-Consider a set of points in a plane, called seeds. The Voronoi diagram divides the plane into cells, one for each seed. Every location inside a cell is closer to that cell's seed than to any other seed. For point seeds, every cell is a convex polygon. We can construct the Voronoi diagram using as seeds the center of mass of a particle. However, if the particles are not equally sized disks (or spheres in 3D), the cells in the Voroni diagram may intersect the particles. This is what happens when we use ``voronoi_type standard``, which is the default option.
+Consider a set of points in a plane, called seeds. The Voronoi diagram divides the plane into cells, one for each seed. Every location inside a cell is closer to that cell's seed than to any other seed. For point seeds, every cell is a convex polygon. We can construct the Voronoi diagram using as seeds the center of mass of a particle. However, if the particles are not equally sized disks (or spheres in 3D), the cells in the Voroni diagram may intersect the particles. This is what happens when we use ``type: standard``, which is the default option.
 
 
 .. list-table::
@@ -51,7 +51,7 @@ Consider a set of points in a plane, called seeds. The Voronoi diagram divides t
             Standard Voronoi diagram for this example
 
 
-One way to avoid this problem is to build the diagram from the surfaces of the particles instead of their centres of mass. This is called the set Voronoi diagram. Its cells can be non-convex and can have curved edges. This tutorial uses the set Voronoi diagram, selected with the line ``voronoi_type set``. The line ``n_surf_points 25`` sets the number of points sampled on the surface of each ellipse to build the diagram.
+One way to avoid this problem is to build the diagram from the surfaces of the particles instead of their centres of mass. This is called the set Voronoi diagram. Its cells can be non-convex and can have curved edges. This tutorial uses the set Voronoi diagram, selected with the line ``type: set``. The line ``n_surf_points: 25`` sets the number of points sampled on the surface of each ellipse to build the diagram.
 
 
 

@@ -51,7 +51,7 @@ The cylinders also have a volume fraction of 0.05, with a radius of 0.05 and a l
 Generation Method
 =================
 
-This example uses a molecular dynamics simulation to generate the microstructure. The maximum number of iterations is 200 and the speed up scheme used is Verlet, with a Verlet factor of 1.1. A minimum distance of 0.002 between particles is imposed and, with ``Max_Residue_Per_Particle 0``, no overlap between particles is allowed in the final configuration.
+This example uses a molecular dynamics simulation to generate the microstructure. The maximum number of iterations is 200 and the speed up scheme used is Verlet, with a Verlet factor of 1.1. A minimum distance of 0.002 between particles is imposed and, with ``max_residue_per_particle: 0``, no overlap between particles is allowed in the final configuration.
 
 Output files
 ============

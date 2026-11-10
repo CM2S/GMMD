@@ -35,8 +35,8 @@ The microstructure has two phases:
 
      1:
        type: ellipsoid
-       vf: 0.1
-       axis_1: {distribution: normal, mean: 0.125, sigma: 0.025}
+       vf: 0.3
+       axis_1: {distribution: normal, mean: 0.2, sigma: 0.04}
        ratio_12: {distribution: normal, mean: 1.7, sigma: 0.1}
        ratio_13: {distribution: normal, mean: 1.7, sigma: 0.1}
        rot_axis_comp_x: 0
@@ -44,7 +44,7 @@ The microstructure has two phases:
        rot_axis_comp_z: {distribution: uniform, low: -1, high: 1}
        angle: {distribution: normal, mean: 0.1, sigma: 0.2}
 
-The microstructure is generated in a cubic RVE of unit dimensions and contains ellipsoids with a volume fraction of 0.1. The principal axis ``axis_1`` follows a normal distribution with mean 0.125 and standard deviation 0.025, and the ratios between this axis and the other two principal axes (``ratio_12`` and ``ratio_13``) both follow a normal distribution with mean 1.7 and standard deviation 0.1, so that, on average, the ellipsoids are elongated along their first principal axis.
+The microstructure is generated in a cubic RVE of unit dimensions and contains ellipsoids with a volume fraction of 0.3. The principal axis ``axis_1`` follows a normal distribution with mean 0.2 and standard deviation 0.04, and the ratios between this axis and the other two principal axes (``ratio_12`` and ``ratio_13``) both follow a normal distribution with mean 1.7 and standard deviation 0.1, so that, on average, the ellipsoids are elongated along their first principal axis.
 The orientation of each ellipsoid is defined by a rotation axis and a rotation angle. The x-component of the rotation axis is fixed at 0, while its y- and z-components follow a uniform distribution between -1 and 1. The rotation angle follows a normal distribution with mean 0.1 and standard deviation 0.2.
 
 Generation Method
@@ -57,7 +57,19 @@ Output files
 After running the command, a folder named ``MD_Ellipsoids`` will be created in the same directory as the input file. This folder contains all the output data related to the microstructure generation.
 A .vtk file of the final microstructure is created with ``final_config: true`` under ``analyses`` in the input file. This file can be opened in a 3D visualization tool, such as ParaView.
 
-Since ``motion: true`` is set under ``analyses`` in the input file, a motion analysis of the molecular dynamics simulation is also performed. During the simulation, GMMD keeps track, at every iteration, of the adaptive time step used by the Verlet speed-up scheme, the kinetic energy of the system of particles together with the target thermal energy imposed by the thermostat, and the total overlap between particles, which is the quantity driving the repulsive forces between them. These quantities are plotted as a function of the iteration step and give insight into the convergence and stability of the simulation: the time step history shows how the integration step is adapted throughout the run, the kinetic energy history shows how the agitation of the particles evolves relative to the thermostat's target, and the relative energy history shows the total overlap between particles decreasing towards the imposed maximum residue as the microstructure approaches a valid, non-overlapping configuration.
+Since ``motion: true`` is set under ``analyses`` in the input file, GMMD also plots how the molecular dynamics simulation went.
+At every step, it records the kinetic energy of the particles, the total overlap between them and the time step.
+In this run, the 173 ellipsoids are separated in 34 steps.
+
+The kinetic energy is plotted with the kinetic energy of the particles at the reference temperature of the thermostat, which the thermostat drives it towards.
+The thermostat lowers its temperature in steps, and the kinetic energy follows each drop.
+
+The total overlap sums the overlaps of all the pairs of particles.
+It falls from about 10 to 0 as the particles move apart.
+The plot marks the steps at which the temperature changed, and shows on a second axis the ratio of the overlap created to the overlap removed in each step.
+
+The time step is adaptive: it is smaller when each particle touches more than one other on average.
+It starts at 0.30, while the randomly placed ellipsoids overlap many others, and reaches 0.45 within five steps, as the mean number of contacts per particle falls to one.
 
 .. figure:: final_config.png
     :width: 400px
@@ -73,9 +85,9 @@ Since ``motion: true`` is set under ``analyses`` in the input file, a motion ana
 
 .. figure:: relative_energy.svg
    :width: 500px
-   :alt: Relative energy history
+   :alt: Total overlap history
 
-   Relative energy history
+   Total overlap history
 
 
 .. figure:: delta_t_history.svg
