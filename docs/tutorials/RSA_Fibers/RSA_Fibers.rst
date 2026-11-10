@@ -58,7 +58,7 @@ A .vtk file of the final microstructure is created with ``final_config: true`` u
 The volume fraction as a function of the step is also plotted.
 
 
-.. figure:: final_config.svg
+.. figure:: final_config.png
     :width: 350px
     :alt: Final microstructure configuration
 

@@ -55,7 +55,7 @@ After running the command, a folder named ``RSA_Squares`` will be created in the
 A .pdf file of the final microstructure is created with ``final_config: true`` under ``analyses`` in the input file. Moreover, some statistical analysis tools are used: Ripley's K function, the nearest neighbor distance distribution and the two-point correlation function of the microstructure are computed and plotted.
 
 
-.. figure:: final_config.svg
+.. figure:: final_config.png
     :width: 500px
     :alt: Final microstructure configuration
 
@@ -103,7 +103,7 @@ In this example, the K-function is zero up to about :math:`t = 0.1`, since the p
 Two-point correlation function
 ------------------------------
 
-.. figure:: two_pt_corr.svg
+.. figure:: two_pt_corr.png
     :width: 500px
     :alt: Two-point correlation function
 

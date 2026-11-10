@@ -59,7 +59,7 @@ As you can note, the final frame of the gif is different from the final configur
    :widths: 45 55
    :align: center
 
-   * - .. figure:: final_config.svg
+   * - .. figure:: final_config.png
           :alt: Final microstructure configuration
 
           Final microstructure configuration

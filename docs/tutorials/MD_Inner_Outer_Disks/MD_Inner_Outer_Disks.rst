@@ -70,7 +70,7 @@ A .pdf file of the final microstructure is created with ``final_config: true`` u
 
 In this example, 57 inner disks are distributed among 20 outer disks. Each outer disk contains a different number of inner disks, and some may contain none, since the inner disks are assigned to the outer disks at random.
 
-.. figure:: final_config.svg
+.. figure:: final_config.png
     :width: 500px
     :alt: Final microstructure configuration
 

@@ -68,7 +68,7 @@ After running the command, a folder named ``MD_Ellipses`` will be created in the
 A .pdf file of the final microstructure is created.
 
 
-.. figure:: final_config.svg
+.. figure:: final_config.png
     :width: 400px
     :alt: Final microstructure configuration
 

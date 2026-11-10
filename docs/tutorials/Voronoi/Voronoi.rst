@@ -38,13 +38,13 @@ Consider a set of points in a plane, called seeds. The Voronoi diagram divides t
     :widths: 50 50
     :class: borderless
 
-    * - .. figure:: voronoi_example.svg
+    * - .. figure:: voronoi_example.png
             :width: 100%
             :alt: Voronoi example
 
             Example of voronoi diagram with its seeds
 
-      - .. figure:: voronoi_standard.svg
+      - .. figure:: voronoi_standard.png
             :width: 100%
             :alt: Voronoi example
 
@@ -66,7 +66,7 @@ The option ``plot_imts: true`` of ``voronoi`` plots the Voronoi diagram includin
 
 
 
-.. figure:: voronoi.svg
+.. figure:: voronoi.png
     :width: 400px
     :alt: Voronoi diagram of the final microstructure configuration
 
@@ -87,7 +87,7 @@ A hexagonal arrangement of particles therefore shows up as a group of neighbouri
     :widths: 50 50
     :class: borderless
 
-    * - .. figure:: voronoi_0.svg
+    * - .. figure:: voronoi_0.png
             :width: 100%
             :alt: Voronoi diagram coloured by cell perimeter
 
@@ -99,7 +99,7 @@ A hexagonal arrangement of particles therefore shows up as a group of neighbouri
 
             Histogram of the cell perimeter.
 
-    * - .. figure:: voronoi_1.svg
+    * - .. figure:: voronoi_1.png
             :width: 100%
             :alt: Voronoi diagram coloured by q_1
 
@@ -111,7 +111,7 @@ A hexagonal arrangement of particles therefore shows up as a group of neighbouri
 
             Histogram of :math:`q_1`.
 
-    * - .. figure:: voronoi_2.svg
+    * - .. figure:: voronoi_2.png
             :width: 100%
             :alt: Voronoi diagram coloured by q_2
 
@@ -123,7 +123,7 @@ A hexagonal arrangement of particles therefore shows up as a group of neighbouri
 
             Histogram of :math:`q_2`.
 
-    * - .. figure:: voronoi_3.svg
+    * - .. figure:: voronoi_3.png
             :width: 100%
             :alt: Voronoi diagram coloured by q_3
 
@@ -135,7 +135,7 @@ A hexagonal arrangement of particles therefore shows up as a group of neighbouri
 
             Histogram of :math:`q_3`.
 
-    * - .. figure:: voronoi_4.svg
+    * - .. figure:: voronoi_4.png
             :width: 100%
             :alt: Voronoi diagram coloured by q_4
 
@@ -147,7 +147,7 @@ A hexagonal arrangement of particles therefore shows up as a group of neighbouri
 
             Histogram of :math:`q_4`.
 
-    * - .. figure:: voronoi_5.svg
+    * - .. figure:: voronoi_5.png
             :width: 100%
             :alt: Voronoi diagram coloured by q_5
 
@@ -159,7 +159,7 @@ A hexagonal arrangement of particles therefore shows up as a group of neighbouri
 
             Histogram of :math:`q_5`.
 
-    * - .. figure:: voronoi_6.svg
+    * - .. figure:: voronoi_6.png
             :width: 100%
             :alt: Voronoi diagram coloured by q_6
 
