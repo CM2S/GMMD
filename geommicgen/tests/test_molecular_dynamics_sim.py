@@ -1129,3 +1129,44 @@ class TestPlaceInnerPhaseRSA(unittest.TestCase):
         inner_particle.contract.assert_called_once_with(0.01 * 0.05)
         outer_particle.contract.assert_called_once_with(0.05 * 1.05)
         outer_particle.dilate.assert_called_once_with(0.05 * 1.05)
+
+    def inner_phase_of(self, n_inner, intersects):
+        """An outer phase of one particle, and an inner phase of *n_inner* particles."""
+        outer_particle = Mock(volume=1.0)
+        outer_particle.generate_point_inside.return_value = np.array([0.5, 0.5])
+        inner_particles = [Mock(volume=0.01, radius=0.05) for _ in range(n_inner)]
+        for i_particle in inner_particles:
+            i_particle.intersection.return_value = intersects
+        outer_phase = Mock(particles=[outer_particle], volume_fraction=1.0)
+        inner_phase = Mock(particles=list(inner_particles))
+        inner_phase.microstructure.rve_dims = [1, 1]
+        inner_phase.microstructure.volume = 1.0
+
+        return outer_phase, inner_phase
+
+    def test_every_particle_has_its_own_tries(self):
+        """Check that a phase of more particles than the tries of one is placed."""
+        current_generation_method = MolecularDynamicsSimulation(
+            *self.md_init_mock_kwargs.values()
+        )
+        current_generation_method.inner_phase_max_step = 2
+        outer_phase, inner_phase = self.inner_phase_of(5, intersects=False)
+
+        current_generation_method.place_inner_phase_rsa(inner_phase, outer_phase)
+
+        self.assertEqual(len(inner_phase.particles), 5)
+        self.assertEqual(current_generation_method.inner_phase_placements[0]["steps"], 5)
+
+    def test_a_particle_whose_tries_run_out_is_left_out(self):
+        """Check that a particle that meets another at every try is left out."""
+        current_generation_method = MolecularDynamicsSimulation(
+            *self.md_init_mock_kwargs.values()
+        )
+        current_generation_method.inner_phase_max_step = 3
+        outer_phase, inner_phase = self.inner_phase_of(2, intersects=True)
+        first_particle = inner_phase.particles[0]
+
+        current_generation_method.place_inner_phase_rsa(inner_phase, outer_phase)
+
+        self.assertEqual(inner_phase.particles, [first_particle])
+        self.assertEqual(current_generation_method.inner_phase_placements[0]["steps"], 4)

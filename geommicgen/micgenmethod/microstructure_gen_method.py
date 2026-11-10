@@ -218,9 +218,10 @@ class GenerationMethod(abc.ABC):
                 j_inner_particle.dilate(clearance)
                 i_outer_particle.contract(j_inner_particle.radius * 1.05)
                 placed = False
-                while n_steps < self.inner_phase_max_step:
+                for _ in range(self.inner_phase_max_step):
                     n_steps += 1
-                    # Total number of positions tried so far
+                    # Each particle has its own tries; n_steps counts those of the
+                    # whole phase
                     j_inner_particle.position_center = (
                         i_outer_particle.generate_point_inside()
                     )
@@ -247,7 +248,7 @@ class GenerationMethod(abc.ABC):
                 if not placed:
                     not_placed_particles.append(j_inner_particle)
                     continue
-                    # The maximum number of steps was reached before placing the particle
+                    # The particle's tries ran out before it was placed
                 n_placed += 1
                 print_funcs.print_to_terminal_refresh_inner_phase(
                     inner_phase.name,
@@ -269,17 +270,23 @@ class GenerationMethod(abc.ABC):
                         save=False,
                     )
                     # Saving a gif frame after each inner phase particle is placed
-        if n_steps >= self.inner_phase_max_step:
+        if not_placed_particles:
             print_funcs.print_to_file(
-                "Inner phase placement simulation reached the maximum number of steps.\n"
+                "{0} of the {1} particles of phase {2} could not be placed inside phase "
+                "{3} in {4} tries each, and are left out.\n".format(
+                    len(not_placed_particles),
+                    len(inner_phase.particles),
+                    inner_phase.name,
+                    outer_phase.name,
+                    self.inner_phase_max_step,
+                )
             )
         inner_phase.particles = [
             particle
             for particle in inner_phase.particles
             if not any(particle is not_placed for not_placed in not_placed_particles)
         ]
-        # Removing the particles that were not placed before reaching the maximum number
-        # of steps
+        # Removing the particles whose tries ran out before they were placed
         self.inner_phase_placements.append(
             {"phase": inner_phase.name, "steps": n_steps, "time": time.time() - start}
         )

@@ -286,7 +286,7 @@ class Generation(ConfigModel):
     inner_phase_max_step: int = pydantic.Field(
         200,
         ge=1,
-        description="most positions tried when placing the particles of an inner phase",
+        description="most positions tried for each particle of an inner phase",
     )
     molecular_dynamics: Optional[MolecularDynamics] = pydantic.Field(
         None, description="the generation by a molecular dynamics simulation"

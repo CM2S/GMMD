@@ -144,7 +144,7 @@ class RandomSequentialAdsorption(GenerationMethod):
             Flag for the use of an offset to place the origin such a FEM is more easily created.
 
         inner_phase_max_step: int
-            Most positions tried when placing the particles of an inner phase.
+            Most positions tried for each particle of an inner phase.
 
         fixed_seed: int
             Seed of the random draws, so that a run gives the same microstructure.

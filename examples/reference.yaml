@@ -204,8 +204,8 @@ generation:
   # Default: true
   offset: true
 
-  # Most positions tried, over all of them, when placing the particles of a phase inside
-  # those of another; the particles not placed by then are left out.
+  # Most positions tried for each particle of a phase placed inside those of another;
+  # a particle not placed by then is left out.
   # Default: 200
   inner_phase_max_step: 200
 
