@@ -7,6 +7,7 @@ import scipy.integrate as integrate
 
 import contextlib
 import copy
+import functools
 import os
 
 
@@ -17,6 +18,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib import cm
+from cycler import cycler
 
 # Simple math tools
 # Finite element mesh conversor to LINKS
@@ -30,8 +32,86 @@ from geommicgen.meshing.images import periodic_images
 from geommicgen.microstructure.microstructure import unit_scale
 import geommicgen.iofuncs.printing as print_funcs
 
-latex_textwidth = 5.92  # in = 496pt
-latex_textheigth = 9.63  # in = 674pt
+OKABE_ITO = [
+    (0 / 255, 114 / 255, 178 / 255, 1),
+    (213 / 255, 94 / 255, 0 / 255, 1),
+    (0 / 255, 158 / 255, 115 / 255, 1),
+    (230 / 255, 159 / 255, 0 / 255, 1),
+    (86 / 255, 180 / 255, 233 / 255, 1),
+    (204 / 255, 121 / 255, 167 / 255, 1),
+    (240 / 255, 228 / 255, 66 / 255, 1),
+]
+# The colours of Okabe and Ito, which readers with the common deficiencies of colour
+# vision tell apart, and which the banner of the readme is drawn in
+
+MATRIX_COLOR = (228 / 255, 228 / 255, 228 / 255, 1)
+# The matrix of a two-dimensional plot, a light grey the particles stand out against
+
+PLOT_STYLE = {
+    "font.family": "serif",
+    "mathtext.fontset": "cm",
+    "font.size": 10,
+    "axes.titlesize": 11,
+    "axes.labelsize": 10,
+    "xtick.labelsize": 9,
+    "ytick.labelsize": 9,
+    "legend.fontsize": 9,
+    "axes.prop_cycle": cycler(color=OKABE_ITO),
+    "axes.grid": True,
+    "axes.axisbelow": True,
+    "grid.color": "0.88",
+    "grid.linewidth": 0.6,
+    "lines.linewidth": 1.5,
+    "figure.figsize": (4.8, 3.4),
+    "savefig.bbox": "tight",
+}
+# Every plot is drawn with these: a serif face, with the Computer Modern of TeX for the
+# mathematics, which matplotlib draws itself, so that no TeX installation is needed;
+# the colours above; a light grid behind the data; and no wider a margin than the
+# labels need
+
+
+def styled(plot):
+    """Draw a plot with `PLOT_STYLE`, leaving the settings of matplotlib as they were."""
+
+    @functools.wraps(plot)
+    def wrapper(*args, **kwargs):
+        with matplotlib.rc_context(PLOT_STYLE):
+            return plot(*args, **kwargs)
+
+    return wrapper
+
+
+def start_at_zero(axes):
+    """Start the horizontal axis at zero and end it at the last point drawn."""
+    axes.margins(x=0)
+    axes.set_xlim(left=0)
+
+
+def label_history(axes, vertical, title, legend=False):
+    """
+    Label a plot of a quantity against the step of the generation.
+
+    Parameters
+    ----------
+    axes: matplotlib.axes.Axes
+        The axes of the plot.
+
+    vertical: str
+        The label of the vertical axis.
+
+    title: str
+        The title.
+
+    legend: bool
+        Whether the lines drawn are named and a legend is to be drawn.
+    """
+    axes.set_xlabel("Step")
+    axes.set_ylabel(vertical)
+    axes.set_title(title)
+    start_at_zero(axes)
+    if legend:
+        axes.legend()
 
 
 def _adjust_bounds(ax, points):
@@ -42,63 +122,6 @@ def _adjust_bounds(ax, points):
     ax.set_ylim(
         points[:, 1].min() - 0.1 * ptp_bound[1], points[:, 1].max() + 0.1 * ptp_bound[1]
     )
-
-
-def create_figure(
-    nrows: int = 2,
-    ncols: int = 1,
-    nrows_sub: int = 1,
-    ncols_sub: int = 1,
-    sharey: bool = False,
-    sharex: bool = False,
-    **kwargs
-):
-    """Create a matplotlib figure for a a4 report latex page.
-
-    The figure is created with a size such that it fits in a4 report latex page, in an array
-
-    *nrows* rows and *ncols* columns.
-
-    Parameters
-    ----------
-    nrows: optional, int
-        Number of rows in the a4 page.
-
-    """
-    plt.rc("font", family="serif")
-    plt.rc("mathtext", fontset="cm")
-    # A serif face, and the Computer Modern of TeX for the mathematics, which matplotlib
-    # draws itself, so that no TeX installation is needed
-    if "w" not in kwargs:
-        w = (latex_textwidth - 0.2 * (ncols - 1)) / ncols
-    else:
-        w = kwargs["w"]
-    if "h" not in kwargs:
-        h = (latex_textheigth - 1.63 * (nrows - 1)) / nrows
-    else:
-        h = kwargs["h"]
-    fig, axs = plt.subplots(
-        figsize=(w, h), nrows=nrows_sub, ncols=ncols_sub, sharey=sharey, sharex=sharex
-    )
-
-    #     # Set axes labels
-    #     if x_label != None:
-    #         axes.set_xlabel(x_label, fontsize=12, labelpad=10)
-    #     if y_label != None:
-    #         axes.set_ylabel(y_label, fontsize=12, labelpad=10)
-    # 15h56
-    #     # Configure ticks appearance
-    #     axes.tick_params(which='major', width=1.0, length=10, labelcolor='0.0', labelsize=12)
-    #     axes.tick_params(which='minor', width=1.0, length=5, labelsize=12)
-    #     # Configure grid
-    #     axes.grid(linestyle='-', linewidth=0.5, color='0.5', zorder=0)
-    # 15h56
-    #     # Set line width
-    #     line_width = 2
-    #     # Set marker size and frequency
-    #     marker_size = 5
-
-    return [fig, axs, (w, h)]
 
 
 def histogram_bins(values, bins):
@@ -227,17 +250,8 @@ def generate_colors(n_colors):
         The colours, each different from the others, as their red, green, blue and
         alpha, from zero to one.
     """
-    colors_def = [
-        (68 / 255, 119 / 255, 170 / 255, 1),
-        (102 / 255, 204 / 255, 238 / 255, 1),
-        (34 / 255, 136 / 255, 51 / 255, 1),
-        (204 / 255, 187 / 255, 68 / 255, 1),
-        (238 / 255, 102 / 255, 119 / 255, 1),
-        (170 / 255, 51 / 255, 119 / 255, 1),
-        (187 / 255, 187 / 255, 187 / 255, 1),
-    ]
-    if n_colors <= len(colors_def):
-        return colors_def[:n_colors]
+    if n_colors <= len(OKABE_ITO):
+        return OKABE_ITO[:n_colors]
 
     return [
         tuple(i_color)
@@ -282,6 +296,7 @@ def plot_particles(particles, rve_dims, sample_dir, **kwargs):
         plot_particles_3d(particles, rve_dims, sample_dir,**kwargs)
 
 
+@styled
 def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
     """Plot 2D particles."""
     if "ax" in kwargs:
@@ -303,6 +318,8 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
     ax.set_xticks([])
     ax.set_yticks([])
     # The frame is the RVE; ticks and their labels would only add coordinates
+    ax.set_facecolor(MATRIX_COLOR)
+    # The matrix, behind the particles
 
     if kwargs.get("sim_gif", False):
         step = kwargs.get("iteration", 0)
@@ -332,7 +349,6 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
                     i_particle.side,
                     i_particle.side,
                     angle=0,
-                    alpha=0.8,
                     edgecolor=None,
                     facecolor=phase_colors[i_particle.phase],
                 )
@@ -344,7 +360,6 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
                     i_particle.semi_major_axis * 2,
                     i_particle.semi_minor_axis * 2,
                     angle=180 / np.pi * i_particle.angle,
-                    alpha=0.8,
                     edgecolor=None,
                     facecolor=phase_colors[i_particle.phase],
                 )
@@ -709,6 +724,7 @@ def plot_particles_3d_one_by_one(particles, rve_dims, sample_dir, **kwargs):
             )
 
 
+@styled
 def plot_kinetic_energy_history(
     kinetic_energy_history,
     thermic_energy_history,
@@ -722,8 +738,23 @@ def plot_kinetic_energy_history(
         plt.sca(kwargs["axes"])
     else:
         plt.figure()
-    plt.semilogy(range(len(kinetic_energy_history)), kinetic_energy_history)
-    plt.semilogy(range(len(thermic_energy_history)), thermic_energy_history)
+    steps = np.arange(len(kinetic_energy_history))
+    plt.semilogy(
+        steps,
+        np.ma.masked_less_equal(kinetic_energy_history, 0),
+        label="Kinetic energy",
+    )
+    # Particles that start at rest have no kinetic energy at step 0, which a logarithmic
+    # axis cannot show, so that value is left out
+    plt.semilogy(
+        steps[len(steps) - len(thermic_energy_history) :],
+        thermic_energy_history,
+        label="At the reference temperature",
+    )
+    # The second is the kinetic energy of the particles at the reference temperature of
+    # the thermostat, which the first is driven towards. It is recorded from step 1 on,
+    # so it is drawn against the last steps
+    label_history(plt.gca(), "Energy", "Kinetic energy", legend=True)
     if "axes" not in kwargs:
         if save:
             plt.savefig(os.path.join(results_dir, "kinetic_energy.pdf"))
@@ -733,6 +764,7 @@ def plot_kinetic_energy_history(
         plt.close()
 
 
+@styled
 def plot_delta_t_history(
     delta_t_history, results_dir, save=True, show=False, temp_change=0, **kwargs
 ):
@@ -741,6 +773,7 @@ def plot_delta_t_history(
     else:
         plt.figure()
     plt.plot(range(len(delta_t_history)), delta_t_history)
+    label_history(plt.gca(), "Time step", "Time step")
     if "axes" not in kwargs:
         if save:
             plt.savefig(os.path.join(results_dir, "delta_t_history.pdf"))
@@ -750,6 +783,7 @@ def plot_delta_t_history(
         plt.close()
 
 
+@styled
 def plot_overlap_history(
     total_overlap_history,
     max_residue,
@@ -768,24 +802,58 @@ def plot_overlap_history(
         plt.figure()
     # Plot temperature changes
     if temp_change and "temp_change_steps" in kwargs:
-        for line in kwargs["temp_change_steps"]:
-            plt.axvline(line, linewidth=0.01, linestyle="--", color="k")
+        for i_ind, line in enumerate(kwargs["temp_change_steps"]):
+            plt.axvline(
+                line,
+                linewidth=0.6,
+                linestyle="--",
+                color="0.6",
+                label="Change of temperature" if i_ind == 0 else None,
+            )
+        # Named once, in the legend, as the steps at which the thermostat changed the
+        # temperature
+    overlap_axes = plt.gca()
     # Plotting the maximum residue if it is larger than 0
     if max_residue != 0:
-        plt.semilogy([0, len(total_overlap_history)], [max_residue, max_residue])
+        plt.semilogy(
+            [0, len(total_overlap_history) - 1],
+            [max_residue, max_residue],
+            color="0.4",
+            linestyle="--",
+            label="Maximum residue",
+        )
     # Plot the overlap history in a semilogy plot
     graph_overlap_history = plt.semilogy(
         range(len(total_overlap_history)),
         total_overlap_history,
-        color=kwargs.get("color", (68 / 255, 119 / 255, 170 / 255, 1)),
+        color=kwargs.get("color", OKABE_ITO[0]),
+        label="Total overlap",
     )
+    label_history(overlap_axes, "Total overlap", "Total overlap")
+    handles, legend_axes = overlap_axes.get_legend_handles_labels()[0], overlap_axes
 
     if "overlap_ratio" in kwargs:
-        _ = plt.twinx(plt.gca())
-        graph_ratio = plt.semilogy([None, None] + kwargs["overlap_ratio"])
-        for artist in graph_ratio:
-            artist.set_linestyle(":")
-        plt.axhline(1, linewidth=0.01, linestyle="-", color="k")
+        ratio_axes = plt.twinx(overlap_axes)
+        ratio_axes.grid(False)
+        graph_ratio = plt.semilogy(
+            [None, None] + kwargs["overlap_ratio"],
+            color=OKABE_ITO[1],
+            linestyle=":",
+            label="Overlap created over removed",
+        )
+        plt.axhline(1, linewidth=0.5, linestyle="-", color="0.6")
+        ratio_axes.set_ylabel("Overlap created over removed")
+        handles += ratio_axes.get_legend_handles_labels()[0]
+        legend_axes = ratio_axes
+        # The thermostat counts the run as settled when this ratio, on an axis of its
+        # own, swings about one. The legend goes on that axis, which is drawn over the
+        # other and would hide a legend of it
+    if len(handles) > 1:
+        legend_axes.legend(
+            handles=handles, loc="upper center", bbox_to_anchor=(0.5, -0.18), ncol=2
+        )
+        # Below the plot: the place matplotlib finds for a legend is clear of the lines
+        # of one axis only, and the lines of the other ran under it
 
     # Save and/or show if no axes was supplied
     if "axes" not in kwargs:
@@ -883,6 +951,7 @@ def plot_paths(particles, box, position_center_history, motion_results_dir):
                     msh_vtk.write("\n{0}".format(i_particle.phase))
 
 
+@styled
 def plot_ratio_new_old_overlap(
     overlap_pairs_history, len_sim, results_dir, show=False, save=True, **kwargs
 ):
@@ -929,7 +998,10 @@ def plot_ratio_new_old_overlap(
     # plt.plot(
     #     list(range(len_sim)), [moving_average(ratio, ind, 20) for ind in range(len_sim)]
     # )
-    plt.grid()
+    label_history(
+        plt.gca(), "Overlap created over removed", "Overlap created over removed"
+    )
+    # The style draws the grid; plt.grid() with no argument would turn it off
     # plt.ylim((0, 2))
     if "axes" not in kwargs:
         if save:
@@ -995,6 +1067,7 @@ def finish_statistical_plot(kwargs, labels, default_name, legend=False):
     # function said nothing about which was the measurement
 
 
+@styled
 def plot_nearest_neighbor_dist(vals, **kwargs):
     """Plot the distribution of the distance from a particle to its nearest."""
     if "axes" in kwargs:
@@ -1003,7 +1076,9 @@ def plot_nearest_neighbor_dist(vals, **kwargs):
         plt.figure()
 
     bins, value_range = histogram_bins(vals, "auto")
-    graph = plt.hist(vals, bins=bins, range=value_range, histtype="step")
+    graph = plt.hist(
+        vals, bins=bins, range=value_range, edgecolor="white", linewidth=0.5
+    )
     closed = finish_statistical_plot(
         kwargs,
         (
@@ -1017,6 +1092,7 @@ def plot_nearest_neighbor_dist(vals, **kwargs):
     return None if closed else graph
 
 
+@styled
 def plot_ripleys_k_func(vals, radii_vec, **kwargs):
     """Plot Ripley's K function against the one of a Poisson point process."""
     if "axes" in kwargs:
@@ -1031,6 +1107,7 @@ def plot_ripleys_k_func(vals, radii_vec, **kwargs):
     )
     # The second is the K function of a process with no interaction between the
     # points, which is what the first is read against
+    start_at_zero(plt.gca())
 
     closed = finish_statistical_plot(
         kwargs,
@@ -1047,6 +1124,7 @@ SMOOTHING_WINDOW = 41
 # radii than this is smoothed over all of them instead, where the filter used to raise
 
 
+@styled
 def plot_two_point_correlation(vals, radii_vec, **kwargs):
     """Plot the two point correlation function, and a smoothing of it."""
     if "axes" in kwargs:
@@ -1065,6 +1143,7 @@ def plot_two_point_correlation(vals, radii_vec, **kwargs):
         )
     # The estimate is a Monte Carlo one, so it is drawn as the points it is and the
     # line through them is said to be a smoothing
+    start_at_zero(plt.gca())
 
     closed = finish_statistical_plot(
         kwargs,
@@ -1120,6 +1199,7 @@ def plot_voxels(voxel_grid, matrix_phase, list_phase, dir, show=True, save=True)
         plt.show()
 
 
+@styled
 def plot_voronoi_2d(
     particles, rve_dims, voronoi, dir, voronoi_type, save=True, show=False
 ):
@@ -1128,11 +1208,7 @@ def plot_voronoi_2d(
     import matplotlib.patches as mpatches
     from scipy.spatial import voronoi_plot_2d
 
-    fig, ax, (w_fig, h_fig) = create_figure(nrows=3, ncols=3)
-
-    ax = plt.gca()
-
-    N = len(particles)
+    fig, ax = plt.subplots(figsize=(3.4, 3.4))
 
     if rve_dims[0] == rve_dims[1]:
         ax.axis("square")
@@ -1156,7 +1232,6 @@ def plot_voronoi_2d(
                     i_particle.side,
                     i_particle.side,
                     angle=0,
-                    alpha=0.8,
                     edgecolor=None,
                     facecolor=phase_colors[i_particle.phase],
                 )
@@ -1168,7 +1243,6 @@ def plot_voronoi_2d(
                     i_particle.major_axis,
                     i_particle.minor_axis,
                     angle=180 / np.pi * i_particle.angle,
-                    alpha=0.8,
                     edgecolor=None,
                     facecolor=phase_colors[i_particle.phase],
                 )
@@ -1188,6 +1262,7 @@ def plot_voronoi_2d(
 
     plt.xticks([])
     plt.yticks([])
+    ax.set_facecolor(MATRIX_COLOR)
 
     if save:
         plt.savefig(os.path.join(dir, "voronoi.pdf"))
@@ -1302,6 +1377,7 @@ def set_voronoi_plot_2d(vor, ax=None, **kw):
     return ax.figure
 
 
+@styled
 def plot_voronoi_2d_with_imts(
     particles, rve_dims, voronoi, imts, in_box, dir, voronoi_type, save=True, show=False
 ):
@@ -1323,9 +1399,8 @@ def plot_voronoi_2d_with_imts(
 
     for i_order in range(7):
 
-        fig, ax, (w_fig, h_fig) = create_figure(nrows=3, ncols=2)
-
-        ax = plt.gca()
+        fig, ax = plt.subplots(figsize=(4.2, 3.4))
+        # Square, with room for the colour bar, in the type size of the other plots
 
         if rve_dims[0] == rve_dims[1]:
             ax.axis("square")
@@ -1458,11 +1533,7 @@ def plot_voronoi_2d_with_imts(
 
     for i_order in range(7):
 
-        fig, ax, (w_fig, h_fig) = create_figure(nrows=3, ncols=2)
-
-        ax = plt.gca()
-
-        N = len(particles)
+        fig, ax = plt.subplots()
 
         if i_order == 0:
             perimeters = np.abs(np.array(imts)[in_box, i_order])
@@ -1471,16 +1542,19 @@ def plot_voronoi_2d_with_imts(
                 perimeters,
                 bins=bins,
                 range=value_range,
-                color=(68 / 255, 119 / 255, 170 / 255, 1),
+                edgecolor="white",
+                linewidth=0.5,
             )
             ax.set_xlabel(r"Perimeter")
+            ax.set_title("Perimeters of the Voronoi cells")
         else:
             plt.hist(
                 np.abs(np.array(imts)[in_box, i_order])
                 / np.real(np.array(imts)[in_box, 0]),
-                color=(68 / 255, 119 / 255, 170 / 255, 1),
                 range=(0, 1),
                 bins=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+                edgecolor="white",
+                linewidth=0.5,
             )
             plt.axvline(
                 np.mean(
@@ -1489,12 +1563,15 @@ def plot_voronoi_2d_with_imts(
                 ),
                 color="k",
                 linestyle="--",
+                label="Mean",
             )
             ax.set_xlabel(r"$q_{0}$".format(str(i_order)))
+            ax.set_title(r"$q_{0}$ of the Voronoi cells".format(str(i_order)))
+            ax.legend()
             plt.xlim([0, 1])
             plt.xticks(ticks=[0, 0.2, 0.4, 0.6, 0.8, 1])
 
-        ax.set_ylabel(r"$N$")
+        ax.set_ylabel("Number of cells")
 
         if save:
             plt.savefig(
@@ -1591,6 +1668,7 @@ def plot_voronoi_3d(particles, voronoi, rve_dims, sample_dir, save=True, show=Fa
 
 
 @in_own_process("drawing the Voronoi cells with gmsh")
+@styled
 def plot_voronoi_3d_with_imts(
     particles, voronoi, rve_dims, imts, dir, save=True, show=False
 ):
@@ -1770,9 +1848,7 @@ def plot_voronoi_3d_with_imts(
 
     for i_order in range(7):
 
-        _, ax, (_, _) = create_figure(nrows=3, ncols=2)
-
-        ax = plt.gca()
+        _, ax = plt.subplots()
 
         if i_order == 0:
             areas = np.abs(np.array(imts)[:, i_order])
@@ -1781,24 +1857,32 @@ def plot_voronoi_3d_with_imts(
                 areas,
                 bins=bins,
                 range=value_range,
-                color=(68 / 255, 119 / 255, 170 / 255, 1),
+                edgecolor="white",
+                linewidth=0.5,
             )
-            ax.set_xlabel(r"Surface Area")
+            ax.set_xlabel(r"Surface area")
+            ax.set_title("Surface areas of the Voronoi cells")
         else:
             plt.hist(
                 np.abs(np.array(imts)[:, i_order]),
-                color=(68 / 255, 119 / 255, 170 / 255, 1),
                 range=(0, 1),
                 bins=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+                edgecolor="white",
+                linewidth=0.5,
             )
             plt.axvline(
-                np.mean(np.abs(np.array(imts)[:, i_order])), color="k", linestyle="--"
+                np.mean(np.abs(np.array(imts)[:, i_order])),
+                color="k",
+                linestyle="--",
+                label="Mean",
             )
             ax.set_xlabel(r"$q_{0}$".format(str(i_order)))
+            ax.set_title(r"$q_{0}$ of the Voronoi cells".format(str(i_order)))
+            ax.legend()
             plt.xlim([0, 1])
             plt.xticks(ticks=[0, 0.2, 0.4, 0.6, 0.8, 1])
 
-        ax.set_ylabel(r"$N$")
+        ax.set_ylabel("Number of cells")
 
         if save:
             plt.savefig(
@@ -1812,6 +1896,7 @@ def plot_voronoi_3d_with_imts(
         plt.close()
 
 
+@styled
 def plot_RSA_history(
     RSA_vf_history,
     sample_dir,
@@ -1819,22 +1904,12 @@ def plot_RSA_history(
     show=False
 ):
     """Plot the number of particles history as a function of the iteration step."""
-    graph_RSA_vf_history, ax, (w_fig, h_fig) = create_figure(nrows=3, ncols=2)
+    graph_RSA_vf_history, ax = plt.subplots()
 
-    ax.plot(
-        range(len(RSA_vf_history)),
-        RSA_vf_history,
-        color=(68 / 255, 119 / 255, 170 / 255, 1)
-    )
-
-    # --- Added Axis Labels ---
-    # Using LaTeX syntax as your create_figure function enables usetex=True
-    ax.set_xlabel(r"Iteration Step")
-    ax.set_ylabel(r"Volume fraction")
-    ax.grid(True, linestyle='--', alpha=0.6)
+    ax.plot(range(len(RSA_vf_history)), RSA_vf_history)
+    label_history(ax, "Volume fraction", "Volume fraction placed")
 
     if save:
-        # Use fig (graph_RSA_particle_history) to save to ensure the whole canvas is captured
         plt.savefig(os.path.join(sample_dir, "RSA_vf_history.pdf"), bbox_inches="tight")
 
         if show:
