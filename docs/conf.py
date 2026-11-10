@@ -91,6 +91,10 @@ pygments_style = None
 #
 html_theme = "sphinx_rtd_theme"
 
+# The mark of the logo, at the top of the sidebar and as the icon of the browser tab
+html_logo = "images/logo/mark.svg"
+html_favicon = "images/logo/mark.svg"
+
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.

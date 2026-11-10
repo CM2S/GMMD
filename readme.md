@@ -1,3 +1,5 @@
+![The logo of GMMD: a periodic cell of disks and ellipses](docs/images/logo/mark.svg)
+
 # GMMD
 
 [![Tests](https://github.com/CM2S/GMMD/actions/workflows/test.yaml/badge.svg?branch=master)](https://github.com/CM2S/GMMD/actions/workflows/test.yaml)

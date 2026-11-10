@@ -14,6 +14,7 @@ The notable changes to GMMD, newest first. Versions follow [Semantic Versioning]
 - Two analyses: `rsa_history`, the volume fraction a random sequential adsorption reached at every step, and `simulation_gif`, a GIF of a two-dimensional generation ([#20](https://github.com/CM2S/GMMD/pull/20)).
 - A user guide in the documentation, with tutorials and the options of the input file, whose inputs are in `examples/` ([#21](https://github.com/CM2S/GMMD/pull/21)).
 - A banner of generated microstructures in the readme, made by the inputs and scripts in `docs/images/src` ([#22](https://github.com/CM2S/GMMD/pull/22)).
+- A logo, in the readme and the documentation, with its files in `docs/images/logo`, in colour and in black and white ([#28](https://github.com/CM2S/GMMD/pull/28)).
 
 ### Changed
 
