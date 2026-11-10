@@ -174,7 +174,7 @@ A hexagonal arrangement of particles therefore shows up as a group of neighbouri
 The figures above show the Minkowski structure metrics for this microstructure. No clustering or order can be detected. It is important to note that :math:`q_0` is the perimeter and that :math:`q_1` is always null.
 
 For more information on the Minkowski structure metrics, see
-:ref:`AMINO- Part II <amino-part-ii>` paper.
+`AMINO, Part II <https://doi.org/10.1016/j.mechmat.2021.104068>`_.
 
 
 .. include:: ../../_includes/previous_button.inc
