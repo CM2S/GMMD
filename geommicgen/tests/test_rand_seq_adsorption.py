@@ -132,3 +132,27 @@ class TestRandomSequentialAdsorptionRun(unittest.TestCase):
             )
 
         self.assertGreaterEqual(min(gaps), 0.02 - 1e-9)
+
+    def test_an_inner_phase_is_placed_inside_squares(self):
+        """Check that disks placed inside squares lie inside the square that holds them."""
+        microstructure = self.generate(
+            "samples: 1\n"
+            "rve_dimensions: [1, 1]\n"
+            "phases:\n"
+            "  0: {type: matrix}\n"
+            "  1: {type: square, side: 0.2, n: 5}\n"
+            "  2: {type: disk, r: 0.02, n: 10, inside: 1}\n"
+            "generation:\n"
+            "  random_sequential_adsorption: {max_step: 100000}\n"
+        )
+        box = np.array(microstructure.rve_dims)
+        inner_particles = microstructure.phases["2"].particles
+
+        self.assertEqual(len(inner_particles), 10)
+        for i_particle in inner_particles:
+            centres = i_particle.position_center - i_particle.parent.position_center
+            centres = centres - box * np.round(centres / box)
+            np.testing.assert_array_less(
+                np.abs(centres), i_particle.parent.side / 2 - i_particle.radius
+            )
+

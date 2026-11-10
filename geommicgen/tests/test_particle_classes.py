@@ -2603,6 +2603,17 @@ class TestSquare(unittest.TestCase):
             square.intersection_length_square_square(other_square_none, box), 0
         )
 
+    def test_generate_point_inside_square(self):
+        """Checks that the points drawn inside a square fill it and stay in it."""
+        square = Square("1", {"side": 0.1, "n": 1}, [1, 1])
+        square.position_center = np.array([0.2, 0.3])
+        np.random.seed(0)
+
+        points = np.array([square.generate_point_inside() for _ in range(1000)])
+
+        np.testing.assert_array_less(np.abs(points - [0.2, 0.3]), 0.05)
+        np.testing.assert_array_less(0.045, np.max(np.abs(points - [0.2, 0.3]), axis=0))
+
     def test_support_function_square(self):
         square = Square("1",{"side":0.1,"n":1}, [1,1])
         square.position_center = np.array([0.2,0.3])

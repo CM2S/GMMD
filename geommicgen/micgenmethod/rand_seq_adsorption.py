@@ -15,7 +15,6 @@ import geommicgen.postproc.plotfuncs.plotting_functions as plot_funcs
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-import geommicgen.errors.error_classes as errors
 import geommicgen.iofuncs.file_handling as fileio
 import geommicgen.iofuncs.printing as print_funcs
 from geommicgen.microstructure.particleclasses import Matrix
@@ -253,13 +252,11 @@ class RandomSequentialAdsorption(GenerationMethod):
                 if "n" in i_phase.descriptors:
                     target_value = i_phase.descriptors["n"].value
                     condition = lambda: len(i_phase.particles) < i_phase.descriptors["n"].value
-                elif "vf" in i_phase.descriptors:
+                else:
                     target_value = i_phase.descriptors["vf"].value
                     condition = lambda: i_phase.real_volume_fraction < target_value
-                else:
-                    raise errors.MicrostructureGenerationError(
-                        "Neither number of particles nor volume fraction specified for phase {0}".format(i_phase)
-                    )
+                # Every description of a particle gives n or vf, which the phase checks
+                # when it is built
 
                 while condition():
                     # if number of steps is higher than the maximum number

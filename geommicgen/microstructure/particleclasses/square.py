@@ -298,23 +298,12 @@ class Square(Particle):
         # GJK algorithm is written for 3D
 
 
-    def uniform_sample_square(self, n_samples: int = 1) -> list(np.array):
-        """Generate uniform random sample of points inside a square."""
-        raise NotImplementedError("To be implemented later.")
-        points = []
-        half_side = self.side / 2
-        for _ in range(n_samples):
-            x_loc = np.random.uniform(-half_side, half_side)
-            y_loc = np.random.uniform(-half_side, half_side)
-            [x_glob, y_glob] = self.rot_mat.T.dot([x_loc, y_loc]) + self.position_center
-            points.append(np.array([x_glob, y_glob]))
-
-        return points
-    
     def generate_point_inside(self):
-        """Generate a random point inside the square."""
-        raise NotImplementedError("To be implemented later.")
-        return self.uniform_sample_square()[0]
+        """Generate a random point inside the square, uniformly over its area."""
+        return self.position_center + np.random.uniform(
+            -self.side / 2, self.side / 2, 2
+        )
+        # The square is not turned, so its sides are along the axes
 
 
     def intersection_length(
