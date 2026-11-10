@@ -1,0 +1,22 @@
+# Prolate ellipsoids aligned with x, 30 %
+samples: 1
+rve_dimensions: [1, 1, 1]
+seed: 19
+phases:
+  0: {type: matrix}
+  1:
+    type: ellipsoid
+    vf: 0.3
+    axis_1: 0.36
+    ratio_12: 3
+    ratio_13: 3
+    rot_axis_comp_x: {distribution: uniform, low: -1, high: 1}
+    rot_axis_comp_y: {distribution: uniform, low: -1, high: 1}
+    rot_axis_comp_z: {distribution: uniform, low: -1, high: 1}
+    angle: {distribution: normal, mean: 0, sigma: 0.12}
+generation:
+  min_distance: 0.01
+  molecular_dynamics:
+    max_residue_per_particle: 0
+    max_step: 20000
+    speed_up: {name: verlet, factor: 1.1}

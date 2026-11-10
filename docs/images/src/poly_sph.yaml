@@ -1,0 +1,15 @@
+# Spheres of three sizes, 40 % in all
+samples: 1
+rve_dimensions: [1, 1, 1]
+seed: 17
+phases:
+  0: {type: matrix}
+  1: {type: sphere, r: 0.12, vf: 0.18}
+  2: {type: sphere, r: 0.08, vf: 0.14}
+  3: {type: sphere, r: 0.05, vf: 0.08}
+generation:
+  min_distance: 0.01
+  molecular_dynamics:
+    max_residue_per_particle: 0
+    max_step: 20000
+    speed_up: {name: verlet, factor: 1.1}

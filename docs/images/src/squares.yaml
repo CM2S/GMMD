@@ -1,0 +1,14 @@
+# Squares of normally distributed side, 35 %, placed by random sequential adsorption
+samples: 1
+rve_dimensions: [1, 1]
+seed: 7
+
+phases:
+  0: {type: matrix}
+  1: {type: square, vf: 0.35, side: {distribution: normal, mean: 0.1, sigma: 0.015}}
+
+generation:
+  min_distance: 0.01
+  random_sequential_adsorption:
+    max_step: 20000
+    speed_up: cell
