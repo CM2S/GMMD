@@ -18,6 +18,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib import cm
+from matplotlib.ticker import MaxNLocator
 from cycler import cycler
 
 # Simple math tools
@@ -380,9 +381,13 @@ def plot_particles_2d(particles, rve_dims, sample_dir, **kwargs):
         gif_dir = kwargs.get("simulation_gif_dir")
         step = kwargs.get("iteration", 0)
         plt.savefig(
-            os.path.join(gif_dir, "iteration_{0}.png".format(step)), bbox_inches="tight"
+            os.path.join(gif_dir, "iteration_{0}.png".format(step)),
+            bbox_inches="tight",
+            dpi=150,
         )
-        # A frame of the GIF; the figure is closed below, with the others drawn here
+        # A frame of the GIF; the figure is closed below, with the others drawn here.
+        # At 150 dots per inch, the frames of a figure of the size of `PLOT_STYLE` are
+        # about 600 pixels wide
 
     if kwargs.get("save", True):
         plt.savefig(os.path.join(sample_dir, "final_config.pdf"), bbox_inches="tight")
@@ -1079,10 +1084,11 @@ def plot_nearest_neighbor_dist(vals, **kwargs):
     graph = plt.hist(
         vals, bins=bins, range=value_range, edgecolor="white", linewidth=0.5
     )
+    plt.gca().yaxis.set_major_locator(MaxNLocator(integer=True))
     closed = finish_statistical_plot(
         kwargs,
         (
-            "Distance to the nearest neighbour",
+            "Nearest neighbour distance over the mean radius",
             "Number of particles",
             "Nearest neighbour distances",
         ),
@@ -1147,7 +1153,11 @@ def plot_two_point_correlation(vals, radii_vec, **kwargs):
 
     closed = finish_statistical_plot(
         kwargs,
-        ("Distance", "Two point correlation", "Two point correlation function"),
+        (
+            "Distance over the mean radius",
+            "Two point correlation",
+            "Two point correlation function",
+        ),
         "two_pt_corr",
         legend=True,
     )
