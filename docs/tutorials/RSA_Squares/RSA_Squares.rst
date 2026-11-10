@@ -72,7 +72,7 @@ Nearest neighbor
     Nearest neighbor distance distribution of the microstructure.
 
 This plot shows the distribution of nearest-neighbour distances between particles. For each particle, d is the distance between its centre and the centre of its nearest neighbour. The x-axis shows d normalised by the mean particle radius, :math:`d/r_m`
-. Because these distances vary continuously, they are grouped into 10 equal-width bins. The y-axis shows n, the number of particles whose normalised distance falls in each bin.
+. Because these distances vary continuously, they are grouped into bins of equal width. The y-axis shows n, the number of particles whose normalised distance falls in each bin.
 
 Ripley's K-function
 -------------------
@@ -91,7 +91,7 @@ Ripley's K-function measures how many neighbours a particle has within a distanc
 
 where :math:`A` is the area of the domain, :math:`N` is the number of particles, :math:`d_{ij}` is the distance between the centres of particles :math:`i` and :math:`j`, and :math:`I(d_{ij} \le t)` is 1 if :math:`d_{ij} \le t` and 0 otherwise. The weight :math:`w(l_i, l_j)` is an edge correction: it is the fraction of the circle centred at particle :math:`i` and passing through particle :math:`j` that lies inside the domain, and it is 1 when the whole circle is inside.
 
-For particles placed completely at random, the K-function is :math:`K(t) = \pi t^2`. This is the reference curve (orange), which is compared with the K-function computed for the microstructure (blue):
+For particles placed completely at random, the K-function is :math:`K(t) = \pi t^2`. This is the reference curve (dashed), which is compared with the K-function computed for the microstructure (solid):
 
 - if the computed curve is **above** the reference, particles have more neighbours than in a random arrangement, so they are **clustered**;
 - if it is **below** the reference, particles have fewer neighbours than in a random arrangement, so they are **spread more regularly**;

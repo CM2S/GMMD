@@ -22,6 +22,7 @@ The notable changes to GMMD, newest first. Versions follow [Semantic Versioning]
 - The two-dimensional plots of the particles, the final configuration and the frames of the GIF, no longer draw ticks and labels ([#22](https://github.com/CM2S/GMMD/pull/22)).
 - The plots share one style, a serif face and the colours of Okabe and Ito. The histories of a molecular dynamics generation have axis labels, titles and legends, and the two-dimensional plots of the particles draw them opaque on a grey matrix ([#25](https://github.com/CM2S/GMMD/pull/25)).
 - The plots of the nearest neighbour distances and of the two point correlation say that the distances are over the mean radius, and the frames of the GIF of a generation are drawn at 150 dots per inch, which brings them back to their size before #25 ([#26](https://github.com/CM2S/GMMD/pull/26)).
+- The inputs of the tutorials are seeded, so they give the microstructures of the figures. `MD_Ellipsoids` fills 30 % with larger ellipsoids, so that its plots show the thermostat and the adaptive time step at work. The figures of the tutorials are made again with the current plots, and the three-dimensional ones are drawn as in the banner ([#26](https://github.com/CM2S/GMMD/pull/26)).
 
 ### Fixed
 

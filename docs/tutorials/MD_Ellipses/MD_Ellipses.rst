@@ -21,6 +21,10 @@ The full text of the input file is:
 .. literalinclude:: ../../../examples/MD_Ellipses.yaml
     :language: yaml
 
+The line ``seed: 1`` fixes the random numbers of the run, so the run gives the microstructure shown at the end of this tutorial.
+Without it, every run gives another microstructure.
+The inputs of all the tutorials are seeded in the same way.
+
 
 Phases
 ======
