@@ -3,7 +3,7 @@
 [![Tests](https://github.com/CM2S/GMMD/actions/workflows/test.yaml/badge.svg?branch=master)](https://github.com/CM2S/GMMD/actions/workflows/test.yaml)
 [![Coverage](https://codecov.io/gh/CM2S/GMMD/graph/badge.svg)](https://codecov.io/gh/CM2S/GMMD)
 [![Documentation](https://img.shields.io/readthedocs/gmmd)](https://gmmd.readthedocs.io)
-[![License](https://img.shields.io/github/license/CM2S/GMMD)](LICENSE)
+[![License](https://img.shields.io/github/license/CM2S/GMMD)](https://github.com/CM2S/GMMD/blob/master/LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24077934.svg)](https://doi.org/10.5281/zenodo.24077934)
 
 Geometric Methods for Microstructure Design.
@@ -46,11 +46,11 @@ The first version of GMMD, written in 2020 and 2021, was made without AI tools. 
 
 ### Contributing and support
 
-Bug reports, questions and pull requests are welcome on GitHub. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Bug reports, questions and pull requests are welcome on GitHub. See [CONTRIBUTING.md](https://github.com/CM2S/GMMD/blob/master/CONTRIBUTING.md).
 
 ### How to cite
 
-If you use GMMD in your work, please cite the software and the papers on its method. [CITATION.cff](CITATION.cff) gives the citation of the software, and GitHub formats it under "Cite this repository". The software's DOI, [10.5281/zenodo.24077934](https://doi.org/10.5281/zenodo.24077934), always resolves to the latest version. The molecular dynamics method is described in:
+If you use GMMD in your work, please cite the software and the papers on its method. [CITATION.cff](https://github.com/CM2S/GMMD/blob/master/CITATION.cff) gives the citation of the software, and GitHub formats it under "Cite this repository". The software's DOI, [10.5281/zenodo.24077934](https://doi.org/10.5281/zenodo.24077934), always resolves to the latest version. The molecular dynamics method is described in:
 
 - J. L. P. Vila-Chã, B. P. Ferreira, F. M. Andrade Pires, "An adaptive multi-temperature isokinetic method for the RVE generation of particle reinforced heterogeneous materials, Part I: Theoretical formulation and computational framework", *Mechanics of Materials* 163 (2021) 104069. https://doi.org/10.1016/j.mechmat.2021.104069
 - B. P. Ferreira, J. L. P. Vila-Chã, F. M. Andrade Pires, "An adaptive multi-temperature isokinetic method for the RVE generation of particle reinforced heterogeneous materials, Part II: Numerical assessment and statistical analysis", *Mechanics of Materials* 165 (2022) 104068. https://doi.org/10.1016/j.mechmat.2021.104068
@@ -252,7 +252,7 @@ geommicgen: input_file.yaml has 2 problems:
   - phases.1.axis_1.sigma: Input should be greater than or equal to 0 (given -0.025)
 ```
 
-[examples/reference.yaml](examples/reference.yaml) documents every key -- what it means, the values it takes and its default -- and runs as it is written. Two worked examples, a two dimensional microstructure of ellipses and a three dimensional one of ellipsoids, are beside it in [examples/](examples/); the test suite runs both.
+[examples/reference.yaml](https://github.com/CM2S/GMMD/blob/master/examples/reference.yaml) documents every key -- what it means, the values it takes and its default -- and runs as it is written. Two worked examples, a two dimensional microstructure of ellipses and a three dimensional one of ellipsoids, are beside it in [examples/](https://github.com/CM2S/GMMD/tree/master/examples); the test suite runs both.
 
 An old input data file (`.mdsim`) is still run, with a line saying that the format is on its way out. `geommicgen-convert-mdsim` writes the equivalent input file beside it, and says what the old file gave that nothing read:
 
@@ -285,7 +285,7 @@ geommicgen-translate --list-formats
 
 A mesh is written as a VTK file whichever mesher produced it, `.vtu` for an unstructured mesh and `.vti` for a grid, with a small `.mesh.json` beside it holding what those formats cannot carry. The files are named after the microstructure file and what discretised it -- `mic_tri6_h0.05.vtu`, `mic_tri6_epp4.vtu`, `mic_100_100.vti` -- so that meshing one microstructure several ways into one directory keeps them apart; `--name` names them outright. The size, the elements per particle and the element each take several values, separated by commas, and there is a mesh for every combination: the second line above writes four. Several microstructures can be given at once, as the third line meshes every sample of a run; each is meshed into `meshes/` beside it unless `-o` says otherwise. Giving no `--to` stops after that file, which is a complete stage: `geommicgen-translate` picks up from it later, or somewhere else.
 
-The LINKS and Abaqus input files, and the example CRATE input file written beside a grid, carry placeholder materials and a placeholder loading, a stretch along x, marked as such: a microstructure says nothing about either, but with them the files run as written, which is how they are checked. The CRATE file also declares the dimensions of the RVE, which the grid does not carry. FEniCS reads the `.xdmf` file, with the phase of every cell as a cell tag; [`examples/fenics_elasticity.py`](examples/fenics_elasticity.py) reads one, gives each phase a material and solves.
+The LINKS and Abaqus input files, and the example CRATE input file written beside a grid, carry placeholder materials and a placeholder loading, a stretch along x, marked as such: a microstructure says nothing about either, but with them the files run as written, which is how they are checked. The CRATE file also declares the dimensions of the RVE, which the grid does not carry. FEniCS reads the `.xdmf` file, with the phase of every cell as a cell tag; [`examples/fenics_elasticity.py`](https://github.com/CM2S/GMMD/blob/master/examples/fenics_elasticity.py) reads one, gives each phase a material and solves.
 
 The gmsh mesher offers `tri3`, `tri6`, `quad4` and `quad8` in two dimensions and `tetra4` and `tetra10` in three. A quadrilateral mesh is made by recombining triangles, and Gmsh keeps a triangle where it finds no pair for it, so a `quad4` or `quad8` mesh may hold a few triangles; when it does, the mesher says so with the counts, and the mesh is written with both, each type in a group of its own.
 
