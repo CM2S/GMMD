@@ -26,12 +26,19 @@ from geommicgen.microstructure.particleclasses import Disk
 from geommicgen.microstructure.phase import Phase
 from geommicgen.pipeline import MESH_DIRECTORY, MeshJob
 from geommicgen.postproc.plotfuncs.plotting_functions import (
+    MATRIX_COLOR,
+    OKABE_ITO,
     colors_of_phases,
     generate_colors,
     histogram_bins,
     keep_what_the_cut_left,
+    plot_delta_t_history,
+    plot_kinetic_energy_history,
+    plot_overlap_history,
+    plot_particles_2d,
     plot_particles_3d,
     plot_paths,
+    plot_RSA_history,
 )
 from geommicgen.postproc.voronoimetrics.voronoi_analysis import do_voronoi_analysis
 from geommicgen.postproc.postproc import (
@@ -332,6 +339,85 @@ class TestPhaseColours(unittest.TestCase):
                 self.assertEqual(len(colours), i_phases)
                 self.assertEqual(len(set(colours.values())), i_phases)
         # There were the seven colours of a scheme, and a phase past them had none
+
+
+class TestPlotStyle(unittest.TestCase):
+    """Test class for the style and the labels of the plots of a generation."""
+
+    def axes_of(self, plot):
+        """Draw a plot into axes of its own and give them back."""
+        figure, axes = plt.subplots()
+        self.addCleanup(plt.close, figure)
+        plot(axes=axes)
+
+        return axes
+
+    def histories(self):
+        """The plots of the histories of a generation, each drawing into given axes."""
+        steps = list(np.geomspace(1.0, 1e-3, 20))
+        return {
+            "kinetic energy": lambda **k: plot_kinetic_energy_history(
+                steps, [0.5] * 20, "", **k
+            ),
+            "time step": lambda **k: plot_delta_t_history([0.1] * 20, "", **k),
+            "relative energy": lambda **k: plot_overlap_history(
+                steps, 1e-3, "", overlap_ratio=[1.2, 0.8] * 9, **k
+            ),
+        }
+
+    def test_every_history_is_labelled(self):
+        for i_name, i_plot in self.histories().items():
+            with self.subTest(plot=i_name):
+                axes = self.axes_of(i_plot)
+                self.assertEqual(axes.get_xlabel(), "Step")
+                self.assertTrue(axes.get_ylabel())
+                self.assertTrue(axes.get_title())
+        # The three were drawn with no label, no title and no legend
+
+    def test_the_lines_of_a_history_are_named(self):
+        axes = self.axes_of(self.histories()["kinetic energy"])
+        self.assertEqual(len(axes.get_legend_handles_labels()[1]), 2)
+        figure, axes = plt.subplots()
+        self.addCleanup(plt.close, figure)
+        self.histories()["relative energy"](axes=axes)
+        legends = [i_axes.get_legend() for i_axes in figure.axes]
+        named = [i_legend for i_legend in legends if i_legend is not None]
+        self.assertEqual(len(named), 1)
+        self.assertEqual(len(named[0].get_texts()), 3)
+        # The relative energy, the maximum residue and the ratio of the overlap created
+        # to the overlap removed, which is on an axis of its own
+
+    def test_the_text_is_serif_and_the_style_is_left_as_it_was(self):
+        family = list(matplotlib.rcParams["font.family"])
+        figure = plot_RSA_history(list(np.linspace(0.0, 0.3, 50)), "", save=False)
+        self.addCleanup(plt.close, figure)
+        self.assertEqual(figure.axes[0].title.get_fontfamily(), ["serif"])
+        self.assertEqual(list(matplotlib.rcParams["font.family"]), family)
+        # The style is set for the figures GMMD makes, and for those alone: axes a
+        # caller hands in keep the caller's style, and the font used to be set for
+        # everything drawn after the first plot, in the program that imported GMMD too
+
+    def test_the_rsa_history_is_labelled(self):
+        figure = plot_RSA_history(list(np.linspace(0.0, 0.3, 50)), "", save=False)
+        self.addCleanup(plt.close, figure)
+        axes = figure.axes[0]
+        self.assertEqual(axes.get_xlabel(), "Step")
+        self.assertEqual(axes.get_ylabel(), "Volume fraction")
+        self.assertTrue(axes.get_title())
+
+    def test_the_particles_are_opaque_on_the_matrix(self):
+        figure, axes = plt.subplots()
+        self.addCleanup(plt.close, figure)
+        plot_particles_2d(
+            disk_microstructure().particles, [1.0, 1.0], "", ax=axes, save=False
+        )
+        self.assertEqual(tuple(axes.get_facecolor()), MATRIX_COLOR)
+        self.assertTrue(axes.patches or axes.artists)
+        for i_patch in [*axes.patches, *axes.artists]:
+            self.assertIsNone(i_patch.get_alpha())
+            self.assertIn(tuple(i_patch.get_facecolor()), OKABE_ITO)
+        # The particles were drawn see-through in other colours on white; they are now
+        # drawn as in the banner of the readme
 
 
 class TestManyPhases(PostProcTest):

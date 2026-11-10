@@ -20,6 +20,7 @@ The notable changes to GMMD, newest first. Versions follow [Semantic Versioning]
 - The documentation is titled GMMD. Its API pages no longer document the test modules, and document the classes that `particleclasses` and `translators` re-export only once ([#18](https://github.com/CM2S/GMMD/pull/18)).
 - The speed up schemes are a package, `geommicgen.micgenmethod.speed_up_schemes`. Those of the molecular dynamics simulation are imported from `geommicgen.micgenmethod.speed_up_schemes.MD_speed_up_schemes` ([#20](https://github.com/CM2S/GMMD/pull/20)).
 - The two-dimensional plots of the particles, the final configuration and the frames of the GIF, no longer draw ticks and labels ([#22](https://github.com/CM2S/GMMD/pull/22)).
+- The plots share one style, a serif face and the colours of Okabe and Ito. The histories of a molecular dynamics generation have axis labels, titles and legends, and the two-dimensional plots of the particles draw them opaque on a grey matrix ([#25](https://github.com/CM2S/GMMD/pull/25)).
 
 ### Fixed
 
