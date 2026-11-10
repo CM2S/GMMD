@@ -6,8 +6,6 @@ It includes a naive scheme and a cell list class.
 
 import abc
 from functools import cached_property
-from copy import deepcopy
-import time
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
@@ -169,8 +167,6 @@ class CellList(RSA_SpeedUpScheme):
 
     def new_list(self, particles,trial_particle):
         """List of particles in the neighborhood of the trial particle."""
-        # Uncomment the lines bellow if I am running Delete_later/plot.py
-        # start = time.perf_counter()
 
         dim = particles[0].dim
         max_radius_was_updated = self.update_max_radius(particles,trial_particle)
@@ -201,11 +197,6 @@ class CellList(RSA_SpeedUpScheme):
             extend(self.cell_list[idx])
 
         self.number_particles_previous_step = number_particles_current_step
-        
-        # Uncomment the lines bellow if I am running Delete_later/plot.py
-        # duration = time.perf_counter() - start
-        # with open("Cell_new_list_times.txt", "a") as f:
-        #         f.write(f", {duration}")
 
 
 
@@ -234,12 +225,6 @@ class Naive(RSA_SpeedUpScheme):
         ----------
         Particles in the simulatin box, whose cell list is to be computed.
         """
-        # Uncomment the lines bellow if I am running Delete_later/plot.py
-        # start = time.perf_counter()
         # Note: new particle is here because other RSA speed up schemes use it to compute the new list, but for the naive scheme we just ignore it and use all the particles in the simulation box. This way, we can use the same function for all the RSA speed up schemes, which is convenient for the code structure.
         self.particle_list = list(range(len(particles)))
-
-        # Uncomment the lines bellow if I am running Delete_later/plot.py
-        # duration = time.perf_counter() - start
-        # with open("Naive_new_list_times.txt", "a") as f:
         #     f.write(f", {duration}")

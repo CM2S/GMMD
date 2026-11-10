@@ -5,17 +5,13 @@ It provides a class whose methods allow the performance of a random sequential a
 
 """
 
-from contextlib import contextmanager
 import os
 import time
-from tracemalloc import start
 import numpy as np
-from scipy.stats import hmean
 import geommicgen.postproc.plotfuncs.plotting_functions as plot_funcs
 
 # pylint: disable=import-error
 # pylint: disable=relative-beyond-top-level
-import geommicgen.iofuncs.file_handling as fileio
 import geommicgen.iofuncs.printing as print_funcs
 from geommicgen.microstructure.particleclasses import Matrix
 from geommicgen.micgenmethod.microstructure_gen_method import GenerationMethod
@@ -262,7 +258,7 @@ class RandomSequentialAdsorption(GenerationMethod):
                     # if number of steps is higher than the maximum number
                     if self.step > self.max_step:
                         self.status = False
-                        print("Simulation reached the maximum number of steps.")
+                        print_funcs.print_to_file("Simulation reached the maximum number of steps.")
                         break
                     self.step += 1
                         
@@ -358,28 +354,13 @@ class RandomSequentialAdsorption(GenerationMethod):
             -True if it intersects with any particle, False otherwise.
         """
 
-        # Uncomment the lines bellow if I am running Delete_later/plot.py
-        #start = time.perf_counter()
-
         if self.microstructure_sample.particles == []:
-            # Uncomment the lines bellow if I am running Delete_later/plot.py
-            # duration = time.perf_counter() - start
-            # with open("check_intersection_times.txt", "a") as f:
-            #     f.write(f", {duration}")
             return False
         else:
             for i in particles_list:
                 i_particle = self.microstructure_sample.particles[i]
                 
                 if new_particle.intersection(i_particle, self.box):
-                    # Uncomment the lines bellow if I am running Delete_later/plot.py
-                    # duration = time.perf_counter() - start
-                    # with open("check_intersection_times.txt", "a") as f:
-                    #     f.write(f", {duration}")
                     return True
-        # Uncomment the lines bellow if I am running Delete_later/plot.py
-        # duration = time.perf_counter() - start
-        # with open("check_intersection_times.txt", "a") as f:
-        #     f.write(f", {duration}")
            
         return False

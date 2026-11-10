@@ -7,7 +7,6 @@ statistical distributions.
 """
 
 import abc
-from operator import pos
 
 import numpy as np
 
