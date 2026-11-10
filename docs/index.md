@@ -1,4 +1,5 @@
 ```{include} ../readme.md
+:relative-images:
 ```
 
 ```{toctree}

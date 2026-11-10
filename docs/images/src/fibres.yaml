@@ -1,0 +1,13 @@
+# Long fibres along z in a thinner RVE, 50 %
+samples: 1
+rve_dimensions: [1, 1, 0.4]
+seed: 23
+phases:
+  0: {type: matrix}
+  1: {type: cylindrical_fiber, r: {distribution: normal, mean: 0.06, sigma: 0.006}, vf: 0.5, direction: 2}
+generation:
+  min_distance: 0.012
+  molecular_dynamics:
+    max_residue_per_particle: 0
+    max_step: 20000
+    speed_up: {name: verlet, factor: 1.1}

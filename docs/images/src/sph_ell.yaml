@@ -1,0 +1,28 @@
+# Spheres and randomly oriented ellipsoids, 13 % each, meshed with tetrahedra
+samples: 1
+rve_dimensions: [1, 1, 1]
+seed: 11
+
+phases:
+  0: {type: matrix}
+  1: {type: sphere, r: {distribution: normal, mean: 0.1, sigma: 0.01}, vf: 0.13}
+  2:
+    type: ellipsoid
+    vf: 0.13
+    axis_1: 0.34
+    ratio_12: 1.8
+    ratio_13: 1.8
+    rot_axis_comp_x: {distribution: uniform, low: -1, high: 1}
+    rot_axis_comp_y: {distribution: uniform, low: -1, high: 1}
+    rot_axis_comp_z: {distribution: uniform, low: -1, high: 1}
+    angle: {distribution: uniform, low: 0, high: 3.1416}
+
+generation:
+  min_distance: 0.02
+  molecular_dynamics:
+    max_residue_per_particle: 0
+    max_step: 5000
+    speed_up: {name: verlet, factor: 1.1}
+
+meshes:
+  gmsh: {elements_per_particle: 8, element_type: tetra4, formats: []}

@@ -1,0 +1,16 @@
+# Disks and randomly oriented ellipses in a 2 x 1 RVE, 55 % in all
+samples: 1
+rve_dimensions: [2, 1]
+seed: 21
+phases:
+  0: {type: matrix}
+  1: {type: disk, r: {distribution: normal, mean: 0.045, sigma: 0.005}, vf: 0.3}
+  2: {type: ellipse, n: 60, vf: 0.25, ratio: 2.2, angle: {distribution: uniform, low: 0, high: 3.1416}}
+generation:
+  min_distance: 0.008
+  molecular_dynamics:
+    max_residue_per_particle: 0
+    max_step: 20000
+    speed_up: {name: verlet, factor: 1.1}
+meshes:
+  gmsh: {elements_per_particle: 4, element_type: tri3, formats: []}

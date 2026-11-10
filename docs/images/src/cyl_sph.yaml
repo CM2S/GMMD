@@ -1,0 +1,20 @@
+# Randomly oriented short cylinders and spheres
+samples: 1
+rve_dimensions: [1, 1, 1]
+seed: 13
+phases:
+  0: {type: matrix}
+  1: {type: sphere, r: 0.07, vf: 0.08}
+  2:
+    type: cylinder
+    r_cyl: 0.05
+    length: 0.3
+    azimuth_angle: {distribution: uniform, low: 0, high: 6.2832}
+    polar_angle: {distribution: uniform, low: 0, high: 3.1416}
+    vf: 0.12
+generation:
+  min_distance: 0.015
+  molecular_dynamics:
+    max_residue_per_particle: 0
+    max_step: 20000
+    speed_up: {name: verlet, factor: 1.1}

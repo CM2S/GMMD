@@ -74,7 +74,8 @@ language = "en"
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+# images/src holds the inputs and scripts the figures are made from, not pages
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "images/src"]
 
 # Copy buttons only on the terminal commands of the user guide (console blocks)
 copybutton_selector = "div.highlight-console pre"
