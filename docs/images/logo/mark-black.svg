@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="GMMD">
+<title>GMMD</title>
+<clipPath id="cell-inner"><rect x="7" y="7" width="106" height="106" rx="19"/></clipPath>
+<mask id="cell-holes"><rect width="120" height="120" rx="26" fill="#FFFFFF"/>
+<g clip-path="url(#cell-inner)"><g transform="translate(7 7) scale(0.88333)">
+<circle cx="50.78" cy="74.1" r="24" fill="#000000"/>
+<ellipse cx="-3.93" cy="42.19" rx="21.6" ry="13.2" fill="#000000" transform="rotate(13.74 -3.93 42.19)"/>
+<ellipse cx="116.07" cy="42.19" rx="21.6" ry="13.2" fill="#000000" transform="rotate(13.74 116.07 42.19)"/>
+<ellipse cx="48.52" cy="-0.43" rx="21.6" ry="13.2" fill="#000000" transform="rotate(140.39 48.52 -0.43)"/>
+<ellipse cx="48.52" cy="119.57" rx="21.6" ry="13.2" fill="#000000" transform="rotate(140.39 48.52 119.57)"/>
+<ellipse cx="97.45" cy="77.02" rx="21.6" ry="13.2" fill="#000000" transform="rotate(78.91 97.45 77.02)"/>
+<circle cx="11.15" cy="81.97" r="10.8" fill="#000000"/>
+<circle cx="82.53" cy="26.98" r="10.8" fill="#000000"/>
+<ellipse cx="42.25" cy="34.72" rx="15" ry="8.4" fill="#000000" transform="rotate(130.22 42.25 34.72)"/>
+<ellipse cx="-6.26" cy="-6.28" rx="15" ry="8.4" fill="#000000" transform="rotate(176.04 -6.26 -6.28)"/>
+<ellipse cx="-6.26" cy="113.72" rx="15" ry="8.4" fill="#000000" transform="rotate(176.04 -6.26 113.72)"/>
+<ellipse cx="113.74" cy="-6.28" rx="15" ry="8.4" fill="#000000" transform="rotate(176.04 113.74 -6.28)"/>
+<ellipse cx="113.74" cy="113.72" rx="15" ry="8.4" fill="#000000" transform="rotate(176.04 113.74 113.72)"/>
+</g></g>
+</mask>
+<rect width="120" height="120" rx="26" fill="#000000" mask="url(#cell-holes)"/>
+</svg>

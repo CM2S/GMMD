@@ -1,0 +1,18 @@
+# The particles of the logo: a disk, three large and two small ellipses, and two small disks
+samples: 1
+rve_dimensions: [1, 1]
+seed: 7
+
+phases:
+  0: {type: matrix}
+  1: {type: disk, n: 1, r: 0.2}
+  2: {type: ellipse, n: 3, major_axis: 0.36, minor_axis: 0.22, angle: {distribution: uniform, low: 0, high: 3.141592653589793}}
+  3: {type: disk, n: 2, r: 0.09}
+  4: {type: ellipse, n: 2, major_axis: 0.25, minor_axis: 0.14, angle: {distribution: uniform, low: 0, high: 3.141592653589793}}
+
+generation:
+  min_distance: 0.035
+  offset: false
+  molecular_dynamics:
+    max_residue_per_particle: 0
+    max_step: 2000

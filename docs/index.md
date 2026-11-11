@@ -1,5 +1,7 @@
+% The sidebar shows the logo, so the page starts after the readme's logo
 ```{include} ../readme.md
 :relative-images:
+:start-after: docs/images/logo/mark.svg)
 ```
 
 ```{toctree}
