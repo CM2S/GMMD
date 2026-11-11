@@ -33,6 +33,7 @@ from geommicgen.meshing.gmsh_mesher import (
     corner_measures,
     failing_surfaces,
     gmsh_session,
+    surfaces_without_elements,
 )
 from geommicgen.microstructure.particleclasses import CylindricalFiber, Ellipse
 
@@ -600,6 +601,45 @@ class TestThinCaps(unittest.TestCase):
         # thin beside the face at one. The side of the cap was paired with the flat face
         # of the cut, so the disk lost the cap, the second order mesh of it failed, and
         # the sphere's cap was meshed into cells of no volume
+
+
+@unittest.skipUnless(has_gmsh(), "gmsh is not installed")
+class TestSurfacesWithoutElements(unittest.TestCase):
+    """Test class for a surface gmsh leaves without elements."""
+
+    def test_the_surfaces_without_elements_are_found(self):
+        with gmsh_session() as gmsh:
+            gmsh.model.occ.addBox(0, 0, 0, 1, 1, 1)
+            gmsh.model.occ.synchronize()
+            gmsh.model.mesh.generate(1)
+            self.assertEqual(surfaces_without_elements(gmsh), [1, 2, 3, 4, 5, 6])
+            gmsh.model.mesh.generate(2)
+            self.assertEqual(surfaces_without_elements(gmsh), [])
+
+    def test_the_next_attempt_refines_around_them(self):
+        found = Mock(side_effect=[[3], []])
+        with patch(
+            "geommicgen.meshing.gmsh_mesher.surfaces_without_elements", found
+        ), patch.object(
+            GmshMesher, "refine_around", wraps=GmshMesher.refine_around
+        ) as refine:
+            mesh = GmshMesher(mesh_size=0.25, element_type="tetra4").mesh_in_this_process(
+                sphere_microstructure()
+            )
+        refine.assert_called_once()
+        self.assertEqual(refine.call_args.args[1], [3])
+        self.assertAlmostEqual(sum(cell_measures(mesh).values()), 1.0, places=9)
+        # Gmsh left one surface of 194 ellipsoids without elements, and only warned.
+        # Meshed in this process, which the patch reaches
+
+    def test_the_last_attempt_raises(self):
+        found = Mock(return_value=[3])
+        with patch("geommicgen.meshing.gmsh_mesher.surfaces_without_elements", found):
+            with self.assertRaisesRegex(RuntimeError, "Gmsh could not mesh surface 3$"):
+                GmshMesher(
+                    mesh_size=0.25, element_type="tetra4", max_attempts=2
+                ).mesh_in_this_process(sphere_microstructure())
+        self.assertEqual(found.call_count, 2)
 
 
 @unittest.skipUnless(has_gmsh(), "gmsh is not installed")
