@@ -607,6 +607,33 @@ class TestMDVerletList(unittest.TestCase):
             )
         )
 
+    def test_no_particle_left_its_neighborhood(self):
+        """Test that the lists are kept when no particle has left its neighborhood."""
+
+        rve_dims = [1, 1]
+        disks = []
+        for center in ([0.3, 0.5], [0.42, 0.5], [0.8, 0.8]):
+            disk = Disk("1", {"r": 0.05}, rve_dims)
+            disk.position_center = np.array(center)
+            disks.append(disk)
+
+        verlet_list = VerletList(1.5)
+        molecular_dynamics_sim = MolecularDynamicsSimulation(
+            0, 500, 0, 0.01, 0, "random", True, ""
+        )
+        molecular_dynamics_sim.box = rve_dims
+        molecular_dynamics_sim.set_speed_up_scheme(verlet_list)
+
+        verlet_list.new_list(disks)
+        disks[0].position_center = np.array([0.301, 0.5])
+        verlet_list.new_list(disks)
+        self.assertEqual(verlet_list.particle_list, [{1}, {0}, set()])
+        self.assertTrue(
+            np.all(verlet_list.verlet_neighborhoods[0].position_center == np.array([0.3, 0.5]))
+        )
+        # The first disk moved less than the margin of its neighborhood, so the
+        # neighborhood stays where it was and the pairs are the same
+
 
 class TestRSASpeedUpScheme(unittest.TestCase):
     """Class for the unit tests regarding the Random Sequential Adsorption (RSA) speed up schemes."""
