@@ -15,6 +15,7 @@ The notable changes to GMMD, newest first. Versions follow [Semantic Versioning]
 - A user guide in the documentation, with tutorials and the options of the input file, whose inputs are in `examples/` ([#21](https://github.com/CM2S/GMMD/pull/21)).
 - A banner of generated microstructures in the readme, made by the inputs and scripts in `docs/images/src` ([#22](https://github.com/CM2S/GMMD/pull/22)).
 - A logo, in the readme and the documentation, with its files in `docs/images/logo`, in colour and in black and white ([#28](https://github.com/CM2S/GMMD/pull/28)).
+- GMMD on PyPI, as `geommicgen`, installed with `pip install geommicgen` or `pipx install geommicgen`. Publishing a release on GitHub uploads it to PyPI, by `.github/workflows/release.yaml` ([#30](https://github.com/CM2S/GMMD/pull/30)).
 
 ### Changed
 
@@ -25,6 +26,7 @@ The notable changes to GMMD, newest first. Versions follow [Semantic Versioning]
 - The plots of the nearest neighbour distances and of the two point correlation say that the distances are over the mean radius, and the frames of the GIF of a generation are drawn at 150 dots per inch, which brings them back to their size before #25 ([#26](https://github.com/CM2S/GMMD/pull/26)).
 - The inputs of the tutorials are seeded, so they give the microstructures of the figures. `MD_Ellipsoids` fills 30 % with larger ellipsoids, so that its plots show the thermostat and the adaptive time step at work. The figures of the tutorials are made again with the current plots, and the three-dimensional ones are drawn as in the banner ([#26](https://github.com/CM2S/GMMD/pull/26)).
 - The examples `2D_example_ellipses_vf_50_n_100`, `3D_example_ellipsoids_vf_10_r_1_7` and `RSA_disk` are seeded too, so the tests that run them, and the coverage they measure, give the same result on every run ([#29](https://github.com/CM2S/GMMD/pull/29)).
+- The readme's images are full URLs, so that PyPI shows them, and its installation starts from PyPI. The package gives its license as the SPDX expression `BSD-3-Clause`, and classifiers for the Python versions and systems it is tested on ([#30](https://github.com/CM2S/GMMD/pull/30)).
 
 ### Fixed
 

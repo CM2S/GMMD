@@ -1,16 +1,17 @@
-![The logo of GMMD: a periodic cell of disks and ellipses](docs/images/logo/mark.svg)
+![The logo of GMMD: a periodic cell of disks and ellipses](https://raw.githubusercontent.com/CM2S/GMMD/master/docs/images/logo/mark.svg)
 
 # GMMD
 
 [![Tests](https://github.com/CM2S/GMMD/actions/workflows/test.yaml/badge.svg?branch=master)](https://github.com/CM2S/GMMD/actions/workflows/test.yaml)
 [![Coverage](https://codecov.io/gh/CM2S/GMMD/graph/badge.svg)](https://codecov.io/gh/CM2S/GMMD)
 [![Documentation](https://img.shields.io/readthedocs/gmmd)](https://gmmd.readthedocs.io)
+[![PyPI](https://img.shields.io/pypi/v/geommicgen)](https://pypi.org/project/geommicgen/)
 [![License](https://img.shields.io/github/license/CM2S/GMMD)](https://github.com/CM2S/GMMD/blob/master/LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24077934.svg)](https://doi.org/10.5281/zenodo.24077934)
 
 Geometric Methods for Microstructure Design.
 
-![Microstructures generated with GMMD: disks and ellipses, spheres and ellipsoids, short cylinders and spheres, long fibres, squares, spheres of three sizes, aligned ellipsoids, and a mesh of spheres of two sizes placed by random sequential adsorption](docs/images/banner.png)
+![Microstructures generated with GMMD: disks and ellipses, spheres and ellipsoids, short cylinders and spheres, long fibres, squares, spheres of three sizes, aligned ellipsoids, and a mesh of spheres of two sizes placed by random sequential adsorption](https://raw.githubusercontent.com/CM2S/GMMD/master/docs/images/banner.png)
 
 GMMD is a numerical tool developed in the context of computational mechanics to aid the design and development of advanced materials. Employing a time-driven molecular dynamics simulation or a random sequential adsorption, it generates microstructures of matrix-composite materials in a computationally **efficient** and **robust** way, meshes them, and analyses them.
 
@@ -115,30 +116,33 @@ If you use GMMD in your work, please cite the software and the papers on its met
 
 ### Installing GMMD
 
-Clone the repository:
+GMMD is on PyPI as `geommicgen`, the name of its Python package and of its commands.
+
+If you only use the commands, install GMMD with [pipx](https://pipx.pypa.io), which keeps it and its dependencies in an environment of their own:
+
+```bash
+pipx install geommicgen
+```
+
+To use GMMD from Python as well, install it with pip, in the environment you work in:
+
+```bash
+pip install geommicgen
+```
+
+After installation, the `geommicgen`, `geommicgen-mesh`, `geommicgen-translate`, `geommicgen-analyze`, `geommicgen-convert-mic` and `geommicgen-convert-mdsim` commands are available from any directory.
+
+To work on GMMD itself, clone the repository and install it in editable mode, so that changes to the source code take effect without installing again:
 
 ```bash
 git clone https://github.com/CM2S/GMMD.git
 cd GMMD
-```
-
-Then install the package from the cloned directory, where `pyproject.toml` is located. That file defines the package metadata, dependencies, and the command-line entry points; `pip install` installs all required dependencies and registers the commands on your system.
-
-For a **regular install**:
-
-```bash
-pip install .
-```
-
-For an **editable (development) install**, where changes to the source code are reflected immediately without reinstalling:
-
-```bash
 pip install -e .
 ```
 
-After installation, the `geommicgen`, `geommicgen-mesh`, `geommicgen-translate`, `geommicgen-analyze` and `geommicgen-convert-mic` commands are available from any directory.
-
 ### Updating GMMD
+
+An install from PyPI is updated with `pipx upgrade geommicgen` or `pip install --upgrade geommicgen`.
 
 An editable install picks up changes to the source code, but not changes to `pyproject.toml`: a new command or a new dependency comes only with installing again. After pulling, install again from the cloned directory, with the extras you use:
 
@@ -154,6 +158,8 @@ pip install -e '.[gmsh]'
   ```bash
   pip install 'geommicgen[gmsh]'
   ```
+
+  With pipx, the extra is installed the same way: `pipx install 'geommicgen[gmsh]'`.
 
   GMMD requires **Gmsh 4.15 or newer**, the version it is tested against. If you instead install the SDK tarball by hand from [gmsh.info](https://gmsh.info/bin/Linux/), add its Python API to your `PYTHONPATH`:
 
