@@ -5,6 +5,7 @@
 
 N_DP_Samples 1
 RVE_Dimensions [1, 1]
+Fixed_Seed 1
 
 # Microstructure definition
 # ------------------------------------------------------------------------------------------

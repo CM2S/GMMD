@@ -2,6 +2,7 @@
 
 samples: 5
 rve_dimensions: [1.0, 1.0, 1.0]
+seed: 1
 save_min: false
 phases:
   0: {type: matrix}
