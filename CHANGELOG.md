@@ -33,6 +33,7 @@ The notable changes to GMMD, newest first. Versions follow [Semantic Versioning]
 - The documentation badge, which GitHub could not display ([#17](https://github.com/CM2S/GMMD/pull/17)).
 - Ellipsoids kept `min_distance` apart could end up closer than that between their axes. They are now dilated by the amount that keeps the whole gap, as ellipses already were ([#20](https://github.com/CM2S/GMMD/pull/20)).
 - The plot of the kinetic energy drew the kinetic energy at the reference temperature one step early ([#25](https://github.com/CM2S/GMMD/pull/25)).
+- The gmsh mesher refused the mesh of 194 ellipsoids that random sequential adsorption placed, because the cells covered only part of the RVE. Gmsh had left the surface of one ellipsoid without elements, and only warned. The mesher now meshes the model again, refined around such a surface, as it already did for a surface gmsh raised an error over ([#32](https://github.com/CM2S/GMMD/pull/32)).
 
 ### Removed
 

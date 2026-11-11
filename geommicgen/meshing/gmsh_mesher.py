@@ -197,12 +197,13 @@ def failing_surfaces(error):
 
     Gmsh names them in its message, for instance "Invalid boundary mesh (overlapping
     facets) on surface 75 surface 76". Those are the thin ligaments between particles
-    that nearly touch.
+    that nearly touch. `GmshMesher.build_model` names the surfaces gmsh left without
+    elements in the same way.
 
     Parameters
     ----------
     error: Exception
-        Error raised by gmsh.
+        Error raised by gmsh, or by `GmshMesher.build_model`.
 
     Returns
     -------
@@ -215,6 +216,30 @@ def failing_surfaces(error):
         int(i_tag)
         for i_previous, i_tag in zip(words, words[1:])
         if i_previous == "surface" and i_tag.isdigit()
+    ]
+
+
+def surfaces_without_elements(gmsh):
+    """
+    Find the surfaces of the model that gmsh left without elements.
+
+    Gmsh does not raise for a surface it could not mesh. It warns "Surface 281 consists
+    of no elements" and goes on, and the volumes that surface bounds get no cells.
+
+    Parameters
+    ----------
+    gmsh: module
+        The gmsh module, in an initialized session, with the mesh generated.
+
+    Returns
+    -------
+    list
+        Tags of the surfaces with no elements.
+    """
+    return [
+        i_tag
+        for _, i_tag in gmsh.model.getEntities(2)
+        if not any(len(j_tags) for j_tags in gmsh.model.mesh.getElements(2, i_tag)[1])
     ]
 
 
@@ -809,6 +834,12 @@ class GmshMesher(Mesher):
         dict
             Correspondence between the name of a phase and the *(dimension, tag)* of
             the physical group holding it.
+
+        Raises
+        ------
+        RuntimeError
+            If gmsh left a surface without elements. The message names the surfaces,
+            which `failing_surfaces` reads.
         """
         self.set_options(gmsh)
         model = gmsh.model
@@ -916,6 +947,15 @@ class GmshMesher(Mesher):
         model.mesh.generate(dim)
         if model.mesh.getLastEntityError():
             self.warnings.append("Gmsh detected an error while generating the mesh")
+        empty_surfaces = surfaces_without_elements(gmsh)
+        if empty_surfaces:
+            raise RuntimeError(
+                "Gmsh could not mesh "
+                + " ".join(f"surface {i_tag}" for i_tag in empty_surfaces)
+            )
+        # Raised in the words of gmsh's own errors, so that the next attempt refines
+        # around these surfaces. Gmsh only warns of them, and the volumes they bound
+        # would come out without cells
         if self.descriptors["element_order"] > 1:
             model.mesh.optimize("HighOrder", force=False, niter=10)
             if model.mesh.getLastEntityError():
