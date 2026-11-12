@@ -2,6 +2,12 @@
 
 The notable changes to GMMD, newest first. Versions follow [Semantic Versioning](https://semver.org). Each release is archived on Zenodo, under the DOI [10.5281/zenodo.24077934](https://doi.org/10.5281/zenodo.24077934).
 
+## Unreleased
+
+### Changed
+
+- The readme lists the five authors of GMMD under "Authors", where it named four of them as contributors.
+
 ## [0.2.0](https://github.com/CM2S/GMMD/releases/tag/v0.2.0) - 2026-11-12
 
 Random sequential adsorption and squares, a user guide, and the first release on PyPI.
