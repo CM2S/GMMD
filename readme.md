@@ -35,11 +35,7 @@ GMMD is designed and implemented in Python (Python 3 release), making it easily 
 
 ### Authors
 
-José Luís P. Vila-Chã ([jvc@fe.up.pt](mailto:jvc@fe.up.pt)), CM2S research group, Department of Mechanical Engineering, Faculty of Engineering, University of Porto.
-
-### Contributors
-
-Bernardo P. Ferreira, Francisco M. Andrade Pires, Rui P. Cardoso Coelho, João A. G. Cruz de Morais.
+José Luís P. Vila-Chã ([jvc@fe.up.pt](mailto:jvc@fe.up.pt)), João A. G. Cruz de Morais, Rui P. Cardoso Coelho, Bernardo P. Ferreira and Francisco M. Andrade Pires, CM2S research group, Department of Mechanical Engineering, Faculty of Engineering, University of Porto.
 
 ### Acknowledgements
 
