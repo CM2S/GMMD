@@ -77,8 +77,3 @@ A .pdf file of the final microstructure is created.
     :alt: Final microstructure configuration
 
     Final configuration of the microstructure.
-
-
-
-
-.. include:: ../../_includes/next_button.inc

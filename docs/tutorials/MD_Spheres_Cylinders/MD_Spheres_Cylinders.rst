@@ -65,8 +65,3 @@ A .vtk file of the final microstructure is created with ``final_config: true`` u
     :alt: Final microstructure configuration
 
     Final configuration of the microstructure.
-
-
-.. include:: ../../_includes/previous_button.inc
-
-.. include:: ../../_includes/next_button.inc

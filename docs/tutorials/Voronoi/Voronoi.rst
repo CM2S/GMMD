@@ -175,8 +175,3 @@ The figures above show the Minkowski structure metrics for this microstructure. 
 
 For more information on the Minkowski structure metrics, see
 `AMINO, Part II <https://doi.org/10.1016/j.mechmat.2021.104068>`_.
-
-
-.. include:: ../../_includes/previous_button.inc
-
-
