@@ -66,11 +66,66 @@ The maximum number of iterations is 100.
 
 
 
+Mesh
+====
+
+The ``meshes`` block asks for one finite element mesh of the microstructure:
+
+.. code-block:: yaml
+
+   meshes:
+     gmsh: {elements_per_particle: 5, formats: [abaqus]}
+
+- ``gmsh`` meshes the microstructure with `Gmsh <https://gmsh.info>`_. The mesh is
+  conforming, so the element edges follow the boundaries of the ellipses, and periodic,
+  so the nodes on opposite sides of the RVE match.
+- ``elements_per_particle: 5`` sets the element size so that about 5 elements span the
+  smallest ellipse. Here that gives an element size of about 0.011.
+- ``element_type`` is not given, so the default, ``tri3``, is used: linear triangles
+  with three nodes. In the Abaqus file they are written as ``CPE3`` elements, which are
+  plane strain triangles.
+- ``formats: [abaqus]`` asks for an Abaqus input file. Other formats can be chosen
+  instead, and several can be asked for at once, for example
+  ``formats: [abaqus, links, xdmf]``. The list replaces the default format of ``gmsh``,
+  which is ``links``. The formats available, and the solvers that read them, are listed
+  in the "Formats" section of :doc:`../../input_file/mesh_options`.
+
+
+
 Output files
 ============
-After running the command, a folder named ``MD_Ellipses`` will be created in the same directory as the input file
-A .pdf file of the final microstructure is created.
 
+After running the command, a folder named ``MD_Ellipses`` is created in the same
+directory as the input file. It holds:
+
+.. code-block:: text
+
+   MD_Ellipses/
+   ├── MD_Ellipses.yaml                     copy of the input file
+   └── mic_0/                               the first (and here only) sample
+       ├── mic.json                         microstructure file
+       ├── status                           status of the generation
+       ├── md_state.npz                     histories of the simulation
+       ├── mic.screen                       log of the run
+       ├── final_config.pdf                 picture of the microstructure
+       └── meshes/
+           ├── MD_Ellipses_tri3_epp5.vtu         the mesh, to view
+           ├── MD_Ellipses_tri3_epp5.mesh.json   what the .vtu file cannot hold
+           └── MD_Ellipses_tri3_epp5.inp         the mesh, for Abaqus
+
+The microstructure
+------------------
+
+- ``mic.json`` describes the microstructure: the dimensions of the RVE, the phases,
+  and every particle with what defines its geometry. Any program that reads JSON can use
+  it, and it is the starting point for meshing the same microstructure again, in other
+  ways, with ``geommicgen-mesh``, or for analysing it with ``geommicgen-analyze``.
+- ``status`` sums up the run: how long it took, the final overlap between particles,
+  whether the generation succeeded, and whether each mesh was made.
+- ``md_state.npz`` holds the histories of the molecular dynamics simulation.
+- ``mic.screen`` holds everything the run printed to the terminal.
+- ``final_config.pdf`` is a picture of the final microstructure, written because the
+  input asks for ``final_config: true``:
 
 .. figure:: final_config.png
     :width: 400px
@@ -78,7 +133,48 @@ A .pdf file of the final microstructure is created.
 
     Final configuration of the microstructure.
 
+The mesh
+--------
 
+The files in ``meshes/`` are named after the input file, the element type and the
+number of elements per particle: ``MD_Ellipses_tri3_epp5``.
+
+- ``MD_Ellipses_tri3_epp5.vtu`` is the mesh as a VTK file, with the phase of every
+  element stored in a cell array named ``phase``. It is always written, whatever
+  ``formats`` asks for. To look at it, open it in `ParaView <https://www.paraview.org>`_,
+  click **Apply**, colour it by ``phase``, and set the representation to
+  **Surface With Edges** to see the elements.
+- ``MD_Ellipses_tri3_epp5.mesh.json`` holds what the VTK file cannot: the dimensions of
+  the RVE, whether the mesh is periodic, the names of the phases and how the mesh was
+  made. Keep it beside the ``.vtu`` file. With it, ``geommicgen-translate`` can write the
+  mesh in other formats later without running the simulation and meshing again, for example
+  ``geommicgen-translate MD_Ellipses_tri3_epp5.vtu --to links,xdmf``.
+- ``MD_Ellipses_tri3_epp5.inp`` is an Abaqus input file. It holds:
+
+  - the nodes and the ``CPE3`` elements, with one element set per phase (``PHASE_0`` for
+    the matrix and ``PHASE_1`` for the ellipses);
+  - node sets for the faces and corners of the RVE;
+  - the equations that make the RVE periodic.
+
+  The materials and the loading step are placeholders, marked ``TODO`` in the file, so
+  that the file runs as written. Replace them with the real properties and loading
+  before using the results.
+
+.. figure:: mesh.png
+    :width: 400px
+    :alt: Finite element mesh of the microstructure
+
+    Mesh of the microstructure: the ellipses in blue, the matrix in grey.
+
+.. figure:: mesh_zoom.png
+    :width: 400px
+    :alt: Close-up of the finite element mesh
+
+    Close-up of the mesh, where the triangles can be seen. The element edges follow
+    the boundaries of the ellipses.
+
+
+For this example, the mesh has 11 740 nodes and 23 078 elements.
 
 
 .. include:: ../../_includes/next_button.inc

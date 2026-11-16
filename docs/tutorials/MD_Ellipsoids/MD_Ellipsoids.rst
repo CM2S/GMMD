@@ -52,6 +52,26 @@ Generation Method
 
 This example uses a molecular dynamics simulation to generate the microstructure. The maximum number of iterations is 200 and the speed up scheme used is Verlet, with a Verlet factor of 1.1. A minimum distance of 0.002 between particles is imposed.
 
+Mesh
+====
+
+The ``meshes`` block asks for one finite element mesh of the microstructure:
+
+.. code-block:: yaml
+
+   meshes:
+     gmsh: {elements_per_particle: 2, element_type: tetra4}
+
+The mesh is made with Gmsh, as in the :ref:`example_MD_Ellipses` tutorial, but in 3D:
+
+- ``element_type: tetra4`` asks for linear tetrahedra with four nodes, the 3D
+  counterpart of the ``tri3`` triangles used in 2D.
+- ``elements_per_particle: 2`` sets the element size so that about 2 elements span the
+  smallest ellipsoid.
+- ``formats`` is not given, so the mesh is written in the default format of ``gmsh``,
+  ``links``, for the LINKS solver.
+
+
 Output files
 ============
 After running the command, a folder named ``MD_Ellipsoids`` will be created in the same directory as the input file. This folder contains all the output data related to the microstructure generation.
@@ -96,6 +116,39 @@ It starts at 0.30, while the randomly placed ellipsoids overlap many others, and
 
     Time step history.
 
+The mesh
+--------
+
+The files in ``meshes/`` are named after the input file, the element type and the
+number of elements per particle: ``MD_Ellipsoids_tetra4_epp2``.
+
+- ``MD_Ellipsoids_tetra4_epp2.vtu`` and ``MD_Ellipsoids_tetra4_epp2.mesh.json`` are the
+  mesh in VTK format and the information that goes with it, as in the
+  :ref:`example_MD_Ellipses` tutorial. In ParaView, a **Clip** or **Slice** filter shows
+  the elements inside the RVE, which are otherwise hidden behind its faces.
+- ``MD_Ellipsoids_tetra4_epp2.mesh`` is the mesh for LINKS: the nodes, the elements and
+  the groups of elements of each phase.
+- ``MD_Ellipsoids_tetra4_epp2_example.rve`` is an example LINKS input file that uses the
+  mesh. The materials and the loading are placeholders, marked ``TODO`` in the file, so
+  that the file runs as written. Replace them with the real values before using the
+  results.
+
+.. list-table::
+   :widths: 50 50
+   :align: center
+
+   * - .. figure:: mesh.png
+          :alt: Finite element mesh of the microstructure
+
+          Mesh of the microstructure: the ellipsoids in blue, the matrix see-through.
+     - .. figure:: mesh_zoom.png
+          :alt: Close-up of the finite element mesh
+
+          Close-up of the mesh, where the triangles on the surfaces of the ellipsoids
+          can be seen.
+
+The matrix is also meshed, eventhough not visible on the figures.
+For this example, the mesh has 75 499 nodes and 415 633 elements.
 
 .. include:: ../../_includes/previous_button.inc
     

@@ -23,8 +23,8 @@ generation:
     speed_up: {name: verlet, factor: 1.1}
     save_history: true
 
-# meshes:
-#   voxel: {n_voxels_dims: [1000, 1000]}
+meshes:
+  gmsh: {elements_per_particle: 5, formats: [abaqus]}
 
 analyses:
   final_config: true
