@@ -95,8 +95,3 @@ It starts at 0.30, while the randomly placed ellipsoids overlap many others, and
     :alt: Time step history
 
     Time step history.
-
-
-.. include:: ../../_includes/previous_button.inc
-    
-.. include:: ../../_includes/next_button.inc

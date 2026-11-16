@@ -67,8 +67,3 @@ As you can note, the final frame of the gif is different from the final configur
           :alt: Molecular dynamics simulation animation
 
           Molecular dynamics simulation animation
-
-
-.. include:: ../../_includes/previous_button.inc
-
-.. include:: ../../_includes/next_button.inc
