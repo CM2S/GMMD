@@ -173,14 +173,6 @@ number of elements per particle: ``MD_Ellipses_tri3_epp5``.
     Close-up of the mesh, where the triangles can be seen. The element edges follow
     the boundaries of the ellipses.
 
-The images of the mesh were made from the ``.vtu`` file with
-``docs/images/src/render_mesh.py``, which runs with ParaView's ``pvbatch``:
-
-.. code-block:: console
-
-    pvbatch docs/images/src/render_mesh.py \
-        examples/MD_Ellipses/mic_0/meshes/MD_Ellipses_tri3_epp5.vtu mesh.png \
-        --dim 2 --size 4000 --edge-shade 0.55
 
 For this example, the mesh has 11 740 nodes and 23 078 elements.
 
