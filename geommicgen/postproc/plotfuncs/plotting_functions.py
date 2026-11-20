@@ -1896,10 +1896,9 @@ def plot_voronoi_3d_with_imts(
 
         if save:
             plt.savefig(
-                dir + "_" + str(i_order) + "_hist" + ".pdf", bbox_inches="tight"
+                os.path.join(dir, "voronoi_hist_{0}.pdf".format(i_order)),
+                bbox_inches="tight",
             )
-            # TODO: the name is the results directory with a suffix, so the histograms
-            # are written beside that directory rather than in it
 
         if show:
             plt.show()
