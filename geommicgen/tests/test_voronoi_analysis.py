@@ -78,6 +78,55 @@ class TestMinkowskiTensors3D(unittest.TestCase):
                 imts, _ = compute_3d_irreducible_minkowski_tensors(Voronoi(i_points))
                 self.assertAlmostEqual(imts[0][0], 6.0)
                 np.testing.assert_allclose(imts[0][1:], self.CUBE_Q[1:], atol=1e-4)
+
+
+class TestVoronoi3DImtsHistogramPath(unittest.TestCase):
+    def test_histograms_are_written_inside_results_dir(self):
+        import os
+        import tempfile
+        from types import SimpleNamespace
+        from geommicgen.postproc.plotfuncs import plotting_functions as pf
+
+        with tempfile.TemporaryDirectory() as parent_dir:
+            results_dir = os.path.join(parent_dir, "results")
+            os.makedirs(results_dir)
+            vtk_path = os.path.join(results_dir, "voronoi_wIMTs.vtk")
+            with open(vtk_path, "w", encoding="utf-8") as f:
+                f.write("CELL_DATA 1\nSCALARS id int\n1\n")
+
+            fake_factory = unittest.mock.MagicMock()
+            fake_factory.fragment.return_value = ([], [])
+            fake_model = unittest.mock.MagicMock()
+            fake_model.getBoundingBox.return_value = (0.0, 0.0, 0.0, 1.0, 1.0, 1.0)
+            fake_model.getEntitiesInBoundingBox.return_value = [(3, 1)]
+            fake_gmsh = unittest.mock.MagicMock(model=fake_model)
+            fake_gmsh_ctx = unittest.mock.MagicMock()
+            fake_gmsh_ctx.__enter__.return_value = (fake_gmsh, fake_model, fake_factory)
+            fake_gmsh_ctx.__exit__.return_value = False
+
+            offsets = np.array(
+                [[i, j, k] for i in (-1, 0, 1) for j in (-1, 0, 1) for k in (-1, 0, 1)],
+                dtype=float,
+            )
+            vor = Voronoi(offsets)
+            imts = np.array([[6.0, 1.0, 0.0, 0.0, 0.76, 0.0, 0.35]])
+
+            fn = getattr(pf.plot_voronoi_3d_with_imts, "__wrapped__", pf.plot_voronoi_3d_with_imts)
+            with (
+                patch.object(pf, "gmsh_view", return_value=fake_gmsh_ctx),
+                patch.object(pf, "write_gmsh_view", return_value=(None, vtk_path)),
+                patch.object(pf.plt, "savefig") as mock_savefig,
+            ):
+                fn([], vor, [3.0, 3.0, 3.0], imts, results_dir, save=True, show=False)
+
+            saved_paths = [c.args[0] for c in mock_savefig.call_args_list]
+            self.assertEqual(len(saved_paths), 7)
+            for i_order, path in enumerate(saved_paths):
+                self.assertEqual(
+                    path,
+                    os.path.join(results_dir, f"voronoi_hist_{i_order}.pdf"),
+                )
+                self.assertEqual(os.path.dirname(path), results_dir)
         # The first entry of a cell is its surface area, the others its q_l. The q_l
         # do not change with a rotation. With the polar and azimuthal angles swapped,
         # they changed and were not those of a cube
